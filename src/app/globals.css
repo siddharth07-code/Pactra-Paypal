@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  --navy-950: #050b14;
+  --navy-900: #0b1528;
+  --navy-850: #0f1c34;
+  --navy-800: #162444;
+  --navy-700: #1e335f;
+  --navy-600: #2b457e;
+  
+  --paypal-blue: #0070e0;
+  --paypal-blue-light: #009cde;
+  --paypal-blue-dark: #00457c;
+
+  --emerald-verify: #10b981;
+  --emerald-verify-glow: rgba(16, 185, 129, 0.15);
+  
+  --background: var(--navy-950);
+  --foreground: #f1f5f9;
+}
+
+body {
+  background-color: var(--navy-950);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Custom subtle enterprise gradients and glows */
+.fintech-grid-pattern {
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(0, 112, 224, 0.12) 0%, transparent 60%),
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 48px 48px, 48px 48px;
+}
+
+.fintech-card {
+  background: linear-gradient(180deg, rgba(15, 28, 52, 0.8) 0%, rgba(11, 21, 40, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.fintech-card:hover {
+  border-color: rgba(0, 112, 224, 0.4);
+}
