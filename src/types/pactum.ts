@@ -26,12 +26,15 @@ export interface ProcurementMandate {
   rawPrompt: string;
   itemQuery: string;
   quantity: number;
-  maxTotalBudget: number; // e.g. 8500.00
-  maxDeliveryDays: number; // e.g. 5
-  minReturnDays: number; // e.g. 30
+  maxTotalBudget: number; // authoritative budget
+  maxDeliveryDays: number;
+  minReturnDays: number;
   requiredSpecs: RequiredSpecification[];
   currency: CurrencyCode;
   createdAt: string;
+  version?: number; // Revision / version number (default 1)
+  isLocked?: boolean; // Locked for negotiation / settlement
+  requiredCondition?: ProductCondition; // Condition requirement when specified
 }
 
 export type ProductCondition = "NEW" | "REFURBISHED" | "USED";
@@ -95,10 +98,13 @@ export interface NegotiationTurn {
  */
 export type MerkleEventType =
   | "MANDATE_LOCKED"
+  | "MANDATE_REVISED"
   | "CHANNEL3_CATALOG_SNAPSHOT"
   | "KERNEL_DOM_ATTESTATION"
   | "VERIFIED_NEGOTIATION_ROUND"
-  | "ACWORLD_FINAL_STATE_AUDIT";
+  | "ACWORLD_FINAL_STATE_AUDIT"
+  | "SETTLEMENT_AUTHORIZED"
+  | "SETTLEMENT_CAPTURED";
 
 export interface MerkleAuditNode {
   index: number;
@@ -186,11 +192,21 @@ export interface ProcurementSession {
   selectedQuote?: VendorQuote;
   finalOffer?: NegotiationOffer;
   status: ProcurementSessionStatus;
-  merkleRoot?: string;
+  merkleRoot?: string; // Pre-settlement evidence root
+  preSettlementRoot?: string; // Explicit pre-settlement evidence root
+  postAuditRoot?: string; // Root after ACWORLD_FINAL_STATE_AUDIT event is recorded
   auditCertificate?: AuditCertificate;
   paypalOrderId?: string;
   paypalCaptureId?: string;
   paypalInvoiceId?: string;
+  captureAmount?: number;
+  invoiceStatus?: "DRAFT" | "SENT" | "PAID" | "FAILED";
+  merchantAttestation?: {
+    merchantUrl: string;
+    domSnapshotHash?: string;
+    returnPolicyText: string;
+    timestamp: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -206,4 +222,26 @@ export interface PayPalOperationResult {
   customIdRootReference?: string;
   error?: string;
   timestamp: string;
+}
+
+/**
+ * SSE Negotiation Stream Event Types
+ */
+export type NegotiationStreamEventType =
+  | "SESSION_INITIALIZED"
+  | "SOURCING_COMPLETED"
+  | "ROUND_STARTED"
+  | "BUYER_PROPOSAL"
+  | "GUARDRAIL_INTERVENTION"
+  | "GUARDRAIL_BLOCKED"
+  | "VENDOR_COUNTEROFFER"
+  | "ROUND_COMPLETED"
+  | "NEGOTIATION_COMPLETED"
+  | "NEGOTIATION_FAILED";
+
+export interface NegotiationStreamEvent {
+  type: NegotiationStreamEventType;
+  sessionId: string;
+  timestamp: string;
+  payload: Record<string, unknown>;
 }
