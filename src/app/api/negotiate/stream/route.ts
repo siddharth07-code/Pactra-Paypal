@@ -111,7 +111,11 @@ export async function POST(req: NextRequest) {
           });
 
           // Execute negotiation loop
-          await orchestrator.runNegotiation(mandate, sourcingResult.quotes);
+          const orchestrationResult = await orchestrator.runNegotiation(mandate, sourcingResult.quotes);
+          if (orchestrationResult.session) {
+            const { sessionStore } = await import("@/lib/session-store");
+            sessionStore.saveSession(orchestrationResult.session);
+          }
         } catch (err: unknown) {
           const errorMessage = err instanceof Error ? err.message : "Internal negotiation error";
           sendEvent("NEGOTIATION_FAILED", {

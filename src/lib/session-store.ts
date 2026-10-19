@@ -51,6 +51,15 @@ class AuthoritativeSessionStore {
   }
 
   /**
+   * Retrieves all authoritative sessions, sorted by updatedAt descending.
+   */
+  public getAllSessions(): ProcurementSession[] {
+    const all = Array.from(this.sessions.values()).map((s) => JSON.parse(JSON.stringify(s)));
+    all.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return all;
+  }
+
+  /**
    * Saves or updates an authoritative session.
    */
   public saveSession(session: ProcurementSession): void {
