@@ -21,17 +21,27 @@
 # Misc & OS
 .DS_Store
 *.pem
+*.key
+*.cert
+*.crt
 Thumbs.db
 
-# Debug logs
+# Debug & Execution logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
 # Environment files and credentials (never commit secrets)
 .env*
 !.env.example
+
+# Local databases & persistent sensitive storage
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
 
 # Vercel
 .vercel

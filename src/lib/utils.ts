@@ -1,5 +1,5 @@
 /**
- * Core utility functions for PACTUM Phase 0
+ * Core utility functions for PACTUM Phase 0 and Phase 0.5 Foundation
  */
 
 /**

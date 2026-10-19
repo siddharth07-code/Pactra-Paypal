@@ -1,31 +1,41 @@
-# .antigravity/rules.md — PACTUM Architectural & Development Rules
+# .antigravity/rules.md — PACTUM Architectural, Security & Development Rules
 
 These rules govern the development of the PACTUM project and MUST be followed strictly across all development phases.
 
-1. **Authoritative Specification**
-   - `GEMINI.md` is the authoritative project specification and single source of truth. All implementations, models, and workflows must conform strictly to its directives.
+> **CRITICAL DIRECTIVE**:
+> Before modifying or implementing any code, the agent MUST read and strictly follow BOTH `GEMINI.md` and `SECURITY.md`.
+> - `GEMINI.md` is the authoritative project and engineering specification.
+> - `SECURITY.md` defines mandatory, non-negotiable security requirements.
+> If a security requirement conflicts with an implementation shortcut or demo requirement, the security requirement ALWAYS takes precedence. Never disable, bypass, or weaken security controls.
+
+---
+
+### Core Development Principles
+
+1. **Dual Policy Precedence**
+   - Read and adhere to both `GEMINI.md` and `SECURITY.md` before making any changes. All models, workflows, and code must conform to both documents.
 
 2. **Strict TypeScript**
-   - Use strict TypeScript everywhere with full type coverage (`strict: true`, `noImplicitAny: true`). Avoid `any` types; prefer strict interfaces and type guards.
+   - Enforce strict TypeScript across the entire codebase (`strict: true`, `noImplicitAny: true`, `strictNullChecks: true`). Avoid `any` types; prefer strict interfaces and type guards.
 
 3. **Inspect Existing Code First**
-   - Inspect existing code, project structure, and dependencies before modifying or adding files. Avoid destructive overwrites.
+   - Inspect existing code, dependencies, and configuration before modifying or adding files. Avoid destructive overwrites.
 
 4. **Security & Credential Management**
-   - Keep API keys, private keys, and payment credentials strictly server-side.
-   - Never expose secrets (PayPal client secrets, Gemini keys, Channel3/Kernel API keys) to client bundles or commit them to source control.
+   - Store all credentials server-side. Never expose API keys, client secrets, access tokens, or private keys to client bundles, browser code, logs, or Git.
+   - Maintain `.env.example` with placeholders only. Ensure secret-bearing files remain strictly excluded by `.gitignore`.
 
 5. **Deterministic Financial Safeguards**
    - Enforce financial constraints, budget limits, price tolerances, and ceiling thresholds using deterministic server-side code.
-   - Never delegate financial decision boundaries or enforcement logic solely to nondeterministic LLM outputs.
+   - Never delegate financial decision boundaries, validations, or enforcement logic solely to nondeterministic LLM outputs.
 
 6. **Mandatory Independent Verification Before Settlement**
    - Never allow payment capture or fund disbursement without an independent, successful audit and verification check.
-   - Settlement flows must be cryptographically verified and gatechecked.
+   - Settlement flows must be cryptographically verified and gatechecked. Never trust client-supplied audit or payment status.
 
 7. **Genuine Cryptographic Verification**
-   - Use genuine SHA-256 hashing and verifiable cryptographic operations for Merkle trees, audit trails, and state hashes.
-   - Do not use mock hashes or fake checksums in cryptographic verification code.
+   - Use genuine Node.js native cryptographic primitives (`crypto`) for SHA-256 Merkle trees, audit trails, and state hashing.
+   - Never use mock hashes or fake checksums in cryptographic code.
 
 8. **Integrity of External API Integrations**
    - Never fabricate successful external API responses.
@@ -37,4 +47,4 @@ These rules govern the development of the PACTUM project and MUST be followed st
 
 10. **Honest Testing & Failure Reporting**
     - Run automated tests, type checks, and linters faithfully.
-    - Report test and build failures honestly without suppressing or obscuring issues.
+    - Report test and build failures honestly without suppressing or obscuring issues. Never use meaningless assertions or skip checks.
