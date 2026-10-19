@@ -1,24 +1,29 @@
 @import "tailwindcss";
 
 :root {
-  /* Design Tokens from Specification */
-  --bg-core: #030B18;
-  --surface-primary: #0B1728;
-  --surface-elevated: #101F33;
-  --border-subtle: #203149;
+  /* Specification Design Tokens */
+  --bg-core: #07111F;
+  --surface-primary: #0D1B2B;
+  --surface-elevated: #132438;
+  --surface-card: #0F1F32;
+  --surface-card-hover: #142840;
+  --border-subtle: #23354B;
+  --border-muted: #1A293D;
   
-  --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
+  --text-primary: #F3F6FC;
+  --text-secondary: #9AAAC0;
+  --text-muted: #64758E;
   
-  --accent-blue: #4597FF;
-  --accent-purple: #B58CDB;
-  --status-verified: #22C55E;
+  --accent-blue: #5B9CFF;
+  --accent-blue-hover: #458AF0;
+  --accent-secondary: #B58CDB;
+  
+  --status-success: #22C55E;
   --status-warning: #F59E0B;
-  --status-failure: #EF4444;
+  --status-error: #EF4444;
 
   --paypal-blue: #0070E0;
-  --paypal-blue-hover: #0088FF;
+  --paypal-blue-hover: #005EA6;
 }
 
 body {
@@ -27,64 +32,47 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.012em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom Institutional Fintech Utilities */
-.fintech-surface-base {
-  background-color: var(--surface-primary);
-  border: 1px solid var(--border-subtle);
-}
-
-.fintech-surface-elevated {
-  background-color: var(--surface-elevated);
-  border: 1px solid var(--border-subtle);
-}
-
-.fintech-glow-accent {
-  box-shadow: 0 0 24px -4px rgba(69, 151, 255, 0.15);
-}
-
-.fintech-glow-verified {
-  box-shadow: 0 0 24px -4px rgba(34, 197, 94, 0.18);
-}
-
-.fintech-glow-warning {
-  box-shadow: 0 0 24px -4px rgba(245, 158, 11, 0.18);
-}
-
-.fintech-glow-failure {
-  box-shadow: 0 0 24px -4px rgba(239, 68, 68, 0.18);
-}
-
-/* Grid & Depth Backgrounds */
-.fintech-grid-pattern {
-  background-color: #030B18;
+/* Subtle, soft fintech background gradient - clean without harsh grid lines */
+.fintech-bg {
+  background-color: #07111F;
   background-image: 
-    radial-gradient(circle at 50% 0%, rgba(69, 151, 255, 0.08) 0%, transparent 60%),
-    linear-gradient(to right, rgba(32, 49, 73, 0.25) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(32, 49, 73, 0.25) 1px, transparent 1px);
-  background-size: 100% 100%, 36px 36px, 36px 36px;
+    radial-gradient(ellipse 90% 60% at 50% -10%, rgba(91, 156, 255, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 100% 10%, rgba(181, 140, 219, 0.04) 0%, transparent 60%);
+  background-attachment: fixed;
 }
 
-/* Custom Monospace for Cryptographic Hashes */
-.font-crypto {
+/* Monospace restricted specifically to hashes, identifiers, and hex digests */
+.font-mono-token {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.02em;
 }
 
-/* Custom Scrollbar */
+/* Refined soft shadows */
+.card-shadow {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+}
+
+.card-shadow-elevated {
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5);
+}
+
+/* Subtle custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #030B18;
+  background: #07111F;
 }
 ::-webkit-scrollbar-thumb {
-  background: #203149;
+  background: #23354B;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4597FF;
+  background: #5B9CFF;
 }

@@ -6,12 +6,12 @@ import {
   StatusBadge,
 } from "./SharedUI";
 import {
-  Boxes,
   Play,
   Sparkles,
   AlertCircle,
   Truck,
   RotateCcw,
+  Package,
 } from "lucide-react";
 import type { VendorQuote, CurrencyCode } from "@/types/pactum";
 
@@ -24,7 +24,7 @@ export function SourcingScreen({
   onStartNegotiation,
   isLoading = false,
 }: SourcingScreenProps) {
-  // Dynamic Mandate Form State (Scenario Defaults are demonstration options only)
+  // Dynamic Mandate Form State
   const [prompt, setPrompt] = useState(
     "Purchase 25 4K USB-C monitors under an $8,500 total budget, with delivery within five days and a minimum 30-day return policy."
   );
@@ -40,7 +40,6 @@ export function SourcingScreen({
   const [isSourcing, setIsSourcing] = useState(false);
   const [sourcingError, setSourcingError] = useState<string | null>(null);
 
-  // Scenario Presets
   const applyPreset = (presetName: "monitors" | "laptops" | "servers") => {
     if (presetName === "monitors") {
       setItemQuery("4K USB-C monitors");
@@ -109,42 +108,38 @@ export function SourcingScreen({
     }
   };
 
-  const handleLaunchNegotiation = () => {
-    onStartNegotiation(prompt, currency);
-  };
-
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="border-b border-[#203149] pb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-[#F1F5F9]">Procurement Sourcing</h1>
-        <p className="text-sm text-[#94A3B8] mt-1">
-          Configure dynamic procurement mandate constraints and evaluate multi-vendor Channel3 wholesale catalog offers.
+      <div className="pb-2">
+        <h1 className="text-3xl font-bold tracking-tight text-[#F3F6FC]">Procurement sourcing</h1>
+        <p className="text-sm text-[#9AAAC0] mt-1.5">
+          Configure dynamic mandate requirements and compare multi-vendor wholesale baselines.
         </p>
       </div>
 
-      {/* Preset Scenarios */}
-      <div className="bg-[#0B1728] border border-[#203149] rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="text-xs text-[#94A3B8] flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-[#4597FF]" />
-          <span>Quick Benchmark Scenarios:</span>
+      {/* Quick Benchmark Presets */}
+      <div className="bg-[#0D1B2B] rounded-2xl p-5 card-shadow border border-[#23354B]/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5 text-xs text-[#9AAAC0]">
+          <Sparkles className="w-4 h-4 text-[#5B9CFF]" />
+          <span className="font-medium">Quick demonstration scenarios:</span>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2.5">
           <button
             onClick={() => applyPreset("monitors")}
-            className="px-3 py-1 rounded-md bg-[#101F33] hover:bg-[#203149] text-xs font-mono text-[#F1F5F9] border border-[#203149] transition-colors"
+            className="px-3.5 py-1.5 rounded-xl bg-[#132438] hover:bg-[#1A293D] text-xs font-medium text-[#F3F6FC] transition-colors cursor-pointer"
           >
             Scenario A ($8.5k / 25 Units)
           </button>
           <button
             onClick={() => applyPreset("laptops")}
-            className="px-3 py-1 rounded-md bg-[#101F33] hover:bg-[#203149] text-xs font-mono text-[#F1F5F9] border border-[#203149] transition-colors"
+            className="px-3.5 py-1.5 rounded-xl bg-[#132438] hover:bg-[#1A293D] text-xs font-medium text-[#F3F6FC] transition-colors cursor-pointer"
           >
             Scenario B ($4.0k / 10 Units)
           </button>
           <button
             onClick={() => applyPreset("servers")}
-            className="px-3 py-1 rounded-md bg-[#101F33] hover:bg-[#203149] text-xs font-mono text-[#F1F5F9] border border-[#203149] transition-colors"
+            className="px-3.5 py-1.5 rounded-xl bg-[#132438] hover:bg-[#1A293D] text-xs font-medium text-[#F3F6FC] transition-colors cursor-pointer"
           >
             Scenario C ($15.0k / 50 Units)
           </button>
@@ -153,71 +148,69 @@ export function SourcingScreen({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left: Mandate Configuration Form */}
-        <div className="lg:col-span-5 bg-[#0B1728] border border-[#203149] rounded-xl p-6 space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-[#203149]">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-[#94A3B8]">
-              Authoritative Mandate
-            </h2>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/30">
-              DYNAMIC BUDGET
+        <div className="lg:col-span-5 bg-[#0D1B2B] rounded-2xl p-7 card-shadow border border-[#23354B]/60 space-y-5">
+          <div className="flex items-center justify-between pb-3 border-b border-[#23354B]/40">
+            <h2 className="text-base font-bold text-[#F3F6FC]">Mandate specifications</h2>
+            <span className="text-xs font-medium text-[#22C55E] bg-[#22C55E]/10 px-2.5 py-1 rounded-full">
+              Dynamic Budget
             </span>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#94A3B8] mb-1.5">
+            <label className="block text-xs font-medium text-[#9AAAC0] mb-2">
               Natural Language Procurement Prompt
             </label>
             <textarea
               rows={3}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              className="w-full bg-[#030B18] border border-[#203149] rounded-lg p-3 text-sm text-[#F1F5F9] focus:outline-none focus:border-[#4597FF] transition-colors resize-none font-sans"
-              placeholder="Enter procurement instructions..."
+              className="w-full bg-[#07111F] rounded-xl p-3.5 text-sm text-[#F3F6FC] border border-[#23354B]/60 focus:outline-none focus:border-[#5B9CFF] transition-all resize-none leading-relaxed"
+              placeholder="Enter procurement prompt..."
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-[#94A3B8] mb-1.5">Item Query</label>
+              <label className="block text-xs font-medium text-[#9AAAC0] mb-1.5">Product Query</label>
               <input
                 type="text"
                 value={itemQuery}
                 onChange={(e) => setItemQuery(e.target.value)}
-                className="w-full bg-[#030B18] border border-[#203149] rounded-lg px-3 py-2 text-sm text-[#F1F5F9] focus:outline-none focus:border-[#4597FF]"
+                className="w-full bg-[#07111F] rounded-xl px-3.5 py-2.5 text-sm text-[#F3F6FC] border border-[#23354B]/60 focus:outline-none focus:border-[#5B9CFF]"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-[#94A3B8] mb-1.5">Quantity</label>
+              <label className="block text-xs font-medium text-[#9AAAC0] mb-1.5">Quantity</label>
               <input
                 type="number"
                 min={1}
                 value={quantity}
                 onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-full bg-[#030B18] border border-[#203149] rounded-lg px-3 py-2 text-sm text-[#F1F5F9] focus:outline-none focus:border-[#4597FF]"
+                className="w-full bg-[#07111F] rounded-xl px-3.5 py-2.5 text-sm text-[#F3F6FC] border border-[#23354B]/60 focus:outline-none focus:border-[#5B9CFF]"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-[#94A3B8] mb-1.5">Max Total Budget</label>
+              <label className="block text-xs font-medium text-[#9AAAC0] mb-1.5">Max Total Budget</label>
               <div className="relative">
-                <span className="absolute left-3 top-2 text-sm text-[#64748B]">$</span>
+                <span className="absolute left-3.5 top-2.5 text-sm text-[#64758E]">$</span>
                 <input
                   type="number"
                   min={1}
                   value={budget}
                   onChange={(e) => setBudget(Math.max(1, parseFloat(e.target.value) || 1))}
-                  className="w-full bg-[#030B18] border border-[#203149] rounded-lg pl-7 pr-3 py-2 text-sm text-[#F1F5F9] focus:outline-none focus:border-[#4597FF]"
+                  className="w-full bg-[#07111F] rounded-xl pl-8 pr-3.5 py-2.5 text-sm text-[#F3F6FC] border border-[#23354B]/60 focus:outline-none focus:border-[#5B9CFF]"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-[#94A3B8] mb-1.5">Currency</label>
+              <label className="block text-xs font-medium text-[#9AAAC0] mb-1.5">Currency</label>
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-                className="w-full bg-[#030B18] border border-[#203149] rounded-lg px-3 py-2 text-sm text-[#F1F5F9] focus:outline-none focus:border-[#4597FF]"
+                className="w-full bg-[#07111F] rounded-xl px-3.5 py-2.5 text-sm text-[#F3F6FC] border border-[#23354B]/60 focus:outline-none focus:border-[#5B9CFF]"
               >
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
@@ -228,29 +221,29 @@ export function SourcingScreen({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-[#94A3B8] mb-1.5">Max Delivery (Days)</label>
+              <label className="block text-xs font-medium text-[#9AAAC0] mb-1.5">Delivery SLA (Days)</label>
               <input
                 type="number"
                 min={1}
                 value={maxDelivery}
                 onChange={(e) => setMaxDelivery(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-full bg-[#030B18] border border-[#203149] rounded-lg px-3 py-2 text-sm text-[#F1F5F9] focus:outline-none focus:border-[#4597FF]"
+                className="w-full bg-[#07111F] rounded-xl px-3.5 py-2.5 text-sm text-[#F3F6FC] border border-[#23354B]/60 focus:outline-none focus:border-[#5B9CFF]"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-[#94A3B8] mb-1.5">Min Return (Days)</label>
+              <label className="block text-xs font-medium text-[#9AAAC0] mb-1.5">Return Window (Days)</label>
               <input
                 type="number"
                 min={0}
                 value={minReturn}
                 onChange={(e) => setMinReturn(Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-full bg-[#030B18] border border-[#203149] rounded-lg px-3 py-2 text-sm text-[#F1F5F9] focus:outline-none focus:border-[#4597FF]"
+                className="w-full bg-[#07111F] rounded-xl px-3.5 py-2.5 text-sm text-[#F3F6FC] border border-[#23354B]/60 focus:outline-none focus:border-[#5B9CFF]"
               />
             </div>
           </div>
 
           {sourcingError && (
-            <div className="p-3 rounded-lg bg-[#EF4444]/10 border border-[#EF4444]/30 text-xs text-[#EF4444] flex items-center gap-2">
+            <div className="p-3.5 rounded-xl bg-[#EF4444]/10 text-xs text-[#EF4444] flex items-center gap-2.5">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{sourcingError}</span>
             </div>
@@ -260,40 +253,38 @@ export function SourcingScreen({
             <button
               onClick={handleSourcePreview}
               disabled={isSourcing || isLoading}
-              className="flex-1 py-2.5 px-4 rounded-lg bg-[#101F33] hover:bg-[#203149] text-sm font-medium text-[#F1F5F9] border border-[#203149] transition-colors disabled:opacity-50"
+              className="flex-1 py-3 px-4 rounded-xl bg-[#132438] hover:bg-[#1A293D] text-sm font-semibold text-[#F3F6FC] transition-colors disabled:opacity-50 cursor-pointer"
             >
-              {isSourcing ? "Querying Wholesale..." : "Preview Sourced Quotes"}
+              {isSourcing ? "Querying Wholesale..." : "Preview Wholesale Quotes"}
             </button>
             <button
-              onClick={handleLaunchNegotiation}
+              onClick={() => onStartNegotiation(prompt, currency)}
               disabled={isLoading}
-              className="flex-1 py-2.5 px-4 rounded-lg bg-[#4597FF] hover:bg-[#4597FF]/90 text-sm font-medium text-white transition-all shadow-md shadow-[#4597FF]/10 flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 py-3 px-4 rounded-xl bg-[#5B9CFF] hover:bg-[#458AF0] text-sm font-semibold text-[#07111F] transition-all shadow-md shadow-[#5B9CFF]/15 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
-              <Play className="w-4 h-4 fill-white" />
+              <Play className="w-4 h-4 fill-[#07111F]" />
               <span>Enter Arena</span>
             </button>
           </div>
         </div>
 
-        {/* Right: Vendor Quotes Comparison Table */}
-        <div className="lg:col-span-7 bg-[#0B1728] border border-[#203149] rounded-xl overflow-hidden flex flex-col justify-between">
+        {/* Right: Vendor Quotes Comparison */}
+        <div className="lg:col-span-7 bg-[#0D1B2B] rounded-2xl p-7 card-shadow border border-[#23354B]/60 flex flex-col justify-between">
           <div>
-            <div className="p-6 border-b border-[#203149] flex items-center justify-between">
+            <div className="pb-4 border-b border-[#23354B]/40 flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-[#94A3B8]">
-                  Channel3 Wholesale Vendor Offers
-                </h2>
-                <div className="text-xs text-[#64748B] mt-0.5">
-                  Competing catalog baselines ready for game-theoretic negotiation
-                </div>
+                <h2 className="text-base font-bold text-[#F3F6FC]">Channel3 wholesale catalog comparison</h2>
+                <p className="text-xs text-[#9AAAC0] mt-0.5">
+                  Competing supplier baselines ready for multi-agent negotiation
+                </p>
               </div>
-              <span className="text-xs font-mono text-[#4597FF] px-2 py-0.5 rounded bg-[#203149]">
-                {sourcedQuotes ? `${sourcedQuotes.length} Quotes Loaded` : "Awaiting Sourcing"}
+              <span className="text-xs font-medium text-[#5B9CFF] bg-[#5B9CFF]/10 px-3 py-1 rounded-full">
+                {sourcedQuotes ? `${sourcedQuotes.length} Quotes Loaded` : "Awaiting Preview"}
               </span>
             </div>
 
             {sourcedQuotes && sourcedQuotes.length > 0 ? (
-              <div className="p-6 space-y-4">
+              <div className="pt-6 space-y-4">
                 {sourcedQuotes.map((quote) => {
                   const landedTotal = quote.initialUnitAsk * quantity + quote.shippingCost;
                   const isFeasible = landedTotal <= budget;
@@ -301,43 +292,39 @@ export function SourcingScreen({
                   return (
                     <div
                       key={quote.vendorId}
-                      className="bg-[#101F33]/80 border border-[#203149] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#4597FF]/40 transition-colors"
+                      className="bg-[#132438]/60 hover:bg-[#132438] rounded-xl p-5 border border-[#23354B]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm text-[#F1F5F9]">{quote.vendorName}</span>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#203149] text-[#94A3B8]">
-                            SKU: {quote.sku}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-bold text-sm text-[#F3F6FC]">{quote.vendorName}</span>
+                          <span className="text-xs font-mono-token text-[#5B9CFF] bg-[#07111F] px-2 py-0.5 rounded">
+                            {quote.sku}
                           </span>
                         </div>
-                        <div className="text-xs text-[#94A3B8]">{quote.productTitle}</div>
-                        <div className="flex items-center gap-4 text-xs text-[#64748B] pt-1">
-                          <span className="flex items-center gap-1">
-                            <Truck className="w-3.5 h-3.5 text-[#94A3B8]" />
-                            {quote.deliveryDays}d SLA
+                        <div className="text-xs text-[#9AAAC0]">{quote.productTitle}</div>
+                        <div className="flex items-center gap-4 text-xs text-[#64758E] pt-1">
+                          <span className="flex items-center gap-1.5">
+                            <Truck className="w-3.5 h-3.5 text-[#9AAAC0]" />
+                            {quote.deliveryDays}d Delivery
                           </span>
-                          <span className="flex items-center gap-1">
-                            <RotateCcw className="w-3.5 h-3.5 text-[#94A3B8]" />
-                            {quote.returnDays}d Return Window
+                          <span className="flex items-center gap-1.5">
+                            <RotateCcw className="w-3.5 h-3.5 text-[#9AAAC0]" />
+                            {quote.returnDays}d Return Policy
                           </span>
-                          <span className="font-mono text-[#4597FF]">{quote.condition}</span>
+                          <span className="font-medium text-[#5B9CFF]">{quote.condition}</span>
                         </div>
                       </div>
 
-                      <div className="sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-[#203149]">
-                        <div className="text-xs text-[#94A3B8]">Initial Unit Ask</div>
-                        <CurrencyDisplay
-                          amount={quote.initialUnitAsk}
-                          currency={currency}
-                          size="md"
-                        />
-                        <div className="text-xs text-[#64748B] mt-1">
-                          Landed: <CurrencyDisplay amount={landedTotal} currency={currency} size="sm" />
+                      <div className="sm:text-right border-t sm:border-t-0 pt-3 sm:pt-0 border-[#23354B]/40">
+                        <div className="text-xs text-[#9AAAC0]">Initial Landed Cost</div>
+                        <CurrencyDisplay amount={landedTotal} currency={currency} size="md" />
+                        <div className="text-xs text-[#64758E] mt-0.5">
+                          Unit Ask: ${quote.initialUnitAsk} • Ship: ${quote.shippingCost}
                         </div>
-                        <div className="mt-2">
+                        <div className="mt-2.5">
                           <StatusBadge
                             status={isFeasible ? "verified" : "warning"}
-                            label={isFeasible ? "Feasible" : "Exceeds Budget"}
+                            label={isFeasible ? "Feasible" : "Over Budget"}
                             size="sm"
                           />
                         </div>
@@ -347,19 +334,19 @@ export function SourcingScreen({
                 })}
               </div>
             ) : (
-              <div className="p-12 text-center text-[#94A3B8] space-y-3">
-                <Boxes className="w-10 h-10 mx-auto text-[#64748B] opacity-60" />
-                <div className="text-sm font-medium text-[#F1F5F9]">No Vendor Quotes Loaded</div>
-                <div className="text-xs text-[#64748B] max-w-sm mx-auto">
-                  Click &quot;Preview Sourced Quotes&quot; to fetch three competing wholesale proposals or directly click &quot;Enter Arena&quot; to initiate autonomous negotiation.
+              <div className="py-16 text-center text-[#9AAAC0] space-y-3">
+                <Package className="w-10 h-10 mx-auto text-[#64758E] opacity-60" />
+                <div className="text-sm font-semibold text-[#F3F6FC]">Wholesale Quotes Unloaded</div>
+                <div className="text-xs text-[#9AAAC0] max-w-sm mx-auto leading-relaxed">
+                  Click &ldquo;Preview Wholesale Quotes&rdquo; to test constraint validation, or &ldquo;Enter Arena&rdquo; to begin real-time multi-agent negotiation.
                 </div>
               </div>
             )}
           </div>
 
-          <div className="p-4 bg-[#030B18]/60 border-t border-[#203149] text-xs text-[#64748B] flex items-center justify-between">
-            <span>Sourcing Source: Channel3 Wholesale API</span>
-            <span className="font-mono">Deterministic Simulation Active</span>
+          <div className="pt-4 mt-6 border-t border-[#23354B]/40 text-xs text-[#64758E] flex items-center justify-between">
+            <span>Sourcing Source: Channel3 B2B Wholesale API</span>
+            <span>Deterministic Sandbox Simulation</span>
           </div>
         </div>
       </div>

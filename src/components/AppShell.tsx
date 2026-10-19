@@ -2,12 +2,12 @@
 
 import React, { useState } from "react";
 import {
-  LayoutDashboard,
-  Boxes,
-  Swords,
+  Layers,
+  Search,
+  Zap,
   ShieldCheck,
   CreditCard,
-  History,
+  Clock,
   Menu,
   X,
   ExternalLink,
@@ -33,37 +33,39 @@ export function AppShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { id: "overview", label: "Overview", icon: LayoutDashboard },
-    { id: "sourcing", label: "Sourcing", icon: Boxes },
-    { id: "arena", label: "Negotiation Arena", icon: Swords },
-    { id: "vault", label: "Evidence Vault", icon: ShieldCheck },
-    { id: "settlement", label: "Settlement Center", icon: CreditCard },
-    { id: "history", label: "Procurement History", icon: History },
+    { id: "overview", label: "Overview", icon: Layers, badge: null },
+    { id: "sourcing", label: "Sourcing", icon: Search, badge: null },
+    { id: "arena", label: "Negotiation Arena", icon: Zap, badge: "Live" },
+    { id: "vault", label: "Evidence Vault", icon: ShieldCheck, badge: null },
+    { id: "settlement", label: "Settlement Center", icon: CreditCard, badge: null },
+    { id: "history", label: "Procurement History", icon: Clock, badge: null },
   ];
 
   return (
-    <div className="min-h-screen flex bg-[#030B18] text-[#F1F5F9] selection:bg-[#4597FF]/30 selection:text-white">
+    <div className="min-h-screen flex fintech-bg text-[#F3F6FC]">
       {/* DESKTOP SIDEBAR */}
-      <aside className="hidden lg:flex w-64 flex-col justify-between border-r border-[#203149] bg-[#0B1728]/70 backdrop-blur-md sticky top-0 h-screen z-30">
+      <aside className="hidden lg:flex w-64 flex-col justify-between bg-[#0D1B2B]/95 backdrop-blur-xl border-r border-[#23354B]/60 sticky top-0 h-screen z-30 select-none">
         <div>
-          {/* Logo & Brand */}
-          <div className="h-18 px-6 flex items-center border-b border-[#203149]/80 gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#00457C] via-[#0070E0] to-[#4597FF] flex items-center justify-center font-extrabold text-white shadow-md border border-[#4597FF]/30">
+          {/* Logo & Wordmark */}
+          <div className="h-20 px-6 flex items-center border-b border-[#23354B]/40 gap-3.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#005EA6] via-[#0070E0] to-[#5B9CFF] flex items-center justify-center font-bold text-white shadow-md shadow-[#5B9CFF]/15">
               P
             </div>
             <div>
-              <div className="text-base font-bold tracking-tight text-white flex items-center gap-1.5">
+              <div className="text-base font-bold tracking-tight text-[#F3F6FC] flex items-center gap-2">
                 PACTUM
-                <span className="text-[10px] font-mono px-1.5 py-0.2 bg-[#203149] text-[#4597FF] rounded">v0.3</span>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#132438] text-[#5B9CFF] border border-[#23354B]/60">
+                  B2B
+                </span>
               </div>
-              <div className="text-[10px] text-[#94A3B8] font-mono tracking-wider uppercase">Institutional Core</div>
+              <div className="text-xs text-[#9AAAC0] tracking-normal font-normal">Autonomous Settle</div>
             </div>
           </div>
 
           {/* Navigation Links */}
-          <nav className="p-4 space-y-1">
-            <div className="text-[10px] font-mono uppercase text-[#64748B] px-3 py-2 font-semibold tracking-wider">
-              Procurement Workflow
+          <nav className="p-4 space-y-1.5">
+            <div className="text-xs text-[#64758E] px-3 pt-2 pb-1.5 font-medium tracking-wide">
+              Procurement Lifecycle
             </div>
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -72,34 +74,41 @@ export function AppShell({
                 <button
                   key={item.id}
                   onClick={() => onNavigate(item.id as NavScreen)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                     isActive
-                      ? "bg-[#101F33] text-[#4597FF] border border-[#203149] shadow-sm"
-                      : "text-[#94A3B8] hover:text-[#F1F5F9] hover:bg-[#101F33]/40 border border-transparent"
+                      ? "bg-[#132438] text-[#5B9CFF] shadow-sm font-semibold"
+                      : "text-[#9AAAC0] hover:text-[#F3F6FC] hover:bg-[#132438]/50"
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? "text-[#4597FF]" : "text-[#94A3B8]"}`} />
-                  <span>{item.label}</span>
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-4 h-4 ${isActive ? "text-[#5B9CFF]" : "text-[#9AAAC0]"}`} />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#5B9CFF]/15 text-[#5B9CFF]">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </nav>
         </div>
 
-        {/* Bottom Sidebar Status */}
-        <div className="p-4 border-t border-[#203149]/80 bg-[#030B18]/40 space-y-3">
+        {/* Sidebar Footer */}
+        <div className="p-4 mx-3 mb-4 rounded-xl bg-[#07111F]/70 border border-[#23354B]/40 space-y-2.5">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[#94A3B8] flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
-              Engine Online
+            <span className="text-[#9AAAC0] flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#22C55E]" />
+              Trust Layer
             </span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/30">
-              SANDBOX
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#F59E0B]/10 text-[#F59E0B]">
+              Sandbox
             </span>
           </div>
-          <div className="text-[11px] font-mono text-[#64748B] flex items-center justify-between pt-1 border-t border-[#203149]/40">
+          <div className="text-[11px] text-[#64758E] flex items-center justify-between pt-1 border-t border-[#23354B]/40">
             <span>PayPal Orders v2</span>
-            <span className="text-[#4597FF]">SHA-256 Gate</span>
+            <span className="text-[#5B9CFF] font-medium">Merkle Gate</span>
           </div>
         </div>
       </aside>
@@ -107,23 +116,23 @@ export function AppShell({
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Navbar */}
-        <header className="h-16 px-6 border-b border-[#203149] bg-[#0B1728]/60 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between">
+        <header className="h-16 px-6 lg:px-10 border-b border-[#23354B]/40 bg-[#07111F]/80 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg text-[#94A3B8] hover:bg-[#101F33]"
-              aria-label="Toggle mobile menu"
+              className="lg:hidden p-2 rounded-xl text-[#9AAAC0] hover:bg-[#0D1B2B]"
+              aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-mono text-[#64748B]">SESSION:</span>
-              <span className="text-xs font-mono text-[#F1F5F9] bg-[#030B18] px-2.5 py-1 rounded border border-[#203149]">
-                {activeSessionId || "None Selected"}
+            <div className="flex items-center gap-2.5 text-xs">
+              <span className="text-[#64758E] font-medium">Session</span>
+              <span className="font-mono-token text-[#F3F6FC] bg-[#0D1B2B] px-3 py-1 rounded-lg border border-[#23354B]/60 text-xs">
+                {activeSessionId || "None Active"}
               </span>
               {activeBudgetString && (
-                <span className="hidden sm:inline text-xs font-mono text-[#22C55E] bg-[#22C55E]/10 px-2.5 py-1 rounded border border-[#22C55E]/30">
+                <span className="hidden sm:inline text-xs font-medium text-[#22C55E] bg-[#22C55E]/10 px-3 py-1 rounded-lg">
                   {activeBudgetString}
                 </span>
               )}
@@ -131,27 +140,27 @@ export function AppShell({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full border border-[#203149] bg-[#030B18] text-xs font-mono text-[#94A3B8]">
-              <span className="text-[#4597FF]">Boulware β=3.0</span>
-              <span className="text-[#64748B]">|</span>
-              <span className="text-[#22C55E]">Fail-Closed</span>
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-[#0D1B2B] border border-[#23354B]/60 text-xs text-[#9AAAC0]">
+              <span>Boulware Strategy</span>
+              <span className="text-[#64758E]">•</span>
+              <span className="text-[#22C55E] font-medium">Audit Gate Enforced</span>
             </div>
 
             <a
               href="https://sandbox.paypal.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-1.5 text-xs text-[#4597FF] hover:underline"
+              className="flex items-center gap-1.5 text-xs text-[#5B9CFF] hover:text-[#458AF0] transition-colors font-medium ml-2"
             >
-              <span>Sandbox Portal</span>
-              <ExternalLink className="w-3 h-3" />
+              <span>Sandbox Console</span>
+              <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
         </header>
 
         {/* Mobile Navigation Dropdown */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-b border-[#203149] bg-[#0B1728] p-4 space-y-1">
+          <div className="lg:hidden border-b border-[#23354B] bg-[#0D1B2B] p-4 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentScreen === item.id;
@@ -162,8 +171,8 @@ export function AppShell({
                     onNavigate(item.id as NavScreen);
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
-                    isActive ? "bg-[#101F33] text-[#4597FF]" : "text-[#94A3B8]"
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium ${
+                    isActive ? "bg-[#132438] text-[#5B9CFF]" : "text-[#9AAAC0]"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -175,7 +184,7 @@ export function AppShell({
         )}
 
         {/* Page Content */}
-        <main className="flex-1 p-6 lg:p-8 max-w-7xl w-full mx-auto">{children}</main>
+        <main className="flex-1 p-6 lg:p-10 max-w-7xl w-full mx-auto">{children}</main>
       </div>
     </div>
   );

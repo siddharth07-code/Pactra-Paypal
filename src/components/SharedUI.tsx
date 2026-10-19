@@ -13,71 +13,30 @@ export function StatusBadge({
   size?: "sm" | "md";
 }) {
   const styles = {
-    verified: "bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/30",
-    warning: "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30",
-    failure: "bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/30",
-    info: "bg-[#4597FF]/10 text-[#4597FF] border-[#4597FF]/30",
-    neutral: "bg-[#203149]/40 text-[#94A3B8] border-[#203149]",
+    verified: "bg-[#22C55E]/10 text-[#22C55E]",
+    warning: "bg-[#F59E0B]/10 text-[#F59E0B]",
+    failure: "bg-[#EF4444]/10 text-[#EF4444]",
+    info: "bg-[#5B9CFF]/10 text-[#5B9CFF]",
+    neutral: "bg-[#1A293D] text-[#9AAAC0]",
   };
 
   const dotStyles = {
     verified: "bg-[#22C55E]",
     warning: "bg-[#F59E0B]",
     failure: "bg-[#EF4444]",
-    info: "bg-[#4597FF]",
-    neutral: "bg-[#94A3B8]",
+    info: "bg-[#5B9CFF]",
+    neutral: "bg-[#9AAAC0]",
   };
 
-  const sizeClasses = size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-xs font-medium";
+  const sizeClasses = size === "sm" ? "px-2 py-0.5 text-xs font-medium" : "px-2.5 py-1 text-xs font-medium";
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border ${styles[status]} ${sizeClasses} tracking-wide select-none`}
+      className={`inline-flex items-center gap-1.5 rounded-full ${styles[status]} ${sizeClasses} select-none`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${dotStyles[status]}`} />
       <span>{label}</span>
     </span>
-  );
-}
-
-export function MetricCard({
-  title,
-  value,
-  subvalue,
-  badge,
-  icon: Icon,
-  accent = "blue",
-}: {
-  title: string;
-  value: string;
-  subvalue?: string;
-  badge?: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  accent?: "blue" | "purple" | "emerald" | "amber";
-}) {
-  const accentBorders = {
-    blue: "hover:border-[#4597FF]/40",
-    purple: "hover:border-[#B58CDB]/40",
-    emerald: "hover:border-[#22C55E]/40",
-    amber: "hover:border-[#F59E0B]/40",
-  };
-
-  return (
-    <div
-      className={`bg-[#0B1728] border border-[#203149] rounded-xl p-5 transition-all duration-200 ${accentBorders[accent]}`}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium uppercase tracking-wider text-[#94A3B8]">{title}</span>
-        {badge && (
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#203149]/60 text-[#4597FF] border border-[#203149]">
-            {badge}
-          </span>
-        )}
-        {Icon && <Icon className="w-4 h-4 text-[#94A3B8]" />}
-      </div>
-      <div className="text-2xl font-semibold text-[#F1F5F9] tracking-tight">{value}</div>
-      {subvalue && <div className="text-xs text-[#94A3B8] mt-1.5">{subvalue}</div>}
-    </div>
   );
 }
 
@@ -92,7 +51,7 @@ export function CopyableHash({
 }) {
   const [copied, setCopied] = useState(false);
 
-  const displayHash = truncate && hash.length > 20 ? `${hash.slice(0, 10)}...${hash.slice(-8)}` : hash;
+  const displayHash = truncate && hash.length > 20 ? `${hash.slice(0, 8)}...${hash.slice(-8)}` : hash;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(hash);
@@ -101,14 +60,14 @@ export function CopyableHash({
   };
 
   return (
-    <div className="inline-flex items-center gap-2 bg-[#030B18] px-2.5 py-1 rounded-md border border-[#203149] text-xs font-crypto text-[#94A3B8]">
-      {label && <span className="text-[10px] font-sans uppercase text-[#64748B]">{label}:</span>}
-      <span className="text-[#F1F5F9]" title={hash}>
+    <div className="inline-flex items-center gap-2 bg-[#0D1B2B] px-3 py-1.5 rounded-lg border border-[#23354B] text-xs font-mono-token text-[#9AAAC0]">
+      {label && <span className="text-[11px] font-sans text-[#64758E] font-medium">{label}:</span>}
+      <span className="text-[#F3F6FC]" title={hash}>
         {displayHash}
       </span>
       <button
         onClick={handleCopy}
-        className="p-0.5 rounded hover:bg-[#203149] text-[#94A3B8] hover:text-[#4597FF] transition-colors"
+        className="p-1 rounded hover:bg-[#132438] text-[#9AAAC0] hover:text-[#5B9CFF] transition-colors"
         aria-label="Copy hash"
       >
         {copied ? <Check className="w-3.5 h-3.5 text-[#22C55E]" /> : <Copy className="w-3.5 h-3.5" />}
@@ -135,13 +94,13 @@ export function CurrencyDisplay({
   });
 
   const sizeStyles = {
-    sm: "text-sm",
+    sm: "text-sm font-medium",
     md: "text-base font-semibold",
-    lg: "text-xl font-bold",
-    xl: "text-3xl font-extrabold tracking-tight",
+    lg: "text-xl font-bold tracking-tight",
+    xl: "text-3xl font-bold tracking-tight",
   };
 
-  return <span className={`font-mono text-[#F1F5F9] ${sizeStyles[size]} ${className}`}>{formatter.format(amount)}</span>;
+  return <span className={`text-[#F3F6FC] ${sizeStyles[size]} ${className}`}>{formatter.format(amount)}</span>;
 }
 
 export function EmptyState({
@@ -156,16 +115,16 @@ export function EmptyState({
   onAction?: () => void;
 }) {
   return (
-    <div className="bg-[#0B1728] border border-dashed border-[#203149] rounded-xl p-10 text-center flex flex-col items-center justify-center max-w-xl mx-auto my-8">
-      <div className="w-12 h-12 rounded-full bg-[#101F33] flex items-center justify-center border border-[#203149] mb-4 text-[#4597FF]">
-        <span className="text-xl font-mono">∅</span>
+    <div className="bg-[#0D1B2B] rounded-2xl p-10 text-center flex flex-col items-center justify-center max-w-lg mx-auto my-6 border border-[#23354B]/60 card-shadow">
+      <div className="w-12 h-12 rounded-2xl bg-[#132438] flex items-center justify-center mb-4 text-[#5B9CFF]">
+        <span className="text-xl font-light">∅</span>
       </div>
-      <h3 className="text-lg font-semibold text-[#F1F5F9] mb-1.5">{title}</h3>
-      <p className="text-sm text-[#94A3B8] mb-6 max-w-md">{description}</p>
+      <h3 className="text-base font-semibold text-[#F3F6FC] mb-1.5">{title}</h3>
+      <p className="text-sm text-[#9AAAC0] mb-6 max-w-sm leading-relaxed">{description}</p>
       {actionLabel && onAction && (
         <button
           onClick={onAction}
-          className="px-4 py-2 rounded-lg bg-[#4597FF] hover:bg-[#4597FF]/90 text-white text-sm font-medium transition-colors shadow-sm"
+          className="px-5 py-2.5 rounded-xl bg-[#5B9CFF] hover:bg-[#458AF0] text-[#07111F] font-semibold text-sm transition-all shadow-md shadow-[#5B9CFF]/15 cursor-pointer"
         >
           {actionLabel}
         </button>

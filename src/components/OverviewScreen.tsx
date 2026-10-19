@@ -2,14 +2,14 @@
 
 import React from "react";
 import {
-  MetricCard,
   StatusBadge,
   CurrencyDisplay,
   EmptyState,
 } from "./SharedUI";
 import {
   ArrowRight,
-  Lock,
+  ShieldCheck,
+  ChevronRight,
 } from "lucide-react";
 import type { ProcurementSession } from "@/types/pactum";
 
@@ -24,174 +24,294 @@ export function OverviewScreen({
   onStartNew,
   onOpenSession,
 }: OverviewScreenProps) {
-  const activeCount = sessions.filter(
-    (s) => s.status !== "SETTLED" && s.status !== "AUDIT_FAILED"
-  ).length;
-
-  const totalVendors = sessions.reduce((acc, s) => acc + (s.quotes?.length || 0), 0);
-  const auditedCount = sessions.filter((s) => s.auditCertificate?.passed).length;
-  const settledCount = sessions.filter((s) => s.status === "SETTLED").length;
+  const activeSession = sessions[0]; // Most recent session
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      {/* Header & Primary CTA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#203149] pb-6">
+    <div className="space-y-10 animate-in fade-in duration-300">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#F1F5F9]">Procurement Overview</h1>
-          <p className="text-sm text-[#94A3B8] mt-1">
-            Monitor autonomous sourcing, game-theoretic negotiations, cryptographic verification, and audited PayPal settlement.
+          <h1 className="text-3xl font-bold tracking-tight text-[#F3F6FC]">Procurement overview</h1>
+          <p className="text-sm text-[#9AAAC0] mt-1.5">
+            Your procurement command center.
           </p>
         </div>
         <button
           onClick={onStartNew}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#4597FF] hover:bg-[#4597FF]/90 text-white font-medium text-sm transition-all shadow-md shadow-[#4597FF]/10"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#5B9CFF] hover:bg-[#458AF0] text-[#07111F] font-semibold text-sm transition-all shadow-md shadow-[#5B9CFF]/15 cursor-pointer"
         >
           <span>New Procurement</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="Active Sessions"
-          value={String(activeCount)}
-          subvalue={sessions.length > 0 ? `${sessions.length} total initiated` : "No sessions initiated"}
-          accent="blue"
-        />
-        <MetricCard
-          title="Vendors Evaluated"
-          value={String(totalVendors)}
-          subvalue="Multi-attribute Channel3 catalog"
-          accent="purple"
-        />
-        <MetricCard
-          title="Verified Invariants"
-          value={String(auditedCount)}
-          subvalue="Zero-trust ACWORLD audit pass"
-          accent="emerald"
-        />
-        <MetricCard
-          title="Settled Captures"
-          value={String(settledCount)}
-          subvalue="PayPal Orders v2 gated execution"
-          accent="amber"
-        />
-      </div>
+      {/* Main Focus: Active Procurement & Verification Panels */}
+      {activeSession ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* A. Prominent Active Procurement Panel */}
+          <div className="lg:col-span-8 bg-[#0D1B2B] rounded-2xl p-7 card-shadow border border-[#23354B]/60 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#5B9CFF]">
+                  Active Procurement Mandate
+                </span>
+                <StatusBadge
+                  status={
+                    activeSession.status === "SETTLED"
+                      ? "verified"
+                      : activeSession.status === "AUDIT_FAILED"
+                      ? "failure"
+                      : "info"
+                  }
+                  label={activeSession.status.replace(/_/g, " ")}
+                />
+              </div>
 
-      {/* Workflow Lifecycle Visualizer */}
-      <div className="bg-[#0B1728] border border-[#203149] rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-[#94A3B8]">
-            PACTUM Institutional Pipeline
-          </h3>
-          <span className="text-xs font-mono text-[#4597FF] flex items-center gap-1.5">
-            <Lock className="w-3.5 h-3.5" />
-            Deterministic Trust Chain
+              <div className="space-y-1 mb-6">
+                <h2 className="text-2xl font-bold text-[#F3F6FC] tracking-tight">
+                  {activeSession.mandate.itemQuery}
+                </h2>
+                <p className="text-sm text-[#9AAAC0] line-clamp-2 leading-relaxed">
+                  {activeSession.mandate.rawPrompt}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-6 pt-4 border-t border-[#23354B]/40">
+                <div>
+                  <div className="text-xs text-[#9AAAC0] mb-1 font-medium">Quantity</div>
+                  <div className="text-xl font-bold text-[#F3F6FC]">
+                    {activeSession.mandate.quantity}{" "}
+                    <span className="text-xs font-normal text-[#9AAAC0]">units</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-[#9AAAC0] mb-1 font-medium">Mandate Budget</div>
+                  <CurrencyDisplay
+                    amount={activeSession.mandate.maxTotalBudget}
+                    currency={activeSession.mandate.currency}
+                    size="lg"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-[#9AAAC0] mb-1 font-medium">Vendors Evaluated</div>
+                  <div className="text-xl font-bold text-[#F3F6FC]">
+                    {activeSession.quotes?.length ?? 0}{" "}
+                    <span className="text-xs font-normal text-[#9AAAC0]">competing</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-6 mt-6 border-t border-[#23354B]/40 flex items-center justify-between">
+              <span className="text-xs text-[#64758E] font-mono-token">
+                ID: {activeSession.id}
+              </span>
+              <button
+                onClick={() => onOpenSession(activeSession)}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-[#5B9CFF] hover:text-[#458AF0] transition-colors cursor-pointer"
+              >
+                <span>Open Current Session</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* B. Verification Status Panel */}
+          <div className="lg:col-span-4 bg-[#0D1B2B] rounded-2xl p-7 card-shadow border border-[#23354B]/60 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#9AAAC0]">
+                  Verification Status
+                </span>
+                <ShieldCheck className="w-4 h-4 text-[#22C55E]" />
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-3.5 rounded-xl bg-[#132438]/70 border border-[#23354B]/40">
+                  <div className="text-xs text-[#9AAAC0] mb-1">ACWORLD Final-State Audit</div>
+                  <div className="text-sm font-semibold text-[#F3F6FC] flex items-center gap-2">
+                    {activeSession.auditCertificate ? (
+                      activeSession.auditCertificate.passed ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-[#22C55E]" />
+                          <span>5 Invariants Verified</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-[#EF4444]" />
+                          <span>Audit Invariants Blocked</span>
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-[#9AAAC0]" />
+                        <span>Awaiting Final Offer</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[#132438]/70 border border-[#23354B]/40">
+                  <div className="text-xs text-[#9AAAC0] mb-1">Evidence Chain</div>
+                  <div className="text-sm font-semibold text-[#F3F6FC] flex items-center gap-2">
+                    {activeSession.preSettlementRoot ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-[#22C55E]" />
+                        <span>SHA-256 Merkle Root Committed</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-[#9AAAC0]" />
+                        <span>Recording Negotiation Turns</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[#132438]/70 border border-[#23354B]/40">
+                  <div className="text-xs text-[#9AAAC0] mb-1">PayPal Settlement</div>
+                  <div className="text-sm font-semibold text-[#F3F6FC] flex items-center gap-2">
+                    {activeSession.status === "SETTLED" ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-[#22C55E]" />
+                        <span>Audited Capture Executed</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
+                        <span>Behind Fail-Closed Audit Gate</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-[#64758E] pt-4 border-t border-[#23354B]/40">
+              Deterministic mechanism-design firewall enforced server-side.
+            </div>
+          </div>
+        </div>
+      ) : (
+        <EmptyState
+          title="No active procurement sessions"
+          description="Create a dynamic procurement mandate to experience autonomous multi-vendor AI negotiation, cryptographic Merkle flight recording, and audited PayPal settlement."
+          actionLabel="Launch New Procurement"
+          onAction={onStartNew}
+        />
+      )}
+
+      {/* C. Visually Refined Procurement Workflow */}
+      <div className="bg-[#0D1B2B] rounded-2xl p-7 card-shadow border border-[#23354B]/60">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-base font-bold text-[#F3F6FC]">Institutional Procurement Pipeline</h3>
+            <p className="text-xs text-[#9AAAC0] mt-0.5">End-to-end autonomous transaction and settlement lifecycle</p>
+          </div>
+          <span className="text-xs font-medium text-[#5B9CFF] bg-[#5B9CFF]/10 px-3 py-1 rounded-full">
+            Fail-Closed
           </span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {[
-            { step: "1. Mandate", desc: "Dynamic Constraints", status: "Dynamic" },
-            { step: "2. Sourcing", desc: "Channel3 Wholesale", status: "3 Quotes" },
-            { step: "3. Arena", desc: "Boulware β=3.0", status: "4 Rounds" },
-            { step: "4. ACWORLD", desc: "5-Invariant Audit", status: "Fail-Closed" },
-            { step: "5. PayPal v2", desc: "Orders Authorization", status: "custom_id" },
-            { step: "6. Settlement", desc: "Audited Capture & Invoice", status: "Merkle Bound" },
-          ].map((item, i) => (
+            {
+              step: "1. Mandate",
+              title: "Dynamic Constraints",
+              desc: "Natural language parsed into formal budget ceiling & SLA requirements.",
+              active: true,
+            },
+            {
+              step: "2. Sourcing",
+              title: "Channel3 Wholesale",
+              desc: "Simultaneous multi-vendor catalog discovery and baseline price retrieval.",
+              active: Boolean(activeSession?.quotes?.length),
+            },
+            {
+              step: "3. Arena",
+              title: "Boulware Negotiation",
+              desc: "Gemini agent negotiates with 3 vendors bounded by strict utility decay (β=3.0).",
+              active: Boolean(activeSession?.turns?.length),
+            },
+            {
+              step: "4. Verification",
+              title: "ACWORLD Audit Gate",
+              desc: "Independent zero-trust evaluation of 5 mathematical & cryptographic invariants.",
+              active: Boolean(activeSession?.auditCertificate),
+            },
+            {
+              step: "5. Settlement",
+              title: "Audited PayPal Capture",
+              desc: "Order authorization and capture executed only upon verified audit pass.",
+              active: activeSession?.status === "SETTLED",
+            },
+          ].map((item, idx) => (
             <div
-              key={i}
-              className="bg-[#101F33]/70 border border-[#203149] rounded-lg p-3 text-center relative overflow-hidden"
+              key={idx}
+              className={`rounded-xl p-4.5 transition-all border ${
+                item.active
+                  ? "bg-[#132438] border-[#5B9CFF]/30 text-[#F3F6FC]"
+                  : "bg-[#07111F]/50 border-[#23354B]/30 text-[#64758E]"
+              }`}
             >
-              <div className="text-xs font-semibold text-[#F1F5F9]">{item.step}</div>
-              <div className="text-[11px] text-[#94A3B8] mt-1">{item.desc}</div>
-              <div className="mt-2 inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-[#203149] text-[#4597FF]">
-                {item.status}
-              </div>
+              <div className="text-xs font-semibold text-[#5B9CFF] mb-1">{item.step}</div>
+              <div className="text-sm font-semibold text-[#F3F6FC] mb-1.5">{item.title}</div>
+              <p className="text-xs text-[#9AAAC0] leading-relaxed">{item.desc}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Recent Sessions Table */}
-      <div className="bg-[#0B1728] border border-[#203149] rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#203149] flex items-center justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-[#94A3B8]">
-            Recent Procurement Sessions
-          </h3>
-          <span className="text-xs text-[#64748B] font-mono">Server In-Memory Storage</span>
+      {/* D. Recent Procurement Sessions */}
+      {sessions.length > 0 && (
+        <div className="bg-[#0D1B2B] rounded-2xl card-shadow border border-[#23354B]/60 overflow-hidden">
+          <div className="px-7 py-5 border-b border-[#23354B]/40 flex items-center justify-between">
+            <h3 className="text-base font-bold text-[#F3F6FC]">Recent procurement sessions</h3>
+            <span className="text-xs text-[#9AAAC0]">{sessions.length} total sessions recorded</span>
+          </div>
+
+          <div className="divide-y divide-[#23354B]/40">
+            {sessions.map((s) => (
+              <div
+                key={s.id}
+                onClick={() => onOpenSession(s)}
+                className="px-7 py-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#132438]/50 transition-colors cursor-pointer"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold text-sm text-[#F3F6FC]">{s.mandate.itemQuery}</span>
+                    <span className="text-xs text-[#9AAAC0]">({s.mandate.quantity} units)</span>
+                    <StatusBadge
+                      status={
+                        s.status === "SETTLED"
+                          ? "verified"
+                          : s.status === "AUDIT_FAILED"
+                          ? "failure"
+                          : "info"
+                      }
+                      label={s.status.replace(/_/g, " ")}
+                      size="sm"
+                    />
+                  </div>
+                  <div className="text-xs text-[#64758E] font-mono-token">{s.id}</div>
+                </div>
+
+                <div className="flex items-center gap-6 self-end sm:self-center">
+                  <div className="text-right">
+                    <div className="text-xs text-[#9AAAC0]">Budget</div>
+                    <CurrencyDisplay
+                      amount={s.mandate.maxTotalBudget}
+                      currency={s.mandate.currency}
+                      size="sm"
+                    />
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-[#64758E]" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-
-        {sessions.length === 0 ? (
-          <div className="p-8">
-            <EmptyState
-              title="No Procurement Sessions Yet"
-              description="Create a dynamic procurement mandate to experience autonomous multi-vendor AI negotiation, cryptographic Merkle flight recording, and audited PayPal settlement."
-              actionLabel="Launch Procurement"
-              onAction={onStartNew}
-            />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-[#101F33] text-xs font-mono uppercase text-[#94A3B8] border-b border-[#203149]">
-                <tr>
-                  <th className="px-6 py-3">Session ID</th>
-                  <th className="px-6 py-3">Product / Objective</th>
-                  <th className="px-6 py-3">Budget</th>
-                  <th className="px-6 py-3">Vendors</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#203149]">
-                {sessions.map((s) => {
-                  let statusType: "verified" | "warning" | "failure" | "info" | "neutral" = "info";
-                  if (s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED") statusType = "verified";
-                  else if (s.status === "AUDIT_FAILED") statusType = "failure";
-                  else if (s.status === "NEGOTIATING") statusType = "warning";
-
-                  return (
-                    <tr
-                      key={s.id}
-                      className="hover:bg-[#101F33]/40 transition-colors cursor-pointer"
-                      onClick={() => onOpenSession(s)}
-                    >
-                      <td className="px-6 py-4 font-mono text-xs text-[#4597FF]">{s.id}</td>
-                      <td className="px-6 py-4 font-medium text-[#F1F5F9] max-w-xs truncate">
-                        {s.mandate.itemQuery} ({s.mandate.quantity} units)
-                      </td>
-                      <td className="px-6 py-4">
-                        <CurrencyDisplay
-                          amount={s.mandate.maxTotalBudget}
-                          currency={s.mandate.currency}
-                          size="sm"
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-[#94A3B8]">{s.quotes?.length ?? 0} quotes</td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={statusType} label={s.status} size="sm" />
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenSession(s);
-                          }}
-                          className="px-3 py-1 rounded bg-[#203149] hover:bg-[#4597FF] hover:text-white text-xs font-medium text-[#94A3B8] transition-colors"
-                        >
-                          View Session
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
