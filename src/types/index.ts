@@ -1,5 +1,7 @@
+export * from "./pactum";
+
 /**
- * System and integration status indicators for PACTUM Phase 0
+ * System and integration status indicators for PACTUM Phase 0 & 1
  */
 export type FeatureStatus = "NOT_IMPLEMENTED" | "PLANNED" | "IN_PROGRESS" | "VERIFIED";
 
