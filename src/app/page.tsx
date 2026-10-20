@@ -25,26 +25,69 @@ export default function Home() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load authoritative sessions from backend
-  const refreshSessions = useCallback(async () => {
+  const refreshSessions = useCallback(async (): Promise<ProcurementSession[]> => {
     try {
       const res = await fetch("/api/procurement/sessions");
       if (res.ok) {
         const data = await res.json();
-        setSessions(data.sessions || []);
-        if (activeSession) {
-          const updated = (data.sessions as ProcurementSession[])?.find(
-            (s) => s.id === activeSession.id
-          );
-          if (updated) setActiveSession(updated);
-        }
+        const loaded: ProcurementSession[] = data.sessions || [];
+        setSessions(loaded);
+        return loaded;
       }
     } catch (err) {
       console.error("Failed to fetch sessions:", err);
     }
-  }, [activeSession]);
+    return [];
+  }, []);
+
+  const navigateToScreen = useCallback((screen: NavScreen, sessionId?: string) => {
+    setCurrentScreen(screen);
+    const targetSessionId = sessionId || arenaSessionId || activeSession?.id;
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("screen", screen);
+      if (targetSessionId) {
+        url.searchParams.set("sessionId", targetSessionId);
+      } else {
+        url.searchParams.delete("sessionId");
+      }
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [arenaSessionId, activeSession]);
 
   useEffect(() => {
-    refreshSessions();
+    let screenParam: string | null = null;
+    let sessionParam: string | null = null;
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      screenParam = params.get("screen");
+      sessionParam = params.get("sessionId");
+      if (screenParam && ["overview", "sourcing", "arena", "vault", "settlement", "history"].includes(screenParam)) {
+        setCurrentScreen(screenParam as NavScreen);
+      }
+      if (sessionParam) {
+        setArenaSessionId(sessionParam);
+      }
+    }
+
+    refreshSessions().then((loaded) => {
+      if (sessionParam) {
+        const matched = loaded.find((s) => s.id === sessionParam);
+        if (matched) {
+          setActiveSession(matched);
+          setArenaSessionId(matched.id);
+          setArenaMandate(matched.mandate);
+          setArenaQuotes(matched.quotes || []);
+          return;
+        }
+      }
+      if (loaded.length > 0) {
+        setActiveSession(loaded[0]);
+        setArenaSessionId(loaded[0].id);
+        setArenaMandate(loaded[0].mandate);
+        setArenaQuotes(loaded[0].quotes || []);
+      }
+    });
   }, [refreshSessions]);
 
   // Clean up SSE on unmount
@@ -67,7 +110,7 @@ export default function Home() {
 
     setStreamEvents([]);
     setIsStreaming(true);
-    setCurrentScreen("arena");
+    navigateToScreen("arena");
 
     try {
       const res = await fetch("/api/negotiate/stream", {
@@ -130,6 +173,12 @@ export default function Home() {
               setArenaMandate(parsed.mandate);
             } else if (eventType === "SESSION_INITIALIZED") {
               setArenaSessionId(parsed.sessionId);
+              // Also update URL with authoritative session ID
+              if (typeof window !== "undefined") {
+                const url = new URL(window.location.href);
+                url.searchParams.set("sessionId", parsed.sessionId);
+                window.history.replaceState({}, "", url.toString());
+              }
             } else if (eventType === "VENDOR_COUNTEROFFER") {
               // Update live quote bids in arena panels
               setArenaQuotes((prev) =>
@@ -140,9 +189,15 @@ export default function Home() {
                 )
               );
             } else if (eventType === "NEGOTIATION_COMPLETED") {
-              // Refresh server-side sessions
-              setTimeout(() => {
-                refreshSessions();
+              // Refresh server-side sessions to pull authoritative completed session
+              setTimeout(async () => {
+                const loaded = await refreshSessions();
+                if (parsed.sessionId) {
+                  const completed = loaded.find((s) => s.id === parsed.sessionId);
+                  if (completed) {
+                    setActiveSession(completed);
+                  }
+                }
               }, 500);
             }
           } catch {
@@ -173,7 +228,12 @@ export default function Home() {
     setArenaSessionId(session.id);
     setArenaMandate(session.mandate);
     setArenaQuotes(session.quotes || []);
-    setCurrentScreen("settlement");
+    navigateToScreen("settlement", session.id);
+  };
+
+  const handleSessionUpdated = (updated: ProcurementSession) => {
+    setActiveSession(updated);
+    setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
   };
 
   const activeBudgetString = arenaMandate
@@ -185,14 +245,14 @@ export default function Home() {
   return (
     <AppShell
       currentScreen={currentScreen}
-      onNavigate={(screen) => setCurrentScreen(screen)}
+      onNavigate={(screen) => navigateToScreen(screen)}
       activeSessionId={arenaSessionId || activeSession?.id}
       activeBudgetString={activeBudgetString}
     >
       {currentScreen === "overview" && (
         <OverviewScreen
           sessions={sessions}
-          onStartNew={() => setCurrentScreen("sourcing")}
+          onStartNew={() => navigateToScreen("sourcing")}
           onOpenSession={handleOpenSession}
         />
       )}
@@ -212,24 +272,37 @@ export default function Home() {
           events={streamEvents}
           isStreaming={isStreaming}
           onProceedToSettlement={async () => {
-            await refreshSessions();
+            const loaded = await refreshSessions();
             if (arenaSessionId) {
-              const matched = sessions.find((s) => s.id === arenaSessionId);
-              if (matched) setActiveSession(matched);
+              const matched = loaded.find((s) => s.id === arenaSessionId);
+              if (matched) {
+                setActiveSession(matched);
+                navigateToScreen("settlement", matched.id);
+                return;
+              }
             }
-            setCurrentScreen("settlement");
+            if (loaded.length > 0) {
+              setActiveSession(loaded[0]);
+              setArenaSessionId(loaded[0].id);
+              navigateToScreen("settlement", loaded[0].id);
+            } else {
+              navigateToScreen("settlement");
+            }
           }}
         />
       )}
 
       {currentScreen === "vault" && (
-        <EvidenceVaultScreen session={activeSession || sessions[0]} />
+        <EvidenceVaultScreen session={activeSession || (sessions.length > 0 ? sessions[0] : undefined)} />
       )}
 
       {currentScreen === "settlement" && (
         <SettlementCenterScreen
-          session={activeSession || sessions[0]}
+          session={activeSession || (sessions.length > 0 ? sessions[0] : undefined)}
           onRefreshSession={refreshSessions}
+          onStartNewNegotiation={() => navigateToScreen("sourcing")}
+          onSelectSessionHistory={() => navigateToScreen("history")}
+          onSessionUpdated={handleSessionUpdated}
         />
       )}
 
@@ -237,7 +310,7 @@ export default function Home() {
         <ProcurementHistoryScreen
           sessions={sessions}
           onSelectSession={handleOpenSession}
-          onStartNew={() => setCurrentScreen("sourcing")}
+          onStartNew={() => navigateToScreen("sourcing")}
         />
       )}
     </AppShell>

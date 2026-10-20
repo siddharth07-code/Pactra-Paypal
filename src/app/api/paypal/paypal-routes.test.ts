@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { POST as settleHandler } from "./settle/route";
 import { POST as webhookHandler } from "./webhook/route";
+import { POST as checkoutHandler } from "./checkout/route";
+import { POST as captureHandler } from "./capture/route";
+import { POST as cancelHandler } from "./cancel/route";
 import { NextRequest } from "next/server";
 import { sessionStore } from "@/lib/session-store";
 import type { ProcurementSession } from "@/types/pactum";
@@ -57,6 +60,126 @@ describe("PayPal API Routes Integration Tests", () => {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+
+  describe("POST /api/paypal/checkout", () => {
+    it("rejects request without sessionId with 400", async () => {
+      const req = new NextRequest("http://localhost:3000/api/paypal/checkout", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+
+      const res = await checkoutHandler(req);
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toContain("sessionId");
+    });
+
+    it("rejects request when mandate budget constraint is violated with 403", async () => {
+      const overBudgetSession: ProcurementSession = {
+        ...validSession,
+        finalOffer: {
+          ...validSession.finalOffer!,
+          unitPrice: 400, // 25 * 400 + 150 = 10,150 > 8,500
+        },
+      };
+      sessionStore.saveSession(overBudgetSession);
+
+      const req = new NextRequest("http://localhost:3000/api/paypal/checkout", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: overBudgetSession.id }),
+      });
+
+      const res = await checkoutHandler(req);
+      expect(res.status).toBe(403);
+      const data = await res.json();
+      expect(data.blockedAtGate).toBe(true);
+      expect(data.error).toContain("exceeds maximum total budget");
+    });
+
+    it("returns error when session is not found in authoritative store", async () => {
+      const req = new NextRequest("http://localhost:3000/api/paypal/checkout", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: "session_d1239bca416243ec" }),
+      });
+
+      const res = await checkoutHandler(req);
+      expect(res.status).toBe(404);
+      const data = await res.json();
+      expect(data.error).toBe("Session session_d1239bca416243ec not found in authoritative store.");
+    });
+
+    it("successfully creates order and returns PayPal Sandbox approval URL", async () => {
+      sessionStore.saveSession(validSession);
+
+      const req = new NextRequest("http://localhost:3000/api/paypal/checkout", {
+        method: "POST",
+        headers: { host: "localhost:3000" },
+        body: JSON.stringify({ sessionId: validSession.id }),
+      });
+
+      const res = await checkoutHandler(req);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.orderId).toBeDefined();
+      expect(data.approvalUrl).toBeDefined();
+      expect(data.approvalUrl).toContain("https://www.sandbox.paypal.com/checkoutnow?token=");
+    });
+  });
+
+  describe("POST /api/paypal/capture", () => {
+    it("rejects request without orderId with 400", async () => {
+      const req = new NextRequest("http://localhost:3000/api/paypal/capture", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: validSession.id }),
+      });
+
+      const res = await captureHandler(req);
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toContain("orderId");
+    });
+
+    it("executes audited capture when invariants pass", async () => {
+      const sessionWithOrder: ProcurementSession = {
+        ...validSession,
+        paypalOrderId: "ORDER_ROUTE_PASS",
+      };
+      sessionStore.saveSession(sessionWithOrder);
+
+      const req = new NextRequest("http://localhost:3000/api/paypal/capture", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: sessionWithOrder.id,
+          orderId: "ORDER_ROUTE_PASS",
+        }),
+      });
+
+      const res = await captureHandler(req);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.captureId).toBeDefined();
+      expect(data.auditCertificate.passed).toBe(true);
+    });
+  });
+
+  describe("POST /api/paypal/cancel", () => {
+    it("safely reverts checkout state without false payment", async () => {
+      sessionStore.saveSession(validSession);
+
+      const req = new NextRequest("http://localhost:3000/api/paypal/cancel", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: validSession.id }),
+      });
+
+      const res = await cancelHandler(req);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.status).toBe("CANCELLED");
+    });
+  });
 
   describe("POST /api/paypal/settle", () => {
     it("rejects request without sessionId with 400", async () => {

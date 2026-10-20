@@ -176,9 +176,11 @@ export type ProcurementSessionStatus =
   | "AUDIT_PENDING"
   | "AUDIT_PASSED"
   | "AUDIT_FAILED"
+  | "AWAITING_PAYPAL_APPROVAL"
   | "PAYPAL_AUTHORIZED"
   | "PAYPAL_CAPTURED"
   | "SETTLED"
+  | "CANCELLED"
   | "DISPUTED";
 
 /**
@@ -197,6 +199,8 @@ export interface ProcurementSession {
   postAuditRoot?: string; // Root after ACWORLD_FINAL_STATE_AUDIT event is recorded
   auditCertificate?: AuditCertificate;
   paypalOrderId?: string;
+  paypalAuthorizationId?: string;
+  paypalApprovalUrl?: string;
   paypalCaptureId?: string;
   paypalInvoiceId?: string;
   captureAmount?: number;

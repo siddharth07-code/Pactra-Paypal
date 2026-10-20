@@ -6,6 +6,8 @@
  */
 
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import type {
   ProcurementSession,
   ProcurementMandate,
@@ -15,6 +17,64 @@ import type {
 class AuthoritativeSessionStore {
   private sessions = new Map<string, ProcurementSession>();
   private mandateHistory = new Map<string, ProcurementMandate[]>();
+
+  constructor() {
+    this.loadFromDisk();
+  }
+
+  private getCacheFilePath(): string | null {
+    if (process.env.NODE_ENV === "test") {
+      return null;
+    }
+    try {
+      return path.join(process.cwd(), ".pactum-sessions.json");
+    } catch {
+      return null;
+    }
+  }
+
+  private loadFromDisk(): void {
+    const filePath = this.getCacheFilePath();
+    if (!filePath) return;
+    try {
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          if (Array.isArray(parsed.sessions)) {
+            for (const s of parsed.sessions) {
+              if (s && s.id) {
+                this.sessions.set(s.id, s);
+              }
+            }
+          }
+          if (parsed.mandateHistory && typeof parsed.mandateHistory === "object") {
+            for (const [id, history] of Object.entries(parsed.mandateHistory)) {
+              if (Array.isArray(history)) {
+                this.mandateHistory.set(id, history as ProcurementMandate[]);
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore disk read error, proceed with in-memory store
+    }
+  }
+
+  private saveToDisk(): void {
+    const filePath = this.getCacheFilePath();
+    if (!filePath) return;
+    try {
+      const data = {
+        sessions: Array.from(this.sessions.values()),
+        mandateHistory: Object.fromEntries(this.mandateHistory.entries()),
+      };
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+    } catch {
+      // Ignore disk write error
+    }
+  }
 
   /**
    * Creates a new authoritative procurement session.
@@ -39,6 +99,7 @@ class AuthoritativeSessionStore {
 
     this.sessions.set(sessionId, session);
     this.mandateHistory.set(sessionId, [{ ...initialMandate }]);
+    this.saveToDisk();
     return { ...session };
   }
 
@@ -68,6 +129,7 @@ class AuthoritativeSessionStore {
       updatedAt: new Date().toISOString(),
     };
     this.sessions.set(session.id, JSON.parse(JSON.stringify(updated)));
+    this.saveToDisk();
   }
 
   /**
@@ -82,6 +144,7 @@ class AuthoritativeSessionStore {
     session.mandate.isLocked = true;
     session.status = "NEGOTIATING";
     session.updatedAt = new Date().toISOString();
+    this.saveToDisk();
     return JSON.parse(JSON.stringify(session));
   }
 
@@ -141,6 +204,7 @@ class AuthoritativeSessionStore {
     history.push({ ...revisedMandate });
     this.mandateHistory.set(sessionId, history);
 
+    this.saveToDisk();
     return JSON.parse(JSON.stringify(session));
   }
 
@@ -158,8 +222,25 @@ class AuthoritativeSessionStore {
   public clear(): void {
     this.sessions.clear();
     this.mandateHistory.clear();
+    const filePath = this.getCacheFilePath();
+    if (filePath) {
+      try {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      } catch {
+        // Ignore unlink error
+      }
+    }
   }
 }
 
-// Global singleton instance for server-side persistence
-export const sessionStore = new AuthoritativeSessionStore();
+// Global singleton instance for server-side persistence across Next.js route chunks
+const globalForSessionStore = globalThis as unknown as {
+  pactumAuthoritativeSessionStore?: AuthoritativeSessionStore;
+};
+
+export const sessionStore =
+  globalForSessionStore.pactumAuthoritativeSessionStore ?? new AuthoritativeSessionStore();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForSessionStore.pactumAuthoritativeSessionStore = sessionStore;
+}

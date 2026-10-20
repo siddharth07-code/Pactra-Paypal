@@ -32,6 +32,9 @@ export interface CreateOrderParams {
   shippingCost: number;
   totalAmount: number;
   productTitle: string;
+  returnUrl?: string;
+  cancelUrl?: string;
+  userAction?: "CONTINUE" | "PAY_NOW";
 }
 
 export interface CreateOrderResponse {
@@ -39,6 +42,38 @@ export interface CreateOrderResponse {
   status: "CREATED" | "SAVED" | "APPROVED" | "VOIDED" | "COMPLETED" | "PAYER_ACTION_REQUIRED";
   customId: string;
   links: Array<{ href: string; rel: string; method: string }>;
+  approvalUrl?: string;
+}
+
+export interface PayPalOrderDetails {
+  id: string;
+  status: "CREATED" | "SAVED" | "APPROVED" | "VOIDED" | "COMPLETED" | "PAYER_ACTION_REQUIRED";
+  intent: "AUTHORIZE" | "CAPTURE";
+  purchase_units?: Array<{
+    reference_id?: string;
+    custom_id?: string;
+    amount?: {
+      currency_code: string;
+      value: string;
+    };
+    payments?: {
+      authorizations?: Array<{
+        id: string;
+        status: string;
+        amount?: {
+          currency_code: string;
+          value: string;
+        };
+      }>;
+    };
+  }>;
+  links?: Array<{ href: string; rel: string; method: string }>;
+}
+
+export interface AuthorizeOrderResponse {
+  id: string;
+  status: string;
+  authorizationId: string;
 }
 
 export interface CaptureOrderResponse {
@@ -76,6 +111,17 @@ export interface WebhookVerificationParams {
   webhookEvent: Record<string, unknown>;
 }
 
+function getFetchSignal(timeoutMs: number): AbortSignal | undefined {
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+    return undefined;
+  }
+  try {
+    return AbortSignal.timeout(timeoutMs);
+  } catch {
+    return undefined;
+  }
+}
+
 export class PayPalClient {
   private clientId: string;
   private clientSecret: string;
@@ -108,9 +154,6 @@ export class PayPalClient {
 
     const authHeader = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64");
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
     const response = await fetch(`${this.baseUrl}/v1/oauth2/token`, {
       method: "POST",
       headers: {
@@ -118,10 +161,8 @@ export class PayPalClient {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: "grant_type=client_credentials",
-      signal: controller.signal,
+      signal: getFetchSignal(8000),
     });
-
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errText = await response.text();
@@ -149,7 +190,7 @@ export class PayPalClient {
 
     const customId = `VERIPAY_ROOT:${params.merkleRoot};SESSION:${params.sessionId}`;
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       intent: "AUTHORIZE",
       purchase_units: [
         {
@@ -184,22 +225,37 @@ export class PayPalClient {
       ],
     };
 
+    if (params.returnUrl && params.cancelUrl) {
+      payload.payment_source = {
+        paypal: {
+          experience_context: {
+            brand_name: "PACTUM B2B Procurement",
+            landing_page: "LOGIN",
+            user_action: params.userAction ?? "CONTINUE",
+            return_url: params.returnUrl,
+            cancel_url: params.cancelUrl,
+          },
+        },
+      };
+    }
+
     // If live credentials are missing, generate structured fixture response for tests
     if (!this.clientId || !this.clientSecret) {
+      const mockId = `MOCK_ORDER_${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
+      const mockApprovalUrl = `https://www.sandbox.paypal.com/checkoutnow?token=${mockId}`;
       return {
-        id: `MOCK_ORDER_${crypto.randomBytes(6).toString("hex").toUpperCase()}`,
+        id: mockId,
         status: "CREATED",
         customId,
         links: [
-          { href: "https://api-m.sandbox.paypal.com/v2/checkout/orders/mock", rel: "self", method: "GET" },
+          { href: `https://api-m.sandbox.paypal.com/v2/checkout/orders/${mockId}`, rel: "self", method: "GET" },
+          { href: mockApprovalUrl, rel: "payer-action", method: "GET" },
         ],
+        approvalUrl: mockApprovalUrl,
       };
     }
 
     const token = await this.getAccessToken();
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
     const response = await fetch(`${this.baseUrl}/v2/checkout/orders`, {
       method: "POST",
       headers: {
@@ -207,10 +263,8 @@ export class PayPalClient {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
-      signal: controller.signal,
+      signal: getFetchSignal(8000),
     });
-
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errText = await response.text();
@@ -218,9 +272,99 @@ export class PayPalClient {
     }
 
     const data = (await response.json()) as CreateOrderResponse;
+    const approvalUrl = data.links?.find(
+      (l) => l.rel === "payer-action" || l.rel === "approve"
+    )?.href;
+
     return {
       ...data,
       customId,
+      approvalUrl,
+    };
+  }
+
+  /**
+   * Retrieves order details from PayPal Orders v2 API.
+   */
+  public async getOrder(orderId: string): Promise<PayPalOrderDetails> {
+    if (!this.clientId || !this.clientSecret) {
+      return {
+        id: orderId,
+        status: "APPROVED",
+        intent: "AUTHORIZE",
+        purchase_units: [
+          {
+            reference_id: "mock_session",
+            amount: { currency_code: "USD", value: "8150.00" },
+          },
+        ],
+      };
+    }
+
+    const token = await this.getAccessToken();
+    const response = await fetch(`${this.baseUrl}/v2/checkout/orders/${orderId}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      signal: getFetchSignal(8000),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`PayPal get order failed (${response.status}): ${errText}`);
+    }
+
+    return (await response.json()) as PayPalOrderDetails;
+  }
+
+  /**
+   * Authorizes an approved PayPal Orders v2 order with intent: "AUTHORIZE".
+   * Returns the newly created authorization ID.
+   */
+  public async authorizeOrder(orderId: string): Promise<AuthorizeOrderResponse> {
+    if (!this.clientId || !this.clientSecret) {
+      return {
+        id: orderId,
+        status: "COMPLETED",
+        authorizationId: `MOCK_AUTH_${orderId}`,
+      };
+    }
+
+    const token = await this.getAccessToken();
+    const response = await fetch(`${this.baseUrl}/v2/checkout/orders/${orderId}/authorize`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+      signal: getFetchSignal(8000),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`PayPal authorize order failed (${response.status}): ${errText}`);
+    }
+
+    const data = (await response.json()) as {
+      id: string;
+      status: string;
+      purchase_units?: Array<{
+        payments?: {
+          authorizations?: Array<{ id: string; status: string }>;
+        };
+      }>;
+    };
+
+    const authorizationId =
+      data.purchase_units?.[0]?.payments?.authorizations?.[0]?.id || data.id;
+
+    return {
+      id: data.id,
+      status: data.status,
+      authorizationId,
     };
   }
 
@@ -245,10 +389,6 @@ export class PayPalClient {
     }
 
     const token = await this.getAccessToken();
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-    // Call PayPal capture endpoint
     const response = await fetch(
       `${this.baseUrl}/v2/payments/authorizations/${authorizationOrOrderId}/capture`,
       {
@@ -264,11 +404,9 @@ export class PayPalClient {
           },
           final_capture: true,
         }),
-        signal: controller.signal,
+        signal: getFetchSignal(8000),
       }
     );
-
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errText = await response.text();
@@ -305,8 +443,6 @@ export class PayPalClient {
     }
 
     const token = await this.getAccessToken();
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     const payload = {
       detail: {
@@ -357,10 +493,8 @@ export class PayPalClient {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
-      signal: controller.signal,
+      signal: getFetchSignal(8000),
     });
-
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errText = await response.text();
@@ -387,9 +521,6 @@ export class PayPalClient {
 
     try {
       const token = await this.getAccessToken();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
       const response = await fetch(`${this.baseUrl}/v1/notifications/verify-webhook-signature`, {
         method: "POST",
         headers: {
@@ -405,10 +536,8 @@ export class PayPalClient {
           webhook_id: params.webhookId,
           webhook_event: params.webhookEvent,
         }),
-        signal: controller.signal,
+        signal: getFetchSignal(5000),
       });
-
-      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = (await response.json()) as { verification_status: string };

@@ -57,70 +57,253 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
     updatedAt: new Date().toISOString(),
   };
 
-  it("CRITICAL RULE: When ACWORLD audit fails, PayPal capturePayment is NEVER called", async () => {
-    // Inject over-budget final offer so audit fails on Price Ceiling
-    const failingSession: ProcurementSession = {
-      ...validSession,
-      finalOffer: {
-        ...validSession.finalOffer!,
-        unitPrice: 400, // 25 * 400 + 150 = 10,150 > 8,500
-      },
-    };
-    sessionStore.saveSession(failingSession);
+  describe("Phase A: initiateCheckout", () => {
+    it("successfully creates PayPal Sandbox order and returns validated approval redirect URL", async () => {
+      sessionStore.saveSession(validSession);
 
-    const mockPayPalClient = new PayPalClient();
-    const captureSpy = vi.spyOn(mockPayPalClient, "capturePayment");
+      const service = new SettlementService();
+      const res = await service.initiateCheckout({
+        sessionId: validSession.id,
+        origin: "http://localhost:3000",
+      });
 
-    const service = new SettlementService({ paypalClient: mockPayPalClient });
-    const response = await service.settle({ sessionId: failingSession.id });
+      expect(res.success).toBe(true);
+      expect(res.orderId).toBeDefined();
+      expect(res.approvalUrl).toBeDefined();
+      expect(res.approvalUrl).toContain("https://www.sandbox.paypal.com/checkoutnow?token=");
 
-    expect(response.success).toBe(false);
-    expect(response.blockedAtGate).toBe(true);
-    expect(response.auditCertificate.passed).toBe(false);
+      const updated = sessionStore.getSession(validSession.id)!;
+      expect(updated.status).toBe("AWAITING_PAYPAL_APPROVAL");
+      expect(updated.paypalOrderId).toBe(res.orderId);
+      expect(updated.paypalApprovalUrl).toBe(res.approvalUrl);
+    });
 
-    // PROVE PayPal capture was NEVER invoked
-    expect(captureSpy).not.toHaveBeenCalled();
+    it("pre-emptively blocks checkout initiation if mandate financial ceiling is violated", async () => {
+      const overBudgetSession: ProcurementSession = {
+        ...validSession,
+        finalOffer: {
+          ...validSession.finalOffer!,
+          unitPrice: 500, // 25 * 500 + 150 = 12,650 > 8,500
+        },
+      };
+      sessionStore.saveSession(overBudgetSession);
+
+      const service = new SettlementService();
+      const res = await service.initiateCheckout({ sessionId: overBudgetSession.id });
+
+      expect(res.success).toBe(false);
+      expect(res.blockedAtGate).toBe(true);
+      expect(res.error).toContain("exceeds maximum total budget");
+    });
+
+    it("pre-emptively blocks checkout initiation if delivery SLA is violated", async () => {
+      const badDeliverySession: ProcurementSession = {
+        ...validSession,
+        finalOffer: {
+          ...validSession.finalOffer!,
+          deliveryDays: 10, // max is 5
+        },
+      };
+      sessionStore.saveSession(badDeliverySession);
+
+      const service = new SettlementService();
+      const res = await service.initiateCheckout({ sessionId: badDeliverySession.id });
+
+      expect(res.success).toBe(false);
+      expect(res.blockedAtGate).toBe(true);
+      expect(res.error).toContain("Delivery timeframe");
+    });
+
+    it("pre-emptively blocks checkout initiation if return window SLA is violated", async () => {
+      const badReturnSession: ProcurementSession = {
+        ...validSession,
+        finalOffer: {
+          ...validSession.finalOffer!,
+          returnDays: 14, // min is 30
+        },
+      };
+      sessionStore.saveSession(badReturnSession);
+
+      const service = new SettlementService();
+      const res = await service.initiateCheckout({ sessionId: badReturnSession.id });
+
+      expect(res.success).toBe(false);
+      expect(res.blockedAtGate).toBe(true);
+      expect(res.error).toContain("Return policy window");
+    });
+
+    it("rejects checkout initiation when session is not found in authoritative store", async () => {
+      const service = new SettlementService();
+      const res = await service.initiateCheckout({ sessionId: "session_d1239bca416243ec" });
+      expect(res.success).toBe(false);
+      expect(res.error).toBe("Session session_d1239bca416243ec not found in authoritative store.");
+    });
+
+    it("pre-emptively blocks checkout initiation if condition invariant fails in ACWORLD audit", async () => {
+      const badConditionSession: ProcurementSession = {
+        ...validSession,
+        mandate: {
+          ...validSession.mandate,
+          requiredCondition: "REFURBISHED",
+        },
+        selectedQuote: {
+          ...validSession.selectedQuote!,
+          condition: "NEW", // condition mismatch!
+        },
+      };
+      sessionStore.saveSession(badConditionSession);
+
+      const service = new SettlementService();
+      const res = await service.initiateCheckout({ sessionId: badConditionSession.id });
+
+      expect(res.success).toBe(false);
+      expect(res.blockedAtGate).toBe(true);
+      expect(res.error).toContain("ACWORLD audit gate failed pre-checkout verification");
+    });
+
+    it("evaluates ACWORLD audit on valid session during initiateCheckout and attaches auditCertificate", async () => {
+      const unAuditedSession: ProcurementSession = {
+        ...validSession,
+        auditCertificate: undefined,
+        status: "AUDIT_PENDING",
+      };
+      sessionStore.saveSession(unAuditedSession);
+
+      const service = new SettlementService();
+      const res = await service.initiateCheckout({ sessionId: unAuditedSession.id });
+
+      expect(res.success).toBe(true);
+      const updated = sessionStore.getSession(unAuditedSession.id)!;
+      expect(updated.auditCertificate).toBeDefined();
+      expect(updated.auditCertificate?.passed).toBe(true);
+      expect(updated.status).toBe("AWAITING_PAYPAL_APPROVAL");
+    });
   });
 
-  it("allows eligible capture path when ACWORLD audit passes", async () => {
-    sessionStore.saveSession(validSession);
+  describe("Phase B: completeSettlement & Audited Capture Gate", () => {
+    it("CRITICAL RULE: When ACWORLD audit fails, PayPal capturePayment is NEVER called", async () => {
+      // Inject over-budget final offer so audit fails on Price Ceiling
+      const failingSession: ProcurementSession = {
+        ...validSession,
+        finalOffer: {
+          ...validSession.finalOffer!,
+          unitPrice: 400, // 25 * 400 + 150 = 10,150 > 8,500
+        },
+      };
+      sessionStore.saveSession(failingSession);
 
-    const mockPayPalClient = new PayPalClient();
-    const captureSpy = vi.spyOn(mockPayPalClient, "capturePayment");
+      const mockPayPalClient = new PayPalClient();
+      const captureSpy = vi.spyOn(mockPayPalClient, "capturePayment");
 
-    const service = new SettlementService({ paypalClient: mockPayPalClient });
-    const response = await service.settle({ sessionId: validSession.id });
+      const service = new SettlementService({ paypalClient: mockPayPalClient });
+      const response = await service.settle({ sessionId: failingSession.id });
 
-    expect(response.success).toBe(true);
-    expect(response.blockedAtGate).toBe(false);
-    expect(response.auditCertificate.passed).toBe(true);
-    expect(response.captureId).toBeDefined();
+      expect(response.success).toBe(false);
+      expect(response.blockedAtGate).toBe(true);
+      expect(response.auditCertificate.passed).toBe(false);
 
-    // Verify capturePayment was called once
-    expect(captureSpy).toHaveBeenCalledTimes(1);
+      // PROVE PayPal capture was NEVER invoked
+      expect(captureSpy).not.toHaveBeenCalled();
+    });
 
-    const updatedSession = sessionStore.getSession(validSession.id)!;
-    expect(updatedSession.status).toBe("SETTLED");
-    expect(updatedSession.paypalCaptureId).toBe(response.captureId);
-    expect(updatedSession.postAuditRoot).toBeDefined();
+    it("blocks capture if order is still in PAYER_ACTION_REQUIRED status (buyer not yet approved)", async () => {
+      sessionStore.saveSession(validSession);
+
+      const mockPayPalClient = new PayPalClient();
+      vi.spyOn(mockPayPalClient, "getOrder").mockResolvedValue({
+        id: "ORDER_UNAPPROVED",
+        status: "PAYER_ACTION_REQUIRED",
+        intent: "AUTHORIZE",
+      });
+      const captureSpy = vi.spyOn(mockPayPalClient, "capturePayment");
+
+      const service = new SettlementService({ paypalClient: mockPayPalClient });
+      const res = await service.completeSettlement({
+        sessionId: validSession.id,
+        orderId: "ORDER_UNAPPROVED",
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.blockedAtGate).toBe(true);
+      expect(res.error).toContain("not yet been approved");
+      expect(captureSpy).not.toHaveBeenCalled();
+    });
+
+    it("rejects client injection of arbitrary order ID not bound to authoritative session", async () => {
+      const sessionWithOrder: ProcurementSession = {
+        ...validSession,
+        paypalOrderId: "GENUINE_ORDER_123",
+      };
+      sessionStore.saveSession(sessionWithOrder);
+
+      const service = new SettlementService();
+      const res = await service.completeSettlement({
+        sessionId: sessionWithOrder.id,
+        orderId: "ATTACKER_INJECTED_ORDER_456",
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.blockedAtGate).toBe(true);
+      expect(res.error).toContain("Client order injection rejected");
+    });
+
+    it("allows eligible capture path when ACWORLD audit passes", async () => {
+      sessionStore.saveSession(validSession);
+
+      const mockPayPalClient = new PayPalClient();
+      const captureSpy = vi.spyOn(mockPayPalClient, "capturePayment");
+
+      const service = new SettlementService({ paypalClient: mockPayPalClient });
+      const response = await service.settle({ sessionId: validSession.id });
+
+      expect(response.success).toBe(true);
+      expect(response.blockedAtGate).toBe(false);
+      expect(response.auditCertificate.passed).toBe(true);
+      expect(response.captureId).toBeDefined();
+
+      // Verify capturePayment was called once
+      expect(captureSpy).toHaveBeenCalledTimes(1);
+
+      const updatedSession = sessionStore.getSession(validSession.id)!;
+      expect(updatedSession.status).toBe("SETTLED");
+      expect(updatedSession.paypalCaptureId).toBe(response.captureId);
+      expect(updatedSession.postAuditRoot).toBeDefined();
+    });
+
+    it("prevents duplicate capture execution on already captured session", async () => {
+      const capturedSession: ProcurementSession = {
+        ...validSession,
+        status: "PAYPAL_CAPTURED",
+      };
+      sessionStore.saveSession(capturedSession);
+
+      const mockPayPalClient = new PayPalClient();
+      const captureSpy = vi.spyOn(mockPayPalClient, "capturePayment");
+
+      const service = new SettlementService({ paypalClient: mockPayPalClient });
+      const response = await service.settle({ sessionId: capturedSession.id });
+
+      expect(response.success).toBe(false);
+      expect(response.blockedAtGate).toBe(true);
+      expect(response.error).toContain("already been settled");
+      expect(captureSpy).not.toHaveBeenCalled();
+    });
   });
 
-  it("prevents duplicate capture execution on already captured session", async () => {
-    const capturedSession: ProcurementSession = {
-      ...validSession,
-      status: "PAYPAL_CAPTURED",
-    };
-    sessionStore.saveSession(capturedSession);
+  describe("Phase C: cancelCheckout", () => {
+    it("safely reverts checkout state to CANCELLED without false payment status", () => {
+      const pendingSession: ProcurementSession = {
+        ...validSession,
+        status: "AWAITING_PAYPAL_APPROVAL",
+      };
+      sessionStore.saveSession(pendingSession);
 
-    const mockPayPalClient = new PayPalClient();
-    const captureSpy = vi.spyOn(mockPayPalClient, "capturePayment");
+      const service = new SettlementService();
+      const res = service.cancelCheckout(pendingSession.id);
 
-    const service = new SettlementService({ paypalClient: mockPayPalClient });
-    const response = await service.settle({ sessionId: capturedSession.id });
-
-    expect(response.success).toBe(false);
-    expect(response.blockedAtGate).toBe(true);
-    expect(response.error).toContain("already been settled");
-    expect(captureSpy).not.toHaveBeenCalled();
+      expect(res.success).toBe(true);
+      expect(res.session?.status).toBe("CANCELLED");
+      expect(res.session?.paypalCaptureId).toBeUndefined();
+    });
   });
 });

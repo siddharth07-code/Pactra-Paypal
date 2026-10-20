@@ -13,10 +13,13 @@ import type {
   NegotiationOffer,
   NegotiationTurn,
   ProcurementSession,
+  AuditCertificate,
 } from "../types/pactum";
 import { verifyBuyerOffer, type GuardrailConfig } from "./mechanism-guardrail";
 import { VeriPayMerkleTree } from "./veripay-merkle";
 import { GeminiNegotiationClient } from "./gemini-client";
+import { AcworldAuditor } from "./acworld-auditor";
+import { sessionStore } from "./session-store";
 
 export interface OrchestratorOptions {
   geminiClient?: GeminiNegotiationClient;
@@ -127,6 +130,19 @@ export class NegotiationOrchestrator {
     });
 
     const activeQuotes = initialQuotes.map((q) => ({ ...q }));
+
+    // Persist session in authoritative store right at initialization
+    const initialSession: ProcurementSession = {
+      id: sessionId,
+      mandate: { ...mandate, isLocked: true },
+      quotes: activeQuotes,
+      turns: [],
+      status: "NEGOTIATING",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    sessionStore.saveSession(initialSession);
+
     const turns: NegotiationTurn[] = [];
 
     // Track state per vendor: previous buyer offer and previous vendor ask
@@ -362,6 +378,27 @@ export class NegotiationOrchestrator {
       (initialQuotes[0]?.initialUnitAsk ?? 380) * mandate.quantity + (initialQuotes[0]?.shippingCost ?? 150);
     const savingsVsBaseline = winner ? Math.max(0, initialBaselineCost - winner.totalCost) : 0;
 
+    // Run independent ACWORLD audit on final negotiated state
+    const auditor = new AcworldAuditor();
+    let auditCertificate: AuditCertificate | undefined;
+
+    if (winner && finalOffer) {
+      const preAuditSession: ProcurementSession = {
+        id: sessionId,
+        mandate,
+        quotes: activeQuotes,
+        turns,
+        selectedQuote: winner.quote,
+        finalOffer,
+        status: "AUDIT_PENDING",
+        merkleRoot: merkleTree.getRootHash(),
+        preSettlementRoot: merkleTree.getRootHash(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      auditCertificate = auditor.audit({ session: preAuditSession });
+    }
+
     const session: ProcurementSession = {
       id: sessionId,
       mandate,
@@ -369,11 +406,18 @@ export class NegotiationOrchestrator {
       turns,
       selectedQuote: winner?.quote,
       finalOffer,
-      status: winner ? "AUDIT_PENDING" : "AUDIT_FAILED",
+      status: auditCertificate
+        ? (auditCertificate.passed ? "AUDIT_PASSED" : "AUDIT_FAILED")
+        : winner ? "AUDIT_PENDING" : "AUDIT_FAILED",
+      auditCertificate,
       merkleRoot: merkleTree.getRootHash(),
+      preSettlementRoot: merkleTree.getRootHash(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
+    // Persist final session state to authoritative store
+    sessionStore.saveSession(session);
 
     await this.emit({
       type: "NEGOTIATION_COMPLETED",
@@ -383,6 +427,7 @@ export class NegotiationOrchestrator {
         totalCost: winner?.totalCost,
         savings: savingsVsBaseline,
         merkleRoot: session.merkleRoot,
+        auditPassed: auditCertificate?.passed,
       },
     });
 
