@@ -47,13 +47,15 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
   const postRoot = session?.postAuditRoot ?? evidenceData?.storedPostAuditRoot;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-12 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#F3F6FC]">Evidence vault</h1>
-          <p className="text-sm text-[#9AAAC0] mt-1.5">
-            Cryptographic SHA-256 Merkle flight recorder committing procurement records and audit proofs.
+          <h1 className="text-[36px] font-medium tracking-[-0.72px] text-[#000000]">
+            Evidence vault
+          </h1>
+          <p className="text-[16px] text-[#888888] mt-1">
+            SHA-256 Merkle flight recorder committing procurement records and verifiable audit proofs.
           </p>
         </div>
         <StatusBadge
@@ -62,62 +64,64 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
         />
       </div>
 
-      {/* Audit Summary & Roots Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-[#0D1B2B] rounded-2xl p-7 card-shadow border border-[#23354B]/60 space-y-4">
+      {/* Merkle Roots: Warm Feature Cards with subtle elevation */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="bg-[#f6f3ee] rounded-[24px] p-8 sm:p-10 border border-[#e5e5e5] space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#9AAAC0] flex items-center gap-2">
-              <Lock className="w-3.5 h-3.5 text-[#5B9CFF]" />
+            <span className="text-[14px] font-medium text-[#5c2999] uppercase tracking-[-0.28px] flex items-center gap-2">
+              <Lock className="w-4 h-4 text-[#5c2999]" />
               Pre-settlement Merkle root
             </span>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#5B9CFF]/15 text-[#5B9CFF]">
+            <span className="text-[12px] font-medium px-3 py-1 rounded-[24px] bg-[#f6f1fe] text-[#5c2999] border border-[#5c2999]/30">
               Bound to PayPal
             </span>
           </div>
           <div>
-            <div className="text-xs text-[#64758E] mb-2 font-medium">64-Character SHA-256 Digest</div>
+            <div className="text-[13px] text-[#888888] mb-2 font-medium">64-Character SHA-256 Digest</div>
             <CopyableHash hash={preRoot} truncate={false} />
           </div>
-          <p className="text-xs text-[#9AAAC0] leading-relaxed pt-3 border-t border-[#23354B]/40">
-            Commits the active mandate version, Channel3 catalog snapshot, and all verified negotiation rounds into PayPal&apos;s <span className="font-mono-token text-[#F3F6FC]">custom_id</span> metadata.
+          <p className="text-[14px] text-[#888888] leading-relaxed pt-3 border-t border-[#e5e5e5]">
+            Commits the active mandate version, Channel3 catalog snapshot, and all verified negotiation rounds into PayPal&apos;s <span className="font-mono-token text-[#000000]">custom_id</span> parameter.
           </p>
         </div>
 
-        <div className="bg-[#0D1B2B] rounded-2xl p-7 card-shadow border border-[#23354B]/60 space-y-4">
+        <div className="bg-[#f6f1fe] rounded-[24px] p-8 sm:p-10 border border-[#5c2999]/20 space-y-4 concentric-arcs-violet">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#9AAAC0] flex items-center gap-2">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#22C55E]" />
+            <span className="text-[14px] font-medium text-[#5c2999] uppercase tracking-[-0.28px] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-[#5c2999]" />
               Post-audit settlement root
             </span>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#22C55E]/15 text-[#22C55E]">
+            <span className="text-[12px] font-medium px-3 py-1 rounded-[24px] bg-[#ebfef6] text-[#00cc88] border border-[#00cc88]/30">
               ACWORLD Committed
             </span>
           </div>
           <div>
-            <div className="text-xs text-[#64758E] mb-2 font-medium">Post-Audit Digest</div>
+            <div className="text-[13px] text-[#888888] mb-2 font-medium">Post-Audit Digest</div>
             <CopyableHash hash={postRoot || "Pending audit completion"} truncate={false} />
           </div>
-          <p className="text-xs text-[#9AAAC0] leading-relaxed pt-3 border-t border-[#23354B]/40">
+          <p className="text-[14px] text-[#888888] leading-relaxed pt-3 border-t border-[#5c2999]/20">
             Commits the ACWORLD audit certificate and payment capture hash without circular dependency on the pre-settlement root.
           </p>
         </div>
       </div>
 
       {/* Five ACWORLD Invariants Display */}
-      <div className="bg-[#0D1B2B] rounded-2xl p-7 card-shadow border border-[#23354B]/60 space-y-5">
-        <div className="pb-3 border-b border-[#23354B]/40 flex items-center justify-between">
+      <div className="bg-[#ffffff] rounded-[24px] p-8 sm:p-10 border border-[#e5e5e5] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.03)] space-y-6">
+        <div className="pb-4 border-b border-[#e5e5e5] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-bold text-[#F3F6FC]">ACWORLD 5-invariant cryptographic guarantee</h2>
-            <p className="text-xs text-[#9AAAC0] mt-0.5">
+            <h2 className="text-[20px] font-medium text-[#000000] tracking-[-0.4px]">
+              ACWORLD 5-Invariant Cryptographic Guarantee
+            </h2>
+            <p className="text-[14px] text-[#888888] mt-0.5">
               Independent audit checks enforced server-side before releasing payment authorization
             </p>
           </div>
-          <span className="text-xs font-medium text-[#22C55E] bg-[#22C55E]/10 px-3 py-1 rounded-full">
+          <div className="text-[12px] font-medium text-[#00cc88] bg-[#ebfef6] px-3.5 py-1.5 rounded-[24px] border border-[#00cc88]/30 self-start sm:self-auto">
             Fail-Closed Enforced
-          </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 pt-2">
           {[
             {
               title: "1. SKU Integrity",
@@ -147,20 +151,20 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
           ].map((inv, idx) => (
             <div
               key={idx}
-              className="bg-[#132438]/70 rounded-xl p-4 border border-[#23354B]/40 flex flex-col justify-between space-y-3"
+              className="bg-[#f6f3ee] rounded-[16px] p-5 border border-[#e5e5e5] flex flex-col justify-between space-y-3"
             >
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-bold text-xs text-[#F3F6FC]">{inv.title}</span>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-[15px] text-[#000000]">{inv.title}</span>
                   {inv.passed ? (
-                    <CheckCircle2 className="w-4 h-4 text-[#22C55E]" />
+                    <CheckCircle2 className="w-4 h-4 text-[#00cc88]" />
                   ) : (
-                    <span className="w-2 h-2 rounded-full bg-[#9AAAC0]" />
+                    <span className="w-2 h-2 rounded-full bg-[#888888]" />
                   )}
                 </div>
-                <p className="text-xs text-[#9AAAC0] leading-relaxed">{inv.desc}</p>
+                <p className="text-[13px] text-[#888888] leading-relaxed">{inv.desc}</p>
               </div>
-              <div className="text-[11px] font-semibold text-[#5B9CFF]">
+              <div className="text-[12px] font-medium text-[#5c2999] pt-2 border-t border-[#e5e5e5]">
                 {inv.passed ? "Verified" : "Pending Audit"}
               </div>
             </div>
@@ -168,24 +172,26 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
         </div>
       </div>
 
-      {/* Canonical Event Timeline */}
-      <div className="bg-[#0D1B2B] rounded-2xl card-shadow border border-[#23354B]/60 overflow-hidden">
-        <div className="px-7 py-5 border-b border-[#23354B]/40 flex items-center justify-between">
-          <h2 className="text-base font-bold text-[#F3F6FC]">Canonical event timeline</h2>
-          <span className="text-xs text-[#9AAAC0]">
+      {/* Canonical Event Timeline (Warm Cream Card) */}
+      <div className="bg-[#f6f3ee] rounded-[24px] border border-[#e5e5e5] overflow-hidden p-8 sm:p-10 space-y-6">
+        <div className="flex items-center justify-between pb-4 border-b border-[#e5e5e5]">
+          <h2 className="text-[20px] font-medium text-[#000000] tracking-[-0.4px]">
+            Canonical Event Timeline
+          </h2>
+          <span className="text-[14px] text-[#888888]">
             {evidenceData?.leaves.length ?? 0} committed events in Merkle tree
           </span>
         </div>
 
-        <div className="p-7">
+        <div>
           {isLoading ? (
-            <div className="py-12 text-center text-xs text-[#9AAAC0]">Loading cryptographic evidence...</div>
+            <div className="py-12 text-center text-[14px] text-[#888888]">Loading cryptographic evidence...</div>
           ) : !session ? (
-            <div className="py-12 text-center text-xs text-[#64758E]">
+            <div className="py-12 text-center text-[14px] text-[#888888]">
               No active session loaded. Complete a negotiation in the Arena to view Merkle leaves.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {[
                 {
                   type: "MANDATE_LOCKED",
@@ -210,16 +216,16 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
               ].map((ev, i) => (
                 <div
                   key={i}
-                  className="bg-[#132438]/50 hover:bg-[#132438] rounded-xl p-4.5 border border-[#23354B]/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  className="bg-[#ffffff] rounded-[16px] p-5 border border-[#e5e5e5] transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm"
                 >
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2.5">
-                      <span className="font-mono-token text-xs text-[#5B9CFF] bg-[#07111F] px-2.5 py-0.5 rounded font-semibold">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono-token text-[12px] text-[#5c2999] bg-[#f6f1fe] px-2.5 py-1 rounded-[6px] font-medium">
                         Leaf #{i}
                       </span>
-                      <span className="font-bold text-sm text-[#F3F6FC]">{ev.type}</span>
+                      <span className="font-medium text-[16px] text-[#000000]">{ev.type}</span>
                     </div>
-                    <div className="text-xs text-[#9AAAC0]">{ev.desc}</div>
+                    <div className="text-[14px] text-[#888888]">{ev.desc}</div>
                   </div>
                   <div className="shrink-0">
                     <CopyableHash hash={ev.hash} truncate={true} />

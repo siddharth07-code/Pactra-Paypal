@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import {
-  Layers,
+  Compass,
   Search,
   Zap,
   ShieldCheck,
@@ -33,7 +33,7 @@ export function AppShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { id: "overview", label: "Overview", icon: Layers, badge: null },
+    { id: "overview", label: "Overview", icon: Compass, badge: null },
     { id: "sourcing", label: "Sourcing", icon: Search, badge: null },
     { id: "arena", label: "Negotiation Arena", icon: Zap, badge: "Live" },
     { id: "vault", label: "Evidence Vault", icon: ShieldCheck, badge: null },
@@ -42,125 +42,94 @@ export function AppShell({
   ];
 
   return (
-    <div className="min-h-screen flex fintech-bg text-[#F3F6FC]">
-      {/* DESKTOP SIDEBAR */}
-      <aside className="hidden lg:flex w-64 flex-col justify-between bg-[#0D1B2B]/95 backdrop-blur-xl border-r border-[#23354B]/60 sticky top-0 h-screen z-30 select-none">
-        <div>
-          {/* Logo & Wordmark */}
-          <div className="h-20 px-6 flex items-center border-b border-[#23354B]/40 gap-3.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#005EA6] via-[#0070E0] to-[#5B9CFF] flex items-center justify-center font-bold text-white shadow-md shadow-[#5B9CFF]/15">
-              P
-            </div>
-            <div>
-              <div className="text-base font-bold tracking-tight text-[#F3F6FC] flex items-center gap-2">
-                PACTUM
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#132438] text-[#5B9CFF] border border-[#23354B]/60">
-                  B2B
+    <div className="min-h-screen flex flex-col bg-[#ffffff] text-[#000000]">
+      {/* Top Navigation Bar (DESIGN.md Section: Top Navigation Bar)
+          White background, full-width, left-aligned wordmark PACTUM in weight 500 at 20px with tracking -0.4px.
+          Nav links in weight 400 at 16px, separated by ~24px gap.
+          Right-aligned: text link (Sandbox Portal) and ghost button (Dashboard/Status). */}
+      <header className="w-full bg-[#ffffff] border-b border-[#e5e5e5] sticky top-0 z-40">
+        <div className="max-w-[1200px] mx-auto px-6 h-20 flex items-center justify-between">
+          {/* Left: Wordmark */}
+          <div className="flex items-center gap-8">
+            <button
+              onClick={() => onNavigate("overview")}
+              className="flex items-center gap-3 cursor-pointer text-left"
+            >
+              <div className="w-9 h-9 rounded-[8px] bg-[#000000] text-[#ffffff] font-medium text-[18px] flex items-center justify-center">
+                P
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[20px] font-medium tracking-[-0.4px] text-[#000000] leading-none">
+                  PACTUM
+                </span>
+                <span className="text-[12px] text-[#888888] font-normal tracking-[-0.2px] mt-0.5">
+                  Verifiable Settlement
                 </span>
               </div>
-              <div className="text-xs text-[#9AAAC0] tracking-normal font-normal">Autonomous Settle</div>
-            </div>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="p-4 space-y-1.5">
-            <div className="text-xs text-[#64758E] px-3 pt-2 pb-1.5 font-medium tracking-wide">
-              Procurement Lifecycle
-            </div>
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentScreen === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => onNavigate(item.id as NavScreen)}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                    isActive
-                      ? "bg-[#132438] text-[#5B9CFF] shadow-sm font-semibold"
-                      : "text-[#9AAAC0] hover:text-[#F3F6FC] hover:bg-[#132438]/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? "text-[#5B9CFF]" : "text-[#9AAAC0]"}`} />
-                    <span>{item.label}</span>
-                  </div>
-                  {item.badge && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#5B9CFF]/15 text-[#5B9CFF]">
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Sidebar Footer */}
-        <div className="p-4 mx-3 mb-4 rounded-xl bg-[#07111F]/70 border border-[#23354B]/40 space-y-2.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-[#9AAAC0] flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#22C55E]" />
-              Trust Layer
-            </span>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#F59E0B]/10 text-[#F59E0B]">
-              Sandbox
-            </span>
-          </div>
-          <div className="text-[11px] text-[#64758E] flex items-center justify-between pt-1 border-t border-[#23354B]/40">
-            <span>PayPal Orders v2</span>
-            <span className="text-[#5B9CFF] font-medium">Merkle Gate</span>
-          </div>
-        </div>
-      </aside>
-
-      {/* MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Navbar */}
-        <header className="h-16 px-6 lg:px-10 border-b border-[#23354B]/40 bg-[#07111F]/80 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-xl text-[#9AAAC0] hover:bg-[#0D1B2B]"
-              aria-label="Toggle menu"
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            <div className="flex items-center gap-2.5 text-xs">
-              <span className="text-[#64758E] font-medium">Session</span>
-              <span className="font-mono-token text-[#F3F6FC] bg-[#0D1B2B] px-3 py-1 rounded-lg border border-[#23354B]/60 text-xs">
-                {activeSessionId || "None Active"}
-              </span>
-              {activeBudgetString && (
-                <span className="hidden sm:inline text-xs font-medium text-[#22C55E] bg-[#22C55E]/10 px-3 py-1 rounded-lg">
-                  {activeBudgetString}
-                </span>
-              )}
-            </div>
+            {/* Desktop Center Nav Links */}
+            <nav className="hidden md:flex items-center gap-6 pl-4 border-l border-[#e5e5e5]">
+              {navItems.map((item) => {
+                const isActive = currentScreen === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onNavigate(item.id as NavScreen)}
+                    className={`text-[16px] tracking-[-0.32px] transition-colors cursor-pointer relative py-2 ${
+                      isActive
+                        ? "font-medium text-[#000000]"
+                        : "font-normal text-[#888888] hover:text-[#000000]"
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    {isActive && (
+                      <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#ff6600]" />
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-[#0D1B2B] border border-[#23354B]/60 text-xs text-[#9AAAC0]">
-              <span>Boulware Strategy</span>
-              <span className="text-[#64758E]">•</span>
-              <span className="text-[#22C55E] font-medium">Audit Gate Enforced</span>
-            </div>
+          {/* Right: Active Context & Sandbox Indicator */}
+          <div className="hidden sm:flex items-center gap-4">
+            {activeSessionId && (
+              <div className="flex items-center gap-2 bg-[#f6f3ee] px-3.5 py-1.5 rounded-[8px] border border-[#e5e5e5] text-[14px]">
+                <span className="text-[#888888]">Session:</span>
+                <span className="font-mono-token text-[#000000] font-medium">{activeSessionId}</span>
+                {activeBudgetString && (
+                  <span className="text-[#5c2999] font-medium pl-1 border-l border-[#e5e5e5]">
+                    {activeBudgetString}
+                  </span>
+                )}
+              </div>
+            )}
 
             <a
               href="https://sandbox.paypal.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-[#5B9CFF] hover:text-[#458AF0] transition-colors font-medium ml-2"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] border border-[#000000] text-[14px] font-medium text-[#000000] hover:bg-[#000000]/5 transition-colors"
             >
               <span>Sandbox Console</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
-        </header>
 
-        {/* Mobile Navigation Dropdown */}
+          {/* Mobile Menu Trigger */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-[8px] text-[#000000] hover:bg-[#f6f3ee]"
+            aria-label="Toggle navigation"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
+
+        {/* Mobile Dropdown */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-b border-[#23354B] bg-[#0D1B2B] p-4 space-y-1">
+          <div className="md:hidden border-t border-[#e5e5e5] bg-[#ffffff] p-6 space-y-3">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentScreen === item.id;
@@ -171,21 +140,49 @@ export function AppShell({
                     onNavigate(item.id as NavScreen);
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium ${
-                    isActive ? "bg-[#132438] text-[#5B9CFF]" : "text-[#9AAAC0]"
+                  className={`w-full flex items-center justify-between p-3 rounded-[8px] text-[16px] ${
+                    isActive
+                      ? "bg-[#f6f3ee] font-medium text-[#000000]"
+                      : "text-[#888888] font-normal"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-5 h-5 text-[#5c2999]" />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="text-[12px] bg-[#ebfef6] text-[#00cc88] px-2 py-0.5 rounded-full font-medium">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
         )}
+      </header>
 
-        {/* Page Content */}
-        <main className="flex-1 p-6 lg:p-10 max-w-7xl w-full mx-auto">{children}</main>
-      </div>
+      {/* Main Page Canvas Container (Max 1200px as per DESIGN.md Layout) */}
+      <main className="flex-1 w-full max-w-[1200px] mx-auto px-6 py-10 sm:py-16">{children}</main>
+
+      {/* Editorial Footer Bar (DESIGN.md: CTA Footer Bar) */}
+      <footer className="w-full bg-[#f6f3ee] border-t border-[#e5e5e5] mt-20">
+        <div className="max-w-[1200px] mx-auto px-6 py-12 flex flex-col sm:flex-row items-center justify-between gap-6 text-[14px] text-[#888888]">
+          <div className="flex items-center gap-3">
+            <span className="font-medium text-[#000000]">PACTUM</span>
+            <span>—</span>
+            <span>Negotiate Intelligently. Settle Verifiably.</span>
+          </div>
+          <div className="flex items-center gap-6">
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#00cc88]" />
+              PayPal Orders v2 Verified Gate
+            </span>
+            <span>Boulware β=3.0</span>
+            <span className="text-[#5c2999]">SHA-256 Merkle Engine</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

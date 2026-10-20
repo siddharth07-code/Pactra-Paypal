@@ -44,39 +44,41 @@ export function ProcurementHistoryScreen({
   });
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-12 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#F3F6FC]">Procurement history</h1>
-          <p className="text-sm text-[#9AAAC0] mt-1.5">
+          <h1 className="text-[36px] font-medium tracking-[-0.72px] text-[#000000]">
+            Procurement history
+          </h1>
+          <p className="text-[16px] text-[#888888] mt-1">
             Authoritative audit trail of procurement mandates, supplier bids, and cryptographic settlements.
           </p>
         </div>
-        <div className="text-xs text-[#9AAAC0] bg-[#0D1B2B] px-3.5 py-1.5 rounded-xl border border-[#23354B]/60">
-          Server-Side In-Memory Storage
+        <div className="text-[13px] text-[#888888] bg-[#f6f3ee] px-4 py-2 rounded-[24px] border border-[#e5e5e5]">
+          Server In-Memory Storage
         </div>
       </div>
 
       {/* Search and Filters Bar */}
-      <div className="bg-[#0D1B2B] rounded-2xl p-5 card-shadow border border-[#23354B]/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="bg-[#f6f3ee] rounded-[24px] p-6 border border-[#e5e5e5] flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="relative w-full sm:w-96">
-          <Search className="w-4 h-4 absolute left-3.5 top-3 text-[#64758E]" />
+          <Search className="w-4 h-4 absolute left-4 top-3 text-[#888888]" />
           <input
             type="text"
             placeholder="Search by session ID, product, or supplier..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#07111F] rounded-xl pl-10 pr-4 py-2.5 text-xs text-[#F3F6FC] border border-[#23354B]/60 focus:outline-none focus:border-[#5B9CFF]"
+            className="w-full bg-[#ffffff] rounded-[24px] pl-11 pr-4 py-2.5 text-[14px] text-[#000000] border border-[#e5e5e5] focus:outline-none focus:border-[#000000]"
           />
         </div>
 
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-[#64758E]" />
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <Filter className="w-4 h-4 text-[#888888]" />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-[#07111F] rounded-xl px-4 py-2.5 text-xs text-[#F3F6FC] border border-[#23354B]/60 focus:outline-none focus:border-[#5B9CFF]"
+            className="bg-[#ffffff] rounded-[24px] px-4 py-2.5 text-[14px] text-[#000000] border border-[#e5e5e5] focus:outline-none focus:border-[#000000] cursor-pointer"
           >
             <option value="ALL">All States</option>
             <option value="SETTLED">Settled &amp; Captured</option>
@@ -86,19 +88,19 @@ export function ProcurementHistoryScreen({
         </div>
       </div>
 
-      {/* Sessions List */}
-      <div className="bg-[#0D1B2B] rounded-2xl card-shadow border border-[#23354B]/60 overflow-hidden">
+      {/* Sessions List on White Paper Surface */}
+      <div className="bg-[#ffffff] rounded-[24px] border border-[#e5e5e5] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.03)] overflow-hidden">
         {filteredSessions.length === 0 ? (
-          <div className="p-12">
+          <div className="p-16">
             <EmptyState
-              title="No historical sessions found"
-              description="No procurement sessions matched the filter criteria. Initiate a new procurement mandate to build your audit trail."
-              actionLabel="Launch Procurement"
+              title="No Historical Sessions Found"
+              description="No procurement sessions matched the filter criteria. Initiate a new procurement mandate to build your verifiable audit trail."
+              actionLabel="Launch Procurement Mandate"
               onAction={onStartNew}
             />
           </div>
         ) : (
-          <div className="divide-y divide-[#23354B]/40">
+          <div className="divide-y divide-[#e5e5e5]">
             {filteredSessions.map((s) => {
               let badgeStatus: "verified" | "warning" | "failure" | "info" | "neutral" = "info";
               if (s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED") badgeStatus = "verified";
@@ -109,24 +111,23 @@ export function ProcurementHistoryScreen({
                 <div
                   key={s.id}
                   onClick={() => onSelectSession(s)}
-                  className="px-7 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#132438]/50 transition-colors cursor-pointer"
+                  className="px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#f6f3ee]/60 transition-colors cursor-pointer"
                 >
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <div className="flex items-center gap-3">
-                      <span className="font-bold text-sm text-[#F3F6FC]">{s.mandate.itemQuery}</span>
-                      <span className="text-xs text-[#9AAAC0]">({s.mandate.quantity} units)</span>
+                      <span className="font-medium text-[17px] text-[#000000]">{s.mandate.itemQuery}</span>
+                      <span className="text-[14px] text-[#888888]">({s.mandate.quantity} units)</span>
                       <StatusBadge
                         status={badgeStatus}
                         label={s.status.replace(/_/g, " ")}
-                        size="sm"
                       />
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-[#64758E]">
+                    <div className="flex items-center gap-3 text-[13px] text-[#888888]">
                       <span className="font-mono-token">{s.id}</span>
                       <span>•</span>
                       <span>
                         Supplier:{" "}
-                        <strong className="text-[#9AAAC0]">
+                        <strong className="text-[#000000] font-medium">
                           {s.selectedQuote?.vendorName || "Evaluating"}
                         </strong>
                       </span>
@@ -135,7 +136,7 @@ export function ProcurementHistoryScreen({
 
                   <div className="flex items-center gap-8 self-end sm:self-center">
                     <div className="text-right">
-                      <div className="text-xs text-[#9AAAC0]">Ceiling Budget</div>
+                      <div className="text-[12px] text-[#888888]">Ceiling Budget</div>
                       <CurrencyDisplay
                         amount={s.mandate.maxTotalBudget}
                         currency={s.mandate.currency}
@@ -143,14 +144,14 @@ export function ProcurementHistoryScreen({
                       />
                     </div>
                     {s.auditCertificate ? (
-                      <span className="text-xs font-semibold text-[#22C55E] flex items-center gap-1.5">
+                      <span className="text-[13px] font-medium text-[#00cc88] flex items-center gap-1.5">
                         <ShieldCheck className="w-4 h-4" />
                         Audit Verified
                       </span>
                     ) : (
-                      <span className="text-xs text-[#64758E]">Pending Audit</span>
+                      <span className="text-[13px] text-[#888888]">Pending Audit</span>
                     )}
-                    <ChevronRight className="w-5 h-5 text-[#64758E]" />
+                    <ChevronRight className="w-5 h-5 text-[#888888]" />
                   </div>
                 </div>
               );
