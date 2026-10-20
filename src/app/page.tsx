@@ -100,7 +100,12 @@ export default function Home() {
   }, []);
 
   // Handle launch of negotiation from Sourcing or Overview
-  const handleStartNegotiation = async (prompt: string, currency: string) => {
+  const handleStartNegotiation = async (
+    prompt: string,
+    currency: string,
+    rawMandate?: Partial<ProcurementMandate>,
+    sessionId?: string
+  ) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -110,13 +115,13 @@ export default function Home() {
 
     setStreamEvents([]);
     setIsStreaming(true);
-    navigateToScreen("arena");
+    navigateToScreen("arena", sessionId);
 
     try {
       const res = await fetch("/api/negotiate/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, currency }),
+        body: JSON.stringify({ prompt, currency, rawMandate, sessionId }),
         signal: abortController.signal,
       });
 

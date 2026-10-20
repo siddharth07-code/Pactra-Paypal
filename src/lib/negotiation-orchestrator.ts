@@ -95,9 +95,10 @@ export class NegotiationOrchestrator {
    */
   public async runNegotiation(
     mandate: ProcurementMandate,
-    initialQuotes: VendorQuote[]
+    initialQuotes: VendorQuote[],
+    existingSessionId?: string
   ): Promise<OrchestrationResult> {
-    const sessionId = `session_${crypto.randomBytes(8).toString("hex")}`;
+    const sessionId = existingSessionId || `session_${crypto.randomBytes(8).toString("hex")}`;
     const merkleTree = new VeriPayMerkleTree();
 
     // 1. Commit MANDATE_LOCKED event
@@ -132,13 +133,15 @@ export class NegotiationOrchestrator {
     const activeQuotes = initialQuotes.map((q) => ({ ...q }));
 
     // Persist session in authoritative store right at initialization
+    const existing = existingSessionId ? sessionStore.getSession(existingSessionId) : undefined;
     const initialSession: ProcurementSession = {
+      ...(existing || {}),
       id: sessionId,
-      mandate: { ...mandate, isLocked: true },
+      mandate: { ...(existing?.mandate || mandate), isLocked: true },
       quotes: activeQuotes,
       turns: [],
       status: "NEGOTIATING",
-      createdAt: new Date().toISOString(),
+      createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     sessionStore.saveSession(initialSession);

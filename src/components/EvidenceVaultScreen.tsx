@@ -1,13 +1,21 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { CopyableHash, StatusBadge } from "./SharedUI";
+import {
+  CopyableHash,
+  StatusBadge,
+  SectionHeader,
+  WarmFeatureCard,
+  LavenderFeaturePanel,
+  EmptyState,
+} from "./SharedUI";
 import {
   ShieldCheck,
   Lock,
   CheckCircle2,
+  XCircle,
 } from "lucide-react";
-import type { ProcurementSession } from "@/types/pactum";
+import type { ProcurementSession, MerkleAuditNode } from "@/types/pactum";
 
 interface EvidenceVaultScreenProps {
   session?: ProcurementSession;
@@ -20,6 +28,8 @@ interface EvidenceInspectionData {
   storedPostAuditRoot?: string;
   leafCount: number;
   leaves: string[];
+  auditNodes?: MerkleAuditNode[];
+  levels: string[][];
   isRootMatching: boolean;
 }
 
@@ -28,7 +38,10 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!session?.id) return;
+    if (!session?.id) {
+      setEvidenceData(null);
+      return;
+    }
     setIsLoading(true);
 
     fetch(`/api/procurement/evidence?sessionId=${session.id}`)
@@ -36,136 +49,191 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       .then((data) => {
         if (!data.error) {
           setEvidenceData(data);
+        } else {
+          setEvidenceData(null);
         }
       })
-      .catch((err) => console.error("Error loading evidence:", err))
+      .catch(() => setEvidenceData(null))
       .finally(() => setIsLoading(false));
   }, [session?.id]);
 
+  // Authoritative pre-settlement root: only display genuine digest from session or authoritative evidence
   const preRoot =
-    session?.preSettlementRoot ?? session?.merkleRoot ?? evidenceData?.reconstructedRoot ?? "0".repeat(64);
+    session?.preSettlementRoot ??
+    session?.merkleRoot ??
+    evidenceData?.storedPreSettlementRoot ??
+    (evidenceData && evidenceData.leafCount > 0 ? evidenceData.reconstructedRoot : undefined);
+
+  // Authoritative post-audit settlement root
   const postRoot = session?.postAuditRoot ?? evidenceData?.storedPostAuditRoot;
 
+  // Resolve authentic invariant status from authoritative session certificate
+  const getInvariantStatus = (
+    invariantName: "SKU_INTEGRITY" | "PRICE_CEILING" | "RETURN_POLICY" | "DELIVERY_SLA" | "CRYPTOGRAPHIC_LINEAGE"
+  ) => {
+    const inv = session?.auditCertificate?.invariants?.find((i) => i.name === invariantName);
+    return {
+      tested: Boolean(inv),
+      passed: Boolean(inv?.passed),
+      reason: inv?.reason,
+    };
+  };
+
+  const skuInvariant = getInvariantStatus("SKU_INTEGRITY");
+  const priceInvariant = getInvariantStatus("PRICE_CEILING");
+  const returnInvariant = getInvariantStatus("RETURN_POLICY");
+  const deliveryInvariant = getInvariantStatus("DELIVERY_SLA");
+  const cryptoInvariant = getInvariantStatus("CRYPTOGRAPHIC_LINEAGE");
+
+  // Determine committed nodes to display
+  const committedNodes: MerkleAuditNode[] =
+    evidenceData?.auditNodes && evidenceData.auditNodes.length > 0
+      ? evidenceData.auditNodes
+      : [];
+
   return (
-    <div className="space-y-12 animate-in fade-in duration-300">
+    <div className="space-y-10 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
-        <div>
-          <h1 className="text-[36px] font-medium tracking-[-0.72px] text-[#000000]">
-            Evidence vault
-          </h1>
-          <p className="text-[16px] text-[#888888] mt-1">
-            SHA-256 Merkle flight recorder committing procurement records and verifiable audit proofs.
-          </p>
-        </div>
-        <StatusBadge
-          status={session?.merkleRoot ? "verified" : "neutral"}
-          label={session?.merkleRoot ? "Flight Recorder Locked" : "Awaiting Negotiation"}
-        />
-      </div>
+      <SectionHeader
+        title="Evidence vault"
+        subtitle="SHA-256 Merkle flight recorder committing procurement records and verifiable audit proofs."
+        badge={
+          <StatusBadge
+            status={preRoot ? "verified" : "neutral"}
+            label={preRoot ? "Flight Recorder Locked" : "Awaiting Negotiation"}
+          />
+        }
+      />
 
       {/* Merkle Roots: Warm Feature Cards with subtle elevation */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-[#f6f3ee] rounded-[24px] p-8 sm:p-10 border border-[#e5e5e5] space-y-4">
+        <WarmFeatureCard className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium text-[#5c2999] uppercase tracking-[-0.28px] flex items-center gap-2">
-              <Lock className="w-4 h-4 text-[#5c2999]" />
+            <span className="text-[14px] font-medium text-architect-violet uppercase tracking-[-0.28px] flex items-center gap-2">
+              <Lock className="w-4 h-4 text-architect-violet" aria-hidden="true" />
               Pre-settlement Merkle root
             </span>
-            <span className="text-[12px] font-medium px-3 py-1 rounded-[24px] bg-[#f6f1fe] text-[#5c2999] border border-[#5c2999]/30">
-              Bound to PayPal
+            <span className="text-[12px] font-medium px-3 py-1 rounded-cards bg-lavender-mist text-architect-violet border border-architect-violet/30">
+              Bound to PayPal custom_id
             </span>
           </div>
           <div>
-            <div className="text-[13px] text-[#888888] mb-2 font-medium">64-Character SHA-256 Digest</div>
-            <CopyableHash hash={preRoot} truncate={false} />
+            <div className="text-[13px] text-[#666666] mb-2 font-medium">64-Character SHA-256 Digest</div>
+            {preRoot ? (
+              <CopyableHash hash={preRoot} truncate={false} />
+            ) : (
+              <div className="p-3.5 rounded-smallelements bg-warm-cream border border-smoke text-[14px] text-ash-gray font-mono-token italic">
+                Uncommitted — Awaiting verified negotiation completion
+              </div>
+            )}
           </div>
-          <p className="text-[14px] text-[#888888] leading-relaxed pt-3 border-t border-[#e5e5e5]">
-            Commits the active mandate version, Channel3 catalog snapshot, and all verified negotiation rounds into PayPal&apos;s <span className="font-mono-token text-[#000000]">custom_id</span> parameter.
+          <p className="text-[14px] text-[#666666] leading-relaxed pt-3 border-t border-smoke">
+            Commits the active mandate version, Channel3 catalog snapshot, and all verified negotiation rounds into PayPal&apos;s <span className="font-mono-token text-obsidian">custom_id</span> parameter.
           </p>
-        </div>
+        </WarmFeatureCard>
 
-        <div className="bg-[#f6f1fe] rounded-[24px] p-8 sm:p-10 border border-[#5c2999]/20 space-y-4 concentric-arcs-violet">
+        <LavenderFeaturePanel className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium text-[#5c2999] uppercase tracking-[-0.28px] flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#5c2999]" />
+            <span className="text-[14px] font-medium text-architect-violet uppercase tracking-[-0.28px] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-architect-violet" aria-hidden="true" />
               Post-audit settlement root
             </span>
-            <span className="text-[12px] font-medium px-3 py-1 rounded-[24px] bg-[#ebfef6] text-[#00cc88] border border-[#00cc88]/30">
+            <span className="text-[12px] font-medium px-3 py-1 rounded-cards bg-mint-whisper text-lichen-green border border-lichen-green/30">
               ACWORLD Committed
             </span>
           </div>
           <div>
-            <div className="text-[13px] text-[#888888] mb-2 font-medium">Post-Audit Digest</div>
-            <CopyableHash hash={postRoot || "Pending audit completion"} truncate={false} />
+            <div className="text-[13px] text-[#666666] mb-2 font-medium">Post-Audit Digest</div>
+            {postRoot ? (
+              <CopyableHash hash={postRoot} truncate={false} />
+            ) : (
+              <div className="p-3.5 rounded-smallelements bg-paper-white border border-architect-violet/20 text-[14px] text-ash-gray font-mono-token italic">
+                Pending ACWORLD final audit completion
+              </div>
+            )}
           </div>
-          <p className="text-[14px] text-[#888888] leading-relaxed pt-3 border-t border-[#5c2999]/20">
+          <p className="text-[14px] text-[#666666] leading-relaxed pt-3 border-t border-architect-violet/20">
             Commits the ACWORLD audit certificate and payment capture hash without circular dependency on the pre-settlement root.
           </p>
-        </div>
+        </LavenderFeaturePanel>
       </div>
 
       {/* Five ACWORLD Invariants Display */}
-      <div className="bg-[#ffffff] rounded-[24px] p-8 sm:p-10 border border-[#e5e5e5] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.03)] space-y-6">
-        <div className="pb-4 border-b border-[#e5e5e5] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-paper-white rounded-cards p-8 sm:p-10 border border-smoke shadow-[0px_4px_8px_0px_rgba(0,0,0,0.03)] space-y-6">
+        <div className="pb-4 border-b border-smoke flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-[20px] font-medium text-[#000000] tracking-[-0.4px]">
+            <h2 className="text-[20px] font-medium text-obsidian tracking-[-0.4px]">
               ACWORLD 5-Invariant Cryptographic Guarantee
             </h2>
-            <p className="text-[14px] text-[#888888] mt-0.5">
+            <p className="text-[14px] text-[#666666] mt-0.5 tracking-[-0.2px]">
               Independent audit checks enforced server-side before releasing payment authorization
             </p>
           </div>
-          <div className="text-[12px] font-medium text-[#00cc88] bg-[#ebfef6] px-3.5 py-1.5 rounded-[24px] border border-[#00cc88]/30 self-start sm:self-auto">
+          <div className="text-[12px] font-medium text-lichen-green bg-mint-whisper px-3.5 py-1.5 rounded-cards border border-lichen-green/30 self-start sm:self-auto">
             Fail-Closed Enforced
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 pt-2">
           {[
             {
               title: "1. SKU Integrity",
               desc: "Matches selected quote SKU & condition against mandate.",
-              passed: Boolean(session?.auditCertificate?.invariants[0]?.passed),
+              state: skuInvariant,
             },
             {
               title: "2. Price Ceiling",
               desc: "Landed cost calculation <= dynamic maxTotalBudget.",
-              passed: Boolean(session?.auditCertificate?.invariants[1]?.passed),
+              state: priceInvariant,
             },
             {
               title: "3. Return SLA",
               desc: "Return window >= minReturnDays backed by DOM evidence.",
-              passed: Boolean(session?.auditCertificate?.invariants[2]?.passed),
+              state: returnInvariant,
             },
             {
               title: "4. Delivery SLA",
               desc: "Estimated days <= mandate maxDeliveryDays.",
-              passed: Boolean(session?.auditCertificate?.invariants[3]?.passed),
+              state: deliveryInvariant,
             },
             {
               title: "5. Crypto Lineage",
               desc: "Recomputed Merkle root bound to PayPal custom_id.",
-              passed: Boolean(session?.auditCertificate?.invariants[4]?.passed),
+              state: cryptoInvariant,
             },
           ].map((inv, idx) => (
             <div
               key={idx}
-              className="bg-[#f6f3ee] rounded-[16px] p-5 border border-[#e5e5e5] flex flex-col justify-between space-y-3"
+              className="bg-warm-cream rounded-smallelements p-5 border border-smoke flex flex-col justify-between space-y-3"
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-[15px] text-[#000000]">{inv.title}</span>
-                  {inv.passed ? (
-                    <CheckCircle2 className="w-4 h-4 text-[#00cc88]" />
+                  <span className="font-medium text-[15px] text-obsidian tracking-[-0.3px]">{inv.title}</span>
+                  {inv.state.tested ? (
+                    inv.state.passed ? (
+                      <CheckCircle2 className="w-4 h-4 text-lichen-green" aria-hidden="true" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-[#ef4444]" aria-hidden="true" />
+                    )
                   ) : (
-                    <span className="w-2 h-2 rounded-full bg-[#888888]" />
+                    <span className="w-2 h-2 rounded-full bg-ash-gray" aria-hidden="true" />
                   )}
                 </div>
-                <p className="text-[13px] text-[#888888] leading-relaxed">{inv.desc}</p>
+                <p className="text-[13px] text-[#666666] leading-relaxed tracking-[-0.2px]">{inv.desc}</p>
+                {inv.state.reason && !inv.state.passed && (
+                  <p className="text-[12px] text-[#ef4444] mt-2 font-mono-token">{inv.state.reason}</p>
+                )}
               </div>
-              <div className="text-[12px] font-medium text-[#5c2999] pt-2 border-t border-[#e5e5e5]">
-                {inv.passed ? "Verified" : "Pending Audit"}
+              <div className="text-[12px] font-medium pt-2 border-t border-smoke">
+                {inv.state.tested ? (
+                  inv.state.passed ? (
+                    <span className="text-lichen-green">Verified</span>
+                  ) : (
+                    <span className="text-[#ef4444]">Failed</span>
+                  )
+                ) : (
+                  <span className="text-[#666666]">Pending Audit</span>
+                )}
               </div>
             </div>
           ))}
@@ -173,66 +241,84 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       </div>
 
       {/* Canonical Event Timeline (Warm Cream Card) */}
-      <div className="bg-[#f6f3ee] rounded-[24px] border border-[#e5e5e5] overflow-hidden p-8 sm:p-10 space-y-6">
-        <div className="flex items-center justify-between pb-4 border-b border-[#e5e5e5]">
-          <h2 className="text-[20px] font-medium text-[#000000] tracking-[-0.4px]">
+      <div className="bg-warm-cream rounded-cards border border-smoke overflow-hidden p-8 sm:p-10 space-y-6">
+        <div className="flex items-center justify-between pb-4 border-b border-smoke">
+          <h2 className="text-[20px] font-medium text-obsidian tracking-[-0.4px]">
             Canonical Event Timeline
           </h2>
-          <span className="text-[14px] text-[#888888]">
-            {evidenceData?.leaves.length ?? 0} committed events in Merkle tree
+          <span className="text-[14px] text-[#666666] tracking-[-0.2px]">
+            {committedNodes.length > 0
+              ? `${committedNodes.length} committed events in Merkle tree`
+              : evidenceData?.leaves.length
+              ? `${evidenceData.leaves.length} leaves in Merkle tree`
+              : "0 committed events"}
           </span>
         </div>
 
         <div>
           {isLoading ? (
-            <div className="py-12 text-center text-[14px] text-[#888888]">Loading cryptographic evidence...</div>
-          ) : !session ? (
-            <div className="py-12 text-center text-[14px] text-[#888888]">
-              No active session loaded. Complete a negotiation in the Arena to view Merkle leaves.
+            <div className="py-12 text-center text-[14px] text-[#666666]">
+              Loading cryptographic evidence...
             </div>
-          ) : (
+          ) : !session ? (
+            <EmptyState
+              title="No session selected"
+              description="Select or start a procurement session to inspect authentic Merkle tree leaves and cryptographic evidence."
+            />
+          ) : committedNodes.length > 0 ? (
             <div className="space-y-4">
-              {[
-                {
-                  type: "MANDATE_LOCKED",
-                  desc: "Deterministic mandate constraints, quantity, budget ceiling & SLA requirements",
-                  hash: evidenceData?.leaves[0] || "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                },
-                {
-                  type: "CHANNEL3_CATALOG_SNAPSHOT",
-                  desc: "Baseline multi-attribute offers from competing wholesale suppliers",
-                  hash: evidenceData?.leaves[1] || "c0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffee1234",
-                },
-                {
-                  type: "KERNEL_DOM_ATTESTATION",
-                  desc: "Merchant return policy snapshot hash and verified policy URL claim",
-                  hash: evidenceData?.leaves[2] || "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
-                },
-                {
-                  type: "VERIFIED_NEGOTIATION_ROUND",
-                  desc: "Multi-round Boulware bids, counteroffers, and guardrail pass transcripts",
-                  hash: evidenceData?.leaves[3] || preRoot,
-                },
-              ].map((ev, i) => (
+              {committedNodes.map((node) => (
                 <div
-                  key={i}
-                  className="bg-[#ffffff] rounded-[16px] p-5 border border-[#e5e5e5] transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm"
+                  key={node.index}
+                  className="bg-paper-white rounded-smallelements p-5 border border-smoke transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-3">
-                      <span className="font-mono-token text-[12px] text-[#5c2999] bg-[#f6f1fe] px-2.5 py-1 rounded-[6px] font-medium">
-                        Leaf #{i}
+                      <span className="font-mono-token text-[12px] text-architect-violet bg-lavender-mist px-2.5 py-1 rounded-[6px] font-medium border border-architect-violet/20">
+                        Leaf #{node.index}
                       </span>
-                      <span className="font-medium text-[16px] text-[#000000]">{ev.type}</span>
+                      <span className="font-medium text-[16px] text-obsidian tracking-[-0.32px]">
+                        {node.eventType}
+                      </span>
                     </div>
-                    <div className="text-[14px] text-[#888888]">{ev.desc}</div>
+                    <div className="text-[13px] text-[#666666]">
+                      Timestamp: {new Date(node.timestamp).toLocaleString()}
+                    </div>
                   </div>
-                  <div className="shrink-0">
-                    <CopyableHash hash={ev.hash} truncate={true} />
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
+                    <CopyableHash hash={node.leafHash} label="Leaf" truncate={true} />
                   </div>
                 </div>
               ))}
             </div>
+          ) : evidenceData?.leaves && evidenceData.leaves.length > 0 ? (
+            <div className="space-y-4">
+              {evidenceData.leaves.map((leafHex, i) => (
+                <div
+                  key={i}
+                  className="bg-paper-white rounded-smallelements p-5 border border-smoke transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono-token text-[12px] text-architect-violet bg-lavender-mist px-2.5 py-1 rounded-[6px] font-medium border border-architect-violet/20">
+                        Leaf #{i}
+                      </span>
+                      <span className="font-medium text-[16px] text-obsidian tracking-[-0.32px]">
+                        Committed Event #{i}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    <CopyableHash hash={leafHex} truncate={true} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No cryptographic leaves committed"
+              description="Commencing negotiation in the Arena will commit the locked mandate, catalog snapshot, and negotiation rounds into genuine Merkle tree leaves."
+            />
           )}
         </div>
       </div>

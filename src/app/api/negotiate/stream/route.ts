@@ -15,10 +15,13 @@
  */
 
 import { NextRequest } from "next/server";
+import crypto from "crypto";
 import { parseProcurementMandate } from "@/lib/mandate-parser";
 import { Channel3Client } from "@/lib/channel3-client";
 import { NegotiationOrchestrator } from "@/lib/negotiation-orchestrator";
 import { GeminiNegotiationClient } from "@/lib/gemini-client";
+import { sessionStore } from "@/lib/session-store";
+import type { ProcurementMandate, VendorQuote } from "@/types/pactum";
 
 // Active sessions set to prevent duplicate negotiation runs from repeated requests
 const activeRunningSessions = new Set<string>();
@@ -27,7 +30,22 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    let body: { prompt?: string; currency?: string; clientSessionId?: string };
+    let body: {
+      prompt?: string;
+      currency?: string;
+      clientSessionId?: string;
+      rawMandate?: {
+        itemQuery?: string;
+        quantity?: number;
+        maxTotalBudget?: number;
+        maxDeliveryDays?: number;
+        minReturnDays?: number;
+        currency?: string;
+        requiredSpecs?: ProcurementMandate["requiredSpecs"];
+        requiredCondition?: ProcurementMandate["requiredCondition"];
+      };
+      sessionId?: string;
+    };
     try {
       body = await req.json();
     } catch {
@@ -37,31 +55,103 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const { prompt, currency, clientSessionId } = body;
+    const { prompt, currency, clientSessionId, rawMandate, sessionId } = body;
 
-    if (!prompt || typeof prompt !== "string") {
-      return new Response(
-        JSON.stringify({ error: "Field 'prompt' is required and must be a string." }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+    let mandate: ProcurementMandate;
+    let reusedQuotes: VendorQuote[] | undefined;
+    let targetSessionId: string | undefined;
+
+    // Check if an existing initialized session should be reused (Priority 2, Req 8 & 9)
+    if (sessionId && typeof sessionId === "string") {
+      const existingSession = sessionStore.getSession(sessionId);
+      if (existingSession && existingSession.quotes && existingSession.quotes.length > 0) {
+        mandate = existingSession.mandate;
+        reusedQuotes = existingSession.quotes;
+        targetSessionId = existingSession.id;
+      }
     }
 
-    // Step 1: Parse and validate mandate
-    const parseResult = parseProcurementMandate({ prompt, currency });
-    if (!parseResult.success || !parseResult.mandate) {
-      return new Response(
-        JSON.stringify({
-          error: parseResult.error ?? "Invalid mandate constraints.",
-          missingFields: parseResult.missingFields,
-        }),
-        { status: 422, headers: { "Content-Type": "application/json" } }
-      );
-    }
+    if (!mandate!) {
+      if (rawMandate && typeof rawMandate === "object") {
+        // Explicit structured mandate validation (Priority 2, Req 1-7)
+        if (!rawMandate.itemQuery || typeof rawMandate.itemQuery !== "string" || !rawMandate.itemQuery.trim()) {
+          return new Response(
+            JSON.stringify({ error: "Mandate requires a non-empty item query." }),
+            { status: 422, headers: { "Content-Type": "application/json" } }
+          );
+        }
 
-    const mandate = parseResult.mandate;
+        const qty = Number(rawMandate.quantity);
+        if (!Number.isInteger(qty) || qty <= 0) {
+          return new Response(
+            JSON.stringify({ error: "Quantity must be a positive integer." }),
+            { status: 422, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
+        const bgt = Number(rawMandate.maxTotalBudget);
+        if (!Number.isFinite(bgt) || bgt <= 0) {
+          return new Response(
+            JSON.stringify({ error: "Maximum budget must be a positive number." }),
+            { status: 422, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
+        const del = Number(rawMandate.maxDeliveryDays ?? 5);
+        if (!Number.isInteger(del) || del <= 0) {
+          return new Response(
+            JSON.stringify({ error: "Max delivery days must be at least 1." }),
+            { status: 422, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
+        const ret = Number(rawMandate.minReturnDays ?? 30);
+        if (!Number.isInteger(ret) || ret < 0) {
+          return new Response(
+            JSON.stringify({ error: "Min return days must be non-negative." }),
+            { status: 422, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
+        mandate = {
+          id: `mandate_${crypto.randomBytes(6).toString("hex")}`,
+          rawPrompt: prompt?.trim() || `Purchase ${qty} ${rawMandate.itemQuery.trim()} under a $${bgt} total budget.`,
+          itemQuery: rawMandate.itemQuery.trim(),
+          quantity: qty,
+          maxTotalBudget: bgt,
+          maxDeliveryDays: del,
+          minReturnDays: ret,
+          requiredSpecs: rawMandate.requiredSpecs || [],
+          currency: currency || rawMandate.currency || "USD",
+          createdAt: new Date().toISOString(),
+          version: 1,
+          isLocked: false,
+        };
+      } else {
+        // Fallback to deterministic prompt parser
+        if (!prompt || typeof prompt !== "string") {
+          return new Response(
+            JSON.stringify({ error: "Field 'prompt' is required and must be a string." }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
+        const parseResult = parseProcurementMandate({ prompt, currency });
+        if (!parseResult.success || !parseResult.mandate) {
+          return new Response(
+            JSON.stringify({
+              error: parseResult.error ?? "Invalid mandate constraints.",
+              missingFields: parseResult.missingFields,
+            }),
+            { status: 422, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        mandate = parseResult.mandate;
+      }
+    }
 
     // Concurrency / Duplicate check
-    const runKey = clientSessionId ?? mandate.id;
+    const runKey = clientSessionId ?? targetSessionId ?? mandate.id;
     if (activeRunningSessions.has(runKey)) {
       return new Response(
         JSON.stringify({ error: "Negotiation is already active for this session." }),
@@ -88,15 +178,27 @@ export async function POST(req: NextRequest) {
         }
 
         try {
-          // Source wholesale vendor quotes
-          const sourcingClient = new Channel3Client();
-          const sourcingResult = await sourcingClient.sourceQuotes(mandate);
+          let quotes: VendorQuote[];
+          let isFixture = true;
+          let dataSource = "CHANNEL3";
+
+          if (reusedQuotes && reusedQuotes.length > 0) {
+            quotes = reusedQuotes;
+            dataSource = "SESSION_REUSE";
+          } else {
+            // Source wholesale vendor quotes via Channel3
+            const sourcingClient = new Channel3Client();
+            const sourcingResult = await sourcingClient.sourceQuotes(mandate);
+            quotes = sourcingResult.quotes;
+            isFixture = sourcingResult.isFixture;
+            dataSource = sourcingResult.dataSource;
+          }
 
           sendEvent("SOURCING_COMPLETED", {
             mandate,
-            quotes: sourcingResult.quotes,
-            isFixture: sourcingResult.isFixture,
-            dataSource: sourcingResult.dataSource,
+            quotes,
+            isFixture,
+            dataSource,
           });
 
           // Initialize orchestrator with SSE emitter
@@ -110,10 +212,9 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          // Execute negotiation loop
-          const orchestrationResult = await orchestrator.runNegotiation(mandate, sourcingResult.quotes);
+          // Execute negotiation loop, reusing existing session ID if available
+          const orchestrationResult = await orchestrator.runNegotiation(mandate, quotes, targetSessionId);
           if (orchestrationResult.session) {
-            const { sessionStore } = await import("@/lib/session-store");
             sessionStore.saveSession(orchestrationResult.session);
           }
         } catch (err: unknown) {

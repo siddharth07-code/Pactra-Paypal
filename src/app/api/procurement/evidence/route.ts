@@ -100,6 +100,7 @@ export async function GET(req: NextRequest) {
 
     const leaves = tree.getTreeLevels()[0] ?? [];
     const rootHash = tree.getRootHash();
+    const auditNodes = tree.getAuditNodes();
 
     return NextResponse.json({
       sessionId: session.id,
@@ -109,6 +110,7 @@ export async function GET(req: NextRequest) {
       leafCount: leaves.length,
       levels: tree.getTreeLevels(),
       leaves,
+      auditNodes,
       isRootMatching: !session.preSettlementRoot || rootHash === session.preSettlementRoot,
     });
   } catch {
