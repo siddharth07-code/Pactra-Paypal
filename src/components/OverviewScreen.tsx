@@ -155,8 +155,8 @@ export function OverviewScreen({
                       activeSession.status === "SETTLED" || activeSession.status === "PAYPAL_CAPTURED"
                         ? "verified"
                         : activeSession.status === "AUDIT_FAILED"
-                        ? "failure"
-                        : "info"
+                          ? "failure"
+                          : "info"
                     }
                     label={activeSession.status.replace(/_/g, " ")}
                   />
@@ -253,84 +253,6 @@ export function OverviewScreen({
           </section>
         )}
 
-        {/* 4. FIVE-STAGE PROCUREMENT PIPELINE */}
-        <section aria-label="End-to-End Procurement Lifecycle">
-          <div className="mb-5">
-            <h3 className="text-[20px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-              End-to-End Procurement Lifecycle
-            </h3>
-            <p className="text-[13.5px] text-[#4a4a52] dark:text-[#b8b5af] mt-0.5">
-              Deterministic mechanism design and cryptographic settlement pipeline
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-            {[
-              {
-                step: "01",
-                title: "Mandate",
-                desc: "Natural-language prompt parsed into validated quantity, budget, and SLA constraints.",
-                active: Boolean(activeSession?.mandate),
-              },
-              {
-                step: "02",
-                title: "Sourcing",
-                desc: "Multi-vendor catalog inquiry across wholesale Channel3 suppliers.",
-                active: Boolean(activeSession?.quotes?.length),
-              },
-              {
-                step: "03",
-                title: "Arena",
-                desc: "Gemini buyer negotiates bounded by Boulware time-decay utility (β=3.0).",
-                active: Boolean(activeSession?.turns?.length),
-              },
-              {
-                step: "04",
-                title: "ACWORLD",
-                desc: "Independent audit verifying SKU, price ceiling, and DOM return policy.",
-                active: Boolean(activeSession?.auditCertificate),
-              },
-              {
-                step: "05",
-                title: "Settlement",
-                desc: "PayPal Orders v2 authorization & capture bound to Merkle root.",
-                active: activeSession?.status === "SETTLED" || activeSession?.status === "PAYPAL_CAPTURED",
-              },
-            ].map((item, idx) => (
-              <div
-                key={idx}
-                className={`rounded-[10px] p-4 border transition-colors flex flex-col justify-between ${
-                  item.active
-                    ? "bg-paper-white dark:bg-[#1c1c20] border-obsidian/30 dark:border-white/30 shadow-2xs"
-                    : "bg-paper-white/50 dark:bg-[#161619] border-smoke/70 dark:border-[#25252b] opacity-75"
-                }`}
-              >
-                <div>
-                  <span className="text-[11px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] tracking-wider uppercase">
-                    {item.step}
-                  </span>
-                  <h4 className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0] mt-1 mb-1.5 tracking-tight">
-                    {item.title}
-                  </h4>
-                  <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
-                    {item.desc}
-                  </p>
-                </div>
-                <div className="mt-4 pt-2.5 border-t border-smoke/80 dark:border-[#26262c]">
-                  <span
-                    className={`text-[11.5px] font-medium ${
-                      item.active
-                        ? "text-[#006840] dark:text-lichen-green"
-                        : "text-[#6e6e78] dark:text-[#8e8a83]"
-                    }`}
-                  >
-                    {item.active ? "● Active / Ready" : "○ Awaiting Turn"}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
 
         {/* 5. RECENT PROCUREMENT SESSIONS: Crisp Institutional Table */}
         {sessions.length > 0 && (
@@ -369,8 +291,8 @@ export function OverviewScreen({
                           s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED"
                             ? "verified"
                             : s.status === "AUDIT_FAILED"
-                            ? "failure"
-                            : "info"
+                              ? "failure"
+                              : "info"
                         }
                         label={s.status.replace(/_/g, " ")}
                       />
