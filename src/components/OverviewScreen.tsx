@@ -42,35 +42,31 @@ export function OverviewScreen({
   ).length;
 
   return (
-    <div className="w-full space-y-16 sm:space-y-20 animate-in fade-in duration-300">
-      {/* 1. HERO VAULT (DESIGN.md & Section 7: Hero Vault)
-          Obsidian background filling full viewport width with concentric-arc pattern.
-          Headline: "Procurement, with proof."
-          Subtext: "Source intelligently. Negotiate within constraints. Settle only when the evidence checks out."
-          Dual CTAs: Primary + Ghost Secondary. */}
-      <section className="w-full bg-[#000000] text-white py-16 sm:py-24 px-6 concentric-arcs-dark shadow-xl border-b border-[#333333]">
-        <div className="max-w-[1200px] mx-auto space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-cards bg-white/10 border border-white/20 text-[14px] text-white font-normal tracking-[-0.28px]">
-            <span className="w-2 h-2 rounded-full bg-lichen-green" aria-hidden="true" />
-            <span>Autonomous Procurement &amp; Verifiable Settlement</span>
+    <div className="w-full space-y-12 sm:space-y-16 animate-in fade-in duration-200">
+      {/* 1. HERO VAULT: Institutional Headline & Dual CTAs */}
+      <section className="w-full bg-[#0a0a0c] text-white py-16 sm:py-20 px-6 sm:px-8 border-b border-[#232328] shadow-sm">
+        <div className="max-w-[1240px] mx-auto space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[6px] bg-white/[0.07] border border-white/15 text-[13px] text-white/90 font-medium tracking-tight">
+            <span className="w-1.5 h-1.5 rounded-full bg-lichen-green" aria-hidden="true" />
+            <span>Autonomous Procurement &amp; Cryptographic Settlement</span>
           </div>
 
-          <h1 className="text-[40px] sm:text-[64px] font-medium leading-[1.05] tracking-[-1.28px] text-white max-w-4xl">
+          <h1 className="text-[36px] sm:text-[52px] font-semibold leading-[1.08] tracking-[-0.035em] text-white max-w-3xl">
             Procurement, with proof.
           </h1>
 
-          <p className="text-[18px] sm:text-[20px] text-white/80 font-normal leading-[1.4] tracking-[-0.4px] max-w-2xl">
+          <p className="text-[17px] sm:text-[19px] text-white/75 font-normal leading-[1.5] max-w-2xl">
             Source intelligently. Negotiate within constraints. Settle only when the evidence checks out.
           </p>
 
-          <div className="pt-4 flex flex-wrap items-center gap-4">
+          <div className="pt-2 flex flex-wrap items-center gap-3">
             <PrimaryButton onClick={onStartNew} ariaLabel="Launch new procurement mandate">
               Launch Procurement Mandate
             </PrimaryButton>
             {activeSession ? (
               <GhostButton
                 onClick={() => onOpenSession(activeSession)}
-                className="text-white border-white hover:bg-white/10"
+                className="text-white border-white/30 bg-white/5 hover:bg-white/10 dark:hover:bg-white/10 hover:border-white/50"
                 ariaLabel={`View active session ${activeSession.id}`}
               >
                 View Active Session
@@ -78,7 +74,7 @@ export function OverviewScreen({
             ) : onNavigateHistory ? (
               <GhostButton
                 onClick={onNavigateHistory}
-                className="text-white border-white hover:bg-white/10"
+                className="text-white border-white/30 bg-white/5 hover:bg-white/10 dark:hover:bg-white/10 hover:border-white/50"
                 ariaLabel="Browse procurement history"
               >
                 Browse History
@@ -88,7 +84,7 @@ export function OverviewScreen({
                 href="https://sandbox.paypal.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-smallelements bg-transparent border border-white/80 hover:bg-white/10 text-white font-medium text-[16px] tracking-[-0.32px] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 h-10 rounded-[8px] bg-white/5 border border-white/30 hover:bg-white/10 text-white font-medium text-[14px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 aria-label="Explore PayPal Sandbox in new tab"
               >
                 Explore Sandbox
@@ -98,60 +94,60 @@ export function OverviewScreen({
         </div>
       </section>
 
-      {/* Centered Page Body (1200px max width container) */}
-      <div className="max-w-[1200px] mx-auto px-6 space-y-16 sm:space-y-20 w-full">
-        {/* 2. REAL METRIC TILES (Section 7) */}
+      {/* Centered Page Body (1240px max width container) */}
+      <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 space-y-12 sm:space-y-16 w-full">
+        {/* 2. REAL METRIC TILES */}
         <section aria-label="Procurement Metrics">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div className="bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-6 sm:p-8 border border-smoke dark:border-[#333333] shadow-sm transition-colors">
-              <div className="flex items-center justify-between text-[#666666] dark:text-[#a5a19b] text-[14px] mb-2 font-medium">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] shadow-2xs transition-colors">
+              <div className="flex items-center justify-between text-[#4a4a52] dark:text-[#b8b5af] text-[13px] mb-2 font-medium">
                 <span>Total Mandate Ceiling</span>
                 <TrendingUp className="w-4 h-4 text-ember-orange" aria-hidden="true" />
               </div>
-              <div className="text-[28px] sm:text-[36px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.72px]">
+              <div className="text-[28px] sm:text-[32px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                 <CurrencyDisplay amount={totalVolume} size="xl" />
               </div>
-              <p className="text-[13px] text-[#888888] dark:text-[#888888] mt-2">
+              <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-2">
                 Across {sessions.length} recorded procurement sessions
               </p>
             </div>
 
-            <div className="bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-6 sm:p-8 border border-smoke dark:border-[#333333] shadow-sm transition-colors">
-              <div className="flex items-center justify-between text-[#666666] dark:text-[#a5a19b] text-[14px] mb-2 font-medium">
+            <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] shadow-2xs transition-colors">
+              <div className="flex items-center justify-between text-[#4a4a52] dark:text-[#b8b5af] text-[13px] mb-2 font-medium">
                 <span>Active Mandate Runs</span>
-                <Layers className="w-4 h-4 text-architect-violet dark:text-[#9d6ce6]" aria-hidden="true" />
+                <Layers className="w-4 h-4 text-architect-violet dark:text-[#a78bfa]" aria-hidden="true" />
               </div>
-              <div className="text-[28px] sm:text-[36px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.72px]">
+              <div className="text-[28px] sm:text-[32px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
                 {activeCount}
               </div>
-              <p className="text-[13px] text-[#888888] dark:text-[#888888] mt-2">
+              <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-2">
                 Evaluating quotes or ready for settlement
               </p>
             </div>
 
-            <div className="bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-6 sm:p-8 border border-smoke dark:border-[#333333] shadow-sm transition-colors">
-              <div className="flex items-center justify-between text-[#666666] dark:text-[#a5a19b] text-[14px] mb-2 font-medium">
+            <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] shadow-2xs transition-colors">
+              <div className="flex items-center justify-between text-[#4a4a52] dark:text-[#b8b5af] text-[13px] mb-2 font-medium">
                 <span>Cryptographically Settled</span>
                 <ShieldCheck className="w-4 h-4 text-lichen-green" aria-hidden="true" />
               </div>
-              <div className="text-[28px] sm:text-[36px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.72px]">
+              <div className="text-[28px] sm:text-[32px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
                 {settledCount}
               </div>
-              <p className="text-[13px] text-[#888888] dark:text-[#888888] mt-2">
+              <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-2">
                 Audited &amp; captured via PayPal Orders v2
               </p>
             </div>
           </div>
         </section>
 
-        {/* 3. ACTIVE PROCUREMENT & VERIFICATION (Warm Feature Card) */}
+        {/* 3. ACTIVE PROCUREMENT & CRYPTOGRAPHIC PROOF */}
         {activeSession && (
-          <section className="grid grid-cols-1 lg:grid-cols-12 gap-8" aria-label="Active Procurement Mandate">
+          <section className="grid grid-cols-1 lg:grid-cols-12 gap-6" aria-label="Active Procurement Mandate">
             {/* Active Mandate Card */}
-            <div className="lg:col-span-7 bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-8 sm:p-10 border border-smoke dark:border-[#333333] flex flex-col justify-between shadow-sm transition-colors">
+            <div className="lg:col-span-7 bg-paper-white dark:bg-[#18181b] rounded-cards p-6 sm:p-7 border border-smoke dark:border-[#2b2b32] flex flex-col justify-between shadow-2xs transition-colors">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[14px] font-medium text-architect-violet dark:text-[#9d6ce6] uppercase tracking-[-0.28px]">
+                  <span className="text-[12px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider">
                     Authoritative Session State
                   </span>
                   <StatusBadge
@@ -167,24 +163,24 @@ export function OverviewScreen({
                 </div>
 
                 <div>
-                  <h2 className="text-[28px] sm:text-[36px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.72px] leading-[1.2]">
+                  <h2 className="text-[22px] sm:text-[26px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight leading-snug">
                     {activeSession.mandate.itemQuery}
                   </h2>
-                  <p className="text-[16px] text-[#555555] dark:text-[#c4c0ba] font-normal leading-[1.5] mt-2 line-clamp-2 tracking-[-0.32px]">
+                  <p className="text-[14px] text-[#4a4a52] dark:text-[#b8b5af] font-normal leading-relaxed mt-1.5 line-clamp-2">
                     {activeSession.mandate.rawPrompt}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6 border-t border-smoke dark:border-[#333333]">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5 border-t border-smoke/80 dark:border-[#2b2b32]">
                   <div>
-                    <div className="text-[14px] text-[#666666] dark:text-[#a5a19b] mb-1">Target Quantity</div>
-                    <div className="text-[24px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.48px]">
+                    <div className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mb-0.5">Target Quantity</div>
+                    <div className="text-[18px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
                       {activeSession.mandate.quantity}{" "}
-                      <span className="text-[14px] text-[#666666] dark:text-[#a5a19b] font-normal">units</span>
+                      <span className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] font-normal">units</span>
                     </div>
                   </div>
                   <div>
-                    <div className="text-[14px] text-[#666666] dark:text-[#a5a19b] mb-1">Ceiling Budget</div>
+                    <div className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mb-0.5">Ceiling Budget</div>
                     <CurrencyDisplay
                       amount={activeSession.mandate.maxTotalBudget}
                       currency={activeSession.mandate.currency}
@@ -192,59 +188,61 @@ export function OverviewScreen({
                     />
                   </div>
                   <div>
-                    <div className="text-[14px] text-[#666666] dark:text-[#a5a19b] mb-1">Vendor Proposals</div>
-                    <div className="text-[24px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.48px]">
+                    <div className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mb-0.5">Supplier Quotes</div>
+                    <div className="text-[18px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
                       {activeSession.quotes?.length ?? 0}{" "}
-                      <span className="text-[14px] text-[#666666] dark:text-[#a5a19b] font-normal">quotes</span>
+                      <span className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] font-normal">proposals</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-6 mt-6 border-t border-smoke dark:border-[#333333] flex items-center justify-between">
-                <span className="text-[14px] text-[#666666] dark:text-[#a5a19b] font-mono-token">
+              <div className="pt-5 mt-5 border-t border-smoke/80 dark:border-[#2b2b32] flex items-center justify-between">
+                <span className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] font-mono-token">
                   {activeSession.id}
                 </span>
                 <button
                   type="button"
                   onClick={() => onOpenSession(activeSession)}
-                  className="inline-flex items-center gap-1.5 text-[15px] font-medium text-ember-orange hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange rounded"
+                  className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-ember-orange hover:text-[#e65c00] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange rounded-[4px]"
                 >
                   <span>Resume Session</span>
-                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
               </div>
             </div>
 
             {/* Cryptographic Flight Recorder Status Panel */}
-            <div className="lg:col-span-5 bg-lavender-mist dark:bg-[#271f33] rounded-cards p-8 sm:p-10 border border-architect-violet/20 dark:border-architect-violet/40 flex flex-col justify-between concentric-arcs-violet transition-colors">
-              <div className="space-y-4">
+            <div className="lg:col-span-5 bg-lavender-mist/60 dark:bg-[#1e172a] rounded-cards p-6 sm:p-7 border border-architect-violet/20 dark:border-architect-violet/35 flex flex-col justify-between shadow-2xs transition-colors">
+              <div className="space-y-3.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[14px] font-medium text-architect-violet dark:text-[#9d6ce6] uppercase tracking-[-0.28px]">
+                  <span className="text-[12px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider">
                     Flight Recorder
                   </span>
-                  <span className="text-[12px] font-mono-token text-architect-violet dark:text-[#9d6ce6] bg-white/60 dark:bg-black/40 px-2 py-0.5 rounded border border-architect-violet/20">
+                  <span className="text-[11px] font-mono-token text-architect-violet dark:text-[#a78bfa] bg-white/70 dark:bg-black/40 px-2 py-0.5 rounded-[4px] border border-architect-violet/20">
                     SHA-256
                   </span>
                 </div>
 
-                <h3 className="text-[24px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.48px]">
+                <h3 className="text-[18px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                   VeriPay Cryptographic Proof
                 </h3>
 
-                <p className="text-[14px] text-[#555555] dark:text-[#c4c0ba] leading-relaxed">
-                  Canonical procurement events, supplier quotes, Boulware negotiation turns, and independent ACWORLD invariant checks are hashed in binary sequence to create an immutable Merkle root.
+                <p className="text-[13.5px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
+                  Canonical events, supplier quotes, Boulware negotiation turns, and independent ACWORLD invariant checks are hashed in binary sequence to create an immutable Merkle root.
                 </p>
 
-                <div className="space-y-2 pt-2">
-                  <div className="text-[12px] text-[#666666] dark:text-[#a5a19b] font-medium">Pre-Settlement Merkle Root:</div>
-                  <div className="p-3 bg-white dark:bg-[#1a1a1a] rounded-smallelements border border-smoke dark:border-[#383838] font-mono-token text-xs text-obsidian dark:text-[#f5f3ef] break-all">
+                <div className="space-y-1.5 pt-1">
+                  <div className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] font-medium">
+                    Pre-Settlement Merkle Root:
+                  </div>
+                  <div className="p-2.5 bg-paper-white dark:bg-[#141416] rounded-[6px] border border-architect-violet/20 dark:border-architect-violet/35 font-mono-token text-[11.5px] text-obsidian dark:text-[#f6f4f0] break-all select-all">
                     {activeSession.merkleRoot || activeSession.preSettlementRoot || "Pending negotiation rounds..."}
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 mt-6 border-t border-architect-violet/20 dark:border-architect-violet/40 flex items-center justify-between text-[13px] text-architect-violet dark:text-[#9d6ce6]">
+              <div className="pt-4 mt-5 border-t border-architect-violet/20 dark:border-architect-violet/30 flex items-center justify-between text-[12.5px] text-architect-violet dark:text-[#a78bfa]">
                 <span className="flex items-center gap-1.5 font-medium">
                   <Lock className="w-3.5 h-3.5" aria-hidden="true" />
                   Bound to PayPal custom_id
@@ -255,18 +253,18 @@ export function OverviewScreen({
           </section>
         )}
 
-        {/* 4. FIVE-STAGE PROCUREMENT PIPELINE (Section 7) */}
-        <section aria-label="Five-stage Procurement Pipeline">
-          <div className="mb-6">
-            <h3 className="text-[24px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.48px]">
+        {/* 4. FIVE-STAGE PROCUREMENT PIPELINE */}
+        <section aria-label="End-to-End Procurement Lifecycle">
+          <div className="mb-5">
+            <h3 className="text-[20px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
               End-to-End Procurement Lifecycle
             </h3>
-            <p className="text-[14px] text-[#666666] dark:text-[#a5a19b] mt-1">
+            <p className="text-[13.5px] text-[#4a4a52] dark:text-[#b8b5af] mt-0.5">
               Deterministic mechanism design and cryptographic settlement pipeline
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
             {[
               {
                 step: "01",
@@ -301,23 +299,31 @@ export function OverviewScreen({
             ].map((item, idx) => (
               <div
                 key={idx}
-                className={`rounded-[16px] p-5 border transition-all flex flex-col justify-between ${
+                className={`rounded-[10px] p-4 border transition-colors flex flex-col justify-between ${
                   item.active
-                    ? "bg-paper-white dark:bg-[#222222] border-obsidian dark:border-smoke shadow-sm"
-                    : "bg-paper-white/60 dark:bg-[#1a1a1a]/60 border-smoke dark:border-[#2e2e2e] opacity-70"
+                    ? "bg-paper-white dark:bg-[#1c1c20] border-obsidian/30 dark:border-white/30 shadow-2xs"
+                    : "bg-paper-white/50 dark:bg-[#161619] border-smoke/70 dark:border-[#25252b] opacity-75"
                 }`}
               >
                 <div>
-                  <span className="text-[12px] font-medium text-architect-violet dark:text-[#9d6ce6] tracking-wider uppercase">
+                  <span className="text-[11px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] tracking-wider uppercase">
                     {item.step}
                   </span>
-                  <h4 className="text-[18px] font-medium text-obsidian dark:text-[#f5f3ef] mt-1 mb-2 tracking-[-0.36px]">
+                  <h4 className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0] mt-1 mb-1.5 tracking-tight">
                     {item.title}
                   </h4>
-                  <p className="text-[14px] text-[#555555] dark:text-[#c4c0ba] leading-relaxed tracking-[-0.28px]">{item.desc}</p>
+                  <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
+                    {item.desc}
+                  </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-smoke dark:border-[#333333]">
-                  <span className={`text-[12px] font-medium ${item.active ? "text-lichen-green" : "text-[#777777] dark:text-[#888888]"}`}>
+                <div className="mt-4 pt-2.5 border-t border-smoke/80 dark:border-[#26262c]">
+                  <span
+                    className={`text-[11.5px] font-medium ${
+                      item.active
+                        ? "text-[#006840] dark:text-lichen-green"
+                        : "text-[#6e6e78] dark:text-[#8e8a83]"
+                    }`}
+                  >
                     {item.active ? "● Active / Ready" : "○ Awaiting Turn"}
                   </span>
                 </div>
@@ -326,33 +332,36 @@ export function OverviewScreen({
           </div>
         </section>
 
-        {/* 5. RECENT PROCUREMENT SESSIONS */}
+        {/* 5. RECENT PROCUREMENT SESSIONS: Crisp Institutional Table */}
         {sessions.length > 0 && (
-          <section className="bg-paper-white dark:bg-[#1a1a1a] rounded-cards border border-smoke dark:border-[#333333] overflow-hidden p-8 sm:p-10 space-y-6 shadow-sm transition-colors" aria-label="Recent Sessions">
-            <div className="flex items-center justify-between pb-4 border-b border-smoke dark:border-[#333333]">
-              <h3 className="text-[24px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.48px]">
+          <section
+            className="bg-paper-white dark:bg-[#18181b] rounded-cards border border-smoke dark:border-[#2b2b32] overflow-hidden p-6 sm:p-7 space-y-5 shadow-2xs transition-colors"
+            aria-label="Recent Sessions"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-smoke/80 dark:border-[#2b2b32]">
+              <h3 className="text-[18px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                 Recent Procurement Sessions
               </h3>
-              <span className="text-[14px] text-[#666666] dark:text-[#a5a19b]">
+              <span className="text-[13px] text-[#6e6e78] dark:text-[#8e8a83]">
                 {sessions.length} total records
               </span>
             </div>
 
-            <div className="divide-y divide-smoke dark:divide-[#2e2e2e]" role="list">
+            <div className="divide-y divide-smoke/80 dark:divide-[#25252a]" role="list">
               {sessions.map((s) => (
                 <button
                   type="button"
                   key={s.id}
                   onClick={() => onOpenSession(s)}
-                  className="w-full text-left py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-warm-cream/50 dark:hover:bg-[#222222] px-3 rounded-[12px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+                  className="w-full text-left py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-warm-cream/40 dark:hover:bg-[#1f1f24] px-3 rounded-[8px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
                   aria-label={`Open session ${s.id} for ${s.mandate.itemQuery}`}
                 >
                   <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-[16px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.32px]">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="text-[15px] font-medium text-obsidian dark:text-[#f6f4f0] tracking-tight">
                         {s.mandate.itemQuery}
                       </span>
-                      <span className="text-[14px] text-[#666666] dark:text-[#a5a19b]">
+                      <span className="text-[13px] text-[#6e6e78] dark:text-[#8e8a83]">
                         ({s.mandate.quantity} units)
                       </span>
                       <StatusBadge
@@ -366,21 +375,21 @@ export function OverviewScreen({
                         label={s.status.replace(/_/g, " ")}
                       />
                     </div>
-                    <div className="text-[12px] font-mono-token text-[#666666] dark:text-[#a5a19b]">
+                    <div className="text-[12px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
                       {s.id} • Mandate v{s.mandate.version ?? 1}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-8 self-end sm:self-center">
+                  <div className="flex items-center gap-6 self-end sm:self-center">
                     <div className="text-right">
-                      <div className="text-[12px] text-[#666666] dark:text-[#a5a19b]">Total Budget</div>
+                      <div className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83]">Total Ceiling</div>
                       <CurrencyDisplay
                         amount={s.mandate.maxTotalBudget}
                         currency={s.mandate.currency}
                         size="sm"
                       />
                     </div>
-                    <ChevronRight className="w-5 h-5 text-[#666666] dark:text-[#a5a19b]" aria-hidden="true" />
+                    <ChevronRight className="w-4 h-4 text-[#8e8a83] dark:text-[#76767e]" aria-hidden="true" />
                   </div>
                 </button>
               ))}

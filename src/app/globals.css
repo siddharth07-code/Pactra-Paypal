@@ -68,12 +68,12 @@
 
   /* Border Radius */
   --radius-lg: 8px;
-  --radius-2xl: 21.6px;
-  --radius-3xl: 24px;
-  --radius-full: 800px;
-  --radius-cards: 24px;
-  --radius-buttons: 24px;
-  --radius-smallelements: 8px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-full: 9999px;
+  --radius-cards: 12px;
+  --radius-buttons: 8px;
+  --radius-smallelements: 6px;
 
   /* Shadows */
   --shadow-xl: var(--shadow-xl);
@@ -83,46 +83,46 @@
 
 :root {
   /* ========================================================
-     LIGHT THEME TOKENS (Default Lithic Warm Marble)
+     LIGHT THEME TOKENS (Institutional Lithic Precision)
      ======================================================== */
-  --color-page-bg: #ffffff;
+  --color-page-bg: #fcfbf9;
   --color-surface-primary: #ffffff;
   --color-surface-secondary: #f6f3ee;
   --color-surface-elevated: #ffffff;
-  --color-surface-card: #f6f3ee;
-  --color-surface-panel: #f6f1fe;
-  --color-surface-whisper: #ebfef6;
+  --color-surface-card: #ffffff;
+  --color-surface-panel: #f7f3fd;
+  --color-surface-whisper: #f0fdf7;
 
-  --color-text-primary: #000000;
-  --color-text-secondary: #555555;
-  --color-text-muted: #888888;
+  --color-text-primary: #111113;
+  --color-text-secondary: #4a4a52;
+  --color-text-muted: #6e6e78;
 
-  --color-border-primary: #e5e5e5;
-  --color-border-subtle: #f0ede8;
+  --color-border-primary: #e2dfd9;
+  --color-border-subtle: #edeae4;
 
   --color-ember-orange: #ff6600;
   --color-ember-hover: #e65c00;
   --color-architect-violet: #5c2999;
   --color-lavender-mist: #f6f1fe;
-  --color-lichen-green: #00cc88;
-  --color-mint-whisper: #ebfef6;
+  --color-lichen-green: #00a86b;
+  --color-mint-whisper: #f0fdf7;
   --color-sandstone: #aa8855;
   --color-bark-brown: #665233;
   --color-honey-bronze: #eec07a;
-  --color-obsidian: #000000;
+  --color-obsidian: #111113;
   --color-paper-white: #ffffff;
   --color-warm-cream: #f6f3ee;
-  --color-ash-gray: #888888;
-  --color-smoke: #e5e5e5;
+  --color-ash-gray: #767680;
+  --color-smoke: #e2dfd9;
 
   /* Shadows */
-  --shadow-card: 0px 4px 8px 0px rgba(0, 0, 0, 0.04);
-  --shadow-sm: 0px 4px 8px 0px rgba(0, 0, 0, 0.08);
-  --shadow-xl: 0px 16px 32px 0px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 12px 24px -4px rgba(0, 0, 0, 0.06);
 
   /* Scrollbar */
   --scrollbar-track: #f6f3ee;
-  --scrollbar-thumb: #e5e5e5;
+  --scrollbar-thumb: #ded9d0;
 }
 
 .dark,
@@ -130,44 +130,44 @@
   /* ========================================================
      DARK THEME TOKENS (Institutional Precision Darkroom)
      ======================================================== */
-  --color-page-bg: #111111;
-  --color-surface-primary: #1a1a1a;
-  --color-surface-secondary: #202020;
-  --color-surface-elevated: #262626;
-  --color-surface-card: #1e1e1e;
-  --color-surface-panel: #271f33;
-  --color-surface-whisper: #132820;
+  --color-page-bg: #111113;
+  --color-surface-primary: #18181b;
+  --color-surface-secondary: #1f1f23;
+  --color-surface-elevated: #26262b;
+  --color-surface-card: #18181b;
+  --color-surface-panel: #221a2c;
+  --color-surface-whisper: #10211a;
 
-  --color-text-primary: #f5f3ef;
-  --color-text-secondary: #c4c0ba;
-  --color-text-muted: #a5a19b;
+  --color-text-primary: #f6f4f0;
+  --color-text-secondary: #b8b5af;
+  --color-text-muted: #8e8a83;
 
-  --color-border-primary: #363636;
-  --color-border-subtle: #2a2a2a;
+  --color-border-primary: #2b2b32;
+  --color-border-subtle: #222227;
 
   --color-ember-orange: #ff6600;
   --color-ember-hover: #ff771a;
-  --color-architect-violet: #9d6ce6;
+  --color-architect-violet: #a78bfa;
   --color-lavender-mist: #2a1e3b;
-  --color-lichen-green: #00e699;
-  --color-mint-whisper: #132c22;
+  --color-lichen-green: #00cc88;
+  --color-mint-whisper: #10211a;
   --color-sandstone: #c4a26e;
   --color-bark-brown: #ded0bc;
   --color-honey-bronze: #f2cb88;
   --color-obsidian: #ffffff;
-  --color-paper-white: #1a1a1a;
-  --color-warm-cream: #202020;
-  --color-ash-gray: #888888;
-  --color-smoke: #333333;
+  --color-paper-white: #18181b;
+  --color-warm-cream: #1f1f23;
+  --color-ash-gray: #8e8a83;
+  --color-smoke: #2b2b32;
 
   /* Shadows */
-  --shadow-card: 0px 4px 12px 0px rgba(0, 0, 0, 0.4);
-  --shadow-sm: 0px 4px 8px 0px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0px 16px 32px 0px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.25);
+  --shadow-xl: 0 16px 32px 0 rgba(0, 0, 0, 0.55);
 
   /* Scrollbar */
-  --scrollbar-track: #1a1a1a;
-  --scrollbar-thumb: #363636;
+  --scrollbar-track: #18181b;
+  --scrollbar-thumb: #2d2d35;
 }
 
 html {

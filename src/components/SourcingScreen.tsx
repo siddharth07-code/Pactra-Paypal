@@ -10,7 +10,6 @@ import {
   SectionHeader,
 } from "./SharedUI";
 import {
-  Sparkles,
   AlertCircle,
   Truck,
   RotateCcw,
@@ -105,7 +104,6 @@ export function SourcingScreen({
     return errs;
   };
 
-  // Synchronized field updates that keep natural prompt aligned
   const handleItemQueryChange = (val: string) => {
     setItemQuery(val);
     setPreviewedSessionId(null);
@@ -158,55 +156,39 @@ export function SourcingScreen({
     setPrompt(formatSynchronizedPrompt(quantity, itemQuery, budget, currency, maxDelivery, val));
   };
 
-  const applyPreset = (presetName: "monitors" | "laptops" | "servers") => {
+  // Scenario presets
+  const applyPreset = (
+    q: number,
+    item: string,
+    b: number,
+    d: number,
+    r: number,
+    curr: CurrencyCode = "USD"
+  ) => {
+    setItemQuery(item);
+    setQuantity(q);
+    setBudget(b);
+    setCurrency(curr);
+    setMaxDelivery(d);
+    setMinReturn(r);
+    setErrors({});
     setPreviewedSessionId(null);
     setSourcedQuotes(null);
-    setErrors({});
     setSourcingError(null);
-
-    if (presetName === "monitors") {
-      setItemQuery("4K USB-C monitors");
-      setQuantity(25);
-      setBudget(8500);
-      setMaxDelivery(5);
-      setMinReturn(30);
-      setCurrency("USD");
-      setPrompt(
-        "Purchase 25 4K USB-C monitors under an $8,500 total budget, with delivery within five days and a minimum 30-day return policy."
-      );
-    } else if (presetName === "laptops") {
-      setItemQuery("Enterprise Workstation Laptops 32GB RAM");
-      setQuantity(10);
-      setBudget(4000);
-      setMaxDelivery(4);
-      setMinReturn(30);
-      setCurrency("USD");
-      setPrompt(
-        "Procure 10 Enterprise Workstation Laptops under $4,000 total budget, delivery in 4 days with 30-day return policy."
-      );
-    } else if (presetName === "servers") {
-      setItemQuery("1U Rackmount Enterprise Server Nodes");
-      setQuantity(50);
-      setBudget(15000);
-      setMaxDelivery(7);
-      setMinReturn(14);
-      setCurrency("USD");
-      setPrompt(
-        "Purchase 50 1U Rackmount Enterprise Server Nodes under $15,000 total budget, delivery within 7 days and 14-day return window."
-      );
-    }
+    setPrompt(formatSynchronizedPrompt(q, item, b, curr, d, r));
   };
 
-  // Preview wholesale quotes via /api/procurement/init
+  // Sourcing preview via /api/procurement/init
   const handleSourcePreview = async () => {
-    const valErrs = validateFieldValues(itemQuery, quantity, budget, maxDelivery, minReturn);
-    if (Object.keys(valErrs).length > 0) {
-      setErrors(valErrs);
+    const errs = validateFieldValues(itemQuery, quantity, budget, maxDelivery, minReturn);
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
       return;
     }
 
     setIsSourcing(true);
     setSourcingError(null);
+
     try {
       const res = await fetch("/api/procurement/init", {
         method: "POST",
@@ -215,7 +197,7 @@ export function SourcingScreen({
           prompt,
           currency,
           rawMandate: {
-            itemQuery: itemQuery.trim(),
+            itemQuery,
             quantity,
             maxTotalBudget: budget,
             maxDeliveryDays: maxDelivery,
@@ -227,23 +209,22 @@ export function SourcingScreen({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to source quotes.");
+        throw new Error(data.error || "Failed to query Channel3 catalog.");
       }
 
-      setSourcedQuotes(data.quotes);
+      setSourcedQuotes(data.quotes || []);
       setPreviewedSessionId(data.sessionId || null);
     } catch (err: unknown) {
-      setSourcingError(err instanceof Error ? err.message : "Error sourcing vendors.");
+      setSourcingError(err instanceof Error ? err.message : "Error querying suppliers.");
     } finally {
       setIsSourcing(false);
     }
   };
 
-  // Commencing negotiation arena
   const handleEnterArena = () => {
-    const valErrs = validateFieldValues(itemQuery, quantity, budget, maxDelivery, minReturn);
-    if (Object.keys(valErrs).length > 0) {
-      setErrors(valErrs);
+    const errs = validateFieldValues(itemQuery, quantity, budget, maxDelivery, minReturn);
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
       return;
     }
 
@@ -251,7 +232,7 @@ export function SourcingScreen({
       prompt,
       currency,
       {
-        itemQuery: itemQuery.trim(),
+        itemQuery,
         quantity,
         maxTotalBudget: budget,
         maxDeliveryDays: maxDelivery,
@@ -265,49 +246,46 @@ export function SourcingScreen({
   const currencyPrefix = currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-300">
+    <div className="space-y-8 animate-in fade-in duration-200">
       {/* Header */}
       <SectionHeader
-        title="Procurement sourcing"
-        subtitle="Configure dynamic requisition constraints and evaluate wholesale supplier baselines before entering the arena."
+        title="Procurement Mandate & Sourcing"
+        subtitle="Define authoritative constraints and source competing baseline quotes from wholesale suppliers."
       />
 
-      {/* Preset Scenarios Strip */}
-      <div className="bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-6 border border-smoke dark:border-[#333333] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors">
-        <div className="flex items-center gap-2.5 text-[15px] text-obsidian dark:text-[#f5f3ef]">
-          <Sparkles className="w-4 h-4 text-ember-orange" aria-hidden="true" />
-          <span className="font-medium tracking-[-0.3px]">Benchmark Mandates:</span>
-        </div>
-        <div className="flex flex-wrap gap-2.5">
-          <button
-            type="button"
-            onClick={() => applyPreset("monitors")}
-            className="px-4 py-2 rounded-buttons bg-paper-white dark:bg-[#262626] hover:bg-obsidian/5 dark:hover:bg-[#333333] text-[14px] font-medium text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#363636] transition-all cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
-          >
-            Scenario A ($8.5k / 25 Monitors)
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset("laptops")}
-            className="px-4 py-2 rounded-buttons bg-paper-white dark:bg-[#262626] hover:bg-obsidian/5 dark:hover:bg-[#333333] text-[14px] font-medium text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#363636] transition-all cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
-          >
-            Scenario B ($4.0k / 10 Laptops)
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset("servers")}
-            className="px-4 py-2 rounded-buttons bg-paper-white dark:bg-[#262626] hover:bg-obsidian/5 dark:hover:bg-[#333333] text-[14px] font-medium text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#363636] transition-all cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
-          >
-            Scenario C ($15.0k / 50 Servers)
-          </button>
-        </div>
+      {/* Benchmark Presets */}
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <span className="text-[12px] font-mono-token uppercase text-[#6e6e78] dark:text-[#8e8a83] mr-1">
+          Preset Scenarios:
+        </span>
+        <button
+          type="button"
+          onClick={() => applyPreset(25, "4K USB-C monitors", 8500, 5, 30)}
+          className="px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+        >
+          Scenario A ($8.5k / 25 4K Monitors)
+        </button>
+        <button
+          type="button"
+          onClick={() => applyPreset(10, "Ergonomic Standing Desks", 4500, 7, 14)}
+          className="px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+        >
+          Scenario B ($4.5k / 10 Desks)
+        </button>
+        <button
+          type="button"
+          onClick={() => applyPreset(50, "Enterprise Rack Servers", 15000, 3, 60)}
+          className="px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+        >
+          Scenario C ($15.0k / 50 Servers)
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Mandate Configuration Form */}
-        <div className="lg:col-span-5 bg-paper-white dark:bg-[#1a1a1a] rounded-cards p-8 sm:p-10 border border-smoke dark:border-[#333333] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.04)] space-y-6 transition-colors">
-          <div className="flex items-center justify-between pb-4 border-b border-smoke dark:border-[#333333]">
-            <h2 className="text-[20px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.4px]">
+        <div className="lg:col-span-5 bg-paper-white dark:bg-[#18181b] rounded-cards p-6 sm:p-7 border border-smoke dark:border-[#2b2b32] shadow-2xs space-y-5 transition-colors">
+          <div className="flex items-center justify-between pb-3.5 border-b border-smoke/80 dark:border-[#2b2b32]">
+            <h2 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
               Authoritative Mandate
             </h2>
             <StatusBadge status="verified" label="Dynamic Budget" />
@@ -317,7 +295,7 @@ export function SourcingScreen({
           <div className="space-y-1.5">
             <label
               htmlFor={promptInputId}
-              className="block text-[14px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.28px]"
+              className="block text-[13px] font-medium text-obsidian dark:text-[#f6f4f0] tracking-tight"
             >
               Natural Language Mandate Prompt
             </label>
@@ -329,13 +307,13 @@ export function SourcingScreen({
                 setPrompt(e.target.value);
                 setPreviewedSessionId(null);
               }}
-              className="w-full bg-warm-cream dark:bg-[#242424] rounded-smallelements p-4 text-[15px] text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#3a3a3a] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:border-transparent transition-all resize-none leading-relaxed tracking-[-0.2px]"
+              className="w-full bg-paper-white dark:bg-[#18181b] rounded-[8px] p-3 text-[14px] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2b2b32] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange transition-colors resize-none leading-relaxed"
               placeholder="Enter procurement prompt..."
             />
           </div>
 
           {/* Structured Fields */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <FormInput
               id="mandate-item-query"
               label="Item Query"
@@ -355,7 +333,7 @@ export function SourcingScreen({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <FormInput
               id="mandate-budget"
               label="Max Total Budget"
@@ -369,7 +347,7 @@ export function SourcingScreen({
             <div className="space-y-1.5">
               <label
                 htmlFor={currencySelectId}
-                className="block text-[14px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.28px]"
+                className="block text-[13px] font-medium text-obsidian dark:text-[#f6f4f0] tracking-tight"
               >
                 Currency
               </label>
@@ -377,7 +355,7 @@ export function SourcingScreen({
                 id={currencySelectId}
                 value={currency}
                 onChange={(e) => handleCurrencyChange(e.target.value as CurrencyCode)}
-                className="w-full bg-warm-cream dark:bg-[#242424] rounded-smallelements px-3.5 py-2.5 text-[15px] text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#3a3a3a] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:border-transparent transition-all cursor-pointer font-medium"
+                className="w-full h-10 bg-paper-white dark:bg-[#18181b] rounded-[8px] px-3 py-2 text-[14px] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2b2b32] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange transition-colors cursor-pointer font-medium"
               >
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
@@ -386,7 +364,7 @@ export function SourcingScreen({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <FormInput
               id="mandate-delivery-days"
               label="Delivery SLA (Days)"
@@ -410,7 +388,7 @@ export function SourcingScreen({
           {sourcingError && (
             <div
               role="alert"
-              className="p-4 rounded-smallelements bg-[#feeef0] dark:bg-[#3d1216] text-[14px] text-[#ef4444] dark:text-[#f87171] flex items-center gap-2.5 border border-[#ef4444]/20 dark:border-[#ef4444]/40"
+              className="p-3.5 rounded-[6px] bg-[#feeef0] dark:bg-[#2b1012] text-[13px] text-[#dc2626] dark:text-[#f87171] flex items-center gap-2 border border-[#ef4444]/25"
             >
               <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>{sourcingError}</span>
@@ -418,24 +396,24 @@ export function SourcingScreen({
           )}
 
           {previewedSessionId && (
-            <div className="p-3.5 rounded-smallelements bg-mint-whisper dark:bg-lichen-green/10 border border-lichen-green/30 dark:border-lichen-green/40 text-[13px] text-obsidian dark:text-[#f5f3ef] flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-lichen-green shrink-0" />
+            <div className="p-3 rounded-[6px] bg-mint-whisper dark:bg-[#10211a] border border-lichen-green/30 text-[12.5px] text-[#006840] dark:text-[#4ade80] flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-lichen-green shrink-0" />
               <span>Wholesale quotes previewed & locked in active session. Ready to negotiate.</span>
             </div>
           )}
 
-          <div className="pt-2 flex flex-col sm:flex-row gap-3">
+          <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
             <GhostButton
               onClick={handleSourcePreview}
               disabled={isSourcing || isLoading}
-              className="flex-1 py-3 text-[15px]"
+              className="flex-1"
             >
               {isSourcing ? "Querying Suppliers..." : "Preview Wholesale"}
             </GhostButton>
             <PrimaryButton
               onClick={handleEnterArena}
               disabled={isLoading || isSourcing}
-              className="flex-1 text-[15px]"
+              className="flex-1"
             >
               Enter Arena
             </PrimaryButton>
@@ -443,14 +421,14 @@ export function SourcingScreen({
         </div>
 
         {/* Right Column: Wholesale Vendor Quotes Comparison */}
-        <div className="lg:col-span-7 bg-warm-cream dark:bg-[#1a1a1a] rounded-cards p-8 sm:p-10 border border-smoke dark:border-[#333333] flex flex-col justify-between transition-colors">
+        <div className="lg:col-span-7 bg-paper-white dark:bg-[#18181b] rounded-cards p-6 sm:p-7 border border-smoke dark:border-[#2b2b32] flex flex-col justify-between shadow-2xs transition-colors">
           <div>
-            <div className="pb-4 border-b border-smoke dark:border-[#333333] flex items-center justify-between">
+            <div className="pb-3.5 border-b border-smoke/80 dark:border-[#2b2b32] flex items-center justify-between">
               <div>
-                <h2 className="text-[20px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.4px]">
+                <h2 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                   Channel3 Wholesale Catalog
                 </h2>
-                <p className="text-[14px] text-[#666666] dark:text-[#a5a19b] mt-0.5 tracking-[-0.2px]">
+                <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] mt-0.5">
                   Multi-vendor competing baselines loaded for game-theoretic negotiation
                 </p>
               </div>
@@ -461,7 +439,7 @@ export function SourcingScreen({
             </div>
 
             {sourcedQuotes && sourcedQuotes.length > 0 ? (
-              <div className="pt-6 space-y-4">
+              <div className="pt-5 space-y-3">
                 {sourcedQuotes.map((quote) => {
                   const landedTotal = quote.initialUnitAsk * quantity + quote.shippingCost;
                   const isFeasible = landedTotal <= budget;
@@ -469,40 +447,46 @@ export function SourcingScreen({
                   return (
                     <div
                       key={quote.vendorId}
-                      className="bg-paper-white dark:bg-[#242424] rounded-cards p-6 border border-smoke dark:border-[#363636] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.03)] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      className="rounded-[10px] p-4 border border-smoke dark:border-[#2b2b32] bg-warm-cream/30 dark:bg-[#141416] transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                     >
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-[16px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.32px]">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                             {quote.vendorName}
                           </span>
-                          <span className="text-[12px] font-mono-token text-architect-violet dark:text-[#a78bfa] bg-lavender-mist dark:bg-architect-violet/20 px-2 py-0.5 rounded border border-architect-violet/20 dark:border-architect-violet/40 font-medium">
+                          <span className="text-[11px] font-mono-token text-architect-violet dark:text-[#a78bfa] bg-lavender-mist dark:bg-architect-violet/15 px-1.5 py-0.5 rounded border border-architect-violet/20 font-medium">
                             {quote.sku}
                           </span>
                         </div>
-                        <div className="text-[14px] text-[#666666] dark:text-[#a0a0a0] tracking-[-0.2px]">
+                        <div className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af]">
                           {quote.productTitle}
                         </div>
-                        <div className="flex items-center gap-4 text-[13px] text-[#666666] dark:text-[#a0a0a0] pt-1">
-                          <span className="flex items-center gap-1.5">
-                            <Truck className="w-3.5 h-3.5 text-obsidian dark:text-[#f5f3ef]" aria-hidden="true" />
+                        <div className="flex items-center gap-3 text-[12px] text-[#6e6e78] dark:text-[#8e8a83] pt-0.5">
+                          <span className="flex items-center gap-1">
+                            <Truck className="w-3.5 h-3.5" aria-hidden="true" />
                             {quote.deliveryDays}d Delivery
                           </span>
-                          <span className="flex items-center gap-1.5">
-                            <RotateCcw className="w-3.5 h-3.5 text-obsidian dark:text-[#f5f3ef]" aria-hidden="true" />
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
                             {quote.returnDays}d Return Policy
                           </span>
-                          <span className="font-medium text-architect-violet dark:text-[#a78bfa]">{quote.condition}</span>
+                          <span>•</span>
+                          <span className="font-medium text-architect-violet dark:text-[#a78bfa]">
+                            {quote.condition}
+                          </span>
                         </div>
                       </div>
 
-                      <div className="sm:text-right border-t sm:border-t-0 pt-3 sm:pt-0 border-smoke dark:border-[#363636]">
-                        <div className="text-[12px] text-[#666666] dark:text-[#a0a0a0] font-normal">Initial Landed Cost</div>
+                      <div className="sm:text-right border-t sm:border-t-0 pt-2.5 sm:pt-0 border-smoke/70 dark:border-[#222227] shrink-0">
+                        <div className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83]">
+                          Initial Landed Cost
+                        </div>
                         <CurrencyDisplay amount={landedTotal} currency={currency} size="md" />
-                        <div className="text-[12px] text-[#666666] dark:text-[#a0a0a0] mt-0.5">
+                        <div className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83] tabular-nums mt-0.5">
                           Unit: {currencyPrefix}{quote.initialUnitAsk} • Ship: {currencyPrefix}{quote.shippingCost}
                         </div>
-                        <div className="mt-2">
+                        <div className="mt-1.5">
                           <StatusBadge
                             status={isFeasible ? "verified" : "warning"}
                             label={isFeasible ? "Within Budget" : "Exceeds Budget"}
@@ -514,26 +498,26 @@ export function SourcingScreen({
                 })}
               </div>
             ) : (
-              <div className="py-20 text-center space-y-3">
-                <div className="w-12 h-12 rounded-full bg-paper-white dark:bg-[#242424] border border-smoke dark:border-[#363636] mx-auto flex items-center justify-center text-ash-gray">
-                  <Package className="w-6 h-6" aria-hidden="true" />
+              <div className="py-16 text-center space-y-2.5">
+                <div className="w-10 h-10 rounded-full bg-warm-cream dark:bg-[#202025] border border-smoke dark:border-[#2b2b32] mx-auto flex items-center justify-center text-ash-gray">
+                  <Package className="w-5 h-5" aria-hidden="true" />
                 </div>
-                <div className="text-[18px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.36px]">
+                <div className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                   Catalog Unloaded
                 </div>
-                <p className="text-[14px] text-[#666666] dark:text-[#a0a0a0] max-w-sm mx-auto leading-relaxed tracking-[-0.2px]">
+                <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] max-w-xs mx-auto leading-relaxed">
                   Click &ldquo;Preview Wholesale&rdquo; to test constraint validation against competing suppliers, or &ldquo;Enter Arena&rdquo; to commence autonomous negotiation.
                 </p>
               </div>
             )}
           </div>
 
-          <div className="pt-4 mt-6 border-t border-smoke dark:border-[#333333] text-[13px] text-[#666666] dark:text-[#a0a0a0] flex items-center justify-between">
+          <div className="pt-3.5 mt-5 border-t border-smoke/80 dark:border-[#2b2b32] text-[12px] text-[#6e6e78] dark:text-[#8e8a83] flex items-center justify-between">
             <span className="flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-obsidian dark:text-[#f5f3ef]" aria-hidden="true" />
-              Source: Channel3 Sourcing API
+              <Layers className="w-3.5 h-3.5" aria-hidden="true" />
+              Source: Channel3 Wholesale Catalog API
             </span>
-            <span className="text-lichen-green font-medium">Deterministic Simulation</span>
+            <span className="text-[#006840] dark:text-[#4ade80] font-medium">Deterministic Simulation</span>
           </div>
         </div>
       </div>

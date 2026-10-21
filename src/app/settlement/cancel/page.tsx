@@ -33,51 +33,51 @@ function CancelContent() {
   }, [sessionId]);
 
   return (
-    <div className="min-h-screen bg-[#f6f3ee] text-[#000000] p-6 sm:p-12 font-sans flex flex-col justify-between">
+    <div className="min-h-screen bg-page-bg text-text-primary p-6 sm:p-12 font-sans flex flex-col justify-between transition-colors">
       <div className="max-w-xl mx-auto w-full space-y-8 my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#e5e5e5]">
+        <div className="flex items-center justify-between pb-4 border-b border-border-color">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#000000] text-[#ffffff] flex items-center justify-center font-bold text-[14px]">
+            <div className="w-8 h-8 rounded-[8px] bg-ember-orange text-white flex items-center justify-center font-bold text-[14px]">
               P
             </div>
-            <span className="text-[18px] font-medium tracking-tight">PACTUM</span>
+            <span className="text-[18px] font-semibold tracking-[-0.03em] text-obsidian dark:text-[#f5f3ef]">PACTUM</span>
           </div>
-          <span className="text-[12px] font-medium px-3 py-1 rounded-[24px] bg-[#feeef0] text-[#ef4444] border border-[#ef4444]/30">
+          <span className="text-[11.5px] font-mono font-medium px-2.5 py-1 rounded-[6px] bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800/40">
             Payment Cancelled
           </span>
         </div>
 
         {/* Cancellation Notice Card */}
-        <div className="bg-[#ffffff] rounded-[24px] p-10 border border-[#e5e5e5] shadow-[0px_4px_12px_rgba(0,0,0,0.03)] space-y-6 text-center">
-          <div className="w-16 h-16 rounded-full bg-[#feeef0] text-[#ef4444] flex items-center justify-center mx-auto">
-            <XCircle className="w-8 h-8" />
+        <div className="bg-card-surface rounded-[12px] p-8 sm:p-10 border border-border-color shadow-xs space-y-6 text-center transition-colors">
+          <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto border border-red-200 dark:border-red-800/40">
+            <XCircle className="w-7 h-7" />
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-[26px] font-medium tracking-[-0.5px] text-[#000000]">
+            <h1 className="text-[24px] sm:text-[26px] font-medium tracking-[-0.02em] text-obsidian dark:text-[#f5f3ef]">
               PayPal Checkout Cancelled
             </h1>
-            <p className="text-[15px] text-[#888888] max-w-sm mx-auto leading-relaxed">
+            <p className="text-[14.5px] text-text-secondary max-w-sm mx-auto leading-relaxed">
               You exited the PayPal Sandbox approval interface. No funds were authorized or captured.
             </p>
           </div>
 
-          <div className="bg-[#f6f3ee] rounded-[16px] p-4 text-[13px] text-[#888888] flex items-center justify-center gap-2">
-            <Shield className="w-4 h-4 text-[#00cc88]" />
-            <span>Procurement mandate &amp; negotiation offer remain safely intact.</span>
+          <div className="bg-warm-cream/50 dark:bg-[#141416] rounded-[8px] p-3.5 text-[13px] text-text-secondary flex items-center justify-center gap-2 border border-border-color">
+            <Shield className="w-4 h-4 text-lichen-green" />
+            <span>Procurement mandate and negotiated supplier terms remain intact.</span>
           </div>
 
           {sessionId && (
-            <div className="text-[12px] font-mono-token text-[#888888]">
+            <div className="text-[12px] font-mono text-text-muted">
               Session Reference: {sessionId}
             </div>
           )}
 
-          <div className="pt-4 border-t border-[#e5e5e5] flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="pt-4 border-t border-border-color flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={() => router.push("/")}
-              className="px-6 py-3 rounded-[24px] border border-[#e5e5e5] text-[14px] font-medium text-[#000000] hover:bg-[#f6f3ee] transition-colors"
+              className="px-5 py-2.5 rounded-[8px] border border-border-color text-[13.5px] font-medium text-obsidian dark:text-[#f5f3ef] hover:bg-warm-cream dark:hover:bg-[#202024] transition-colors cursor-pointer"
             >
               Overview
             </button>
@@ -87,7 +87,7 @@ function CancelContent() {
                   ? router.push(`/?screen=settlement&sessionId=${sessionId}`)
                   : router.push("/")
               }
-              className="px-6 py-3 rounded-[24px] bg-[#000000] text-[#ffffff] text-[14px] font-medium hover:bg-[#222222] transition-colors flex items-center justify-center gap-2"
+              className="px-5 py-2.5 rounded-[8px] bg-ember-orange text-white text-[13.5px] font-medium hover:bg-[#e65c00] transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Return to Settlement Center</span>
@@ -97,7 +97,7 @@ function CancelContent() {
       </div>
 
       {/* Footer */}
-      <div className="max-w-xl mx-auto w-full pt-8 text-center text-[12px] text-[#888888]">
+      <div className="max-w-xl mx-auto w-full pt-8 text-center text-[12px] font-mono text-text-muted">
         PACTUM — Negotiate Intelligently. Settle Verifiably.
       </div>
     </div>

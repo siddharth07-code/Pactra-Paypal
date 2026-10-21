@@ -7,15 +7,12 @@ import {
   SectionHeader,
   WarmFeatureCard,
   LavenderFeaturePanel,
-  EmptyState,
 } from "./SharedUI";
 import {
   ShieldCheck,
   Lock,
   CheckCircle2,
   XCircle,
-  GitCommit,
-  Layers,
 } from "lucide-react";
 import type { ProcurementSession, MerkleAuditNode } from "@/types/pactum";
 
@@ -95,10 +92,10 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       : [];
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-300">
+    <div className="space-y-8 animate-in fade-in duration-200">
       {/* Header */}
       <SectionHeader
-        title="Evidence vault"
+        title="Evidence Vault"
         subtitle="SHA-256 Merkle flight recorder committing procurement records and verifiable audit proofs."
         badge={
           <StatusBadge
@@ -108,134 +105,128 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
         }
       />
 
-      {/* Merkle Roots: Warm Feature Cards with subtle elevation */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <WarmFeatureCard className="space-y-4">
+      {/* Merkle Roots: Clean Side-by-Side Panels */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <WarmFeatureCard className="space-y-3.5">
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium text-architect-violet dark:text-[#9d6ce6] uppercase tracking-[-0.28px] flex items-center gap-2">
-              <Lock className="w-4 h-4 text-architect-violet dark:text-[#9d6ce6]" aria-hidden="true" />
-              Pre-settlement Merkle root
+            <span className="text-[12px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+              Pre-Settlement Merkle Root
             </span>
-            <span className="text-[12px] font-medium px-3 py-1 rounded-cards bg-lavender-mist dark:bg-[#271f33] text-architect-violet dark:text-[#9d6ce6] border border-architect-violet/30">
+            <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-[4px] bg-lavender-mist dark:bg-[#271f33] text-architect-violet dark:text-[#a78bfa] border border-architect-violet/25">
               Bound to PayPal custom_id
             </span>
           </div>
           <div>
-            <div className="text-[13px] text-[#666666] dark:text-[#a5a19b] mb-2 font-medium">64-Character SHA-256 Digest</div>
+            <div className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] mb-1.5 font-medium">
+              64-Character SHA-256 Digest
+            </div>
             {preRoot ? (
               <CopyableHash hash={preRoot} truncate={false} />
             ) : (
-              <div className="p-3.5 rounded-smallelements bg-warm-cream dark:bg-[#242424] border border-smoke dark:border-[#333333] text-[14px] text-ash-gray font-mono-token italic">
+              <div className="p-3 rounded-[6px] bg-warm-cream/50 dark:bg-[#202025] border border-smoke dark:border-[#2b2b32] text-[13px] text-ash-gray font-mono-token italic">
                 Uncommitted — Awaiting verified negotiation completion
               </div>
             )}
           </div>
-          <p className="text-[14px] text-[#666666] dark:text-[#c4c0ba] leading-relaxed pt-3 border-t border-smoke dark:border-[#333333]">
-            Commits the active mandate version, Channel3 catalog snapshot, and all verified negotiation rounds into PayPal&apos;s <span className="font-mono-token text-obsidian dark:text-white">custom_id</span> parameter.
+          <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed pt-2.5 border-t border-smoke/80 dark:border-[#2b2b32]">
+            Commits the active mandate version, Channel3 catalog snapshot, and all verified negotiation rounds into PayPal&apos;s <span className="font-mono-token text-obsidian dark:text-white font-medium">custom_id</span> parameter.
           </p>
         </WarmFeatureCard>
 
-        <LavenderFeaturePanel className="space-y-4">
+        <LavenderFeaturePanel className="space-y-3.5">
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium text-architect-violet dark:text-[#9d6ce6] uppercase tracking-[-0.28px] flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-architect-violet dark:text-[#9d6ce6]" aria-hidden="true" />
-              Post-audit settlement root
+            <span className="text-[12px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+              Post-Audit Settlement Root
             </span>
-            <span className="text-[12px] font-medium px-3 py-1 rounded-cards bg-mint-whisper dark:bg-[#132820] text-lichen-green border border-lichen-green/30">
+            <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-[4px] bg-mint-whisper dark:bg-[#10211a] text-[#006840] dark:text-[#4ade80] border border-lichen-green/25">
               ACWORLD Committed
             </span>
           </div>
           <div>
-            <div className="text-[13px] text-[#666666] dark:text-[#a5a19b] mb-2 font-medium">Post-Audit Digest</div>
+            <div className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] mb-1.5 font-medium">
+              Post-Audit Digest
+            </div>
             {postRoot ? (
               <CopyableHash hash={postRoot} truncate={false} />
             ) : (
-              <div className="p-3.5 rounded-smallelements bg-paper-white dark:bg-[#1a1a1a] border border-architect-violet/20 dark:border-architect-violet/40 text-[14px] text-ash-gray font-mono-token italic">
+              <div className="p-3 rounded-[6px] bg-paper-white dark:bg-[#161619] border border-architect-violet/20 dark:border-architect-violet/30 text-[13px] text-ash-gray font-mono-token italic">
                 Pending ACWORLD final audit completion
               </div>
             )}
           </div>
-          <p className="text-[14px] text-[#666666] dark:text-[#c4c0ba] leading-relaxed pt-3 border-t border-architect-violet/20 dark:border-architect-violet/40">
+          <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed pt-2.5 border-t border-architect-violet/20 dark:border-architect-violet/30">
             Commits the ACWORLD audit certificate and payment capture hash without circular dependency on the pre-settlement root.
           </p>
         </LavenderFeaturePanel>
       </div>
 
-      {/* Five ACWORLD Invariants Display */}
-      <div className="bg-paper-white dark:bg-[#1a1a1a] rounded-cards p-8 sm:p-10 border border-smoke dark:border-[#333333] shadow-sm space-y-6 transition-colors">
-        <div className="pb-4 border-b border-smoke dark:border-[#333333] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* 5 ACWORLD Invariants Evaluation Checklist */}
+      <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] shadow-2xs space-y-4 transition-colors">
+        <div className="flex items-center justify-between pb-3 border-b border-smoke/80 dark:border-[#2b2b32]">
           <div>
-            <h2 className="text-[20px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.4px]">
-              ACWORLD 5-Invariant Cryptographic Guarantee
+            <h2 className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+              ACWORLD Independent Audit Invariants
             </h2>
-            <p className="text-[14px] text-[#666666] dark:text-[#a5a19b] mt-0.5 tracking-[-0.2px]">
-              Independent audit checks enforced server-side before releasing payment authorization
+            <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-0.5">
+              Strict fail-closed verification gate required before PayPal capture
             </p>
           </div>
-          <div className="text-[12px] font-medium text-lichen-green bg-mint-whisper dark:bg-[#132820] px-3.5 py-1.5 rounded-cards border border-lichen-green/30 self-start sm:self-auto">
-            Fail-Closed Enforced
-          </div>
+          <StatusBadge
+            status={
+              session?.auditCertificate?.passed === true
+                ? "verified"
+                : session?.auditCertificate?.passed === false
+                ? "failure"
+                : "neutral"
+            }
+            label={
+              session?.auditCertificate?.passed === true
+                ? "Audit Passed (5/5)"
+                : session?.auditCertificate?.passed === false
+                ? "Audit Blocked"
+                : "Pending Audit"
+            }
+          />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-1">
           {[
-            {
-              title: "1. SKU Integrity",
-              desc: "Matches selected quote SKU & condition against mandate.",
-              state: skuInvariant,
-            },
-            {
-              title: "2. Price Ceiling",
-              desc: "Landed cost calculation <= dynamic maxTotalBudget.",
-              state: priceInvariant,
-            },
-            {
-              title: "3. Return SLA",
-              desc: "Return window >= minReturnDays backed by DOM evidence.",
-              state: returnInvariant,
-            },
-            {
-              title: "4. Delivery SLA",
-              desc: "Estimated days <= mandate maxDeliveryDays.",
-              state: deliveryInvariant,
-            },
-            {
-              title: "5. Crypto Lineage",
-              desc: "Recomputed Merkle root bound to PayPal custom_id.",
-              state: cryptoInvariant,
-            },
-          ].map((inv, idx) => (
+            { name: "1. SKU Integrity", inv: skuInvariant, desc: "Catalog SKU matches mandate" },
+            { name: "2. Price Ceiling", inv: priceInvariant, desc: "Total <= Max Budget" },
+            { name: "3. Return Window", inv: returnInvariant, desc: "Return >= Min Days" },
+            { name: "4. Delivery SLA", inv: deliveryInvariant, desc: "Delivery <= Max Days" },
+            { name: "5. Lineage", inv: cryptoInvariant, desc: "Root matches PayPal order" },
+          ].map((item, idx) => (
             <div
               key={idx}
-              className="bg-warm-cream dark:bg-[#202020] rounded-smallelements p-5 border border-smoke dark:border-[#333333] flex flex-col justify-between space-y-3"
+              className="p-3.5 rounded-[8px] bg-warm-cream/35 dark:bg-[#151518] border border-smoke/80 dark:border-[#25252b] space-y-1.5"
             >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-[15px] text-obsidian dark:text-[#f5f3ef] tracking-[-0.3px]">{inv.title}</span>
-                  {inv.state.tested ? (
-                    inv.state.passed ? (
-                      <CheckCircle2 className="w-4 h-4 text-lichen-green" aria-hidden="true" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-[#ef4444]" aria-hidden="true" />
-                    )
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] font-semibold text-obsidian dark:text-[#f6f4f0]">
+                  {item.name}
+                </span>
+                {item.inv.tested ? (
+                  item.inv.passed ? (
+                    <CheckCircle2 className="w-4 h-4 text-lichen-green shrink-0" aria-hidden="true" />
                   ) : (
-                    <span className="w-2 h-2 rounded-full bg-ash-gray" aria-hidden="true" />
-                  )}
-                </div>
-                <p className="text-[13px] text-[#666666] dark:text-[#a5a19b] leading-relaxed tracking-[-0.2px]">{inv.desc}</p>
-                {inv.state.reason && !inv.state.passed && (
-                  <p className="text-[12px] text-[#ef4444] mt-2 font-mono-token">{inv.state.reason}</p>
-                )}
-              </div>
-              <div className="text-[12px] font-medium pt-2 border-t border-smoke dark:border-[#333333]">
-                {inv.state.tested ? (
-                  inv.state.passed ? (
-                    <span className="text-lichen-green">Verified</span>
-                  ) : (
-                    <span className="text-[#ef4444]">Failed</span>
+                    <XCircle className="w-4 h-4 text-[#ef4444] shrink-0" aria-hidden="true" />
                   )
                 ) : (
-                  <span className="text-[#666666] dark:text-[#888888]">Pending Audit</span>
+                  <span className="w-2 h-2 rounded-full bg-ash-gray/60 shrink-0" />
+                )}
+              </div>
+              <p className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] leading-snug">
+                {item.desc}
+              </p>
+              <div className="text-[11px] font-mono-token">
+                {item.inv.tested ? (
+                  <span className={item.inv.passed ? "text-[#006840] dark:text-lichen-green" : "text-[#dc2626] dark:text-[#f87171]"}>
+                    {item.inv.passed ? "Verified" : "Failed"}
+                  </span>
+                ) : (
+                  <span className="text-[#8e8a83]">Pending</span>
                 )}
               </div>
             </div>
@@ -243,120 +234,117 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
         </div>
       </div>
 
-      {/* Merkle Flight Recorder Explorer (Timeline vs Tree Levels View) */}
-      <div className="bg-warm-cream dark:bg-[#1f1f1f] rounded-cards border border-smoke dark:border-[#333333] overflow-hidden p-8 sm:p-10 space-y-6 shadow-sm transition-colors">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-smoke dark:border-[#333333]">
-          <div>
-            <h2 className="text-[20px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.4px]">
-              Merkle Evidence Verification
-            </h2>
-            <span className="text-[14px] text-[#666666] dark:text-[#a5a19b] tracking-[-0.2px]">
-              {committedNodes.length > 0
-                ? `${committedNodes.length} committed events in Merkle tree`
-                : evidenceData?.leaves.length
-                ? `${evidenceData.leaves.length} leaves in Merkle tree`
-                : "0 committed events"}
-            </span>
-          </div>
-
-          {/* View toggle */}
-          <div className="inline-flex items-center p-1 rounded-smallelements bg-paper-white dark:bg-[#282828] border border-smoke dark:border-[#383838]">
+      {/* Flight Recorder Ledger & Tree Inspector */}
+      <div className="bg-paper-white dark:bg-[#18181b] rounded-cards border border-smoke dark:border-[#2b2b32] overflow-hidden shadow-2xs transition-colors">
+        {/* Tab Controls */}
+        <div className="px-6 py-4 border-b border-smoke/80 dark:border-[#2b2b32] flex items-center justify-between bg-warm-cream/30 dark:bg-[#151518]">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setActiveTab("timeline")}
-              className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
                 activeTab === "timeline"
-                  ? "bg-warm-cream dark:bg-[#333333] text-obsidian dark:text-[#f5f3ef]"
-                  : "text-[#666666] dark:text-[#a5a19b] hover:text-obsidian"
+                  ? "bg-paper-white dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] shadow-2xs border border-smoke dark:border-[#2e2e34]"
+                  : "text-[#6e6e78] dark:text-[#8e8a83] hover:text-obsidian dark:hover:text-[#f6f4f0]"
               }`}
             >
-              <GitCommit className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Event Timeline</span>
+              Committed Event Ledger ({committedNodes.length || evidenceData?.leaves?.length || 0})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("tree")}
-              className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
                 activeTab === "tree"
-                  ? "bg-warm-cream dark:bg-[#333333] text-obsidian dark:text-[#f5f3ef]"
-                  : "text-[#666666] dark:text-[#a5a19b] hover:text-obsidian"
+                  ? "bg-paper-white dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] shadow-2xs border border-smoke dark:border-[#2e2e34]"
+                  : "text-[#6e6e78] dark:text-[#8e8a83] hover:text-obsidian dark:hover:text-[#f6f4f0]"
               }`}
             >
-              <Layers className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Tree Levels</span>
+              Merkle Tree Levels ({evidenceData?.levels?.length || 0})
             </button>
           </div>
+
+          <span className="text-[12px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
+            {session?.id || "No Session Selected"}
+          </span>
         </div>
 
-        <div>
+        {/* Tab Content */}
+        <div className="p-6">
           {isLoading ? (
-            <div className="py-12 text-center text-[14px] text-[#666666] dark:text-[#a5a19b]">
-              Loading cryptographic evidence...
+            <div className="py-12 text-center text-[13.5px] text-[#6e6e78] dark:text-[#8e8a83]">
+              Loading authoritative Merkle evidence...
             </div>
-          ) : !session ? (
-            <EmptyState
-              title="No session selected"
-              description="Select or start a procurement session to inspect authentic Merkle tree leaves and cryptographic evidence."
-            />
-          ) : activeTab === "tree" && evidenceData?.levels ? (
-            /* Visual Merkle Tree Levels Hierarchy */
-            <div className="space-y-6">
-              {evidenceData.levels.map((levelHashes, levelIdx) => (
-                <div key={levelIdx} className="space-y-2">
-                  <div className="text-[13px] font-medium uppercase tracking-wider text-architect-violet dark:text-[#9d6ce6]">
-                    {levelIdx === 0
-                      ? "Level 0 (Leaf Hashes)"
-                      : levelIdx === evidenceData.levels.length - 1
-                      ? "Root Level (Final Merkle Root)"
-                      : `Level ${levelIdx} (Internal Parent Hashes)`}
+          ) : activeTab === "timeline" ? (
+            committedNodes.length > 0 ? (
+              <div className="divide-y divide-smoke/70 dark:divide-[#25252b]" role="list">
+                {committedNodes.map((node) => (
+                  <div
+                    key={node.index}
+                    className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 h-6 rounded-[4px] bg-warm-cream dark:bg-[#222227] text-architect-violet dark:text-[#a78bfa] font-mono-token text-[11px] font-medium flex items-center justify-center shrink-0">
+                        {node.index}
+                      </span>
+                      <div>
+                        <div className="font-semibold text-obsidian dark:text-[#f6f4f0]">
+                          {node.eventType}
+                        </div>
+                        <div className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83]">
+                          {new Date(node.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-start sm:self-center">
+                      <CopyableHash hash={node.leafHash} label="Leaf" />
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {levelHashes.map((hash, nodeIdx) => (
+                ))}
+              </div>
+            ) : evidenceData?.leaves && evidenceData.leaves.length > 0 ? (
+              <div className="space-y-2.5">
+                {evidenceData.leaves.map((leaf, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-[6px] bg-warm-cream/40 dark:bg-[#141416] border border-smoke/70 dark:border-[#25252b] flex items-center justify-between gap-3"
+                  >
+                    <span className="text-[12px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
+                      Leaf #{idx}
+                    </span>
+                    <CopyableHash hash={leaf} truncate={false} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-10 text-center text-[#8e8a83] text-[13.5px]">
+                No Merkle events recorded for this session yet. Launch a procurement run to generate cryptographic proof.
+              </div>
+            )
+          ) : evidenceData?.levels && evidenceData.levels.length > 0 ? (
+            <div className="space-y-4">
+              {evidenceData.levels.map((lvl, levelIdx) => (
+                <div key={levelIdx} className="space-y-2">
+                  <div className="text-[12px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83] uppercase tracking-wider font-medium">
+                    Level {levelIdx} ({lvl.length} node{lvl.length > 1 ? "s" : ""})
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {lvl.map((hash, hIdx) => (
                       <div
-                        key={nodeIdx}
-                        className="bg-paper-white dark:bg-[#262626] p-3.5 rounded-smallelements border border-smoke dark:border-[#383838] flex items-center justify-between gap-3 text-xs font-mono-token"
+                        key={hIdx}
+                        className="p-2.5 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke/70 dark:border-[#25252b]"
                       >
-                        <span className="text-[#666666] dark:text-[#a5a19b] shrink-0">
-                          [{levelIdx}:{nodeIdx}]
-                        </span>
-                        <CopyableHash hash={hash} truncate={true} />
+                        <CopyableHash hash={hash} truncate={false} />
                       </div>
                     ))}
                   </div>
                 </div>
               ))}
             </div>
-          ) : committedNodes.length > 0 ? (
-            <div className="space-y-4">
-              {committedNodes.map((node) => (
-                <div
-                  key={node.index}
-                  className="bg-paper-white dark:bg-[#242424] rounded-smallelements p-5 border border-smoke dark:border-[#383838] transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono-token text-[12px] text-architect-violet dark:text-[#9d6ce6] bg-lavender-mist dark:bg-[#332545] px-2.5 py-1 rounded-[6px] font-medium border border-architect-violet/20">
-                        Leaf #{node.index}
-                      </span>
-                      <span className="font-medium text-[16px] text-obsidian dark:text-[#f5f3ef] tracking-[-0.32px]">
-                        {node.eventType}
-                      </span>
-                    </div>
-                    <div className="text-[13px] text-[#666666] dark:text-[#a5a19b]">
-                      Timestamp: {new Date(node.timestamp).toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
-                    <CopyableHash hash={node.leafHash} label="Leaf" truncate={true} />
-                  </div>
-                </div>
-              ))}
-            </div>
           ) : (
-            <EmptyState
-              title="No cryptographic leaves committed"
-              description="Commencing negotiation in the Arena will commit the locked mandate, catalog snapshot, and negotiation rounds into genuine Merkle tree leaves."
-            />
+            <div className="py-10 text-center text-[#8e8a83] text-[13.5px]">
+              Tree levels unavailable. Complete negotiation rounds to inspect internal Merkle nodes.
+            </div>
           )}
         </div>
       </div>
