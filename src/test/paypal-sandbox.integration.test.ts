@@ -57,7 +57,8 @@ describe("Live PayPal Sandbox Integration Tests", () => {
       const fetchedOrder = await client.getOrder(order.id);
       expect(fetchedOrder.id).toBe(order.id);
       expect(fetchedOrder.intent).toBe("AUTHORIZE");
-    }
+    },
+    15000
   );
 
   it.runIf(hasCredentials)(
@@ -129,6 +130,7 @@ describe("Live PayPal Sandbox Integration Tests", () => {
       const updated = sessionStore.getSession(session.id)!;
       expect(updated.status).toBe("AWAITING_PAYPAL_APPROVAL");
       expect(updated.paypalOrderId).toBe(res.orderId);
-    }
+    },
+    15000
   );
 });

@@ -261,6 +261,7 @@ export default function Home() {
       onNavigate={(screen) => navigateToScreen(screen)}
       activeSessionId={arenaSessionId || activeSession?.id}
       activeBudgetString={activeBudgetString}
+      isNegotiating={isStreaming || activeSession?.status === "NEGOTIATING"}
     >
       {currentScreen === "overview" && (
         <OverviewScreen

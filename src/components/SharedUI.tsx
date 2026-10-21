@@ -7,12 +7,11 @@ import {
   ArrowRight,
   Sun,
   Moon,
-  Monitor,
   ArrowUp,
   X,
   AlertTriangle,
 } from "lucide-react";
-import { useTheme, type Theme } from "@/lib/theme-provider";
+import { useTheme } from "@/lib/theme-provider";
 
 /**
  * Lithic Primary CTA Button (DESIGN.md: Primary CTA Button)
@@ -389,49 +388,70 @@ export function EmptyState({
 }
 
 /**
- * Polished Theme Selector Segmented Control (Light, Dark, System)
- * Section 5: Meets WCAG 2.2 AA contrast, accessible names, visible focus, no layout shift.
+ * Institutional Theme Toggle Button (Light / Dark)
+ * Replaces the bulky 3-option segmented control with an ultra-polished,
+ * compact 50x32px interactive theme switch custom-designed for PACTUM.
+ *
+ * - Compact 50px wide x 32px tall button (exact 48–52px x 30–34px specification).
+ * - Displays a crescent moon icon when dark mode is active.
+ * - Displays a sun icon when light mode is active.
+ * - Handles System mode seamlessly: reflects the resolved theme icon and switches
+ *   to the opposite explicit theme on click, persisting the choice.
+ * - Restrained, professional micro-transition (gentle rotate & cross-fade).
+ * - Full prefers-reduced-motion compliance.
+ * - Accessible title tooltip & aria-label: "Switch to light mode" / "Switch to dark mode".
+ * - Visible keyboard focus ring and touchscreen-friendly touch target.
  */
-export function ThemeSelector({ className = "" }: { className?: string }) {
-  const { theme, setTheme } = useTheme();
+export function ThemeToggle({ className = "" }: { className?: string }) {
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
-  const options: Array<{ id: Theme; label: string; icon: typeof Sun }> = [
-    { id: "light", label: "Light", icon: Sun },
-    { id: "dark", label: "Dark", icon: Moon },
-    { id: "system", label: "System", icon: Monitor },
-  ];
+  const handleToggle = () => {
+    // If currently dark (either explicit or system-resolved), switch to explicit light
+    // If currently light (either explicit or system-resolved), switch to explicit dark
+    setTheme(isDark ? "light" : "dark");
+  };
+
+  const label = isDark ? "Switch to light mode" : "Switch to dark mode";
 
   return (
-    <div
-      role="radiogroup"
-      aria-label="Color appearance preference"
-      className={`inline-flex items-center p-1 rounded-smallelements bg-warm-cream dark:bg-[#222222] border border-smoke dark:border-[#333333] ${className}`}
+    <button
+      type="button"
+      onClick={handleToggle}
+      aria-label={label}
+      title={label}
+      className={`relative w-[50px] h-[32px] rounded-[8px] border transition-colors motion-reduce:transition-none cursor-pointer flex items-center justify-center shrink-0 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111114] ${
+        isDark
+          ? "bg-[#18181b] border-[#2b2b32] text-[#dedad4] hover:bg-[#222227] hover:border-[#383842] shadow-2xs"
+          : "bg-warm-cream/90 border-smoke/90 text-obsidian hover:bg-paper-white hover:border-smoke shadow-2xs"
+      } ${className}`}
     >
-      {options.map((opt) => {
-        const Icon = opt.icon;
-        const isActive = theme === opt.id;
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            role="radio"
-            aria-checked={isActive}
-            aria-label={`${opt.label} appearance`}
-            onClick={() => setTheme(opt.id)}
-            className={`p-1.5 rounded-[6px] text-[13px] font-medium transition-all cursor-pointer flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange ${
-              isActive
-                ? "bg-paper-white dark:bg-[#333333] text-obsidian dark:text-[#f5f3ef] shadow-xs"
-                : "text-[#666666] dark:text-[#a5a19b] hover:text-obsidian dark:hover:text-[#f5f3ef]"
-            }`}
-          >
-            <Icon className="w-3.5 h-3.5" aria-hidden="true" />
-            <span className="hidden sm:inline text-xs">{opt.label}</span>
-          </button>
-        );
-      })}
-    </div>
+      <span className="relative w-4 h-4 flex items-center justify-center pointer-events-none">
+        {/* Sun Icon (Active in Light Mode) */}
+        <Sun
+          className={`w-4 h-4 text-amber-500 absolute motion-safe:transition-all motion-safe:duration-200 motion-reduce:transition-none ${
+            isDark
+              ? "rotate-45 scale-75 opacity-0"
+              : "rotate-0 scale-100 opacity-100"
+          }`}
+          aria-hidden="true"
+        />
+        {/* Crescent Moon Icon (Active in Dark Mode) */}
+        <Moon
+          className={`w-4 h-4 text-amber-300 absolute motion-safe:transition-all motion-safe:duration-200 motion-reduce:transition-none ${
+            isDark
+              ? "rotate-0 scale-100 opacity-100"
+              : "-rotate-45 scale-75 opacity-0"
+          }`}
+          aria-hidden="true"
+        />
+      </span>
+    </button>
   );
 }
+
+// Export ThemeSelector as an alias so all existing imports and tests work seamlessly
+export const ThemeSelector = ThemeToggle;
 
 /**
  * Accessible Confirmation Modal
