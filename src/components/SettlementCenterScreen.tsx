@@ -4,6 +4,7 @@
  * PACTUM — Settlement Center Screen
  * Implements real PayPal Sandbox checkout initiation and audited capture display.
  * Primary Action: "Continue to PayPal" -> redirects to real PayPal Sandbox approval interface.
+ * Strictly fail-closed: Continue to PayPal requires an authoritative passing audit certificate.
  * Follows design.md, GEMINI.md Section 8, 9, 12 and SECURITY.md Section 3, 7.
  */
 
@@ -13,6 +14,7 @@ import {
   GhostButton,
   CurrencyDisplay,
   StatusBadge,
+  ConfirmationModal,
 } from "./SharedUI";
 import {
   ShieldAlert,
@@ -28,6 +30,7 @@ import {
   RefreshCw,
   PlusCircle,
   History,
+  FileText,
 } from "lucide-react";
 import type { ProcurementSession, ProcurementSessionStatus } from "@/types/pactum";
 
@@ -38,6 +41,34 @@ interface SettlementCenterScreenProps {
   onSelectSessionHistory?: () => void;
   onSessionUpdated?: (updated: ProcurementSession) => void;
 }
+
+const REQUIRED_INVARIANTS = [
+  {
+    key: "SKU_INTEGRITY",
+    title: "1. SKU & Condition Integrity",
+    desc: "Selected catalog SKU and condition match mandate requirements exactly.",
+  },
+  {
+    key: "PRICE_CEILING",
+    title: "2. Price Ceiling & Arithmetic",
+    desc: "Recalculates Landed Cost = Price × Qty + Shipping <= Max Total Budget.",
+  },
+  {
+    key: "RETURN_POLICY",
+    title: "3. Return Policy SLA",
+    desc: "Agreed return window >= Min Return Days, verified via DOM attestation.",
+  },
+  {
+    key: "DELIVERY_SLA",
+    title: "4. Delivery SLA",
+    desc: "Agreed delivery SLA in days <= mandate Max Delivery Days.",
+  },
+  {
+    key: "CRYPTOGRAPHIC_LINEAGE",
+    title: "5. Cryptographic Lineage",
+    desc: "Merkle root bound to PayPal Orders v2 custom_id exactly matches authoritative tree.",
+  },
+] as const;
 
 export function SettlementCenterScreen({
   session,
@@ -66,9 +97,11 @@ export function SettlementCenterScreen({
   const netSavings = mandateBudget > 0 ? mandateBudget - totalAmount : 0;
   const savingsPct = mandateBudget > 0 ? (netSavings / mandateBudget) * 100 : 0;
 
+  // Strict Fail-Closed Audit Evaluation (Section 13)
   const auditCert = session?.auditCertificate;
-  const isAuditPassed = auditCert?.passed ?? false;
-  const isAuditFailed = auditCert !== undefined && !auditCert.passed;
+  const isAuditPassed = Boolean(auditCert && auditCert.passed === true);
+  const isAuditFailed = Boolean(auditCert && auditCert.passed === false);
+  const isAuditMissing = auditCert === undefined;
 
   const handleCopySessionId = () => {
     if (!session?.id) return;
@@ -119,9 +152,10 @@ export function SettlementCenterScreen({
   /**
    * Primary Action: Initiates PayPal Orders v2 checkout and redirects
    * the browser to the official PayPal Sandbox approval screen.
+   * Strictly blocked unless ACWORLD audit passed.
    */
   const handleContinueToPayPal = async () => {
-    if (!session?.id || isInitiating) return;
+    if (!session?.id || isInitiating || !isAuditPassed) return;
     setIsInitiating(true);
     setCheckoutError(null);
 
@@ -225,15 +259,15 @@ export function SettlementCenterScreen({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div>
-          <h1 className="text-[36px] font-medium tracking-[-0.72px] text-[#000000]">
+          <h1 className="text-[36px] font-medium tracking-[-0.72px] text-obsidian dark:text-[#f5f3ef]">
             Settlement center
           </h1>
-          <p className="text-[16px] text-[#888888] mt-1">
+          <p className="text-[16px] text-[#555555] dark:text-[#c4c0ba] mt-1">
             Zero-trust ACWORLD audit verification and cryptographically bound PayPal Orders v2 settlement.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[12px] font-medium px-3.5 py-1.5 rounded-[24px] bg-[#fff2e6] text-[#ff6600] border border-[#ff6600]/30">
+          <span className="text-[12px] font-medium px-3.5 py-1.5 rounded-[24px] bg-[#fff2e6] dark:bg-[#331c0e] text-[#ff6600] border border-[#ff6600]/30">
             PayPal Sandbox
           </span>
           <StatusBadge status={badgeConfig.status} label={badgeConfig.label} />
@@ -241,10 +275,10 @@ export function SettlementCenterScreen({
       </div>
 
       {!session ? (
-        <div className="bg-[#f6f3ee] rounded-[24px] p-12 text-center text-[#888888] border border-[#e5e5e5] space-y-4">
-          <CreditCard className="w-12 h-12 mx-auto text-[#aa8855] mb-2 opacity-70" />
-          <h3 className="text-[20px] font-medium text-[#000000]">No Authoritative Session Selected</h3>
-          <p className="text-[14px] text-[#888888] max-w-md mx-auto leading-relaxed">
+        <div className="bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-12 text-center text-[#666666] dark:text-[#a5a19b] border border-smoke dark:border-[#333333] space-y-4">
+          <CreditCard className="w-12 h-12 mx-auto text-bark-brown dark:text-[#c4a26e] mb-2 opacity-70" aria-hidden="true" />
+          <h3 className="text-[20px] font-medium text-obsidian dark:text-[#f5f3ef]">No Authoritative Session Selected</h3>
+          <p className="text-[14px] text-[#555555] dark:text-[#c4c0ba] max-w-md mx-auto leading-relaxed">
             Please run a procurement negotiation in the Negotiation Arena to select a winning vendor offer before proceeding to settlement.
           </p>
           <div className="flex justify-center gap-3 pt-3">
@@ -266,13 +300,13 @@ export function SettlementCenterScreen({
         <div className="space-y-8">
           {/* Missing Session Recovery Alert */}
           {isSessionNotFound && (
-            <div className="p-6 rounded-[20px] bg-[#fff8eb] border border-[#ff6600]/40 space-y-3">
+            <div className="p-6 rounded-[20px] bg-[#fff8eb] dark:bg-[#2b1f0c] border border-[#ff6600]/40 space-y-3">
               <div className="flex items-center gap-2.5 text-[#ff6600] font-medium text-[16px]">
-                <AlertCircle className="w-5 h-5 shrink-0" />
+                <AlertCircle className="w-5 h-5 shrink-0" aria-hidden="true" />
                 <span>Authoritative Session Not Found in Server Store</span>
               </div>
-              <p className="text-[14px] text-[#888888] leading-relaxed">
-                The session <code className="font-mono-token text-[#5c2999] bg-[#f6f1fe] px-2 py-0.5 rounded font-medium">{session.id}</code> is not registered in the authoritative server store. This can happen if the server process restarted or an uncommitted session ID was retained by client cache.
+              <p className="text-[14px] text-[#555555] dark:text-[#c4c0ba] leading-relaxed">
+                The session <code className="font-mono-token text-architect-violet dark:text-[#9d6ce6] bg-lavender-mist dark:bg-[#271f33] px-2 py-0.5 rounded font-medium">{session.id}</code> is not registered in the authoritative server store. This can happen if the server process restarted.
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 {onStartNewNegotiation && (
@@ -300,37 +334,38 @@ export function SettlementCenterScreen({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left Column: Transaction Breakdown & Settlement Action */}
             <div className="lg:col-span-5 space-y-6">
-              <div className="bg-[#ffffff] rounded-[24px] p-8 sm:p-10 border border-[#e5e5e5] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.03)] space-y-6">
-                <div className="flex justify-between items-start pb-4 border-b border-[#e5e5e5]">
+              <div className="bg-paper-white dark:bg-[#1a1a1a] rounded-cards p-8 sm:p-10 border border-smoke dark:border-[#333333] shadow-sm space-y-6">
+                <div className="flex justify-between items-start pb-4 border-b border-smoke dark:border-[#333333]">
                   <div>
-                    <h2 className="text-[20px] font-medium text-[#000000] tracking-[-0.4px]">
+                    <h2 className="text-[20px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.4px]">
                       Agreed Transaction Terms
                     </h2>
-                    <p className="text-[13px] text-[#888888] mt-0.5">Authoritative procurement contract</p>
+                    <p className="text-[13px] text-[#666666] dark:text-[#a5a19b] mt-0.5">Authoritative procurement contract</p>
                   </div>
                   <button
+                    type="button"
                     onClick={handleCopySessionId}
                     title="Click to copy full Authoritative Session ID"
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-[8px] bg-[#f6f3ee] hover:bg-[#eae6df] text-[12px] font-mono-token text-[#5c2999] border border-[#e5e5e5] transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-[8px] bg-warm-cream dark:bg-[#262626] hover:bg-smoke dark:hover:bg-[#333333] text-[12px] font-mono-token text-architect-violet dark:text-[#9d6ce6] border border-smoke dark:border-[#333333] transition-colors cursor-pointer"
                   >
                     <span>{session.id.slice(0, 16)}...</span>
-                    {copiedId ? <Check className="w-3.5 h-3.5 text-[#00cc88]" /> : <Copy className="w-3.5 h-3.5 text-[#888888]" />}
+                    {copiedId ? <Check className="w-3.5 h-3.5 text-lichen-green" aria-hidden="true" /> : <Copy className="w-3.5 h-3.5 text-ash-gray" aria-hidden="true" />}
                   </button>
                 </div>
 
                 <div className="space-y-4 text-[15px]">
                   <div className="flex justify-between items-center">
-                    <span className="text-[#888888]">Selected Supplier:</span>
-                    <span className="font-medium text-[#000000]">{selectedQuote?.vendorName || "Not selected"}</span>
+                    <span className="text-[#666666] dark:text-[#a5a19b]">Selected Supplier:</span>
+                    <span className="font-medium text-obsidian dark:text-[#f5f3ef]">{selectedQuote?.vendorName || "Not selected"}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#888888]">SKU / Product:</span>
-                    <span className="font-mono-token text-[12px] text-[#5c2999] bg-[#f6f1fe] px-2 py-0.5 rounded">
+                    <span className="text-[#666666] dark:text-[#a5a19b]">SKU / Product:</span>
+                    <span className="font-mono-token text-[12px] text-architect-violet dark:text-[#9d6ce6] bg-lavender-mist dark:bg-[#271f33] px-2 py-0.5 rounded border border-architect-violet/20">
                       {selectedQuote?.sku || "N/A"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#888888]">Agreed Unit Price:</span>
+                    <span className="text-[#666666] dark:text-[#a5a19b]">Agreed Unit Price:</span>
                     <CurrencyDisplay
                       amount={finalOffer?.unitPrice || 0}
                       currency={mandate?.currency}
@@ -338,36 +373,36 @@ export function SettlementCenterScreen({
                     />
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#888888]">Quantity:</span>
-                    <span className="font-medium text-[#000000]">{finalOffer?.quantity || 0} units</span>
+                    <span className="text-[#666666] dark:text-[#a5a19b]">Quantity:</span>
+                    <span className="font-medium text-obsidian dark:text-[#f5f3ef]">{finalOffer?.quantity || 0} units</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#888888]">Delivery SLA:</span>
-                    <span className="text-[#000000]">{finalOffer?.deliveryDays ?? "—"} Days (Max {mandate?.maxDeliveryDays}d)</span>
+                    <span className="text-[#666666] dark:text-[#a5a19b]">Delivery SLA:</span>
+                    <span className="text-obsidian dark:text-[#f5f3ef]">{finalOffer?.deliveryDays ?? "—"} Days (Max {mandate?.maxDeliveryDays}d)</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#888888]">Return Policy Window:</span>
-                    <span className="text-[#000000]">{finalOffer?.returnDays ?? "—"} Days (Min {mandate?.minReturnDays}d)</span>
+                    <span className="text-[#666666] dark:text-[#a5a19b]">Return Policy Window:</span>
+                    <span className="text-obsidian dark:text-[#f5f3ef]">{finalOffer?.returnDays ?? "—"} Days (Min {mandate?.minReturnDays}d)</span>
                   </div>
 
                   {/* Financial Comparison: Budget Ceiling vs Negotiated Landed Total */}
-                  <div className="pt-4 border-t border-[#e5e5e5] space-y-2.5">
+                  <div className="pt-4 border-t border-smoke dark:border-[#333333] space-y-2.5">
                     <div className="flex justify-between items-center text-[14px]">
-                      <span className="text-[#888888]">Mandate Budget Ceiling:</span>
-                      <span className="font-mono-token text-[#000000] font-medium">
+                      <span className="text-[#666666] dark:text-[#a5a19b]">Mandate Budget Ceiling:</span>
+                      <span className="font-mono-token text-obsidian dark:text-[#f5f3ef] font-medium">
                         ${mandateBudget.toLocaleString()} {mandate?.currency}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-[14px]">
-                      <span className="text-[#888888]">Agreed Landed Cost:</span>
-                      <span className="font-mono-token text-[#ff6600] font-semibold text-[16px]">
+                      <span className="text-[#666666] dark:text-[#a5a19b]">Agreed Landed Cost:</span>
+                      <span className="font-mono-token text-ember-orange font-semibold text-[16px]">
                         ${totalAmount.toLocaleString()} {mandate?.currency}
                       </span>
                     </div>
                     {mandateBudget > 0 && (
-                      <div className="flex justify-between items-center text-[14px] bg-[#ebfef6] p-2.5 rounded-[12px] border border-[#00cc88]/30">
-                        <span className="text-[#00cc88] font-medium">Procurement Savings:</span>
-                        <span className="font-mono-token text-[#00cc88] font-semibold">
+                      <div className="flex justify-between items-center text-[14px] bg-mint-whisper dark:bg-[#132820] p-2.5 rounded-[12px] border border-lichen-green/30">
+                        <span className="text-lichen-green font-medium">Procurement Savings:</span>
+                        <span className="font-mono-token text-lichen-green font-semibold">
                           +${netSavings.toLocaleString()} ({savingsPct.toFixed(1)}%)
                         </span>
                       </div>
@@ -377,38 +412,38 @@ export function SettlementCenterScreen({
 
                 {/* Audit Error Banner */}
                 {auditError && (
-                  <div className="p-4 rounded-[16px] bg-[#feeef0] border border-[#ef4444]/30 text-[#ef4444] text-[13px] flex items-start gap-2.5">
-                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <div className="p-4 rounded-[16px] bg-[#feeef0] dark:bg-[#331417] border border-[#ef4444]/30 text-[#ef4444] text-[13px] flex items-start gap-2.5">
+                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" />
                     <div className="leading-snug">{auditError}</div>
                   </div>
                 )}
 
                 {/* Checkout Error Banner */}
                 {checkoutError && !isSessionNotFound && (
-                  <div className="p-4 rounded-[16px] bg-[#feeef0] border border-[#ef4444]/30 text-[#ef4444] text-[13px] flex items-start gap-2.5">
-                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <div className="p-4 rounded-[16px] bg-[#feeef0] dark:bg-[#331417] border border-[#ef4444]/30 text-[#ef4444] text-[13px] flex items-start gap-2.5">
+                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" />
                     <div className="leading-snug">{checkoutError}</div>
                   </div>
                 )}
 
                 {/* Status Specific Notice */}
                 {session.status === "AWAITING_PAYPAL_APPROVAL" && (
-                  <div className="p-4 rounded-[16px] bg-[#fff8eb] border border-[#ff6600]/30 text-[#aa5500] text-[13px] space-y-1">
+                  <div className="p-4 rounded-[16px] bg-[#fff8eb] dark:bg-[#2e200c] border border-[#ff6600]/30 text-[#ff6600] text-[13px] space-y-1">
                     <div className="font-medium flex items-center gap-1.5">
-                      <Loader2 className="w-4 h-4 animate-spin text-[#ff6600]" />
+                      <Loader2 className="w-4 h-4 animate-spin text-ember-orange" aria-hidden="true" />
                       <span>Awaiting PayPal Sandbox Approval</span>
                     </div>
-                    <p className="text-[12px] text-[#888888] leading-relaxed">
+                    <p className="text-[12px] text-[#555555] dark:text-[#c4c0ba] leading-relaxed">
                       Order #{session.paypalOrderId || "..."} has been initialized. Click below to enter PayPal Sandbox and approve authorization.
                     </p>
                   </div>
                 )}
 
-                {/* Primary Action Button */}
+                {/* Primary Action Button (Strictly Fail-Closed) */}
                 <div className="pt-2">
                   {session.status === "SETTLED" || session.status === "PAYPAL_CAPTURED" ? (
-                    <div className="p-4 bg-[#ebfef6] rounded-[24px] text-center text-[14px] text-[#00cc88] font-medium flex items-center justify-center gap-2 border border-[#00cc88]/30">
-                      <CheckCircle2 className="w-5 h-5" />
+                    <div className="p-4 bg-mint-whisper dark:bg-[#132820] rounded-cards text-center text-[14px] text-lichen-green font-medium flex items-center justify-center gap-2 border border-lichen-green/30">
+                      <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
                       <span>PayPal Funds Captured &amp; Invoice Created</span>
                     </div>
                   ) : session.status === "PAYPAL_AUTHORIZED" ? (
@@ -419,12 +454,12 @@ export function SettlementCenterScreen({
                     >
                       {isCapturing ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                           <span>Auditing &amp; Capturing Funds...</span>
                         </>
                       ) : (
                         <>
-                          <Lock className="w-4 h-4" />
+                          <Lock className="w-4 h-4" aria-hidden="true" />
                           <span>Run ACWORLD Audit &amp; Capture</span>
                         </>
                       )}
@@ -432,11 +467,13 @@ export function SettlementCenterScreen({
                   ) : (
                     <div className="space-y-3">
                       {isAuditPassed && (
-                        <div className="flex items-center gap-1.5 text-[12px] text-[#00cc88] font-medium justify-center pb-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-1.5 text-[12px] text-lichen-green font-medium justify-center pb-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
                           <span>Audited &amp; Eligible for PayPal Authorization</span>
                         </div>
                       )}
+
+                      {/* STRICT FAIL-CLOSED BUTTON: Requires isAuditPassed === true */}
                       <PrimaryButton
                         onClick={handleContinueToPayPal}
                         disabled={
@@ -444,25 +481,32 @@ export function SettlementCenterScreen({
                           isSessionNotFound ||
                           !finalOffer ||
                           !selectedQuote ||
-                          isAuditFailed
+                          !isAuditPassed
                         }
                         className="w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isInitiating ? (
                           <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                             <span>Connecting to PayPal Sandbox...</span>
                           </>
                         ) : (
                           <>
                             <span>Continue to PayPal</span>
-                            <ExternalLink className="w-4 h-4" />
+                            <ExternalLink className="w-4 h-4" aria-hidden="true" />
                           </>
                         )}
                       </PrimaryButton>
+
+                      {/* Explicit Explanations for Readiness State */}
+                      {isAuditMissing && (
+                        <p className="text-[12px] text-architect-violet dark:text-[#9d6ce6] text-center font-medium">
+                          Audit Required: Run ACWORLD Pre-Checkout Audit below before releasing PayPal authorization.
+                        </p>
+                      )}
                       {isAuditFailed && (
-                        <p className="text-[12px] text-[#ef4444] text-center">
-                          PayPal checkout disabled: One or more ACWORLD audit invariants failed.
+                        <p className="text-[12px] text-[#ef4444] text-center font-medium">
+                          PayPal checkout blocked: One or more ACWORLD audit invariants failed.
                         </p>
                       )}
                     </div>
@@ -471,89 +515,87 @@ export function SettlementCenterScreen({
               </div>
 
               {/* PayPal Transaction Artifacts Card */}
-              <div className="bg-[#f6f3ee] rounded-[24px] p-8 border border-[#e5e5e5] space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[#e5e5e5]">
-                  <h3 className="text-[14px] font-medium uppercase tracking-[-0.28px] text-[#5c2999]">
+              <div className="bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-8 border border-smoke dark:border-[#333333] space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-smoke dark:border-[#333333]">
+                  <h3 className="text-[14px] font-medium uppercase tracking-[-0.28px] text-architect-violet dark:text-[#9d6ce6]">
                     PayPal Transaction Artifacts
                   </h3>
-                  <span className="text-[11px] font-mono-token text-[#888888]">
+                  <span className="text-[11px] font-mono-token text-[#666666] dark:text-[#a5a19b]">
                     intent: AUTHORIZE
                   </span>
                 </div>
+
                 <div className="space-y-3 text-[14px]">
                   <div className="flex justify-between items-center">
-                    <span className="text-[#888888]">Orders v2 Order ID:</span>
-                    <span className="font-mono-token text-[#000000] font-medium">
-                      {session.paypalOrderId || "Awaiting Checkout Initiation"}
+                    <span className="text-[#666666] dark:text-[#a5a19b]">PayPal Order ID:</span>
+                    <span className="font-mono-token text-xs text-obsidian dark:text-[#f5f3ef]">
+                      {session.paypalOrderId || "Pending Authorization"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#888888]">Authorization ID:</span>
-                    <span className="font-mono-token text-[#5c2999]">
-                      {session.paypalAuthorizationId ||
-                        (session.status === "AWAITING_PAYPAL_APPROVAL"
-                          ? "Pending Buyer Approval"
-                          : session.status === "PAYPAL_AUTHORIZED"
-                          ? "Authorized by Buyer"
-                          : "Pending Order Creation")}
+                    <span className="text-[#666666] dark:text-[#a5a19b]">PayPal Capture ID:</span>
+                    <span className="font-mono-token text-xs text-obsidian dark:text-[#f5f3ef]">
+                      {session.paypalCaptureId || "Pending Server Capture"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#888888]">Captured Payment ID:</span>
-                    <span className="font-mono-token text-[#00cc88]">
-                      {session.paypalCaptureId ||
-                        (session.status === "PAYPAL_AUTHORIZED"
-                          ? "Ready for Audited Capture"
-                          : "Awaiting Audit Gate")}
+                    <span className="text-[#666666] dark:text-[#a5a19b]">B2B Invoice ID:</span>
+                    <span className="font-mono-token text-xs text-obsidian dark:text-[#f5f3ef]">
+                      {session.paypalInvoiceId || "Pending Invoice Generation"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#888888]">B2B Invoice ID:</span>
-                    <span className="font-mono-token text-[#5c2999]">
-                      {session.paypalInvoiceId || "Draft Generated Post-Capture"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center pt-2 border-t border-[#e5e5e5] text-[12px]">
-                    <span className="text-[#888888]">Merkle Root Binding:</span>
-                    <span className="font-mono-token text-[#888888] truncate max-w-[200px]" title={session.preSettlementRoot || session.merkleRoot}>
-                      {session.preSettlementRoot ? `${session.preSettlementRoot.slice(0, 16)}...` : "Pending Evidence Commitment"}
+                    <span className="text-[#666666] dark:text-[#a5a19b]">Bound Merkle Root:</span>
+                    <span className="font-mono-token text-xs text-architect-violet dark:text-[#9d6ce6]">
+                      {session.merkleRoot ? `${session.merkleRoot.slice(0, 16)}...` : "Pending Tree Seal"}
                     </span>
                   </div>
                 </div>
+
+                {session.paypalInvoiceId && (
+                  <div className="pt-3 border-t border-smoke dark:border-[#333333] flex items-center justify-between text-[13px]">
+                    <span className="text-lichen-green flex items-center gap-1.5 font-medium">
+                      <FileText className="w-4 h-4" aria-hidden="true" />
+                      Invoice Generated in Sandbox
+                    </span>
+                    <span className="font-mono-token text-xs text-[#666666] dark:text-[#a5a19b]">STATUS: SENT</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Right Column: Independent ACWORLD 5-Invariant Audit Gate */}
-            <div className="lg:col-span-7 bg-[#f6f3ee] rounded-[24px] p-8 sm:p-10 border border-[#e5e5e5] flex flex-col justify-between space-y-6">
+            {/* Right Column: ACWORLD Independent 5-Invariant Audit Gate */}
+            <div className="lg:col-span-7 bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-8 sm:p-10 border border-smoke dark:border-[#333333] flex flex-col justify-between shadow-sm">
               <div>
-                <div className="pb-4 border-b border-[#e5e5e5] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="pb-4 border-b border-smoke dark:border-[#333333] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-[20px] font-medium text-[#000000] tracking-[-0.4px]">
+                    <h2 className="text-[20px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.4px]">
                       Independent ACWORLD Audit Gate
                     </h2>
-                    <p className="text-[14px] text-[#888888] mt-0.5">
+                    <p className="text-[14px] text-[#666666] dark:text-[#a5a19b] mt-0.5">
                       Server-side verification strictly required prior to releasing PayPal capture
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-medium text-[#00cc88] bg-[#ebfef6] px-3.5 py-1.5 rounded-[24px] border border-[#00cc88]/30">
+                    <span className="text-[12px] font-medium text-lichen-green bg-mint-whisper dark:bg-[#132820] px-3.5 py-1.5 rounded-[24px] border border-lichen-green/30">
                       Zero-Trust Gate
                     </span>
                     <button
+                      type="button"
                       onClick={handleRunAudit}
                       disabled={isRunningAudit || !finalOffer || isSessionNotFound}
                       title="Run or re-evaluate the 5 independent ACWORLD invariants on the server"
-                      className="px-3 py-1.5 rounded-[24px] text-[12px] font-medium bg-[#ffffff] hover:bg-[#eae6df] text-[#000000] border border-[#e5e5e5] transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                      className="px-3.5 py-1.5 rounded-[24px] text-[13px] font-medium bg-paper-white dark:bg-[#262626] hover:bg-smoke dark:hover:bg-[#333333] text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#383838] transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
                     >
                       {isRunningAudit ? (
                         <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[#ff6600]" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-ember-orange" aria-hidden="true" />
                           <span>Auditing...</span>
                         </>
                       ) : (
                         <>
-                          <ShieldCheck className="w-3.5 h-3.5 text-[#00cc88]" />
-                          <span>Run Audit</span>
+                          <ShieldCheck className="w-3.5 h-3.5 text-lichen-green" aria-hidden="true" />
+                          <span>{auditCert ? "Re-Run Audit" : "Run Audit"}</span>
                         </>
                       )}
                     </button>
@@ -561,148 +603,105 @@ export function SettlementCenterScreen({
                 </div>
 
                 <div className="pt-6 space-y-4">
+                  {/* Status Banner */}
                   {auditCert ? (
-                    <div className="space-y-4">
-                      <div
-                        className={`p-5 rounded-[20px] border flex items-center justify-between ${
-                          auditCert.passed
-                            ? "bg-[#ebfef6] border-[#00cc88]/40 text-[#00cc88]"
-                            : "bg-[#feeef0] border-[#ef4444]/40 text-[#ef4444]"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 font-medium text-[15px]">
-                          {auditCert.passed ? (
-                            <CheckCircle2 className="w-5 h-5 text-[#00cc88]" />
-                          ) : (
-                            <ShieldAlert className="w-5 h-5 text-[#ef4444]" />
-                          )}
-                          <span>
-                            {auditCert.passed
-                              ? "ALL 5 INVARIANTS CRYPTOGRAPHICALLY VERIFIED"
-                              : "FAIL-CLOSED: AUDIT GATE BLOCKED"}
-                          </span>
-                        </div>
-                        <span className="text-[12px] font-mono-token px-3 py-1 rounded-[6px] bg-[#ffffff] text-[#000000] border border-[#e5e5e5]">
-                          #{auditCert.certificateId.slice(-8)}
+                    <div
+                      className={`p-5 rounded-[20px] border flex items-center justify-between ${
+                        auditCert.passed
+                          ? "bg-mint-whisper dark:bg-[#132820] border-lichen-green/40 text-lichen-green"
+                          : "bg-[#feeef0] dark:bg-[#331417] border-[#ef4444]/40 text-[#ef4444]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 font-medium text-[15px]">
+                        {auditCert.passed ? (
+                          <CheckCircle2 className="w-5 h-5 text-lichen-green shrink-0" aria-hidden="true" />
+                        ) : (
+                          <ShieldAlert className="w-5 h-5 text-[#ef4444] shrink-0" aria-hidden="true" />
+                        )}
+                        <span>
+                          {auditCert.passed
+                            ? "ALL 5 INVARIANTS CRYPTOGRAPHICALLY VERIFIED"
+                            : "FAIL-CLOSED: AUDIT GATE BLOCKED"}
                         </span>
                       </div>
-
-                      {/* Invariant Rows */}
-                      <div className="space-y-3 pt-2">
-                        {auditCert.invariants.map((inv, idx) => (
-                          <div
-                            key={idx}
-                            className="bg-[#ffffff] rounded-[16px] p-5 border border-[#e5e5e5] flex items-start justify-between gap-4 shadow-sm"
-                          >
-                            <div className="space-y-1">
-                              <div className="font-medium text-[15px] text-[#000000]">
-                                {idx + 1}. {inv.name.replace(/_/g, " ")}
-                              </div>
-                              <div className="text-[13px] text-[#888888] leading-relaxed">
-                                {inv.reason || "Strict compliance verified against active locked mandate."}
-                              </div>
-                            </div>
-                            <span
-                              className={`px-3 py-1 rounded-[24px] text-[12px] font-medium shrink-0 ${
-                                inv.passed
-                                  ? "bg-[#ebfef6] text-[#00cc88] border border-[#00cc88]/30"
-                                  : "bg-[#feeef0] text-[#ef4444] border border-[#ef4444]/30"
-                              }`}
-                            >
-                              {inv.passed ? "PASSED" : "FAILED"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                      <span className="text-[12px] font-mono-token px-3 py-1 rounded-[6px] bg-paper-white dark:bg-[#1a1a1a] text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#333333]">
+                        #{auditCert.certificateId.slice(-8)}
+                      </span>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      <div className="p-4 rounded-[16px] bg-[#fff8eb] border border-[#ff6600]/30 text-[#aa5500] text-[13px] flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4 shrink-0 text-[#ff6600]" />
-                          <span>Pre-Checkout Audit Pending Server Evaluation</span>
-                        </div>
-                        <button
-                          onClick={handleRunAudit}
-                          disabled={isRunningAudit || isSessionNotFound}
-                          className="px-3 py-1 rounded-[8px] bg-[#ff6600] text-[#ffffff] font-medium text-[12px] hover:bg-[#e55c00] transition-colors"
-                        >
-                          Run Evaluation
-                        </button>
+                    <div className="p-4 rounded-[16px] bg-[#fff8eb] dark:bg-[#2b1f0c] border border-[#ff6600]/30 text-ember-orange text-[13px] flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-ember-orange" aria-hidden="true" />
+                        <span>Pre-Checkout Audit Pending Server Evaluation</span>
                       </div>
-
-                      <p className="text-[14px] text-[#888888] leading-relaxed">
-                        Before releasing PayPal funds, ACWORLD independently evaluates 5 non-negotiable invariants against the authoritative locked mandate:
-                      </p>
-                      {[
-                        { name: "1. SKU & Condition Integrity", desc: "Selected catalog SKU and condition match mandate requirements exactly." },
-                        { name: "2. Price Ceiling & Arithmetic", desc: "Recalculates Landed Cost = Price × Qty + Shipping <= Max Total Budget." },
-                        { name: "3. Return Policy SLA", desc: "Agreed return window >= Min Return Days, verified via DOM attestation." },
-                        { name: "4. Delivery SLA", desc: "Estimated delivery days <= Max Delivery Days constraint." },
-                        { name: "5. Cryptographic Lineage", desc: "Recomputed SHA-256 Merkle root bound to PayPal order custom_id." },
-                      ].map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-[#ffffff] rounded-[16px] p-4.5 border border-[#e5e5e5] text-[14px] flex items-center justify-between"
-                        >
-                          <div>
-                            <div className="font-medium text-[#000000]">{item.name}</div>
-                            <div className="text-[13px] text-[#888888] mt-0.5">{item.desc}</div>
-                          </div>
-                          <span className="text-[12px] text-[#888888] font-medium bg-[#f6f3ee] px-3 py-1 rounded-[24px]">
-                            Pending Audit
-                          </span>
-                        </div>
-                      ))}
+                      <button
+                        type="button"
+                        onClick={handleRunAudit}
+                        disabled={isRunningAudit || isSessionNotFound}
+                        className="px-3 py-1 rounded-[8px] bg-ember-orange text-white font-medium text-[12px] hover:bg-[#e65c00] transition-colors cursor-pointer"
+                      >
+                        Run Evaluation
+                      </button>
                     </div>
                   )}
+
+                  {/* Semantic Invariant Rows (Section 12: Matched by key, never by array position) */}
+                  <div className="space-y-3 pt-2">
+                    {REQUIRED_INVARIANTS.map((req) => {
+                      const inv = auditCert?.invariants?.find((i) => i.name === req.key);
+                      const isEvaluated = Boolean(inv);
+                      const isPassed = inv?.passed === true;
+
+                      return (
+                        <div
+                          key={req.key}
+                          className="bg-paper-white dark:bg-[#1a1a1a] rounded-[16px] p-5 border border-smoke dark:border-[#333333] flex items-start justify-between gap-4 shadow-sm"
+                        >
+                          <div className="space-y-1">
+                            <div className="font-medium text-[15px] text-obsidian dark:text-[#f5f3ef]">
+                              {req.title}
+                            </div>
+                            <div className="text-[13px] text-[#666666] dark:text-[#a5a19b] leading-relaxed">
+                              {inv?.reason || req.desc}
+                            </div>
+                          </div>
+                          <span
+                            className={`px-3 py-1 rounded-[24px] text-[12px] font-medium shrink-0 ${
+                              isEvaluated
+                                ? isPassed
+                                  ? "bg-mint-whisper dark:bg-[#132820] text-lichen-green border border-lichen-green/30"
+                                  : "bg-[#feeef0] dark:bg-[#331417] text-[#ef4444] border border-[#ef4444]/30"
+                                : "bg-warm-cream dark:bg-[#262626] text-[#666666] dark:text-[#a5a19b] border border-smoke dark:border-[#383838]"
+                            }`}
+                          >
+                            {isEvaluated ? (isPassed ? "PASSED" : "FAILED") : "PENDING"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
-              <div className="pt-4 mt-6 border-t border-[#e5e5e5] text-[13px] text-[#888888] flex items-center justify-between">
+              <div className="pt-4 mt-6 border-t border-smoke dark:border-[#333333] text-[13px] text-[#666666] dark:text-[#a5a19b] flex items-center justify-between">
                 <span>Auditor Policy: Fail-Closed Protection</span>
-                <span className="text-[#00cc88] font-medium">Zero-Trust Settlement Gate</span>
+                <span className="text-lichen-green font-medium">Zero-Trust Settlement Gate</span>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Confirmation Modal for Authorized Orders */}
-      {confirmModalOpen && (
-        <div className="fixed inset-0 z-50 bg-[#000000]/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#ffffff] rounded-[24px] max-w-md w-full p-8 space-y-6 shadow-[0px_16px_32px_0px_rgba(0,0,0,0.25)] border border-[#e5e5e5] animate-in zoom-in-95 duration-150">
-            <div className="flex items-center gap-3 text-[#ff6600]">
-              <AlertCircle className="w-6 h-6 shrink-0" />
-              <h3 className="text-[20px] font-medium text-[#000000]">Confirm Audited Capture</h3>
-            </div>
-            <p className="text-[14px] text-[#888888] leading-relaxed">
-              You are about to invoke the server-side audited PayPal capture gate for{" "}
-              <strong className="text-[#000000]">{session?.id}</strong>. ACWORLD will independently inspect all five mathematical and cryptographic invariants. If any invariant fails, funds will <strong className="text-[#ef4444]">NOT</strong> be released.
-            </p>
-            <div className="bg-[#f6f3ee] p-5 rounded-[16px] border border-[#e5e5e5] text-[14px] space-y-2">
-              <div className="flex justify-between text-[#888888]">
-                <span>Total Capture Amount:</span>
-                <span className="font-medium text-[#000000]">
-                  ${totalAmount.toLocaleString()} {mandate?.currency}
-                </span>
-              </div>
-              <div className="flex justify-between text-[#888888]">
-                <span>Supplier:</span>
-                <span className="text-[#000000] font-medium">{selectedQuote?.vendorName}</span>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <GhostButton onClick={() => setConfirmModalOpen(false)}>
-                Cancel
-              </GhostButton>
-              <PrimaryButton onClick={handleAuditedCapture}>
-                Audit &amp; Capture
-              </PrimaryButton>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Confirmation Modal for Authorized Orders (Using SharedUI ConfirmationModal) */}
+      <ConfirmationModal
+        isOpen={confirmModalOpen}
+        title="Confirm Audited Capture"
+        description={`You are about to invoke the server-side audited PayPal capture gate for ${session?.id}. ACWORLD will independently inspect all five mathematical and cryptographic invariants. If any invariant fails, funds will NOT be released.`}
+        confirmLabel="Audit & Capture"
+        cancelLabel="Cancel"
+        onConfirm={handleAuditedCapture}
+        onCancel={() => setConfirmModalOpen(false)}
+      />
     </div>
   );
 }

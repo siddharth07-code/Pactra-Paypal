@@ -233,7 +233,15 @@ export default function Home() {
     setArenaSessionId(session.id);
     setArenaMandate(session.mandate);
     setArenaQuotes(session.quotes || []);
-    navigateToScreen("settlement", session.id);
+
+    // Lifecycle-aware routing: Navigate based on authoritative session state
+    if (session.status === "MANDATE_PENDING" || session.status === "SOURCING") {
+      navigateToScreen("sourcing", session.id);
+    } else if (session.status === "NEGOTIATING") {
+      navigateToScreen("arena", session.id);
+    } else {
+      navigateToScreen("settlement", session.id);
+    }
   };
 
   const handleSessionUpdated = (updated: ProcurementSession) => {
@@ -259,6 +267,7 @@ export default function Home() {
           sessions={sessions}
           onStartNew={() => navigateToScreen("sourcing")}
           onOpenSession={handleOpenSession}
+          onNavigateHistory={() => navigateToScreen("history")}
         />
       )}
 

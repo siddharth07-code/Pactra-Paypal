@@ -6,12 +6,14 @@ import {
   GhostButton,
   StatusBadge,
   CurrencyDisplay,
-  EmptyState,
 } from "./SharedUI";
 import {
   ShieldCheck,
   ChevronRight,
-  Check,
+  TrendingUp,
+  Layers,
+  Lock,
+  ArrowRight,
 } from "lucide-react";
 import type { ProcurementSession } from "@/types/pactum";
 
@@ -19,35 +21,46 @@ interface OverviewScreenProps {
   sessions: ProcurementSession[];
   onStartNew: () => void;
   onOpenSession: (session: ProcurementSession) => void;
+  onNavigateHistory?: () => void;
 }
 
 export function OverviewScreen({
   sessions,
   onStartNew,
   onOpenSession,
+  onNavigateHistory,
 }: OverviewScreenProps) {
   const activeSession = sessions[0]; // Authoritative current session
 
+  // Accurate metric calculations based strictly on real authoritative sessions
+  const totalVolume = sessions.reduce((sum, s) => sum + s.mandate.maxTotalBudget, 0);
+  const settledCount = sessions.filter(
+    (s) => s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED"
+  ).length;
+  const activeCount = sessions.filter(
+    (s) => s.status !== "SETTLED" && s.status !== "CANCELLED" && s.status !== "AUDIT_FAILED"
+  ).length;
+
   return (
     <div className="w-full space-y-16 sm:space-y-20 animate-in fade-in duration-300">
-      {/* 1. HERO VAULT (DESIGN.md: Hero Vault)
-          #000000 background filling full viewport width, concentric-arc pattern in muted strokes.
-          Headline at 64px weight 500 white, line-height 1.0, tracking -1.28px.
-          Subhead at 20px white at 70% opacity.
-          Two buttons side by side: ghost + primary. */}
-      <section className="w-full bg-obsidian text-paper-white py-16 sm:py-24 px-6 concentric-arcs-dark shadow-xl border-b border-bark-brown/30">
+      {/* 1. HERO VAULT (DESIGN.md & Section 7: Hero Vault)
+          Obsidian background filling full viewport width with concentric-arc pattern.
+          Headline: "Procurement, with proof."
+          Subtext: "Source intelligently. Negotiate within constraints. Settle only when the evidence checks out."
+          Dual CTAs: Primary + Ghost Secondary. */}
+      <section className="w-full bg-[#000000] text-white py-16 sm:py-24 px-6 concentric-arcs-dark shadow-xl border-b border-[#333333]">
         <div className="max-w-[1200px] mx-auto space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-cards bg-paper-white/10 border border-paper-white/20 text-[14px] text-paper-white font-normal tracking-[-0.28px]">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-cards bg-white/10 border border-white/20 text-[14px] text-white font-normal tracking-[-0.28px]">
             <span className="w-2 h-2 rounded-full bg-lichen-green" aria-hidden="true" />
             <span>Autonomous Procurement &amp; Verifiable Settlement</span>
           </div>
 
-          <h1 className="text-[40px] sm:text-[64px] font-medium leading-[1.0] tracking-[-1.28px] text-paper-white max-w-4xl">
+          <h1 className="text-[40px] sm:text-[64px] font-medium leading-[1.05] tracking-[-1.28px] text-white max-w-4xl">
             Procurement, with proof.
           </h1>
 
-          <p className="text-[18px] sm:text-[20px] text-paper-white/70 font-normal leading-[1.4] tracking-[-0.4px] max-w-2xl">
-            Autonomous multi-vendor AI negotiation bounded by game-theoretic mechanism design, committed to a SHA-256 Merkle flight recorder, and settled behind an independent zero-trust PayPal audit gate.
+          <p className="text-[18px] sm:text-[20px] text-white/80 font-normal leading-[1.4] tracking-[-0.4px] max-w-2xl">
+            Source intelligently. Negotiate within constraints. Settle only when the evidence checks out.
           </p>
 
           <div className="pt-4 flex flex-wrap items-center gap-4">
@@ -57,17 +70,25 @@ export function OverviewScreen({
             {activeSession ? (
               <GhostButton
                 onClick={() => onOpenSession(activeSession)}
-                className="text-paper-white border-paper-white hover:bg-paper-white/10"
+                className="text-white border-white hover:bg-white/10"
                 ariaLabel={`View active session ${activeSession.id}`}
               >
                 View Active Session
+              </GhostButton>
+            ) : onNavigateHistory ? (
+              <GhostButton
+                onClick={onNavigateHistory}
+                className="text-white border-white hover:bg-white/10"
+                ariaLabel="Browse procurement history"
+              >
+                Browse History
               </GhostButton>
             ) : (
               <a
                 href="https://sandbox.paypal.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-smallelements bg-transparent border border-paper-white/80 hover:bg-paper-white/10 text-paper-white font-medium text-[16px] tracking-[-0.32px] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper-white"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-smallelements bg-transparent border border-white/80 hover:bg-white/10 text-white font-medium text-[16px] tracking-[-0.32px] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 aria-label="Explore PayPal Sandbox in new tab"
               >
                 Explore Sandbox
@@ -79,15 +100,59 @@ export function OverviewScreen({
 
       {/* Centered Page Body (1200px max width container) */}
       <div className="max-w-[1200px] mx-auto px-6 space-y-16 sm:space-y-20 w-full">
-        {/* 2. ACTIVE PROCUREMENT & VERIFICATION (Warm Feature Card: #f6f3ee, 24px radius, 40px padding) */}
-        {activeSession ? (
+        {/* 2. REAL METRIC TILES (Section 7) */}
+        <section aria-label="Procurement Metrics">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-6 sm:p-8 border border-smoke dark:border-[#333333] shadow-sm transition-colors">
+              <div className="flex items-center justify-between text-[#666666] dark:text-[#a5a19b] text-[14px] mb-2 font-medium">
+                <span>Total Mandate Ceiling</span>
+                <TrendingUp className="w-4 h-4 text-ember-orange" aria-hidden="true" />
+              </div>
+              <div className="text-[28px] sm:text-[36px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.72px]">
+                <CurrencyDisplay amount={totalVolume} size="xl" />
+              </div>
+              <p className="text-[13px] text-[#888888] dark:text-[#888888] mt-2">
+                Across {sessions.length} recorded procurement sessions
+              </p>
+            </div>
+
+            <div className="bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-6 sm:p-8 border border-smoke dark:border-[#333333] shadow-sm transition-colors">
+              <div className="flex items-center justify-between text-[#666666] dark:text-[#a5a19b] text-[14px] mb-2 font-medium">
+                <span>Active Mandate Runs</span>
+                <Layers className="w-4 h-4 text-architect-violet dark:text-[#9d6ce6]" aria-hidden="true" />
+              </div>
+              <div className="text-[28px] sm:text-[36px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.72px]">
+                {activeCount}
+              </div>
+              <p className="text-[13px] text-[#888888] dark:text-[#888888] mt-2">
+                Evaluating quotes or ready for settlement
+              </p>
+            </div>
+
+            <div className="bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-6 sm:p-8 border border-smoke dark:border-[#333333] shadow-sm transition-colors">
+              <div className="flex items-center justify-between text-[#666666] dark:text-[#a5a19b] text-[14px] mb-2 font-medium">
+                <span>Cryptographically Settled</span>
+                <ShieldCheck className="w-4 h-4 text-lichen-green" aria-hidden="true" />
+              </div>
+              <div className="text-[28px] sm:text-[36px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.72px]">
+                {settledCount}
+              </div>
+              <p className="text-[13px] text-[#888888] dark:text-[#888888] mt-2">
+                Audited &amp; captured via PayPal Orders v2
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* 3. ACTIVE PROCUREMENT & VERIFICATION (Warm Feature Card) */}
+        {activeSession && (
           <section className="grid grid-cols-1 lg:grid-cols-12 gap-8" aria-label="Active Procurement Mandate">
             {/* Active Mandate Card */}
-            <div className="lg:col-span-7 bg-warm-cream rounded-cards p-8 sm:p-10 border border-smoke flex flex-col justify-between shadow-[0px_4px_8px_0px_rgba(0,0,0,0.03)]">
+            <div className="lg:col-span-7 bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-8 sm:p-10 border border-smoke dark:border-[#333333] flex flex-col justify-between shadow-sm transition-colors">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[14px] font-medium text-architect-violet uppercase tracking-[-0.28px]">
-                    Active Mandate State
+                  <span className="text-[14px] font-medium text-architect-violet dark:text-[#9d6ce6] uppercase tracking-[-0.28px]">
+                    Authoritative Session State
                   </span>
                   <StatusBadge
                     status={
@@ -102,24 +167,24 @@ export function OverviewScreen({
                 </div>
 
                 <div>
-                  <h2 className="text-[28px] sm:text-[36px] font-medium text-obsidian tracking-[-0.72px] leading-[1.2]">
+                  <h2 className="text-[28px] sm:text-[36px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.72px] leading-[1.2]">
                     {activeSession.mandate.itemQuery}
                   </h2>
-                  <p className="text-[16px] text-[#555555] font-normal leading-[1.5] mt-2 line-clamp-2 tracking-[-0.32px]">
+                  <p className="text-[16px] text-[#555555] dark:text-[#c4c0ba] font-normal leading-[1.5] mt-2 line-clamp-2 tracking-[-0.32px]">
                     {activeSession.mandate.rawPrompt}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6 border-t border-smoke">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6 border-t border-smoke dark:border-[#333333]">
                   <div>
-                    <div className="text-[14px] text-[#666666] mb-1">Target Quantity</div>
-                    <div className="text-[24px] font-medium text-obsidian tracking-[-0.48px]">
+                    <div className="text-[14px] text-[#666666] dark:text-[#a5a19b] mb-1">Target Quantity</div>
+                    <div className="text-[24px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.48px]">
                       {activeSession.mandate.quantity}{" "}
-                      <span className="text-[14px] text-[#666666] font-normal">units</span>
+                      <span className="text-[14px] text-[#666666] dark:text-[#a5a19b] font-normal">units</span>
                     </div>
                   </div>
                   <div>
-                    <div className="text-[14px] text-[#666666] mb-1">Ceiling Budget</div>
+                    <div className="text-[14px] text-[#666666] dark:text-[#a5a19b] mb-1">Ceiling Budget</div>
                     <CurrencyDisplay
                       amount={activeSession.mandate.maxTotalBudget}
                       currency={activeSession.mandate.currency}
@@ -127,123 +192,87 @@ export function OverviewScreen({
                     />
                   </div>
                   <div>
-                    <div className="text-[14px] text-[#666666] mb-1">Vendor Proposals</div>
-                    <div className="text-[24px] font-medium text-obsidian tracking-[-0.48px]">
+                    <div className="text-[14px] text-[#666666] dark:text-[#a5a19b] mb-1">Vendor Proposals</div>
+                    <div className="text-[24px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.48px]">
                       {activeSession.quotes?.length ?? 0}{" "}
-                      <span className="text-[14px] text-[#666666] font-normal">quotes</span>
+                      <span className="text-[14px] text-[#666666] dark:text-[#a5a19b] font-normal">quotes</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-6 mt-6 border-t border-smoke flex items-center justify-between">
-                <span className="text-[14px] text-[#666666] font-mono-token">
-                  ID: {activeSession.id}
+              <div className="pt-6 mt-6 border-t border-smoke dark:border-[#333333] flex items-center justify-between">
+                <span className="text-[14px] text-[#666666] dark:text-[#a5a19b] font-mono-token">
+                  {activeSession.id}
                 </span>
                 <button
+                  type="button"
                   onClick={() => onOpenSession(activeSession)}
-                  className="inline-flex items-center gap-1.5 text-[16px] font-medium text-obsidian hover:text-ember-orange transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange rounded-smallelements px-2 py-1"
+                  className="inline-flex items-center gap-1.5 text-[15px] font-medium text-ember-orange hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange rounded"
                 >
-                  <span>Open Session Workspace</span>
-                  <ChevronRight className="w-4 h-4" aria-hidden="true" />
+                  <span>Resume Session</span>
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
 
-            {/* Lavender Feature Panel (DESIGN.md: Lavender Feature Panel: #f6f1fe, 24px radius, 40px padding, violet accent) */}
-            <div className="lg:col-span-5 bg-lavender-mist rounded-cards p-8 sm:p-10 border border-architect-violet/20 concentric-arcs-violet flex flex-col justify-between shadow-[0px_4px_8px_0px_rgba(0,0,0,0.03)]">
+            {/* Cryptographic Flight Recorder Status Panel */}
+            <div className="lg:col-span-5 bg-lavender-mist dark:bg-[#271f33] rounded-cards p-8 sm:p-10 border border-architect-violet/20 dark:border-architect-violet/40 flex flex-col justify-between concentric-arcs-violet transition-colors">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[14px] font-medium text-architect-violet uppercase tracking-[-0.28px]">
-                    Verification &amp; Settlement
+                  <span className="text-[14px] font-medium text-architect-violet dark:text-[#9d6ce6] uppercase tracking-[-0.28px]">
+                    Flight Recorder
                   </span>
-                  <ShieldCheck className="w-5 h-5 text-architect-violet" aria-hidden="true" />
+                  <span className="text-[12px] font-mono-token text-architect-violet dark:text-[#9d6ce6] bg-white/60 dark:bg-black/40 px-2 py-0.5 rounded border border-architect-violet/20">
+                    SHA-256
+                  </span>
                 </div>
 
-                <h3 className="text-[24px] font-medium text-obsidian tracking-[-0.48px] leading-[1.2]">
-                  Independent Audit Gate
+                <h3 className="text-[24px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.48px]">
+                  VeriPay Cryptographic Proof
                 </h3>
 
-                <div className="space-y-3 pt-2">
-                  <div className="p-4 rounded-[16px] bg-paper-white border border-smoke flex items-center justify-between">
-                    <span className="text-[14px] text-obsidian font-normal">ACWORLD 5-Invariant Audit</span>
-                    <span className="text-[14px] font-medium">
-                      {activeSession.auditCertificate?.passed ? (
-                        <span className="text-obsidian flex items-center gap-1.5 font-medium">
-                          <Check className="w-4 h-4 text-lichen-green stroke-[3]" aria-hidden="true" /> Verified
-                        </span>
-                      ) : (
-                        <span className="text-[#666666]">Pending Settle</span>
-                      )}
-                    </span>
-                  </div>
+                <p className="text-[14px] text-[#555555] dark:text-[#c4c0ba] leading-relaxed">
+                  Canonical procurement events, supplier quotes, Boulware negotiation turns, and independent ACWORLD invariant checks are hashed in binary sequence to create an immutable Merkle root.
+                </p>
 
-                  <div className="p-4 rounded-[16px] bg-paper-white border border-smoke flex items-center justify-between">
-                    <span className="text-[14px] text-obsidian font-normal">Merkle Flight Recorder</span>
-                    <span className="text-[14px] font-medium">
-                      {activeSession.preSettlementRoot ? (
-                        <span className="text-obsidian flex items-center gap-1.5 font-medium">
-                          <Check className="w-4 h-4 text-lichen-green stroke-[3]" aria-hidden="true" /> Committed
-                        </span>
-                      ) : (
-                        <span className="text-[#666666]">In Progress</span>
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="p-4 rounded-[16px] bg-paper-white border border-smoke flex items-center justify-between">
-                    <span className="text-[14px] text-obsidian font-normal">PayPal Orders v2 Capture</span>
-                    <span className="text-[14px] font-medium">
-                      {activeSession.status === "SETTLED" || activeSession.status === "PAYPAL_CAPTURED" ? (
-                        <span className="text-obsidian flex items-center gap-1.5 font-medium">
-                          <Check className="w-4 h-4 text-lichen-green stroke-[3]" aria-hidden="true" /> Settled
-                        </span>
-                      ) : (
-                        <span className="text-architect-violet font-medium">Gate Enforced</span>
-                      )}
-                    </span>
+                <div className="space-y-2 pt-2">
+                  <div className="text-[12px] text-[#666666] dark:text-[#a5a19b] font-medium">Pre-Settlement Merkle Root:</div>
+                  <div className="p-3 bg-white dark:bg-[#1a1a1a] rounded-smallelements border border-smoke dark:border-[#383838] font-mono-token text-xs text-obsidian dark:text-[#f5f3ef] break-all">
+                    {activeSession.merkleRoot || activeSession.preSettlementRoot || "Pending negotiation rounds..."}
                   </div>
                 </div>
               </div>
 
-              <p className="text-[14px] text-[#555555] pt-6 border-t border-architect-violet/15 mt-4 leading-relaxed">
-                Funds cannot be disbursed from PayPal without verifiable SHA-256 Merkle proofs.
-              </p>
+              <div className="pt-4 mt-6 border-t border-architect-violet/20 dark:border-architect-violet/40 flex items-center justify-between text-[13px] text-architect-violet dark:text-[#9d6ce6]">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                  Bound to PayPal custom_id
+                </span>
+                <span>{activeSession.turns?.length ?? 0} Turns Committed</span>
+              </div>
             </div>
           </section>
-        ) : (
-          <EmptyState
-            title="No Active Procurement Sessions"
-            description="Source wholesale offers from Channel3 and let Gemini negotiate optimal unit price and shipping terms within your private reservation price."
-            actionLabel="Launch Procurement Mandate"
-            onAction={onStartNew}
-          />
         )}
 
-        {/* 3. PROCUREMENT WORKFLOW (Warm Cream Surface with Mint Accent) */}
-        <section className="bg-warm-cream rounded-cards p-8 sm:p-10 border border-smoke space-y-8" aria-label="Procurement Pipeline Stages">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-[24px] font-medium text-obsidian tracking-[-0.48px]">
-                The Verifiable Procurement Pipeline
-              </h3>
-              <p className="text-[16px] text-[#555555] mt-1 tracking-[-0.32px]">
-                Deterministic mechanism design from requisition to PayPal settlement
-              </p>
-            </div>
-            <div className="text-[14px] font-medium px-4 py-1.5 rounded-cards bg-mint-whisper text-obsidian border border-lichen-green/30 self-start sm:self-auto flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-lichen-green" aria-hidden="true" />
-              <span>Zero-Trust Architecture</span>
-            </div>
+        {/* 4. FIVE-STAGE PROCUREMENT PIPELINE (Section 7) */}
+        <section aria-label="Five-stage Procurement Pipeline">
+          <div className="mb-6">
+            <h3 className="text-[24px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.48px]">
+              End-to-End Procurement Lifecycle
+            </h3>
+            <p className="text-[14px] text-[#666666] dark:text-[#a5a19b] mt-1">
+              Deterministic mechanism design and cryptographic settlement pipeline
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {[
               {
                 step: "01",
                 title: "Mandate",
-                desc: "Natural language parsed into formal budget ceilings and delivery SLAs.",
-                active: true,
+                desc: "Natural-language prompt parsed into validated quantity, budget, and SLA constraints.",
+                active: Boolean(activeSession?.mandate),
               },
               {
                 step: "02",
@@ -274,21 +303,21 @@ export function OverviewScreen({
                 key={idx}
                 className={`rounded-[16px] p-5 border transition-all flex flex-col justify-between ${
                   item.active
-                    ? "bg-paper-white border-obsidian shadow-[0px_4px_8px_0px_rgba(0,0,0,0.06)]"
-                    : "bg-paper-white/60 border-smoke opacity-70"
+                    ? "bg-paper-white dark:bg-[#222222] border-obsidian dark:border-smoke shadow-sm"
+                    : "bg-paper-white/60 dark:bg-[#1a1a1a]/60 border-smoke dark:border-[#2e2e2e] opacity-70"
                 }`}
               >
                 <div>
-                  <span className="text-[12px] font-medium text-architect-violet tracking-wider uppercase">
+                  <span className="text-[12px] font-medium text-architect-violet dark:text-[#9d6ce6] tracking-wider uppercase">
                     {item.step}
                   </span>
-                  <h4 className="text-[18px] font-medium text-obsidian mt-1 mb-2 tracking-[-0.36px]">
+                  <h4 className="text-[18px] font-medium text-obsidian dark:text-[#f5f3ef] mt-1 mb-2 tracking-[-0.36px]">
                     {item.title}
                   </h4>
-                  <p className="text-[14px] text-[#555555] leading-relaxed tracking-[-0.28px]">{item.desc}</p>
+                  <p className="text-[14px] text-[#555555] dark:text-[#c4c0ba] leading-relaxed tracking-[-0.28px]">{item.desc}</p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-smoke">
-                  <span className={`text-[12px] font-medium ${item.active ? "text-obsidian" : "text-[#777777]"}`}>
+                <div className="mt-4 pt-3 border-t border-smoke dark:border-[#333333]">
+                  <span className={`text-[12px] font-medium ${item.active ? "text-lichen-green" : "text-[#777777] dark:text-[#888888]"}`}>
                     {item.active ? "● Active / Ready" : "○ Awaiting Turn"}
                   </span>
                 </div>
@@ -297,40 +326,33 @@ export function OverviewScreen({
           </div>
         </section>
 
-        {/* 4. RECENT PROCUREMENT SESSIONS (Editorial Clean List) */}
+        {/* 5. RECENT PROCUREMENT SESSIONS */}
         {sessions.length > 0 && (
-          <section className="bg-paper-white rounded-cards border border-smoke overflow-hidden p-8 sm:p-10 space-y-6 shadow-[0px_4px_8px_0px_rgba(0,0,0,0.02)]" aria-label="Recent Sessions">
-            <div className="flex items-center justify-between pb-4 border-b border-smoke">
-              <h3 className="text-[24px] font-medium text-obsidian tracking-[-0.48px]">
+          <section className="bg-paper-white dark:bg-[#1a1a1a] rounded-cards border border-smoke dark:border-[#333333] overflow-hidden p-8 sm:p-10 space-y-6 shadow-sm transition-colors" aria-label="Recent Sessions">
+            <div className="flex items-center justify-between pb-4 border-b border-smoke dark:border-[#333333]">
+              <h3 className="text-[24px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.48px]">
                 Recent Procurement Sessions
               </h3>
-              <span className="text-[14px] text-[#666666]">
+              <span className="text-[14px] text-[#666666] dark:text-[#a5a19b]">
                 {sessions.length} total records
               </span>
             </div>
 
-            <div className="divide-y divide-smoke" role="list">
+            <div className="divide-y divide-smoke dark:divide-[#2e2e2e]" role="list">
               {sessions.map((s) => (
-                <div
+                <button
+                  type="button"
                   key={s.id}
-                  role="button"
-                  tabIndex={0}
                   onClick={() => onOpenSession(s)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onOpenSession(s);
-                    }
-                  }}
-                  className="py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-warm-cream/50 px-3 rounded-[12px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+                  className="w-full text-left py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-warm-cream/50 dark:hover:bg-[#222222] px-3 rounded-[12px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
                   aria-label={`Open session ${s.id} for ${s.mandate.itemQuery}`}
                 >
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-[16px] font-medium text-obsidian tracking-[-0.32px]">
+                      <span className="text-[16px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.32px]">
                         {s.mandate.itemQuery}
                       </span>
-                      <span className="text-[14px] text-[#666666]">
+                      <span className="text-[14px] text-[#666666] dark:text-[#a5a19b]">
                         ({s.mandate.quantity} units)
                       </span>
                       <StatusBadge
@@ -344,23 +366,23 @@ export function OverviewScreen({
                         label={s.status.replace(/_/g, " ")}
                       />
                     </div>
-                    <div className="text-[12px] font-mono-token text-[#666666]">
+                    <div className="text-[12px] font-mono-token text-[#666666] dark:text-[#a5a19b]">
                       {s.id} • Mandate v{s.mandate.version ?? 1}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-8 self-end sm:self-center">
                     <div className="text-right">
-                      <div className="text-[12px] text-[#666666]">Total Budget</div>
+                      <div className="text-[12px] text-[#666666] dark:text-[#a5a19b]">Total Budget</div>
                       <CurrencyDisplay
                         amount={s.mandate.maxTotalBudget}
                         currency={s.mandate.currency}
                         size="sm"
                       />
                     </div>
-                    <ChevronRight className="w-5 h-5 text-[#666666]" aria-hidden="true" />
+                    <ChevronRight className="w-5 h-5 text-[#666666] dark:text-[#a5a19b]" aria-hidden="true" />
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </section>

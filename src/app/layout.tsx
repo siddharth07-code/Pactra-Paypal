@@ -13,15 +13,36 @@ export const metadata: Metadata = {
   description: "Negotiate Intelligently. Settle Verifiably.",
 };
 
+import { ThemeProvider } from "@/lib/theme-provider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="antialiased selection:bg-[#ff6600]/20 selection:text-[#ff6600]">
-        {children}
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function() {
+  try {
+    var stored = localStorage.getItem('pactum_theme');
+    var isDark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches) || (stored === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  } catch(e) {}
+})();`,
+          }}
+        />
+      </head>
+      <body className="antialiased selection:bg-[#ff6600]/20 selection:text-[#ff6600] bg-page-bg text-text-primary transition-colors duration-150">
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

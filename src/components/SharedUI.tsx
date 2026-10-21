@@ -1,7 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
-import { Copy, Check, ArrowRight } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import {
+  Copy,
+  Check,
+  ArrowRight,
+  Sun,
+  Moon,
+  Monitor,
+  ArrowUp,
+  X,
+  AlertTriangle,
+} from "lucide-react";
+import { useTheme, type Theme } from "@/lib/theme-provider";
 
 /**
  * Lithic Primary CTA Button (DESIGN.md: Primary CTA Button)
@@ -30,7 +41,7 @@ export function PrimaryButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={`inline-flex items-center justify-center gap-2.5 px-9 py-3 rounded-buttons bg-ember-orange hover:bg-[#e65c00] active:scale-[0.99] text-paper-white font-medium text-[16px] tracking-[-0.32px] transition-all shadow-[0px_4px_8px_0px_rgba(0,0,0,0.1)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 ${className}`}
+      className={`inline-flex items-center justify-center gap-2.5 px-9 py-3 rounded-buttons bg-ember-orange hover:bg-[#e65c00] dark:hover:bg-[#ff771a] active:scale-[0.99] text-white font-medium text-[16px] tracking-[-0.32px] transition-all shadow-[0px_4px_8px_0px_rgba(0,0,0,0.1)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111111] ${className}`}
     >
       <span>{children}</span>
       <ArrowRight className="w-4 h-4 shrink-0 stroke-[2.5]" aria-hidden="true" />
@@ -40,7 +51,7 @@ export function PrimaryButton({
 
 /**
  * Lithic Ghost Navigation Button (DESIGN.md: Ghost Navigation Button)
- * Transparent background with 1px #000000 border, black text weight 500 at 16px,
+ * Transparent background with 1px border, text weight 500 at 16px,
  * 8px border-radius, 10px vertical and 16px horizontal padding, trailing arrow icon.
  */
 export function GhostButton({
@@ -64,7 +75,7 @@ export function GhostButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-smallelements bg-transparent border border-obsidian hover:bg-obsidian/5 text-obsidian font-medium text-[16px] tracking-[-0.32px] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-obsidian focus-visible:ring-offset-2 ${className}`}
+      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-smallelements bg-transparent border border-obsidian dark:border-smoke hover:bg-obsidian/5 dark:hover:bg-white/5 text-obsidian dark:text-[#f5f3ef] font-medium text-[16px] tracking-[-0.32px] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111111] ${className}`}
     >
       <span>{children}</span>
       <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -74,7 +85,7 @@ export function GhostButton({
 
 /**
  * Warm Feature Card (DESIGN.md: Warm Feature Card)
- * #f6f3ee background, 24px radius, 40px internal padding, subtle hairline border.
+ * 24px radius, 40px internal padding, subtle hairline border, adaptive surface.
  */
 export function WarmFeatureCard({
   children,
@@ -85,7 +96,7 @@ export function WarmFeatureCard({
 }) {
   return (
     <div
-      className={`bg-warm-cream rounded-cards p-8 sm:p-10 border border-smoke shadow-[0px_4px_8px_0px_rgba(0,0,0,0.03)] ${className}`}
+      className={`bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-8 sm:p-10 border border-smoke dark:border-[#333333] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.03)] dark:shadow-[0px_4px_12px_0px_rgba(0,0,0,0.3)] transition-colors ${className}`}
     >
       {children}
     </div>
@@ -94,7 +105,7 @@ export function WarmFeatureCard({
 
 /**
  * Lavender Feature Panel (DESIGN.md: Lavender Feature Panel)
- * #f6f1fe background, 24px radius, 40px padding, violet accent, concentric arc decoration.
+ * 24px radius, 40px padding, violet accent, concentric arc decoration.
  */
 export function LavenderFeaturePanel({
   children,
@@ -105,7 +116,7 @@ export function LavenderFeaturePanel({
 }) {
   return (
     <div
-      className={`bg-lavender-mist rounded-cards p-8 sm:p-10 border border-architect-violet/20 concentric-arcs-violet ${className}`}
+      className={`bg-lavender-mist dark:bg-[#271f33] rounded-cards p-8 sm:p-10 border border-architect-violet/20 dark:border-architect-violet/40 concentric-arcs-violet transition-colors ${className}`}
     >
       {children}
     </div>
@@ -114,7 +125,7 @@ export function LavenderFeaturePanel({
 
 /**
  * Mint Metric Callout (DESIGN.md: Mint Metric Callout)
- * #ebfef6 background, 24px radius, compact padding, green accent border.
+ * 24px radius, compact padding, green accent border.
  */
 export function MintMetricCallout({
   children,
@@ -125,7 +136,7 @@ export function MintMetricCallout({
 }) {
   return (
     <div
-      className={`bg-mint-whisper rounded-cards p-6 border border-lichen-green/30 ${className}`}
+      className={`bg-mint-whisper dark:bg-[#132820] rounded-cards p-6 border border-lichen-green/30 dark:border-lichen-green/40 transition-colors ${className}`}
     >
       {children}
     </div>
@@ -149,13 +160,13 @@ export function SectionHeader({
   return (
     <div className={`space-y-1.5 pb-2 ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-[28px] sm:text-[36px] font-medium tracking-[-0.72px] text-obsidian leading-[1.2]">
+        <h2 className="text-[28px] sm:text-[36px] font-medium tracking-[-0.72px] text-obsidian dark:text-[#f5f3ef] leading-[1.2]">
           {title}
         </h2>
         {badge && <div>{badge}</div>}
       </div>
       {subtitle && (
-        <p className="text-[16px] text-[#555555] font-normal leading-[1.5] tracking-[-0.32px]">
+        <p className="text-[16px] text-[#555555] dark:text-[#c4c0ba] font-normal leading-[1.5] tracking-[-0.32px]">
           {subtitle}
         </p>
       )}
@@ -193,12 +204,12 @@ export function FormInput({
 }) {
   return (
     <div className={`space-y-1.5 ${className}`}>
-      <label htmlFor={id} className="block text-[14px] font-medium text-obsidian tracking-[-0.28px]">
+      <label htmlFor={id} className="block text-[14px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.28px]">
         {label}
       </label>
       <div className="relative">
         {prefix && (
-          <span className="absolute left-3.5 top-2.5 text-[15px] text-[#666666] font-medium select-none" aria-hidden="true">
+          <span className="absolute left-3.5 top-2.5 text-[15px] text-[#666666] dark:text-[#a5a19b] font-medium select-none" aria-hidden="true">
             {prefix}
           </span>
         )}
@@ -212,9 +223,9 @@ export function FormInput({
           disabled={disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`w-full bg-warm-cream rounded-smallelements py-2.5 text-[15px] text-obsidian border transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:border-transparent ${
+          className={`w-full bg-warm-cream dark:bg-[#242424] rounded-smallelements py-2.5 text-[15px] text-obsidian dark:text-[#f5f3ef] border transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:border-transparent ${
             prefix ? "pl-8 pr-3.5" : "px-3.5"
-          } ${error ? "border-[#ef4444] bg-[#feeef0]/20" : "border-smoke hover:border-obsidian/30"}`}
+          } ${error ? "border-[#ef4444] bg-[#feeef0]/20 dark:bg-[#feeef0]/10" : "border-smoke dark:border-[#383838] hover:border-obsidian/30 dark:hover:border-white/30"}`}
         />
       </div>
       {error && (
@@ -228,7 +239,7 @@ export function FormInput({
 
 /**
  * Lithic Status Badge (DESIGN.md: Availability Status Badge)
- * Inline badge: 6-8px filled circle followed by label text in #000000 at 14px weight 400.
+ * Inline badge: 6-8px filled circle followed by label text in theme-safe color.
  */
 export function StatusBadge({
   status,
@@ -241,16 +252,16 @@ export function StatusBadge({
     verified: "bg-lichen-green",
     warning: "bg-ember-orange",
     failure: "bg-[#ef4444]",
-    info: "bg-architect-violet",
+    info: "bg-architect-violet dark:bg-[#9d6ce6]",
     neutral: "bg-ash-gray",
   };
 
   const bgStyles = {
-    verified: "bg-mint-whisper border-lichen-green/30 text-obsidian",
-    warning: "bg-[#fff2e6] border-ember-orange/30 text-obsidian",
-    failure: "bg-[#feeef0] border-[#ef4444]/30 text-[#ef4444]",
-    info: "bg-lavender-mist border-architect-violet/30 text-obsidian",
-    neutral: "bg-warm-cream border-smoke text-obsidian",
+    verified: "bg-mint-whisper dark:bg-[#132c22] border-lichen-green/30 dark:border-lichen-green/40 text-obsidian dark:text-[#f5f3ef]",
+    warning: "bg-[#fff2e6] dark:bg-[#331c0e] border-ember-orange/30 text-obsidian dark:text-[#f5f3ef]",
+    failure: "bg-[#feeef0] dark:bg-[#331417] border-[#ef4444]/30 text-[#ef4444]",
+    info: "bg-lavender-mist dark:bg-[#271f33] border-architect-violet/30 dark:border-architect-violet/40 text-obsidian dark:text-[#f5f3ef]",
+    neutral: "bg-warm-cream dark:bg-[#222222] border-smoke dark:border-[#333333] text-obsidian dark:text-[#f5f3ef]",
   };
 
   return (
@@ -280,8 +291,8 @@ export function CopyableHash({
 
   if (!hash) {
     return (
-      <div className="inline-flex items-center gap-2 bg-warm-cream px-3 py-1.5 rounded-smallelements border border-smoke text-[13px] font-mono-token text-ash-gray">
-        {label && <span className="font-sans text-[#666666] font-medium">{label}:</span>}
+      <div className="inline-flex items-center gap-2 bg-warm-cream dark:bg-[#222222] px-3 py-1.5 rounded-smallelements border border-smoke dark:border-[#333333] text-[13px] font-mono-token text-ash-gray dark:text-[#888888]">
+        {label && <span className="font-sans text-[#666666] dark:text-[#a5a19b] font-medium">{label}:</span>}
         <span className="italic">Uncommitted</span>
       </div>
     );
@@ -296,17 +307,22 @@ export function CopyableHash({
   };
 
   return (
-    <div className="inline-flex items-center gap-2 bg-paper-white px-3.5 py-1.5 rounded-smallelements border border-smoke text-xs font-mono-token text-bark-brown">
-      {label && <span className="font-sans text-[#666666] font-medium">{label}:</span>}
-      <span className="text-obsidian font-mono" title={hash}>
+    <div className="inline-flex items-center gap-2 bg-paper-white dark:bg-[#222222] px-3.5 py-1.5 rounded-smallelements border border-smoke dark:border-[#383838] text-xs font-mono-token text-bark-brown dark:text-[#ded0bc] shadow-sm">
+      {label && <span className="font-sans text-[#666666] dark:text-[#a5a19b] font-medium">{label}:</span>}
+      <span className="text-obsidian dark:text-[#f5f3ef] font-mono" title={hash}>
         {displayHash}
       </span>
       <button
+        type="button"
         onClick={handleCopy}
-        className="p-1 rounded hover:bg-warm-cream text-ash-gray hover:text-ember-orange transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+        className="p-1 rounded hover:bg-warm-cream dark:hover:bg-[#2e2e2e] text-ash-gray hover:text-ember-orange transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
         aria-label={`Copy hash ${hash}`}
       >
-        {copied ? <Check className="w-3.5 h-3.5 text-lichen-green" aria-hidden="true" /> : <Copy className="w-3.5 h-3.5" aria-hidden="true" />}
+        {copied ? (
+          <Check className="w-3.5 h-3.5 text-lichen-green" aria-hidden="true" />
+        ) : (
+          <Copy className="w-3.5 h-3.5" aria-hidden="true" />
+        )}
       </button>
     </div>
   );
@@ -339,7 +355,7 @@ export function CurrencyDisplay({
     xl: "text-[36px] font-medium tracking-[-0.72px]",
   };
 
-  return <span className={`text-obsidian ${sizeStyles[size]} ${className}`}>{formatter.format(amount)}</span>;
+  return <span className={`text-obsidian dark:text-[#f5f3ef] ${sizeStyles[size]} ${className}`}>{formatter.format(amount)}</span>;
 }
 
 /**
@@ -357,17 +373,202 @@ export function EmptyState({
   onAction?: () => void;
 }) {
   return (
-    <div className="bg-warm-cream rounded-cards p-12 text-center flex flex-col items-center justify-center max-w-lg mx-auto my-6 border border-smoke">
-      <div className="w-12 h-12 rounded-full bg-paper-white border border-smoke flex items-center justify-center mb-4 text-architect-violet shadow-[0px_4px_8px_0px_rgba(0,0,0,0.06)]" aria-hidden="true">
+    <div className="bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-12 text-center flex flex-col items-center justify-center max-w-lg mx-auto my-6 border border-smoke dark:border-[#333333]">
+      <div className="w-12 h-12 rounded-full bg-paper-white dark:bg-[#282828] border border-smoke dark:border-[#383838] flex items-center justify-center mb-4 text-architect-violet dark:text-[#9d6ce6] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.06)]" aria-hidden="true">
         <span className="text-xl font-normal">∅</span>
       </div>
-      <h3 className="text-[20px] font-medium text-obsidian mb-2 tracking-[-0.4px]">{title}</h3>
-      <p className="text-[14px] text-[#555555] mb-6 max-w-sm leading-relaxed tracking-[-0.28px]">{description}</p>
+      <h3 className="text-[20px] font-medium text-obsidian dark:text-[#f5f3ef] mb-2 tracking-[-0.4px]">{title}</h3>
+      <p className="text-[14px] text-[#555555] dark:text-[#c4c0ba] mb-6 max-w-sm leading-relaxed tracking-[-0.28px]">{description}</p>
       {actionLabel && onAction && (
         <PrimaryButton onClick={onAction}>
           {actionLabel}
         </PrimaryButton>
       )}
     </div>
+  );
+}
+
+/**
+ * Polished Theme Selector Segmented Control (Light, Dark, System)
+ * Section 5: Meets WCAG 2.2 AA contrast, accessible names, visible focus, no layout shift.
+ */
+export function ThemeSelector({ className = "" }: { className?: string }) {
+  const { theme, setTheme } = useTheme();
+
+  const options: Array<{ id: Theme; label: string; icon: typeof Sun }> = [
+    { id: "light", label: "Light", icon: Sun },
+    { id: "dark", label: "Dark", icon: Moon },
+    { id: "system", label: "System", icon: Monitor },
+  ];
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Color appearance preference"
+      className={`inline-flex items-center p-1 rounded-smallelements bg-warm-cream dark:bg-[#222222] border border-smoke dark:border-[#333333] ${className}`}
+    >
+      {options.map((opt) => {
+        const Icon = opt.icon;
+        const isActive = theme === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            role="radio"
+            aria-checked={isActive}
+            aria-label={`${opt.label} appearance`}
+            onClick={() => setTheme(opt.id)}
+            className={`p-1.5 rounded-[6px] text-[13px] font-medium transition-all cursor-pointer flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange ${
+              isActive
+                ? "bg-paper-white dark:bg-[#333333] text-obsidian dark:text-[#f5f3ef] shadow-xs"
+                : "text-[#666666] dark:text-[#a5a19b] hover:text-obsidian dark:hover:text-[#f5f3ef]"
+            }`}
+          >
+            <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+            <span className="hidden sm:inline text-xs">{opt.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Accessible Confirmation Modal
+ * Section 15: Dialog semantics, backdrop dismissal, keyboard escape, light & dark support.
+ */
+export function ConfirmationModal({
+  isOpen,
+  title,
+  description,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  isDestructive = false,
+  onConfirm,
+  onCancel,
+}: {
+  isOpen: boolean;
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  isDestructive?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onCancel();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen, onCancel]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-modal-title"
+      aria-describedby="confirm-modal-desc"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+        onClick={onCancel}
+        aria-hidden="true"
+      />
+      <div className="relative bg-paper-white dark:bg-[#1a1a1a] rounded-cards p-8 max-w-md w-full border border-smoke dark:border-[#363636] shadow-xl space-y-6 z-10 animate-in fade-in zoom-in-95 duration-150">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isDestructive ? "bg-[#feeef0] text-[#ef4444]" : "bg-warm-cream dark:bg-[#262626] text-ember-orange"}`}>
+              <AlertTriangle className="w-5 h-5" aria-hidden="true" />
+            </div>
+            <h3 id="confirm-modal-title" className="text-[20px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.4px]">
+              {title}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="p-1 rounded text-[#888888] hover:text-obsidian dark:hover:text-[#f5f3ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer"
+            aria-label="Close dialog"
+          >
+            <X className="w-5 h-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <p id="confirm-modal-desc" className="text-[14px] text-[#555555] dark:text-[#c4c0ba] leading-relaxed">
+          {description}
+        </p>
+
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 rounded-smallelements border border-smoke dark:border-[#383838] text-[14px] font-medium text-obsidian dark:text-[#f5f3ef] hover:bg-warm-cream dark:hover:bg-[#262626] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className={`px-5 py-2 rounded-buttons text-[14px] font-medium text-white transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+              isDestructive
+                ? "bg-[#ef4444] hover:bg-[#dc2626] focus-visible:ring-[#ef4444]"
+                : "bg-ember-orange hover:bg-[#e65c00] focus-visible:ring-ember-orange"
+            }`}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Back to Top Floating Button
+ * Section 16: Appears when scroll > 300px, smooth scrolls unless prefers-reduced-motion is active.
+ */
+export function BackToTopButton() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setVisible(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({
+      top: 0,
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+    });
+  };
+
+  if (!visible) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={scrollToTop}
+      aria-label="Back to top"
+      className="fixed bottom-6 right-6 z-40 p-3 rounded-full bg-paper-white dark:bg-[#222222] border border-smoke dark:border-[#363636] text-obsidian dark:text-[#f5f3ef] shadow-lg hover:border-ember-orange hover:text-ember-orange transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange no-print"
+    >
+      <ArrowUp className="w-5 h-5" aria-hidden="true" />
+    </button>
   );
 }

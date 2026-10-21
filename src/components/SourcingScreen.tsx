@@ -273,8 +273,8 @@ export function SourcingScreen({
       />
 
       {/* Preset Scenarios Strip */}
-      <div className="bg-warm-cream rounded-cards p-6 border border-smoke flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5 text-[15px] text-obsidian">
+      <div className="bg-warm-cream dark:bg-[#1f1f1f] rounded-cards p-6 border border-smoke dark:border-[#333333] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors">
+        <div className="flex items-center gap-2.5 text-[15px] text-obsidian dark:text-[#f5f3ef]">
           <Sparkles className="w-4 h-4 text-ember-orange" aria-hidden="true" />
           <span className="font-medium tracking-[-0.3px]">Benchmark Mandates:</span>
         </div>
@@ -282,21 +282,21 @@ export function SourcingScreen({
           <button
             type="button"
             onClick={() => applyPreset("monitors")}
-            className="px-4 py-2 rounded-buttons bg-paper-white hover:bg-obsidian/5 text-[14px] font-medium text-obsidian border border-smoke transition-all cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+            className="px-4 py-2 rounded-buttons bg-paper-white dark:bg-[#262626] hover:bg-obsidian/5 dark:hover:bg-[#333333] text-[14px] font-medium text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#363636] transition-all cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
           >
             Scenario A ($8.5k / 25 Monitors)
           </button>
           <button
             type="button"
             onClick={() => applyPreset("laptops")}
-            className="px-4 py-2 rounded-buttons bg-paper-white hover:bg-obsidian/5 text-[14px] font-medium text-obsidian border border-smoke transition-all cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+            className="px-4 py-2 rounded-buttons bg-paper-white dark:bg-[#262626] hover:bg-obsidian/5 dark:hover:bg-[#333333] text-[14px] font-medium text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#363636] transition-all cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
           >
             Scenario B ($4.0k / 10 Laptops)
           </button>
           <button
             type="button"
             onClick={() => applyPreset("servers")}
-            className="px-4 py-2 rounded-buttons bg-paper-white hover:bg-obsidian/5 text-[14px] font-medium text-obsidian border border-smoke transition-all cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+            className="px-4 py-2 rounded-buttons bg-paper-white dark:bg-[#262626] hover:bg-obsidian/5 dark:hover:bg-[#333333] text-[14px] font-medium text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#363636] transition-all cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
           >
             Scenario C ($15.0k / 50 Servers)
           </button>
@@ -305,9 +305,9 @@ export function SourcingScreen({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Mandate Configuration Form */}
-        <div className="lg:col-span-5 bg-paper-white rounded-cards p-8 sm:p-10 border border-smoke shadow-[0px_4px_8px_0px_rgba(0,0,0,0.04)] space-y-6">
-          <div className="flex items-center justify-between pb-4 border-b border-smoke">
-            <h2 className="text-[20px] font-medium text-obsidian tracking-[-0.4px]">
+        <div className="lg:col-span-5 bg-paper-white dark:bg-[#1a1a1a] rounded-cards p-8 sm:p-10 border border-smoke dark:border-[#333333] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.04)] space-y-6 transition-colors">
+          <div className="flex items-center justify-between pb-4 border-b border-smoke dark:border-[#333333]">
+            <h2 className="text-[20px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.4px]">
               Authoritative Mandate
             </h2>
             <StatusBadge status="verified" label="Dynamic Budget" />
@@ -317,7 +317,7 @@ export function SourcingScreen({
           <div className="space-y-1.5">
             <label
               htmlFor={promptInputId}
-              className="block text-[14px] font-medium text-obsidian tracking-[-0.28px]"
+              className="block text-[14px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.28px]"
             >
               Natural Language Mandate Prompt
             </label>
@@ -329,7 +329,7 @@ export function SourcingScreen({
                 setPrompt(e.target.value);
                 setPreviewedSessionId(null);
               }}
-              className="w-full bg-warm-cream rounded-smallelements p-4 text-[15px] text-obsidian border border-smoke hover:border-obsidian/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:border-transparent transition-all resize-none leading-relaxed tracking-[-0.2px]"
+              className="w-full bg-warm-cream dark:bg-[#242424] rounded-smallelements p-4 text-[15px] text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#3a3a3a] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:border-transparent transition-all resize-none leading-relaxed tracking-[-0.2px]"
               placeholder="Enter procurement prompt..."
             />
           </div>
@@ -369,7 +369,7 @@ export function SourcingScreen({
             <div className="space-y-1.5">
               <label
                 htmlFor={currencySelectId}
-                className="block text-[14px] font-medium text-obsidian tracking-[-0.28px]"
+                className="block text-[14px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.28px]"
               >
                 Currency
               </label>
@@ -377,7 +377,7 @@ export function SourcingScreen({
                 id={currencySelectId}
                 value={currency}
                 onChange={(e) => handleCurrencyChange(e.target.value as CurrencyCode)}
-                className="w-full bg-warm-cream rounded-smallelements px-3.5 py-2.5 text-[15px] text-obsidian border border-smoke hover:border-obsidian/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:border-transparent transition-all cursor-pointer font-medium"
+                className="w-full bg-warm-cream dark:bg-[#242424] rounded-smallelements px-3.5 py-2.5 text-[15px] text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#3a3a3a] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:border-transparent transition-all cursor-pointer font-medium"
               >
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
@@ -410,7 +410,7 @@ export function SourcingScreen({
           {sourcingError && (
             <div
               role="alert"
-              className="p-4 rounded-smallelements bg-[#feeef0] text-[14px] text-[#ef4444] flex items-center gap-2.5 border border-[#ef4444]/20"
+              className="p-4 rounded-smallelements bg-[#feeef0] dark:bg-[#3d1216] text-[14px] text-[#ef4444] dark:text-[#f87171] flex items-center gap-2.5 border border-[#ef4444]/20 dark:border-[#ef4444]/40"
             >
               <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>{sourcingError}</span>
@@ -418,7 +418,7 @@ export function SourcingScreen({
           )}
 
           {previewedSessionId && (
-            <div className="p-3.5 rounded-smallelements bg-mint-whisper border border-lichen-green/30 text-[13px] text-obsidian flex items-center gap-2">
+            <div className="p-3.5 rounded-smallelements bg-mint-whisper dark:bg-lichen-green/10 border border-lichen-green/30 dark:border-lichen-green/40 text-[13px] text-obsidian dark:text-[#f5f3ef] flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-lichen-green shrink-0" />
               <span>Wholesale quotes previewed & locked in active session. Ready to negotiate.</span>
             </div>
@@ -443,14 +443,14 @@ export function SourcingScreen({
         </div>
 
         {/* Right Column: Wholesale Vendor Quotes Comparison */}
-        <div className="lg:col-span-7 bg-warm-cream rounded-cards p-8 sm:p-10 border border-smoke flex flex-col justify-between">
+        <div className="lg:col-span-7 bg-warm-cream dark:bg-[#1a1a1a] rounded-cards p-8 sm:p-10 border border-smoke dark:border-[#333333] flex flex-col justify-between transition-colors">
           <div>
-            <div className="pb-4 border-b border-smoke flex items-center justify-between">
+            <div className="pb-4 border-b border-smoke dark:border-[#333333] flex items-center justify-between">
               <div>
-                <h2 className="text-[20px] font-medium text-obsidian tracking-[-0.4px]">
+                <h2 className="text-[20px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.4px]">
                   Channel3 Wholesale Catalog
                 </h2>
-                <p className="text-[14px] text-[#666666] mt-0.5 tracking-[-0.2px]">
+                <p className="text-[14px] text-[#666666] dark:text-[#a5a19b] mt-0.5 tracking-[-0.2px]">
                   Multi-vendor competing baselines loaded for game-theoretic negotiation
                 </p>
               </div>
@@ -469,37 +469,37 @@ export function SourcingScreen({
                   return (
                     <div
                       key={quote.vendorId}
-                      className="bg-paper-white rounded-cards p-6 border border-smoke shadow-[0px_4px_8px_0px_rgba(0,0,0,0.03)] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      className="bg-paper-white dark:bg-[#242424] rounded-cards p-6 border border-smoke dark:border-[#363636] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.03)] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2.5">
-                          <span className="text-[16px] font-medium text-obsidian tracking-[-0.32px]">
+                          <span className="text-[16px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.32px]">
                             {quote.vendorName}
                           </span>
-                          <span className="text-[12px] font-mono-token text-architect-violet bg-lavender-mist px-2 py-0.5 rounded border border-architect-violet/20 font-medium">
+                          <span className="text-[12px] font-mono-token text-architect-violet dark:text-[#a78bfa] bg-lavender-mist dark:bg-architect-violet/20 px-2 py-0.5 rounded border border-architect-violet/20 dark:border-architect-violet/40 font-medium">
                             {quote.sku}
                           </span>
                         </div>
-                        <div className="text-[14px] text-[#666666] tracking-[-0.2px]">
+                        <div className="text-[14px] text-[#666666] dark:text-[#a0a0a0] tracking-[-0.2px]">
                           {quote.productTitle}
                         </div>
-                        <div className="flex items-center gap-4 text-[13px] text-[#666666] pt-1">
+                        <div className="flex items-center gap-4 text-[13px] text-[#666666] dark:text-[#a0a0a0] pt-1">
                           <span className="flex items-center gap-1.5">
-                            <Truck className="w-3.5 h-3.5 text-obsidian" aria-hidden="true" />
+                            <Truck className="w-3.5 h-3.5 text-obsidian dark:text-[#f5f3ef]" aria-hidden="true" />
                             {quote.deliveryDays}d Delivery
                           </span>
                           <span className="flex items-center gap-1.5">
-                            <RotateCcw className="w-3.5 h-3.5 text-obsidian" aria-hidden="true" />
+                            <RotateCcw className="w-3.5 h-3.5 text-obsidian dark:text-[#f5f3ef]" aria-hidden="true" />
                             {quote.returnDays}d Return Policy
                           </span>
-                          <span className="font-medium text-architect-violet">{quote.condition}</span>
+                          <span className="font-medium text-architect-violet dark:text-[#a78bfa]">{quote.condition}</span>
                         </div>
                       </div>
 
-                      <div className="sm:text-right border-t sm:border-t-0 pt-3 sm:pt-0 border-smoke">
-                        <div className="text-[12px] text-[#666666] font-normal">Initial Landed Cost</div>
+                      <div className="sm:text-right border-t sm:border-t-0 pt-3 sm:pt-0 border-smoke dark:border-[#363636]">
+                        <div className="text-[12px] text-[#666666] dark:text-[#a0a0a0] font-normal">Initial Landed Cost</div>
                         <CurrencyDisplay amount={landedTotal} currency={currency} size="md" />
-                        <div className="text-[12px] text-[#666666] mt-0.5">
+                        <div className="text-[12px] text-[#666666] dark:text-[#a0a0a0] mt-0.5">
                           Unit: {currencyPrefix}{quote.initialUnitAsk} • Ship: {currencyPrefix}{quote.shippingCost}
                         </div>
                         <div className="mt-2">
@@ -515,22 +515,22 @@ export function SourcingScreen({
               </div>
             ) : (
               <div className="py-20 text-center space-y-3">
-                <div className="w-12 h-12 rounded-full bg-paper-white border border-smoke mx-auto flex items-center justify-center text-ash-gray">
+                <div className="w-12 h-12 rounded-full bg-paper-white dark:bg-[#242424] border border-smoke dark:border-[#363636] mx-auto flex items-center justify-center text-ash-gray">
                   <Package className="w-6 h-6" aria-hidden="true" />
                 </div>
-                <div className="text-[18px] font-medium text-obsidian tracking-[-0.36px]">
+                <div className="text-[18px] font-medium text-obsidian dark:text-[#f5f3ef] tracking-[-0.36px]">
                   Catalog Unloaded
                 </div>
-                <p className="text-[14px] text-[#666666] max-w-sm mx-auto leading-relaxed tracking-[-0.2px]">
+                <p className="text-[14px] text-[#666666] dark:text-[#a0a0a0] max-w-sm mx-auto leading-relaxed tracking-[-0.2px]">
                   Click &ldquo;Preview Wholesale&rdquo; to test constraint validation against competing suppliers, or &ldquo;Enter Arena&rdquo; to commence autonomous negotiation.
                 </p>
               </div>
             )}
           </div>
 
-          <div className="pt-4 mt-6 border-t border-smoke text-[13px] text-[#666666] flex items-center justify-between">
+          <div className="pt-4 mt-6 border-t border-smoke dark:border-[#333333] text-[13px] text-[#666666] dark:text-[#a0a0a0] flex items-center justify-between">
             <span className="flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-obsidian" aria-hidden="true" />
+              <Layers className="w-3.5 h-3.5 text-obsidian dark:text-[#f5f3ef]" aria-hidden="true" />
               Source: Channel3 Sourcing API
             </span>
             <span className="text-lichen-green font-medium">Deterministic Simulation</span>

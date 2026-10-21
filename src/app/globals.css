@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  /* Colors */
+  /* Brand Primitive Colors */
   --color-ember-orange: #ff6600;
   --color-architect-violet: #5c2999;
   --color-lichen-green: #00cc88;
@@ -15,6 +17,19 @@
   --color-mint-whisper: #ebfef6;
   --color-ash-gray: #888888;
   --color-smoke: #e5e5e5;
+
+  /* Semantic Theme Tokens */
+  --color-page-bg: var(--color-page-bg);
+  --color-surface-primary: var(--color-surface-primary);
+  --color-surface-secondary: var(--color-surface-secondary);
+  --color-surface-elevated: var(--color-surface-elevated);
+  --color-surface-card: var(--color-surface-card);
+  --color-surface-panel: var(--color-surface-panel);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-border-primary: var(--color-border-primary);
+  --color-border-subtle: var(--color-border-subtle);
 
   /* Typography */
   --font-abc-monument-grotesk: 'ABC Monument Grotesk', var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -61,95 +76,123 @@
   --radius-smallelements: 8px;
 
   /* Shadows */
-  --shadow-xl: rgba(0, 0, 0, 0.5) 0px 16px 32px 0px;
-  --shadow-sm: rgba(0, 0, 0, 0.1) 0px 4px 8px 0px;
-  --shadow-xl-2: rgba(0, 0, 0, 0.1) 0px 16px 32px 0px;
+  --shadow-xl: var(--shadow-xl);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-card: var(--shadow-card);
 }
 
 :root {
   /* ========================================================
-     DESIGN.md — LITHIC WARM MARBLE STYLE REFERENCE TOKENS
+     LIGHT THEME TOKENS (Default Lithic Warm Marble)
      ======================================================== */
+  --color-page-bg: #ffffff;
+  --color-surface-primary: #ffffff;
+  --color-surface-secondary: #f6f3ee;
+  --color-surface-elevated: #ffffff;
+  --color-surface-card: #f6f3ee;
+  --color-surface-panel: #f6f1fe;
+  --color-surface-whisper: #ebfef6;
 
-  /* Palette */
+  --color-text-primary: #000000;
+  --color-text-secondary: #555555;
+  --color-text-muted: #888888;
+
+  --color-border-primary: #e5e5e5;
+  --color-border-subtle: #f0ede8;
+
   --color-ember-orange: #ff6600;
+  --color-ember-hover: #e65c00;
   --color-architect-violet: #5c2999;
+  --color-lavender-mist: #f6f1fe;
   --color-lichen-green: #00cc88;
+  --color-mint-whisper: #ebfef6;
   --color-sandstone: #aa8855;
   --color-bark-brown: #665233;
   --color-honey-bronze: #eec07a;
   --color-obsidian: #000000;
   --color-paper-white: #ffffff;
   --color-warm-cream: #f6f3ee;
-  --color-lavender-mist: #f6f1fe;
-  --color-mint-whisper: #ebfef6;
   --color-ash-gray: #888888;
   --color-smoke: #e5e5e5;
 
-  /* Typography Scale */
-  --text-caption: 14px;
-  --leading-caption: 1.52;
-  --tracking-caption: -0.28px;
-  --text-body-sm: 16px;
-  --leading-body-sm: 1.5;
-  --tracking-body-sm: -0.32px;
-  --text-subheading: 20px;
-  --leading-subheading: 1.4;
-  --tracking-subheading: -0.4px;
-  --text-heading-sm: 24px;
-  --leading-heading-sm: 1.2;
-  --tracking-heading-sm: -0.48px;
-  --text-heading: 36px;
-  --leading-heading: 1.2;
-  --tracking-heading: -0.72px;
-  --text-display: 64px;
-  --leading-display: 1;
-  --tracking-display: -1.28px;
+  /* Shadows */
+  --shadow-card: 0px 4px 8px 0px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0px 4px 8px 0px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0px 16px 32px 0px rgba(0, 0, 0, 0.08);
 
-  /* Spacing Scale (8px base) */
-  --spacing-8: 8px;
-  --spacing-16: 16px;
-  --spacing-24: 24px;
-  --spacing-32: 32px;
-  --spacing-40: 40px;
-  --spacing-48: 48px;
-  --spacing-64: 64px;
-  --spacing-80: 80px;
+  /* Scrollbar */
+  --scrollbar-track: #f6f3ee;
+  --scrollbar-thumb: #e5e5e5;
+}
 
-  /* Radii */
-  --radius-cards: 24px;
-  --radius-buttons: 24px;
-  --radius-smallelements: 8px;
+.dark,
+[data-theme="dark"] {
+  /* ========================================================
+     DARK THEME TOKENS (Institutional Precision Darkroom)
+     ======================================================== */
+  --color-page-bg: #111111;
+  --color-surface-primary: #1a1a1a;
+  --color-surface-secondary: #202020;
+  --color-surface-elevated: #262626;
+  --color-surface-card: #1e1e1e;
+  --color-surface-panel: #271f33;
+  --color-surface-whisper: #132820;
+
+  --color-text-primary: #f5f3ef;
+  --color-text-secondary: #c4c0ba;
+  --color-text-muted: #a5a19b;
+
+  --color-border-primary: #363636;
+  --color-border-subtle: #2a2a2a;
+
+  --color-ember-orange: #ff6600;
+  --color-ember-hover: #ff771a;
+  --color-architect-violet: #9d6ce6;
+  --color-lavender-mist: #2a1e3b;
+  --color-lichen-green: #00e699;
+  --color-mint-whisper: #132c22;
+  --color-sandstone: #c4a26e;
+  --color-bark-brown: #ded0bc;
+  --color-honey-bronze: #f2cb88;
+  --color-obsidian: #ffffff;
+  --color-paper-white: #1a1a1a;
+  --color-warm-cream: #202020;
+  --color-ash-gray: #888888;
+  --color-smoke: #333333;
 
   /* Shadows */
-  --shadow-xl: 0px 16px 32px 0px rgba(0, 0, 0, 0.5);
-  --shadow-sm: 0px 4px 8px 0px rgba(0, 0, 0, 0.08);
-  --shadow-xl-2: 0px 16px 32px 0px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0px 4px 12px 0px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0px 4px 8px 0px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0px 16px 32px 0px rgba(0, 0, 0, 0.6);
 
-  /* Surfaces */
-  --surface-obsidian-vault: #000000;
-  --surface-paper-white: #ffffff;
-  --surface-warm-cream: #f6f3ee;
-  --surface-lavender-mist: #f6f1fe;
-  --surface-mint-whisper: #ebfef6;
+  /* Scrollbar */
+  --scrollbar-track: #1a1a1a;
+  --scrollbar-thumb: #363636;
 }
 
 body {
-  background-color: var(--surface-paper-white);
-  color: var(--color-obsidian);
+  background-color: var(--color-page-bg);
+  color: var(--color-text-primary);
   font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   min-height: 100vh;
-  letter-spacing: -0.02em; /* DESIGN.md signature: -0.02em tracking across sizes */
+  letter-spacing: -0.02em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* Background canvas for warm marble briefing room */
 .lithic-bg {
-  background-color: #fbf9f6;
+  background-color: var(--color-page-bg);
   background-image: 
     radial-gradient(circle at 10% 20%, rgba(246, 243, 238, 0.8) 0%, transparent 40%),
     radial-gradient(circle at 90% 80%, rgba(246, 241, 254, 0.6) 0%, transparent 40%);
+}
+
+.dark .lithic-bg {
+  background-color: var(--color-page-bg);
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(32, 32, 32, 0.6) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(42, 30, 59, 0.4) 0%, transparent 40%);
 }
 
 /* Monospace restricted specifically to hashes, identifiers, and hex digests */
@@ -163,8 +206,16 @@ body {
   background-image: radial-gradient(circle at 100% 100%, transparent 0, transparent 40px, rgba(170, 136, 85, 0.35) 41px, transparent 42px, transparent 80px, rgba(170, 136, 85, 0.35) 81px, transparent 82px, transparent 120px, rgba(170, 136, 85, 0.3) 121px, transparent 122px, transparent 160px, rgba(170, 136, 85, 0.25) 161px, transparent 162px, transparent 200px, rgba(170, 136, 85, 0.2) 201px, transparent 202px, transparent 240px, rgba(170, 136, 85, 0.15) 241px, transparent 242px);
 }
 
+.dark .concentric-arcs-dark {
+  background-image: radial-gradient(circle at 100% 100%, transparent 0, transparent 40px, rgba(196, 162, 110, 0.25) 41px, transparent 42px, transparent 80px, rgba(196, 162, 110, 0.2) 81px, transparent 82px, transparent 120px, rgba(196, 162, 110, 0.15) 121px, transparent 122px, transparent 160px, rgba(196, 162, 110, 0.1) 161px, transparent 162px);
+}
+
 .concentric-arcs-violet {
   background-image: radial-gradient(circle at 100% 100%, transparent 0, transparent 40px, rgba(92, 41, 153, 0.2) 41px, transparent 42px, transparent 80px, rgba(92, 41, 153, 0.15) 81px, transparent 82px, transparent 120px, rgba(92, 41, 153, 0.1) 121px, transparent 122px, transparent 160px, rgba(92, 41, 153, 0.08) 161px, transparent 162px);
+}
+
+.dark .concentric-arcs-violet {
+  background-image: radial-gradient(circle at 100% 100%, transparent 0, transparent 40px, rgba(157, 108, 230, 0.2) 41px, transparent 42px, transparent 80px, rgba(157, 108, 230, 0.15) 81px, transparent 82px, transparent 120px, rgba(157, 108, 230, 0.1) 121px, transparent 122px);
 }
 
 /* Accessible focus ring utility */
@@ -176,7 +227,7 @@ body {
   outline-offset: 2px;
 }
 
-/* Reduced motion preference honoring WCAG 2.1 AA */
+/* Reduced motion preference honoring WCAG 2.2 AA */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -194,12 +245,47 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f6f3ee;
+  background: var(--scrollbar-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: #e5e5e5;
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #ff6600;
+  background: var(--color-ember-orange);
+}
+
+/* Print Stylesheet (Section 17) */
+@media print {
+  header,
+  footer,
+  nav,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  a[href]::after {
+    content: "" !important;
+  }
+
+  .print-readable {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #cccccc !important;
+  }
 }
