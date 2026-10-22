@@ -447,22 +447,20 @@ INSTRUCTIONS:
     // Safe monetary rounding: round to 2 decimal places
     const unitPrice = Math.round(candidate.unitPrice * 100) / 100;
 
-    // Delivery days cannot exceed mandate max delivery days
-    const deliveryDays = Math.min(
-      bounds.mandate.maxDeliveryDays,
-      Math.max(1, candidate.deliveryDays)
-    );
+    // 6. Delivery SLA check: delivery days cannot exceed mandate max delivery days
+    if (candidate.deliveryDays > bounds.mandate.maxDeliveryDays) {
+      return null;
+    }
 
-    // Return policy days cannot be less than mandate minimum
-    const returnDays = Math.max(
-      bounds.mandate.minReturnDays,
-      candidate.returnDays
-    );
+    // 7. Return policy check: return days cannot be less than mandate minimum
+    if (candidate.returnDays < bounds.mandate.minReturnDays) {
+      return null;
+    }
 
     return {
       unitPrice,
-      deliveryDays,
-      returnDays,
+      deliveryDays: candidate.deliveryDays,
+      returnDays: candidate.returnDays,
       message: candidate.message.trim(),
       tacticalRationale,
     };

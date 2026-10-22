@@ -42,6 +42,39 @@ export type VendorQuoteStatus = "ACTIVE" | "REJECTED" | "ACCEPTED" | "COUNTERED"
 export type DataSource = "CHANNEL3" | "MOCK_CATALOG" | "DIRECT_FEED";
 
 /**
+ * Mandate intelligence status contracts
+ */
+export type MandateStatus = "READY" | "NEEDS_CLARIFICATION" | "INVALID";
+export type MandateExtractorType = "GEMINI_LIVE" | "DETERMINISTIC_PARSER";
+
+/**
+ * Structured mandate intelligence extraction output
+ */
+export interface MandateIntelligenceResult {
+  status: MandateStatus;
+  mandate?: ProcurementMandate;
+  extractor: MandateExtractorType;
+  itemQuery?: string;
+  quantity?: number;
+  maxTotalBudget?: number;
+  unitPriceBudget?: number;
+  currency?: CurrencyCode;
+  maxDeliveryDays?: number;
+  minReturnDays?: number;
+  requiredSpecs?: RequiredSpecification[];
+  requiredCondition?: ProductCondition;
+  statedConstraints?: string[];
+  missingFields: string[];
+  ambiguities: string[];
+  contradictions: string[];
+  clarificationQuestions: string[];
+  suggestedSpecs?: RequiredSpecification[];
+  rawPrompt: string;
+  latencyMs?: number;
+  error?: string;
+}
+
+/**
  * 4.2 VendorQuote
  * Competing wholesale vendor offer
  */

@@ -15,8 +15,11 @@ import {
   RotateCcw,
   Package,
   Layers,
+  Sparkles,
+  HelpCircle,
+  CheckCircle2,
 } from "lucide-react";
-import type { VendorQuote, CurrencyCode, ProcurementMandate } from "@/types/pactum";
+import type { VendorQuote, CurrencyCode, ProcurementMandate, MandateStatus } from "@/types/pactum";
 
 interface SourcingScreenProps {
   onStartNegotiation: (
@@ -54,6 +57,13 @@ export function SourcingScreen({
   const [budget, setBudget] = useState<number>(8500);
   const [maxDelivery, setMaxDelivery] = useState<number>(5);
   const [minReturn, setMinReturn] = useState<number>(30);
+
+  // Mandate Intelligence State
+  const [mandateStatus, setMandateStatus] = useState<MandateStatus | null>("READY");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [clarificationQuestions, setClarificationQuestions] = useState<string[]>([]);
+  const [contradictions, setContradictions] = useState<string[]>([]);
+  const [missingFieldsList, setMissingFieldsList] = useState<string[]>([]);
 
   // Validation errors
   const [errors, setErrors] = useState<ValidationErrors>({});
@@ -104,10 +114,18 @@ export function SourcingScreen({
     return errs;
   };
 
+  const clearIntelligenceIfValid = () => {
+    setMandateStatus("READY");
+    setContradictions([]);
+    setClarificationQuestions([]);
+    setMissingFieldsList([]);
+  };
+
   const handleItemQueryChange = (val: string) => {
     setItemQuery(val);
     setPreviewedSessionId(null);
     setSourcedQuotes(null);
+    clearIntelligenceIfValid();
     const newErrs = validateFieldValues(val, quantity, budget, maxDelivery, minReturn);
     setErrors(newErrs);
     setPrompt(formatSynchronizedPrompt(quantity, val, budget, currency, maxDelivery, minReturn));
@@ -117,6 +135,7 @@ export function SourcingScreen({
     setQuantity(val);
     setPreviewedSessionId(null);
     setSourcedQuotes(null);
+    clearIntelligenceIfValid();
     const newErrs = validateFieldValues(itemQuery, val, budget, maxDelivery, minReturn);
     setErrors(newErrs);
     setPrompt(formatSynchronizedPrompt(val, itemQuery, budget, currency, maxDelivery, minReturn));
@@ -126,6 +145,7 @@ export function SourcingScreen({
     setBudget(val);
     setPreviewedSessionId(null);
     setSourcedQuotes(null);
+    clearIntelligenceIfValid();
     const newErrs = validateFieldValues(itemQuery, quantity, val, maxDelivery, minReturn);
     setErrors(newErrs);
     setPrompt(formatSynchronizedPrompt(quantity, itemQuery, val, currency, maxDelivery, minReturn));
@@ -135,6 +155,7 @@ export function SourcingScreen({
     setCurrency(val);
     setPreviewedSessionId(null);
     setSourcedQuotes(null);
+    clearIntelligenceIfValid();
     setPrompt(formatSynchronizedPrompt(quantity, itemQuery, budget, val, maxDelivery, minReturn));
   };
 
@@ -142,6 +163,7 @@ export function SourcingScreen({
     setMaxDelivery(val);
     setPreviewedSessionId(null);
     setSourcedQuotes(null);
+    clearIntelligenceIfValid();
     const newErrs = validateFieldValues(itemQuery, quantity, budget, val, minReturn);
     setErrors(newErrs);
     setPrompt(formatSynchronizedPrompt(quantity, itemQuery, budget, currency, val, minReturn));
@@ -151,6 +173,7 @@ export function SourcingScreen({
     setMinReturn(val);
     setPreviewedSessionId(null);
     setSourcedQuotes(null);
+    clearIntelligenceIfValid();
     const newErrs = validateFieldValues(itemQuery, quantity, budget, maxDelivery, val);
     setErrors(newErrs);
     setPrompt(formatSynchronizedPrompt(quantity, itemQuery, budget, currency, maxDelivery, val));
@@ -175,11 +198,89 @@ export function SourcingScreen({
     setPreviewedSessionId(null);
     setSourcedQuotes(null);
     setSourcingError(null);
+    setMandateStatus("READY");
+    setClarificationQuestions([]);
+    setContradictions([]);
+    setMissingFieldsList([]);
     setPrompt(formatSynchronizedPrompt(q, item, b, curr, d, r));
+  };
+
+  // Analyze Prompt with Mandate Intelligence
+  const handleAnalyzePrompt = async () => {
+    if (!prompt.trim()) {
+      setErrors({ prompt: "Please enter a procurement prompt to analyze." });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setSourcingError(null);
+    setClarificationQuestions([]);
+    setContradictions([]);
+    setMissingFieldsList([]);
+
+    try {
+      const res = await fetch("/api/procurement/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          currency,
+          analyzeOnly: true,
+        }),
+      });
+
+      const data = await res.json();
+      const intel = data.mandateIntelligence;
+
+      if (intel) {
+        setMandateStatus(intel.status);
+        setClarificationQuestions(intel.clarificationQuestions || []);
+        setContradictions(intel.contradictions || []);
+        setMissingFieldsList(intel.missingFields || []);
+
+        if (intel.status === "READY" && intel.extractedMandate) {
+          const m = intel.extractedMandate;
+          if (m.itemQuery) setItemQuery(m.itemQuery);
+          if (m.quantity) setQuantity(m.quantity);
+          if (m.maxTotalBudget) setBudget(m.maxTotalBudget);
+          if (m.maxDeliveryDays) setMaxDelivery(m.maxDeliveryDays);
+          if (m.minReturnDays !== undefined) setMinReturn(m.minReturnDays);
+          if (m.currency && (m.currency === "USD" || m.currency === "EUR" || m.currency === "GBP")) {
+            setCurrency(m.currency as CurrencyCode);
+          }
+          setErrors({});
+        } else if (intel.status === "INVALID") {
+          setSourcingError(
+            intel.contradictions && intel.contradictions.length > 0
+              ? `Mandate contradiction: ${intel.contradictions[0]}`
+              : "Mandate contains contradictory constraints. Please resolve them."
+          );
+        } else if (intel.status === "NEEDS_CLARIFICATION" && intel.extractedMandate) {
+          // Partially populate what was extracted to assist user
+          const m = intel.extractedMandate;
+          if (m.itemQuery) setItemQuery(m.itemQuery);
+          if (m.quantity) setQuantity(m.quantity);
+          if (m.maxTotalBudget) setBudget(m.maxTotalBudget);
+          if (m.maxDeliveryDays) setMaxDelivery(m.maxDeliveryDays);
+          if (m.minReturnDays !== undefined) setMinReturn(m.minReturnDays);
+        }
+      } else if (!res.ok) {
+        throw new Error(data.error || "Failed to analyze prompt.");
+      }
+    } catch (err: unknown) {
+      setSourcingError(err instanceof Error ? err.message : "Error analyzing prompt.");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   // Sourcing preview via /api/procurement/init
   const handleSourcePreview = async () => {
+    if (mandateStatus === "INVALID") {
+      setSourcingError("Cannot source wholesale quotes for an invalid or contradictory mandate. Please resolve constraints first.");
+      return;
+    }
+
     const errs = validateFieldValues(itemQuery, quantity, budget, maxDelivery, minReturn);
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
@@ -209,11 +310,20 @@ export function SourcingScreen({
 
       const data = await res.json();
       if (!res.ok) {
+        if (data.mandateIntelligence) {
+          setMandateStatus(data.mandateIntelligence.status);
+          setContradictions(data.mandateIntelligence.contradictions || []);
+          setClarificationQuestions(data.mandateIntelligence.clarificationQuestions || []);
+          setMissingFieldsList(data.mandateIntelligence.missingFields || []);
+        }
         throw new Error(data.error || "Failed to query Channel3 catalog.");
       }
 
       setSourcedQuotes(data.quotes || []);
       setPreviewedSessionId(data.sessionId || null);
+      if (data.mandateIntelligence) {
+        setMandateStatus(data.mandateIntelligence.status);
+      }
     } catch (err: unknown) {
       setSourcingError(err instanceof Error ? err.message : "Error querying suppliers.");
     } finally {
@@ -222,6 +332,11 @@ export function SourcingScreen({
   };
 
   const handleEnterArena = () => {
+    if (mandateStatus === "INVALID") {
+      setSourcingError("Cannot enter negotiation arena with contradictory constraints. Please resolve constraints first.");
+      return;
+    }
+
     const errs = validateFieldValues(itemQuery, quantity, budget, maxDelivery, minReturn);
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
@@ -302,14 +417,22 @@ export function SourcingScreen({
             </h2>
             <StatusBadge
               status={
-                Object.keys(errors).length > 0
+                mandateStatus === "INVALID"
+                  ? "failure"
+                  : mandateStatus === "NEEDS_CLARIFICATION"
+                  ? "warning"
+                  : Object.keys(errors).length > 0
                   ? "failure"
                   : previewedSessionId
                   ? "verified"
                   : "neutral"
               }
               label={
-                Object.keys(errors).length > 0
+                mandateStatus === "INVALID"
+                  ? "Contradictory Mandate"
+                  : mandateStatus === "NEEDS_CLARIFICATION"
+                  ? "Needs Clarification"
+                  : Object.keys(errors).length > 0
                   ? "Validation Required"
                   : previewedSessionId
                   ? "Catalog Sourced"
@@ -345,6 +468,70 @@ export function SourcingScreen({
             <p className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83]">
               Type prompt naturally or update structured inputs below — values synchronize bidirectionally.
             </p>
+
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                onClick={handleAnalyzePrompt}
+                disabled={isAnalyzing || !prompt.trim()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium bg-smoke/50 dark:bg-[#25252b] hover:bg-smoke dark:hover:bg-[#303038] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Sparkles className={`w-3.5 h-3.5 text-ember-orange ${isAnalyzing ? "animate-spin" : ""}`} />
+                <span>{isAnalyzing ? "Extracting Mandate..." : "Extract Mandate (AI)"}</span>
+              </button>
+              {mandateStatus === "READY" && (
+                <span className="inline-flex items-center gap-1 text-[11.5px] text-[#006840] dark:text-[#4ade80] font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Schema Verified
+                </span>
+              )}
+            </div>
+
+            {/* Clarification Box */}
+            {mandateStatus === "NEEDS_CLARIFICATION" && (
+              <div className="p-3.5 rounded-[8px] bg-amber-500/10 dark:bg-amber-950/20 border border-amber-500/30 text-[12.5px] space-y-1.5 animate-in fade-in duration-150">
+                <div className="flex items-center gap-2 font-semibold text-amber-700 dark:text-amber-400">
+                  <HelpCircle className="w-4 h-4 shrink-0" />
+                  <span>Mandate Clarification Needed</span>
+                </div>
+                {missingFieldsList.length > 0 && (
+                  <div className="text-[#4a4a52] dark:text-[#b8b5af]">
+                    <span className="font-medium text-obsidian dark:text-[#f6f4f0]">Missing required fields: </span>
+                    <span className="font-mono-token text-[11.5px]">{missingFieldsList.join(", ")}</span>
+                  </div>
+                )}
+                {clarificationQuestions.length > 0 && (
+                  <ul className="list-disc pl-4 space-y-1 text-obsidian dark:text-[#f6f4f0]">
+                    {clarificationQuestions.map((q, idx) => (
+                      <li key={idx}>{q}</li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83] pt-0.5">
+                  Refine the prompt above or complete the structured fields below to resolve.
+                </p>
+              </div>
+            )}
+
+            {/* Contradiction Box */}
+            {mandateStatus === "INVALID" && (
+              <div className="p-3.5 rounded-[8px] bg-rose-500/10 dark:bg-rose-950/20 border border-rose-500/30 text-[12.5px] space-y-1.5 animate-in fade-in duration-150">
+                <div className="flex items-center gap-2 font-semibold text-rose-700 dark:text-rose-400">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>Contradictory Requirements Detected</span>
+                </div>
+                {contradictions.length > 0 && (
+                  <ul className="list-disc pl-4 space-y-1 text-obsidian dark:text-[#f6f4f0]">
+                    {contradictions.map((c, idx) => (
+                      <li key={idx}>{c}</li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83] pt-0.5">
+                  Conflicting budget, quantity, or SLA constraints must be reconciled before sourcing.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Structured Fields */}

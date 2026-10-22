@@ -1,37 +1,105 @@
 /**
- * PACTUM — Mandate Parse & Sourcing Preview Route
+ * PACTUM — Mandate Parse, Intelligence & Sourcing Route
  * Endpoint: POST /api/procurement/init
- * Validates natural language mandate and sources quotes without immediately streaming.
+ * Supports real-time mandate analysis, clarification requests, and authoritative sourcing initialization.
  * Follows GEMINI.md Section 3, 11 and SECURITY.md Section 2, 4.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { parseProcurementMandate } from "@/lib/mandate-parser";
+import { extractProcurementMandate } from "@/lib/mandate-parser";
 import { Channel3Client } from "@/lib/channel3-client";
 import { sessionStore } from "@/lib/session-store";
+import type { ProcurementMandate, CurrencyCode } from "@/types/pactum";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { prompt, currency, rawMandate } = body;
+    const { prompt, currency, rawMandate, analyzeOnly } = body;
 
-    let mandate;
-    if (rawMandate && typeof rawMandate === "object") {
-      // Direct structured mandate configuration
-      if (!rawMandate.itemQuery || !rawMandate.quantity || !rawMandate.maxTotalBudget) {
-        return NextResponse.json({ error: "Mandate missing required fields (itemQuery, quantity, maxTotalBudget)." }, { status: 422 });
+    // 1. Analyze-only mode: returns extraction intelligence without creating a session
+    if (analyzeOnly) {
+      if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+        return NextResponse.json(
+          {
+            success: false,
+            status: "INVALID",
+            error: "Prompt is empty or missing.",
+            missingFields: ["prompt"],
+            clarificationQuestions: ["Please enter a procurement prompt."],
+          },
+          { status: 400 }
+        );
       }
+
+      const analysis = await extractProcurementMandate({ prompt, currency });
+      return NextResponse.json({
+        success: analysis.status === "READY",
+        status: analysis.status,
+        mandate: analysis.mandate,
+        itemQuery: analysis.itemQuery,
+        quantity: analysis.quantity,
+        maxTotalBudget: analysis.maxTotalBudget,
+        unitPriceBudget: analysis.unitPriceBudget,
+        currency: analysis.currency,
+        maxDeliveryDays: analysis.maxDeliveryDays,
+        minReturnDays: analysis.minReturnDays,
+        missingFields: analysis.missingFields || [],
+        ambiguities: analysis.ambiguities || [],
+        contradictions: analysis.contradictions || [],
+        clarificationQuestions: analysis.clarificationQuestions || [],
+        extractor: analysis.extractor,
+        error: analysis.error,
+      });
+    }
+
+    let mandate: ProcurementMandate;
+
+    // 2. Structured form submission with server-side validation
+    if (rawMandate && typeof rawMandate === "object") {
+      const errors: string[] = [];
+      const itemQuery = typeof rawMandate.itemQuery === "string" ? rawMandate.itemQuery.trim() : "";
+      if (!itemQuery) errors.push("itemQuery is required");
+
+      const qty = Number(rawMandate.quantity);
+      if (!Number.isInteger(qty) || qty <= 0) errors.push("quantity must be an integer >= 1");
+
+      const bgt = Number(rawMandate.maxTotalBudget);
+      if (!Number.isFinite(bgt) || bgt <= 0) errors.push("maxTotalBudget must be a positive number");
+
+      const d = Number(rawMandate.maxDeliveryDays ?? 5);
+      if (!Number.isInteger(d) || d < 1) errors.push("maxDeliveryDays must be an integer >= 1");
+
+      const r = Number(rawMandate.minReturnDays ?? 30);
+      if (!Number.isInteger(r) || r < 0) errors.push("minReturnDays must be an integer >= 0");
+
+      const curr = (rawMandate.currency || currency || "USD").toUpperCase();
+      if (curr !== "USD" && curr !== "EUR" && curr !== "GBP") {
+        errors.push(`Unsupported currency '${curr}'. Must be USD, EUR, or GBP.`);
+      }
+
+      if (errors.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            status: "INVALID",
+            error: `Mandate validation failed: ${errors.join("; ")}`,
+            missingFields: errors,
+          },
+          { status: 422 }
+        );
+      }
+
       mandate = {
         id: `mandate_${Date.now()}`,
-        rawPrompt: prompt || `Procure ${rawMandate.quantity} ${rawMandate.itemQuery}`,
-        itemQuery: String(rawMandate.itemQuery),
-        quantity: Number(rawMandate.quantity),
-        maxTotalBudget: Number(rawMandate.maxTotalBudget),
-        maxDeliveryDays: Number(rawMandate.maxDeliveryDays || 5),
-        minReturnDays: Number(rawMandate.minReturnDays || 30),
-        currency: currency || rawMandate.currency || "USD",
+        rawPrompt: prompt || `Procure ${qty} ${itemQuery} under ${curr} ${bgt}`,
+        itemQuery,
+        quantity: qty,
+        maxTotalBudget: bgt,
+        maxDeliveryDays: d,
+        minReturnDays: r,
+        currency: curr as CurrencyCode,
         requiredSpecs: rawMandate.requiredSpecs || [],
         requiredCondition: rawMandate.requiredCondition || "NEW",
         createdAt: new Date().toISOString(),
@@ -39,38 +107,62 @@ export async function POST(req: NextRequest) {
         isLocked: false,
       };
     } else {
-      if (!prompt || typeof prompt !== "string") {
-        return NextResponse.json({ error: "Field 'prompt' is required." }, { status: 400 });
+      // 3. Natural-language prompt submission via Mandate Intelligence
+      if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+        return NextResponse.json(
+          {
+            success: false,
+            status: "INVALID",
+            error: "Field 'prompt' is required and cannot be empty.",
+          },
+          { status: 400 }
+        );
       }
 
-      const parseResult = parseProcurementMandate({ prompt, currency });
-      if (!parseResult.success || !parseResult.mandate) {
-        return NextResponse.json({
-          error: parseResult.error ?? "Failed to parse mandate constraints.",
-          missingFields: parseResult.missingFields,
-        }, { status: 422 });
+      const parseResult = await extractProcurementMandate({ prompt, currency });
+      if (parseResult.status !== "READY" || !parseResult.mandate) {
+        return NextResponse.json(
+          {
+            success: false,
+            status: parseResult.status,
+            error: parseResult.error ?? "Mandate requires resolution or clarification before sourcing.",
+            missingFields: parseResult.missingFields || [],
+            ambiguities: parseResult.ambiguities || [],
+            contradictions: parseResult.contradictions || [],
+            clarificationQuestions: parseResult.clarificationQuestions || [],
+            extractor: parseResult.extractor,
+          },
+          { status: 422 }
+        );
       }
       mandate = parseResult.mandate;
     }
 
-    // Source vendor quotes via Channel3
+    // 4. Source wholesale vendor quotes via Channel3
     const sourcingClient = new Channel3Client();
     const sourcingResult = await sourcingClient.sourceQuotes(mandate);
 
-    // Create session in server store
+    // 5. Create authoritative session in server store only after successful mandate validation
     const session = sessionStore.createSession(mandate, sourcingResult.quotes);
     session.status = "SOURCING";
     sessionStore.saveSession(session);
 
     return NextResponse.json({
       success: true,
+      status: "READY",
       sessionId: session.id,
       mandate,
       quotes: sourcingResult.quotes,
       isFixture: sourcingResult.isFixture,
       dataSource: sourcingResult.dataSource,
     });
-  } catch {
-    return NextResponse.json({ error: "Internal error initializing procurement." }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      {
+        error: "Internal error initializing procurement.",
+        detail: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 }
+    );
   }
 }

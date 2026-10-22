@@ -183,16 +183,30 @@ describe("Gemini Negotiation Client Unit Tests", () => {
   it("clamps delivery days to mandate max and return days to mandate min", () => {
     const client = new GeminiNegotiationClient();
 
-    // Delivery days proposed is 10 (exceeds mandate.maxDeliveryDays = 5) -> clamped to 5
-    // Return days proposed is 15 (below mandate.minReturnDays = 30) -> floored to 30
-    const proposal = client.validateAndSanitizeProposal(
-      { unitPrice: 320, deliveryDays: 10, returnDays: 15, message: "Offer message" },
+    // Delivery days proposed is 10 (exceeds mandate.maxDeliveryDays = 5) -> strictly rejected (not clamped)
+    expect(
+      client.validateAndSanitizeProposal(
+        { unitPrice: 320, deliveryDays: 10, returnDays: 35, message: "Offer message" },
+        { mandate, vendorQuote: quote, previousVendorAsk: 380 }
+      )
+    ).toBeNull();
+
+    // Return days proposed is 15 (below mandate.minReturnDays = 30) -> strictly rejected (not floored)
+    expect(
+      client.validateAndSanitizeProposal(
+        { unitPrice: 320, deliveryDays: 4, returnDays: 15, message: "Offer message" },
+        { mandate, vendorQuote: quote, previousVendorAsk: 380 }
+      )
+    ).toBeNull();
+
+    // Valid delivery and return values within mandate constraints -> approved
+    const valid = client.validateAndSanitizeProposal(
+      { unitPrice: 320, deliveryDays: 4, returnDays: 35, message: "Offer message" },
       { mandate, vendorQuote: quote, previousVendorAsk: 380 }
     );
-
-    expect(proposal).not.toBeNull();
-    expect(proposal?.deliveryDays).toBe(mandate.maxDeliveryDays);
-    expect(proposal?.returnDays).toBe(mandate.minReturnDays);
+    expect(valid).not.toBeNull();
+    expect(valid?.deliveryDays).toBe(4);
+    expect(valid?.returnDays).toBe(35);
   });
 
   // 6. Malformed JSON
