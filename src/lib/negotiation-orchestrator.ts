@@ -210,10 +210,12 @@ export class NegotiationOrchestrator {
               status: guardrailResult.status,
               reason: guardrailResult.reason,
               rejectedOffer: offer,
+              generator: proposal.generator,
+              latencyMs: proposal.latencyMs,
             },
           });
 
-          // Record rejected turn in history
+          // Record rejected turn in history with explicit provenance
           turns.push({
             id: `turn_${crypto.randomBytes(4).toString("hex")}`,
             round,
@@ -223,6 +225,7 @@ export class NegotiationOrchestrator {
             proposedOffer: offer,
             guardrailStatus: guardrailResult.status,
             guardrailReason: guardrailResult.reason,
+            generator: proposal.generator,
             timestamp: new Date().toISOString(),
           });
 
@@ -267,7 +270,7 @@ export class NegotiationOrchestrator {
         if (guardrailResult.passed) {
           state.previousBuyerOffer = offer;
 
-          // Record approved buyer turn
+          // Record approved buyer turn with explicit provenance
           const buyerTurn: NegotiationTurn = {
             id: `turn_${crypto.randomBytes(4).toString("hex")}`,
             round,
@@ -278,6 +281,7 @@ export class NegotiationOrchestrator {
             utilityScore: guardrailResult.utilityScore,
             boulwareThreshold: guardrailResult.boulwareThreshold,
             guardrailStatus: "APPROVED",
+            generator: proposal.generator,
             timestamp: new Date().toISOString(),
           };
           turns.push(buyerTurn);
@@ -287,9 +291,16 @@ export class NegotiationOrchestrator {
             payload: {
               sessionId,
               round,
-              turn: buyerTurn,
-              utility: guardrailResult.utilityScore,
+              vendorId: vendor.vendorId,
+              vendorName: vendor.vendorName,
+              message: proposal.message,
+              proposedOffer: offer,
+              utilityScore: guardrailResult.utilityScore,
               threshold: guardrailResult.boulwareThreshold,
+              generator: proposal.generator,
+              latencyMs: proposal.latencyMs,
+              modelName: proposal.modelName,
+              turn: buyerTurn,
             },
           });
 
