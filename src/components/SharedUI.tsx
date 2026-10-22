@@ -623,3 +623,99 @@ export function BackToTopButton() {
     </button>
   );
 }
+
+// Re-export GSAP hover hook
+export { useGsapHoverLift } from "@/lib/use-gsap-hover";
+export type { GsapHoverOptions } from "@/lib/use-gsap-hover";
+
+import { useGsapHoverLift } from "@/lib/use-gsap-hover";
+
+export interface InteractiveHoverCardProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+  className?: string;
+  liftY?: number;
+  durationIn?: number;
+  durationOut?: number;
+  disabled?: boolean;
+}
+
+/**
+ * InteractiveHoverCard
+ *
+ * GSAP-powered card with a refined hover lift (y = -5px), smooth border transition,
+ * and elevated surface shadow. Replaces Framer Motion's whileHover={{ y: -5 }} with
+ * lightweight GSAP tweens, prefers-reduced-motion compatibility, and touch-safety.
+ */
+export function InteractiveHoverCard({
+  children,
+  className = "",
+  liftY = -5,
+  durationIn = 0.28,
+  durationOut = 0.25,
+  disabled = false,
+  ...props
+}: InteractiveHoverCardProps) {
+  const cardRef = useGsapHoverLift<HTMLDivElement>({
+    y: liftY,
+    durationIn,
+    durationOut,
+    disabled,
+  });
+
+  return (
+    <div
+      ref={cardRef}
+      className={`transition-[border-color,box-shadow,background-color] duration-250 ease-out will-change-transform ${className}`}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}
+
+export interface InteractiveHoverButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  children: React.ReactNode;
+  className?: string;
+  liftY?: number;
+  durationIn?: number;
+  durationOut?: number;
+  disabled?: boolean;
+}
+
+/**
+ * InteractiveHoverButton
+ *
+ * Clickable card button with the same GSAP-powered hover lift (y = -5px) and
+ * keyboard accessibility.
+ */
+export function InteractiveHoverButton({
+  children,
+  className = "",
+  liftY = -5,
+  durationIn = 0.28,
+  durationOut = 0.25,
+  disabled = false,
+  type = "button",
+  ...props
+}: InteractiveHoverButtonProps) {
+  const buttonRef = useGsapHoverLift<HTMLButtonElement>({
+    y: liftY,
+    durationIn,
+    durationOut,
+    disabled,
+  });
+
+  return (
+    <button
+      ref={buttonRef}
+      type={type}
+      disabled={disabled}
+      className={`transition-[border-color,box-shadow,background-color] duration-250 ease-out will-change-transform ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+

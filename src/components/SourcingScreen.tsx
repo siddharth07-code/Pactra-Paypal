@@ -8,6 +8,7 @@ import {
   CurrencyDisplay,
   StatusBadge,
   SectionHeader,
+  InteractiveHoverCard,
 } from "./SharedUI";
 import {
   AlertCircle,
@@ -445,9 +446,10 @@ export function SourcingScreen({
                   const isFeasible = landedTotal <= budget;
 
                   return (
-                    <div
+                    <InteractiveHoverCard
                       key={quote.vendorId}
-                      className="rounded-[10px] p-4 border border-smoke dark:border-[#2b2b32] bg-warm-cream/30 dark:bg-[#141416] transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      liftY={-4}
+                      className="rounded-[10px] p-4 border border-smoke dark:border-[#2b2b32] hover:border-smoke-dark dark:hover:border-[#3e3e48] bg-warm-cream/30 dark:bg-[#141416] hover:shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none"
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
@@ -493,7 +495,7 @@ export function SourcingScreen({
                           />
                         </div>
                       </div>
-                    </div>
+                    </InteractiveHoverCard>
                   );
                 })}
               </div>

@@ -6,6 +6,8 @@ import {
   GhostButton,
   StatusBadge,
   CurrencyDisplay,
+  InteractiveHoverCard,
+  InteractiveHoverButton,
 } from "./SharedUI";
 import {
   ShieldCheck,
@@ -99,44 +101,101 @@ export function OverviewScreen({
         {/* 2. REAL METRIC TILES */}
         <section aria-label="Procurement Metrics">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] shadow-2xs transition-colors">
+            <InteractiveHoverCard
+              onClick={() => (onNavigateHistory ? onNavigateHistory() : onStartNew())}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  if (onNavigateHistory) {
+                    onNavigateHistory();
+                  } else {
+                    onStartNew();
+                  }
+                }
+              }}
+              aria-label="View procurement mandate history"
+              className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] hover:border-smoke-dark dark:hover:border-[#3e3e48] shadow-2xs hover:shadow-md cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+            >
               <div className="flex items-center justify-between text-[#4a4a52] dark:text-[#b8b5af] text-[13px] mb-2 font-medium">
                 <span>Total Mandate Ceiling</span>
-                <TrendingUp className="w-4 h-4 text-ember-orange" aria-hidden="true" />
+                <TrendingUp className="w-4 h-4 text-ember-orange group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
               </div>
               <div className="text-[28px] sm:text-[32px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                 <CurrencyDisplay amount={totalVolume} size="xl" />
               </div>
-              <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-2">
-                Across {sessions.length} recorded procurement sessions
-              </p>
-            </div>
+              <div className="flex items-center justify-between text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-2">
+                <span>Across {sessions.length} recorded sessions</span>
+                <span className="text-ember-orange font-medium text-[11.5px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                  Browse <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                </span>
+              </div>
+            </InteractiveHoverCard>
 
-            <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] shadow-2xs transition-colors">
+            <InteractiveHoverCard
+              onClick={() => (activeSession ? onOpenSession(activeSession) : onStartNew())}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  if (activeSession) {
+                    onOpenSession(activeSession);
+                  } else {
+                    onStartNew();
+                  }
+                }
+              }}
+              aria-label={activeSession ? `Resume active session ${activeSession.id}` : "Start new procurement mandate"}
+              className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] hover:border-smoke-dark dark:hover:border-[#3e3e48] shadow-2xs hover:shadow-md cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+            >
               <div className="flex items-center justify-between text-[#4a4a52] dark:text-[#b8b5af] text-[13px] mb-2 font-medium">
                 <span>Active Mandate Runs</span>
-                <Layers className="w-4 h-4 text-architect-violet dark:text-[#a78bfa]" aria-hidden="true" />
+                <Layers className="w-4 h-4 text-architect-violet dark:text-[#a78bfa] group-hover:scale-105 transition-transform" aria-hidden="true" />
               </div>
               <div className="text-[28px] sm:text-[32px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
                 {activeCount}
               </div>
-              <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-2">
-                Evaluating quotes or ready for settlement
-              </p>
-            </div>
+              <div className="flex items-center justify-between text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-2">
+                <span>Evaluating quotes or ready for settlement</span>
+                <span className="text-architect-violet dark:text-[#a78bfa] font-medium text-[11.5px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                  {activeSession ? "Resume" : "Start"} <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                </span>
+              </div>
+            </InteractiveHoverCard>
 
-            <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] shadow-2xs transition-colors">
+            <InteractiveHoverCard
+              onClick={() => (onNavigateHistory ? onNavigateHistory() : onStartNew())}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  if (onNavigateHistory) {
+                    onNavigateHistory();
+                  } else {
+                    onStartNew();
+                  }
+                }
+              }}
+              aria-label="View cryptographically settled sessions"
+              className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] hover:border-smoke-dark dark:hover:border-[#3e3e48] shadow-2xs hover:shadow-md cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+            >
               <div className="flex items-center justify-between text-[#4a4a52] dark:text-[#b8b5af] text-[13px] mb-2 font-medium">
                 <span>Cryptographically Settled</span>
-                <ShieldCheck className="w-4 h-4 text-lichen-green" aria-hidden="true" />
+                <ShieldCheck className="w-4 h-4 text-lichen-green group-hover:scale-105 transition-transform" aria-hidden="true" />
               </div>
               <div className="text-[28px] sm:text-[32px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
                 {settledCount}
               </div>
-              <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-2">
-                Audited &amp; captured via PayPal Orders v2
-              </p>
-            </div>
+              <div className="flex items-center justify-between text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-2">
+                <span>Audited &amp; captured via PayPal Orders v2</span>
+                <span className="text-lichen-green font-medium text-[11.5px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                  Audit Logs <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                </span>
+              </div>
+            </InteractiveHoverCard>
           </div>
         </section>
 
@@ -144,7 +203,19 @@ export function OverviewScreen({
         {activeSession && (
           <section className="grid grid-cols-1 lg:grid-cols-12 gap-6" aria-label="Active Procurement Mandate">
             {/* Active Mandate Card */}
-            <div className="lg:col-span-7 bg-paper-white dark:bg-[#18181b] rounded-cards p-6 sm:p-7 border border-smoke dark:border-[#2b2b32] flex flex-col justify-between shadow-2xs transition-colors">
+            <InteractiveHoverCard
+              onClick={() => onOpenSession(activeSession)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onOpenSession(activeSession);
+                }
+              }}
+              aria-label={`Open active session ${activeSession.id} for ${activeSession.mandate.itemQuery}`}
+              className="lg:col-span-7 bg-paper-white dark:bg-[#18181b] rounded-cards p-6 sm:p-7 border border-smoke dark:border-[#2b2b32] hover:border-smoke-dark dark:hover:border-[#3e3e48] shadow-2xs hover:shadow-md flex flex-col justify-between cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+            >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider">
@@ -163,7 +234,7 @@ export function OverviewScreen({
                 </div>
 
                 <div>
-                  <h2 className="text-[22px] sm:text-[26px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight leading-snug">
+                  <h2 className="text-[22px] sm:text-[26px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight leading-snug group-hover:text-ember-orange transition-colors">
                     {activeSession.mandate.itemQuery}
                   </h2>
                   <p className="text-[14px] text-[#4a4a52] dark:text-[#b8b5af] font-normal leading-relaxed mt-1.5 line-clamp-2">
@@ -201,16 +272,12 @@ export function OverviewScreen({
                 <span className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] font-mono-token">
                   {activeSession.id}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => onOpenSession(activeSession)}
-                  className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-ember-orange hover:text-[#e65c00] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange rounded-[4px]"
-                >
+                <span className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-ember-orange group-hover:text-[#e65c00] transition-colors">
                   <span>Resume Session</span>
-                  <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-                </button>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+                </span>
               </div>
-            </div>
+            </InteractiveHoverCard>
 
             {/* Cryptographic Flight Recorder Status Panel */}
             <div className="lg:col-span-5 bg-lavender-mist/60 dark:bg-[#1e172a] rounded-cards p-6 sm:p-7 border border-architect-violet/20 dark:border-architect-violet/35 flex flex-col justify-between shadow-2xs transition-colors">
@@ -269,18 +336,18 @@ export function OverviewScreen({
               </span>
             </div>
 
-            <div className="divide-y divide-smoke/80 dark:divide-[#25252a]" role="list">
+            <div className="space-y-2.5" role="list">
               {sessions.map((s) => (
-                <button
-                  type="button"
+                <InteractiveHoverButton
                   key={s.id}
                   onClick={() => onOpenSession(s)}
-                  className="w-full text-left py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-warm-cream/40 dark:hover:bg-[#1f1f24] px-3 rounded-[8px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+                  liftY={-4}
+                  className="w-full text-left py-3.5 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-warm-cream/20 dark:bg-[#141416] hover:bg-warm-cream/50 dark:hover:bg-[#1f1f24] rounded-[8px] border border-smoke/70 dark:border-[#27272d] hover:border-smoke-dark dark:hover:border-[#383842] shadow-2xs hover:shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange group"
                   aria-label={`Open session ${s.id} for ${s.mandate.itemQuery}`}
                 >
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2.5">
-                      <span className="text-[15px] font-medium text-obsidian dark:text-[#f6f4f0] tracking-tight">
+                      <span className="text-[15px] font-medium text-obsidian dark:text-[#f6f4f0] tracking-tight group-hover:text-ember-orange transition-colors">
                         {s.mandate.itemQuery}
                       </span>
                       <span className="text-[13px] text-[#6e6e78] dark:text-[#8e8a83]">
@@ -311,9 +378,9 @@ export function OverviewScreen({
                         size="sm"
                       />
                     </div>
-                    <ChevronRight className="w-4 h-4 text-[#8e8a83] dark:text-[#76767e]" aria-hidden="true" />
+                    <ChevronRight className="w-4 h-4 text-[#8e8a83] dark:text-[#76767e] group-hover:text-obsidian dark:group-hover:text-white group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
                   </div>
-                </button>
+                </InteractiveHoverButton>
               ))}
             </div>
           </section>

@@ -5,6 +5,7 @@ import {
   PrimaryButton,
   CurrencyDisplay,
   StatusBadge,
+  InteractiveHoverCard,
 } from "./SharedUI";
 import {
   ShieldAlert,
@@ -141,11 +142,12 @@ export function NegotiationArenaScreen({
               const isFeasible = landedCost <= (mandate?.maxTotalBudget || 8500);
 
               return (
-                <div
+                <InteractiveHoverCard
                   key={quote.vendorId}
-                  className={`bg-paper-white dark:bg-[#18181b] rounded-cards p-5 border transition-colors shadow-2xs ${
+                  liftY={-4}
+                  className={`bg-paper-white dark:bg-[#18181b] rounded-cards p-5 border shadow-2xs hover:shadow-md select-none ${
                     isFeasible
-                      ? "border-smoke dark:border-[#2b2b32]"
+                      ? "border-smoke dark:border-[#2b2b32] hover:border-smoke-dark dark:hover:border-[#3e3e48]"
                       : "border-[#ef4444]/35 bg-[#fef2f2]/40 dark:bg-[#2b1012]/30"
                   }`}
                 >
@@ -204,7 +206,7 @@ export function NegotiationArenaScreen({
                       {quote.returnDays}d return window
                     </span>
                   </div>
-                </div>
+                </InteractiveHoverCard>
               );
             })}
           </div>
