@@ -363,13 +363,14 @@ export function ProcurementHistoryScreen({
                       label={inspectedSession.auditCertificate.passed ? "PASSED" : "FAILED"}
                     />
                   </div>
-                  <div className="space-y-1.5 text-xs">
+                  <div className="space-y-2 text-xs">
                     {inspectedSession.auditCertificate.invariants.map((inv, idx) => (
-                      <div key={idx} className="flex justify-between text-[#666666] dark:text-[#a5a19b]">
+                      <div key={idx} className="flex items-center justify-between text-[#666666] dark:text-[#a5a19b]">
                         <span>{inv.name}</span>
-                        <span className={`font-mono font-medium ${inv.passed ? "text-lichen-green" : "text-[#ef4444]"}`}>
-                          {inv.passed ? "PASS" : "FAIL"}
-                        </span>
+                        <StatusBadge
+                          status={inv.passed ? "verified" : "failure"}
+                          label={inv.passed ? "PASS" : "FAIL"}
+                        />
                       </div>
                     ))}
                   </div>

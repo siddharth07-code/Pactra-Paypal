@@ -257,8 +257,12 @@ export function AppShell({
                       <span>{item.label}</span>
                     </div>
                     {showLiveBadge && (
-                      <span className="text-[11px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-mono-token font-medium border border-emerald-500/25">
-                        Live
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-mono-token font-medium">
+                        <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                        </span>
+                        <span>Live</span>
                       </span>
                     )}
                   </button>

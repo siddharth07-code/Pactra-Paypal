@@ -261,21 +261,33 @@ export function SourcingScreen({
         <button
           type="button"
           onClick={() => applyPreset(25, "4K USB-C monitors", 8500, 5, 30)}
-          className="px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+          className={`px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
+            itemQuery === "4K USB-C monitors" && budget === 8500 && quantity === 25
+              ? "bg-smoke/60 dark:bg-[#25252b] border-ember-orange/50 text-obsidian dark:text-white"
+              : "bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0]"
+          }`}
         >
           Scenario A ($8.5k / 25 4K Monitors)
         </button>
         <button
           type="button"
           onClick={() => applyPreset(10, "Ergonomic Standing Desks", 4500, 7, 14)}
-          className="px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+          className={`px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
+            itemQuery === "Ergonomic Standing Desks" && budget === 4500 && quantity === 10
+              ? "bg-smoke/60 dark:bg-[#25252b] border-ember-orange/50 text-obsidian dark:text-white"
+              : "bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0]"
+          }`}
         >
           Scenario B ($4.5k / 10 Desks)
         </button>
         <button
           type="button"
           onClick={() => applyPreset(50, "Enterprise Rack Servers", 15000, 3, 60)}
-          className="px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+          className={`px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
+            itemQuery === "Enterprise Rack Servers" && budget === 15000 && quantity === 50
+              ? "bg-smoke/60 dark:bg-[#25252b] border-ember-orange/50 text-obsidian dark:text-white"
+              : "bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0]"
+          }`}
         >
           Scenario C ($15.0k / 50 Servers)
         </button>
@@ -288,17 +300,37 @@ export function SourcingScreen({
             <h2 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
               Authoritative Mandate
             </h2>
-            <StatusBadge status="verified" label="Dynamic Budget" />
+            <StatusBadge
+              status={
+                Object.keys(errors).length > 0
+                  ? "failure"
+                  : previewedSessionId
+                  ? "verified"
+                  : "neutral"
+              }
+              label={
+                Object.keys(errors).length > 0
+                  ? "Validation Required"
+                  : previewedSessionId
+                  ? "Catalog Sourced"
+                  : "Authoritative Mandate"
+              }
+            />
           </div>
 
           {/* Natural Language Prompt with Sync */}
           <div className="space-y-1.5">
-            <label
-              htmlFor={promptInputId}
-              className="block text-[13px] font-medium text-obsidian dark:text-[#f6f4f0] tracking-tight"
-            >
-              Natural Language Mandate Prompt
-            </label>
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor={promptInputId}
+                className="block text-[13px] font-medium text-obsidian dark:text-[#f6f4f0] tracking-tight"
+              >
+                Natural Language Mandate Prompt
+              </label>
+              <span className="text-[11px] text-[#6e6e78] dark:text-[#8e8a83]">
+                Bidirectionally synced
+              </span>
+            </div>
             <textarea
               id={promptInputId}
               rows={3}
@@ -310,6 +342,9 @@ export function SourcingScreen({
               className="w-full bg-paper-white dark:bg-[#18181b] rounded-[8px] p-3 text-[14px] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2b2b32] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange transition-colors resize-none leading-relaxed"
               placeholder="Enter procurement prompt..."
             />
+            <p className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83]">
+              Type prompt naturally or update structured inputs below — values synchronize bidirectionally.
+            </p>
           </div>
 
           {/* Structured Fields */}

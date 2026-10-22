@@ -572,7 +572,7 @@ export function SettlementCenterScreen({
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-medium text-[#006840] dark:text-[#4ade80] bg-mint-whisper dark:bg-[#10211a] px-2.5 py-0.5 rounded-[4px] border border-lichen-green/25">
+                    <span className="text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83] bg-smoke/30 dark:bg-[#202025] px-2.5 py-1 rounded-[4px] border border-smoke dark:border-[#2b2b32]">
                       Zero-Trust Gate
                     </span>
                     <button
@@ -660,17 +660,12 @@ export function SettlementCenterScreen({
                               {inv?.reason || req.desc}
                             </div>
                           </div>
-                          <span
-                            className={`px-2 py-0.5 rounded-[4px] text-[11px] font-mono-token font-medium shrink-0 ${
-                              isEvaluated
-                                ? isPassed
-                                  ? "bg-smoke/30 dark:bg-[#202025] text-[#006840] dark:text-lichen-green border border-lichen-green/30"
-                                  : "bg-smoke/30 dark:bg-[#202025] text-[#dc2626] dark:text-[#f87171] border border-[#ef4444]/30"
-                                : "bg-smoke/30 dark:bg-[#202025] text-[#6e6e78] dark:text-[#8e8a83] border border-smoke dark:border-[#2b2b32]"
-                            }`}
-                          >
-                            {isEvaluated ? (isPassed ? "PASSED" : "FAILED") : "PENDING"}
-                          </span>
+                          <div className="shrink-0 pt-0.5">
+                            <StatusBadge
+                              status={isEvaluated ? (isPassed ? "verified" : "failure") : "neutral"}
+                              label={isEvaluated ? (isPassed ? "PASSED" : "FAILED") : "PENDING"}
+                            />
+                          </div>
                         </div>
                       );
                     })}

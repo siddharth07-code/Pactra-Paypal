@@ -157,12 +157,12 @@ export function NegotiationArenaScreen({
                 <div
                   key={quote.vendorId}
                   onClick={() => setSelectedVendorId(isSelected ? null : quote.vendorId)}
-                  className={`p-4 transition-colors cursor-pointer select-none ${
+                  className={`p-4 transition-colors cursor-pointer select-none border-l-2 ${
                     isWinner
-                      ? "bg-mint-whisper/40 dark:bg-[#10211a]/40"
+                      ? "bg-smoke/25 dark:bg-[#141a16] border-l-lichen-green"
                       : isSelected
-                      ? "bg-warm-cream/50 dark:bg-[#1f1f23]"
-                      : "hover:bg-warm-cream/30 dark:hover:bg-[#1c1c20]"
+                      ? "bg-smoke/20 dark:bg-[#1f1f23] border-l-architect-violet"
+                      : "hover:bg-smoke/15 dark:hover:bg-[#1c1c20] border-l-transparent"
                   }`}
                   role="button"
                   tabIndex={0}
@@ -181,9 +181,7 @@ export function NegotiationArenaScreen({
                           {quote.vendorName}
                         </span>
                         {isWinner && (
-                          <span className="text-[10.5px] font-mono-token font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.2 rounded border border-emerald-300 dark:border-emerald-800/40">
-                            Winning Offer
-                          </span>
+                          <StatusBadge status="verified" label="Winning Offer" />
                         )}
                       </div>
                       <div className="text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
@@ -414,7 +412,7 @@ export function NegotiationArenaScreen({
                   return (
                     <div
                       key={ev.id}
-                      className="py-3.5 px-4 rounded-[6px] bg-emerald-50/50 dark:bg-[#0c1a14] border border-emerald-300/50 dark:border-emerald-800/40 space-y-2.5 transition-colors"
+                      className="py-3.5 px-4 rounded-[6px] bg-smoke/25 dark:bg-[#141a16] border-l-2 border-l-lichen-green border-y border-r border-smoke/60 dark:border-[#1e2a22] space-y-2.5 transition-colors"
                     >
                       <div className="flex items-center gap-2 text-[#006840] dark:text-[#4ade80]">
                         <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />

@@ -7,7 +7,6 @@ import {
   StatusBadge,
   CurrencyDisplay,
   InteractiveHoverCard,
-  InteractiveHoverButton,
 } from "./SharedUI";
 import {
   ShieldCheck,
@@ -137,7 +136,7 @@ export function OverviewScreen({
               </div>
               <div className="flex items-center justify-between text-[12px] text-[#6e6e78] dark:text-[#8e8a83] mt-2 pt-2 border-t border-smoke/60 dark:border-[#222227]">
                 <span>Across {sessions.length} recorded sessions</span>
-                <span className="text-ember-orange font-medium text-[11.5px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                <span className="text-ember-orange font-medium text-[11.5px] opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                   Browse <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
                 </span>
               </div>
@@ -175,7 +174,7 @@ export function OverviewScreen({
               </div>
               <div className="flex items-center justify-between text-[12px] text-[#6e6e78] dark:text-[#8e8a83] mt-2 pt-2 border-t border-smoke/60 dark:border-[#222227]">
                 <span>Evaluating quotes or ready for settlement</span>
-                <span className="text-architect-violet dark:text-[#a78bfa] font-medium text-[11.5px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                <span className="text-architect-violet dark:text-[#a78bfa] font-medium text-[11.5px] opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                   {activeSession ? "Resume" : "Start"} <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
                 </span>
               </div>
@@ -213,7 +212,7 @@ export function OverviewScreen({
               </div>
               <div className="flex items-center justify-between text-[12px] text-[#6e6e78] dark:text-[#8e8a83] mt-2 pt-2 border-t border-smoke/60 dark:border-[#222227]">
                 <span>Audited &amp; captured via PayPal Orders v2</span>
-                <span className="text-lichen-green font-medium text-[11.5px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                <span className="text-lichen-green font-medium text-[11.5px] opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                   Audit Logs <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
                 </span>
               </div>
@@ -408,73 +407,139 @@ export function OverviewScreen({
           </section>
         )}
 
-        {/* 5. RECENT PROCUREMENT SESSIONS: Crisp Institutional Table */}
+        {/* 5. RECENT PROCUREMENT SESSIONS: Institutional Table */}
         {sessions.length > 0 && (
           <section
-            className="bg-paper-white dark:bg-[#18181b] rounded-[8px] border border-smoke dark:border-[#232328] overflow-hidden p-5 sm:p-6 space-y-4 shadow-2xs transition-colors"
+            className="bg-paper-white dark:bg-[#18181b] rounded-cards border border-smoke dark:border-[#232328] overflow-hidden shadow-2xs transition-colors"
             aria-label="Recent Sessions"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-smoke/70 dark:border-[#232328]">
+            <div className="p-5 sm:p-6 border-b border-smoke/70 dark:border-[#232328] flex items-center justify-between">
               <div>
                 <h3 className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                   Recent Procurement Sessions
                 </h3>
-                <p className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
+                <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-0.5">
                   Authoritative transaction logs and Merkle root references
                 </p>
               </div>
-              <span className="text-[12px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
-                {sessions.length} total records
+              <span className="text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83] bg-smoke/30 dark:bg-[#202025] px-2.5 py-1 rounded-[4px] border border-smoke dark:border-[#2b2b32]">
+                {sessions.length} recorded
               </span>
             </div>
 
-            <div className="space-y-2" role="list">
-              {sessions.map((s) => (
-                <InteractiveHoverButton
-                  key={s.id}
-                  onClick={() => onOpenSession(s)}
-                  liftY={-4}
-                  className="w-full text-left py-3 px-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-smoke/20 dark:bg-[#141416] hover:bg-smoke/40 dark:hover:bg-[#1c1c20] rounded-[6px] border border-smoke/60 dark:border-[#25252b] hover:border-smoke-dark dark:hover:border-[#383842] shadow-2xs hover:shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange group transition-colors"
-                  aria-label={`Open session ${s.id} for ${s.mandate.itemQuery}`}
-                >
-                  <div className="space-y-0.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[14.5px] font-medium text-obsidian dark:text-[#f6f4f0] tracking-tight group-hover:text-ember-orange transition-colors">
-                        {s.mandate.itemQuery}
-                      </span>
-                      <span className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83]">
-                        ({s.mandate.quantity} units)
-                      </span>
-                      <StatusBadge
-                        status={
-                          s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED"
-                            ? "verified"
-                            : s.status === "AUDIT_FAILED"
+            {/* Desktop Table View */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left text-[13px] border-collapse">
+                <thead>
+                  <tr className="border-b border-smoke dark:border-[#28282e] bg-warm-cream/30 dark:bg-[#151518] text-[11px] font-mono-token uppercase tracking-wider text-[#6e6e78] dark:text-[#8e8a83]">
+                    <th scope="col" className="py-3 pl-6 pr-4 font-medium">Session ID &amp; Spec</th>
+                    <th scope="col" className="py-3 px-4 font-medium text-right">Quantity</th>
+                    <th scope="col" className="py-3 px-4 font-medium text-right">Ceiling Budget</th>
+                    <th scope="col" className="py-3 px-4 font-medium text-center">Lifecycle State</th>
+                    <th scope="col" className="py-3 pl-4 pr-6 text-right font-medium">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-smoke/80 dark:divide-[#242429]">
+                  {sessions.slice(0, 5).map((s) => (
+                    <tr
+                      key={s.id}
+                      onClick={() => onOpenSession(s)}
+                      className="hover:bg-warm-cream/35 dark:hover:bg-[#1f1f23] transition-colors cursor-pointer group"
+                    >
+                      <td className="py-3.5 pl-6 pr-4">
+                        <div className="font-semibold text-obsidian dark:text-[#f6f4f0] group-hover:text-ember-orange transition-colors">
+                          {s.mandate.itemQuery}
+                        </div>
+                        <div className="text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
+                          {s.id}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-right tabular-nums whitespace-nowrap text-obsidian dark:text-[#f6f4f0]">
+                        {s.mandate.quantity.toLocaleString()} units
+                      </td>
+                      <td className="py-3.5 px-4 text-right tabular-nums whitespace-nowrap font-medium text-obsidian dark:text-[#f6f4f0]">
+                        <CurrencyDisplay
+                          amount={s.mandate.maxTotalBudget}
+                          currency={s.mandate.currency}
+                          size="sm"
+                        />
+                      </td>
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <StatusBadge
+                          status={
+                            s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED"
+                              ? "verified"
+                              : s.status === "AUDIT_FAILED"
                               ? "failure"
                               : "info"
-                        }
-                        label={s.status.replace(/_/g, " ")}
-                      />
-                    </div>
-                    <div className="text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
-                      {s.id} • Mandate v{s.mandate.version ?? 1}
-                    </div>
-                  </div>
+                          }
+                          label={s.status.replace(/_/g, " ")}
+                        />
+                      </td>
+                      <td className="py-3.5 pl-4 pr-6 text-right whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 text-[12px] font-medium text-[#6e6e78] dark:text-[#8e8a83] group-hover:text-ember-orange transition-colors">
+                          <span>Open</span>
+                          <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-                  <div className="flex items-center gap-5 self-end sm:self-center">
-                    <div className="text-right">
-                      <div className="text-[11px] text-[#6e6e78] dark:text-[#8e8a83] uppercase tracking-wider font-mono-token">Ceiling</div>
-                      <CurrencyDisplay
-                        amount={s.mandate.maxTotalBudget}
-                        currency={s.mandate.currency}
-                        size="sm"
-                      />
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-[#8e8a83] dark:text-[#76767e] group-hover:text-obsidian dark:group-hover:text-white group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+            {/* Mobile View */}
+            <div className="sm:hidden divide-y divide-smoke/80 dark:divide-[#242429]">
+              {sessions.slice(0, 5).map((s) => (
+                <div
+                  key={s.id}
+                  onClick={() => onOpenSession(s)}
+                  className="p-4 space-y-2 hover:bg-smoke/20 dark:hover:bg-[#1a1a1f] cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
+                      {s.mandate.itemQuery}
+                    </span>
+                    <StatusBadge
+                      status={
+                        s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED"
+                          ? "verified"
+                          : s.status === "AUDIT_FAILED"
+                          ? "failure"
+                          : "info"
+                      }
+                      label={s.status.replace(/_/g, " ")}
+                    />
                   </div>
-                </InteractiveHoverButton>
+                  <div className="flex items-center justify-between text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
+                    <span className="font-mono-token">{s.id}</span>
+                    <span>{s.mandate.quantity} units</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <CurrencyDisplay
+                      amount={s.mandate.maxTotalBudget}
+                      currency={s.mandate.currency}
+                      size="sm"
+                    />
+                    <span className="text-[12px] font-medium text-ember-orange flex items-center gap-1">
+                      Open <ChevronRight className="w-3 h-3" />
+                    </span>
+                  </div>
+                </div>
               ))}
             </div>
+
+            {sessions.length > 5 && onNavigateHistory && (
+              <div className="p-3 border-t border-smoke/70 dark:border-[#232328] bg-warm-cream/20 dark:bg-[#141416] text-center">
+                <button
+                  type="button"
+                  onClick={onNavigateHistory}
+                  className="text-[12.5px] font-medium text-ember-orange hover:text-[#e65c00] transition-colors cursor-pointer"
+                >
+                  View all {sessions.length} sessions in Procurement History &rarr;
+                </button>
+              </div>
+            )}
           </section>
         )}
       </div>
