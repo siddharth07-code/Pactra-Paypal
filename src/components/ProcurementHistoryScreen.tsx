@@ -14,8 +14,6 @@ import {
   Eye,
   X,
   ArrowRight,
-  CheckCircle2,
-  AlertTriangle,
 } from "lucide-react";
 import type { ProcurementSession } from "@/types/pactum";
 
@@ -84,7 +82,7 @@ export function ProcurementHistoryScreen({
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="text-[12px] font-mono text-[#666666] dark:text-[#a5a19b] bg-warm-cream dark:bg-[#1a1a1e] px-3 py-1.5 rounded-[6px] border border-smoke dark:border-[#2e2e34]">
+          <span className="text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83] bg-smoke/30 dark:bg-[#1f1f23] px-3 py-1 rounded-[6px] border border-smoke dark:border-[#2b2b32]">
             Authoritative In-Memory Store
           </span>
         </div>
@@ -212,21 +210,12 @@ export function ProcurementHistoryScreen({
                       {/* Audit Status */}
                       <td className="py-4 px-4 text-center whitespace-nowrap">
                         {s.auditCertificate ? (
-                          isAuditPassed ? (
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[5px] bg-mint-whisper dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800/40 text-[11.5px] font-mono font-medium">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-lichen-green" aria-hidden="true" />
-                              PASS
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[5px] bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/40 text-[11.5px] font-mono font-medium">
-                              <AlertTriangle className="w-3.5 h-3.5 text-red-500" aria-hidden="true" />
-                              FAIL
-                            </span>
-                          )
+                          <StatusBadge
+                            status={isAuditPassed ? "verified" : "failure"}
+                            label={isAuditPassed ? "PASS" : "FAIL"}
+                          />
                         ) : (
-                          <span className="text-[12px] text-[#888888] dark:text-[#6e6e76] font-mono">
-                            PENDING
-                          </span>
+                          <StatusBadge status="neutral" label="PENDING" />
                         )}
                       </td>
 
@@ -369,13 +358,10 @@ export function ProcurementHistoryScreen({
                     <span className="text-[13.5px] font-medium text-obsidian dark:text-[#f5f3ef]">
                       Certificate #{inspectedSession.auditCertificate.certificateId}
                     </span>
-                    <span className={`text-[11.5px] font-mono font-medium px-2 py-0.5 rounded-[4px] ${
-                      inspectedSession.auditCertificate.passed
-                        ? "bg-mint-whisper dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800/40"
-                        : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/40"
-                    }`}>
-                      {inspectedSession.auditCertificate.passed ? "PASSED" : "FAILED"}
-                    </span>
+                    <StatusBadge
+                      status={inspectedSession.auditCertificate.passed ? "verified" : "failure"}
+                      label={inspectedSession.auditCertificate.passed ? "PASSED" : "FAILED"}
+                    />
                   </div>
                   <div className="space-y-1.5 text-xs">
                     {inspectedSession.auditCertificate.invariants.map((inv, idx) => (

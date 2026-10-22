@@ -5,14 +5,10 @@ import {
   CopyableHash,
   StatusBadge,
   SectionHeader,
-  WarmFeatureCard,
-  LavenderFeaturePanel,
 } from "./SharedUI";
 import {
   ShieldCheck,
   Lock,
-  CheckCircle2,
-  XCircle,
 } from "lucide-react";
 import type { ProcurementSession, MerkleAuditNode } from "@/types/pactum";
 
@@ -107,14 +103,14 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
 
       {/* Merkle Roots: Clean Side-by-Side Panels */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <WarmFeatureCard className="space-y-3.5">
-          <div className="flex items-center justify-between">
+        <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] shadow-2xs space-y-3.5 transition-colors">
+          <div className="flex items-center justify-between pb-2 border-b border-smoke/70 dark:border-[#242429]">
             <span className="text-[12px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5" aria-hidden="true" />
               Pre-Settlement Merkle Root
             </span>
-            <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-[4px] bg-lavender-mist dark:bg-[#271f33] text-architect-violet dark:text-[#a78bfa] border border-architect-violet/25">
-              Bound to PayPal custom_id
+            <span className="text-[11px] font-mono-token font-medium px-2 py-0.5 rounded-[4px] bg-smoke/40 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2e2e34]">
+              PayPal custom_id bound
             </span>
           </div>
           <div>
@@ -124,24 +120,24 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
             {preRoot ? (
               <CopyableHash hash={preRoot} truncate={false} />
             ) : (
-              <div className="p-3 rounded-[6px] bg-warm-cream/50 dark:bg-[#202025] border border-smoke dark:border-[#2b2b32] text-[13px] text-ash-gray font-mono-token italic">
+              <div className="p-3 rounded-[6px] bg-smoke/30 dark:bg-[#141416] border border-smoke dark:border-[#242429] text-[13px] text-ash-gray font-mono-token italic">
                 Uncommitted — Awaiting verified negotiation completion
               </div>
             )}
           </div>
-          <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed pt-2.5 border-t border-smoke/80 dark:border-[#2b2b32]">
-            Commits the active mandate version, Channel3 catalog snapshot, and all verified negotiation rounds into PayPal&apos;s <span className="font-mono-token text-obsidian dark:text-white font-medium">custom_id</span> parameter.
+          <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] leading-relaxed pt-2.5 border-t border-smoke/70 dark:border-[#242429]">
+            Cryptographically commits the mandate requirements, Channel3 baseline quotes, and all approved negotiation rounds.
           </p>
-        </WarmFeatureCard>
+        </div>
 
-        <LavenderFeaturePanel className="space-y-3.5">
-          <div className="flex items-center justify-between">
+        <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] shadow-2xs space-y-3.5 transition-colors">
+          <div className="flex items-center justify-between pb-2 border-b border-smoke/70 dark:border-[#242429]">
             <span className="text-[12px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
               Post-Audit Settlement Root
             </span>
-            <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-[4px] bg-mint-whisper dark:bg-[#10211a] text-[#006840] dark:text-[#4ade80] border border-lichen-green/25">
-              ACWORLD Committed
+            <span className="text-[11px] font-mono-token font-medium px-2 py-0.5 rounded-[4px] bg-smoke/40 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2e2e34]">
+              ACWORLD Certified
             </span>
           </div>
           <div>
@@ -151,26 +147,26 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
             {postRoot ? (
               <CopyableHash hash={postRoot} truncate={false} />
             ) : (
-              <div className="p-3 rounded-[6px] bg-paper-white dark:bg-[#161619] border border-architect-violet/20 dark:border-architect-violet/30 text-[13px] text-ash-gray font-mono-token italic">
+              <div className="p-3 rounded-[6px] bg-smoke/30 dark:bg-[#141416] border border-smoke dark:border-[#242429] text-[13px] text-ash-gray font-mono-token italic">
                 Pending ACWORLD final audit completion
               </div>
             )}
           </div>
-          <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed pt-2.5 border-t border-architect-violet/20 dark:border-architect-violet/30">
-            Commits the ACWORLD audit certificate and payment capture hash without circular dependency on the pre-settlement root.
+          <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] leading-relaxed pt-2.5 border-t border-smoke/70 dark:border-[#242429]">
+            Cryptographically commits the ACWORLD audit certificate and payment capture without circular dependency on the pre-settlement root.
           </p>
-        </LavenderFeaturePanel>
+        </div>
       </div>
 
-      {/* 5 ACWORLD Invariants Evaluation Checklist */}
-      <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] shadow-2xs space-y-4 transition-colors">
-        <div className="flex items-center justify-between pb-3 border-b border-smoke/80 dark:border-[#2b2b32]">
+      {/* 5 ACWORLD Invariants Structured Verification Checklist */}
+      <div className="bg-paper-white dark:bg-[#18181b] rounded-cards border border-smoke dark:border-[#2b2b32] shadow-2xs overflow-hidden transition-colors">
+        <div className="p-5 sm:p-6 border-b border-smoke/80 dark:border-[#28282e] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
               ACWORLD Independent Audit Invariants
             </h2>
             <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-0.5">
-              Strict fail-closed verification gate required before PayPal capture
+              Deterministic, fail-closed verification gate required before PayPal capture release
             </p>
           </div>
           <StatusBadge
@@ -191,44 +187,136 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-1">
+        {/* Desktop Table View */}
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="w-full text-left text-[13px] border-collapse">
+            <thead>
+              <tr className="border-b border-smoke dark:border-[#28282e] bg-warm-cream/30 dark:bg-[#151518] text-[11px] font-mono-token uppercase tracking-wider text-[#6e6e78] dark:text-[#8e8a83]">
+                <th scope="col" className="py-3 pl-6 pr-4 font-medium">Invariant</th>
+                <th scope="col" className="py-3 px-4 font-medium">Evaluation Rule</th>
+                <th scope="col" className="py-3 px-4 font-medium">Authoritative Evaluated Value</th>
+                <th scope="col" className="py-3 pl-4 pr-6 text-right font-medium">Result</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-smoke/80 dark:divide-[#242429]">
+              {[
+                {
+                  name: "1. SKU Integrity",
+                  inv: skuInvariant,
+                  rule: "Item SKU & condition match mandate requirements exactly",
+                  evaluated: session?.selectedQuote ? `${session.selectedQuote.sku} (${session.selectedQuote.condition})` : "—",
+                },
+                {
+                  name: "2. Price Ceiling",
+                  inv: priceInvariant,
+                  rule: "Landed Cost (Unit × Qty + Shipping) <= Mandate Budget",
+                  evaluated: session?.finalOffer && session?.mandate
+                    ? `$${(session.finalOffer.unitPrice * session.finalOffer.quantity + session.finalOffer.shippingCost).toLocaleString()} <= $${session.mandate.maxTotalBudget.toLocaleString()}`
+                    : "—",
+                },
+                {
+                  name: "3. Return Window",
+                  inv: returnInvariant,
+                  rule: "Agreed Return SLA >= Mandate Min Return Days",
+                  evaluated: session?.finalOffer && session?.mandate
+                    ? `${session.finalOffer.returnDays}d >= ${session.mandate.minReturnDays}d`
+                    : "—",
+                },
+                {
+                  name: "4. Delivery SLA",
+                  inv: deliveryInvariant,
+                  rule: "Agreed Delivery SLA <= Mandate Max Delivery Days",
+                  evaluated: session?.finalOffer && session?.mandate
+                    ? `${session.finalOffer.deliveryDays}d <= ${session.mandate.maxDeliveryDays}d`
+                    : "—",
+                },
+                {
+                  name: "5. Cryptographic Lineage",
+                  inv: cryptoInvariant,
+                  rule: "Authoritative Merkle root matches PayPal Orders v2 custom_id",
+                  evaluated: preRoot ? `${preRoot.slice(0, 16)}...` : "—",
+                },
+              ].map((item, idx) => (
+                <tr key={idx} className="hover:bg-warm-cream/30 dark:hover:bg-[#1f1f23] transition-colors">
+                  <td className="py-3.5 pl-6 pr-4 whitespace-nowrap font-semibold text-obsidian dark:text-[#f6f4f0]">
+                    {item.name}
+                  </td>
+                  <td className="py-3.5 px-4 text-[#6e6e78] dark:text-[#8e8a83] max-w-xs">
+                    {item.rule}
+                  </td>
+                  <td className="py-3.5 px-4 font-mono-token text-[12px] text-obsidian dark:text-[#f6f4f0]">
+                    {item.inv.reason ? (
+                      <span className={item.inv.passed ? "text-obsidian dark:text-[#f6f4f0]" : "text-[#dc2626] dark:text-[#f87171]"}>
+                        {item.inv.reason}
+                      </span>
+                    ) : (
+                      item.evaluated
+                    )}
+                  </td>
+                  <td className="py-3.5 pl-4 pr-6 text-right whitespace-nowrap">
+                    {item.inv.tested ? (
+                      item.inv.passed ? (
+                        <StatusBadge status="verified" label="PASSED" />
+                      ) : (
+                        <StatusBadge status="failure" label="FAILED" />
+                      )
+                    ) : (
+                      <StatusBadge status="neutral" label="PENDING" />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile View */}
+        <div className="sm:hidden p-4 divide-y divide-smoke/80 dark:divide-[#242429]">
           {[
-            { name: "1. SKU Integrity", inv: skuInvariant, desc: "Catalog SKU matches mandate" },
-            { name: "2. Price Ceiling", inv: priceInvariant, desc: "Total <= Max Budget" },
-            { name: "3. Return Window", inv: returnInvariant, desc: "Return >= Min Days" },
-            { name: "4. Delivery SLA", inv: deliveryInvariant, desc: "Delivery <= Max Days" },
-            { name: "5. Lineage", inv: cryptoInvariant, desc: "Root matches PayPal order" },
+            {
+              name: "1. SKU Integrity",
+              inv: skuInvariant,
+              rule: "Item SKU & condition match mandate",
+            },
+            {
+              name: "2. Price Ceiling",
+              inv: priceInvariant,
+              rule: "Landed cost <= Mandate budget",
+            },
+            {
+              name: "3. Return Window",
+              inv: returnInvariant,
+              rule: "Return SLA >= Min return days",
+            },
+            {
+              name: "4. Delivery SLA",
+              inv: deliveryInvariant,
+              rule: "Delivery SLA <= Max delivery days",
+            },
+            {
+              name: "5. Lineage",
+              inv: cryptoInvariant,
+              rule: "Merkle root matches PayPal custom_id",
+            },
           ].map((item, idx) => (
-            <div
-              key={idx}
-              className="p-3.5 rounded-[8px] bg-warm-cream/35 dark:bg-[#151518] border border-smoke/80 dark:border-[#25252b] space-y-1.5"
-            >
+            <div key={idx} className="py-3 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[13px] font-semibold text-obsidian dark:text-[#f6f4f0]">
+                <span className="font-semibold text-[13.5px] text-obsidian dark:text-[#f6f4f0]">
                   {item.name}
                 </span>
                 {item.inv.tested ? (
                   item.inv.passed ? (
-                    <CheckCircle2 className="w-4 h-4 text-lichen-green shrink-0" aria-hidden="true" />
+                    <StatusBadge status="verified" label="PASSED" />
                   ) : (
-                    <XCircle className="w-4 h-4 text-[#ef4444] shrink-0" aria-hidden="true" />
+                    <StatusBadge status="failure" label="FAILED" />
                   )
                 ) : (
-                  <span className="w-2 h-2 rounded-full bg-ash-gray/60 shrink-0" />
+                  <StatusBadge status="neutral" label="PENDING" />
                 )}
               </div>
-              <p className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] leading-snug">
-                {item.desc}
+              <p className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
+                {item.inv.reason || item.rule}
               </p>
-              <div className="text-[11px] font-mono-token">
-                {item.inv.tested ? (
-                  <span className={item.inv.passed ? "text-[#006840] dark:text-lichen-green" : "text-[#dc2626] dark:text-[#f87171]"}>
-                    {item.inv.passed ? "Verified" : "Failed"}
-                  </span>
-                ) : (
-                  <span className="text-[#8e8a83]">Pending</span>
-                )}
-              </div>
             </div>
           ))}
         </div>
@@ -347,6 +435,12 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Integrity Attestation Note */}
+      <div className="pt-2 text-[12px] text-[#6e6e78] dark:text-[#8e8a83] flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-t border-smoke/70 dark:border-[#242429]">
+        <span>Cryptographic Lineage: SHA-256 Merkle Flight Recorder</span>
+        <span className="text-[11.5px]">Merkle root proves chronological record integrity; merchant performance is subject to external SLA verification.</span>
       </div>
     </div>
   );

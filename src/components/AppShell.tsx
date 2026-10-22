@@ -159,10 +159,10 @@ export function AppShell({
                     )}
                   </span>
 
-                  {/* Refined Ember Orange Active Underline Indicator */}
+                  {/* Refined Institutional Active Underline Indicator */}
                   {isActive && (
                     <span
-                      className="absolute bottom-0 inset-x-2 h-[2.5px] bg-ember-orange rounded-t-full shadow-[0_-1px_6px_rgba(255,102,0,0.35)] pointer-events-none"
+                      className="absolute bottom-0 inset-x-2.5 h-[2px] bg-ember-orange rounded-full pointer-events-none"
                       aria-hidden="true"
                     />
                   )}
@@ -239,10 +239,10 @@ export function AppShell({
                       setMobileMenuOpen(false);
                     }}
                     aria-current={isActive ? "page" : undefined}
-                    className={`w-full flex items-center justify-between p-3 rounded-[8px] text-[15px] tracking-[-0.01em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors ${
+                    className={`w-full flex items-center justify-between p-3 rounded-[6px] text-[14.5px] tracking-[-0.01em] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange cursor-pointer transition-colors ${
                       isActive
-                        ? "bg-ember-orange/10 dark:bg-ember-orange/15 text-ember-orange font-medium border border-ember-orange/25"
-                        : "text-[#666666] dark:text-[#c4c0ba] font-normal hover:bg-smoke/40 dark:hover:bg-[#1c1c20]"
+                        ? "bg-warm-cream/70 dark:bg-[#1a1a1f] text-obsidian dark:text-white font-medium border-l-2 border-l-ember-orange border-y border-r border-smoke/70 dark:border-[#27272d]"
+                        : "text-[#666666] dark:text-[#c4c0ba] font-normal hover:bg-smoke/30 dark:hover:bg-[#1c1c20]"
                     }`}
                   >
                     <div className="flex items-center gap-3">

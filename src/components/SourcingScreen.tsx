@@ -8,7 +8,6 @@ import {
   CurrencyDisplay,
   StatusBadge,
   SectionHeader,
-  InteractiveHoverCard,
 } from "./SharedUI";
 import {
   AlertCircle,
@@ -440,75 +439,122 @@ export function SourcingScreen({
             </div>
 
             {sourcedQuotes && sourcedQuotes.length > 0 ? (
-              <div className="pt-5 space-y-3">
-                {sourcedQuotes.map((quote) => {
-                  const landedTotal = quote.initialUnitAsk * quantity + quote.shippingCost;
-                  const isFeasible = landedTotal <= budget;
+              <div className="pt-4">
+                {/* Desktop Table View */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-left text-[13px] border-collapse">
+                    <thead>
+                      <tr className="border-b border-smoke dark:border-[#28282e] text-[11px] font-mono-token uppercase tracking-wider text-[#6e6e78] dark:text-[#8e8a83]">
+                        <th scope="col" className="pb-3 font-medium">Supplier &amp; SKU</th>
+                        <th scope="col" className="pb-3 px-3 font-medium">SLAs</th>
+                        <th scope="col" className="pb-3 px-3 font-medium text-right">Unit / Ship</th>
+                        <th scope="col" className="pb-3 px-3 font-medium text-right">Landed Cost</th>
+                        <th scope="col" className="pb-3 pl-3 text-right font-medium">Budget Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-smoke/80 dark:divide-[#242429]">
+                      {sourcedQuotes.map((quote) => {
+                        const landedTotal = quote.initialUnitAsk * quantity + quote.shippingCost;
+                        const isFeasible = landedTotal <= budget;
 
-                  return (
-                    <InteractiveHoverCard
-                      key={quote.vendorId}
-                      liftY={-4}
-                      className="rounded-[10px] p-4 border border-smoke dark:border-[#2b2b32] hover:border-smoke-dark dark:hover:border-[#3e3e48] bg-warm-cream/30 dark:bg-[#141416] hover:shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+                        return (
+                          <tr
+                            key={quote.vendorId}
+                            className="hover:bg-warm-cream/30 dark:hover:bg-[#1f1f23] transition-colors"
+                          >
+                            <td className="py-3.5 pr-3">
+                              <div className="font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+                                {quote.vendorName}
+                              </div>
+                              <div className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] line-clamp-1 max-w-[220px]">
+                                {quote.productTitle}
+                              </div>
+                              <div className="flex items-center gap-1.5 pt-1">
+                                <span className="text-[10.5px] font-mono-token text-architect-violet dark:text-[#a78bfa] bg-smoke/40 dark:bg-[#202025] px-1.5 py-0.5 rounded border border-smoke dark:border-[#2b2b32] font-medium">
+                                  {quote.sku}
+                                </span>
+                                <span className="text-[11px] text-[#6e6e78] dark:text-[#8e8a83]">
+                                  {quote.condition}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-3 whitespace-nowrap">
+                              <div className="text-obsidian dark:text-[#f6f4f0] flex items-center gap-1">
+                                <Truck className="w-3.5 h-3.5 text-[#6e6e78] dark:text-[#8e8a83]" aria-hidden="true" />
+                                <span>{quote.deliveryDays}d delivery</span>
+                              </div>
+                              <div className="text-[#6e6e78] dark:text-[#8e8a83] text-[12px] flex items-center gap-1 mt-0.5">
+                                <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                                <span>{quote.returnDays}d return</span>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-3 text-right whitespace-nowrap tabular-nums text-[#6e6e78] dark:text-[#8e8a83]">
+                              <div>{currencyPrefix}{quote.initialUnitAsk.toLocaleString()} / unit</div>
+                              <div className="text-[11.5px] mt-0.5">+{currencyPrefix}{quote.shippingCost} ship</div>
+                            </td>
+                            <td className="py-3.5 px-3 text-right whitespace-nowrap">
+                              <CurrencyDisplay amount={landedTotal} currency={currency} size="sm" />
+                            </td>
+                            <td className="py-3.5 pl-3 text-right whitespace-nowrap">
+                              <StatusBadge
+                                status={isFeasible ? "verified" : "warning"}
+                                label={isFeasible ? "Within Budget" : "Exceeds"}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Breakdown */}
+                <div className="sm:hidden divide-y divide-smoke/80 dark:divide-[#242429]">
+                  {sourcedQuotes.map((quote) => {
+                    const landedTotal = quote.initialUnitAsk * quantity + quote.shippingCost;
+                    const isFeasible = landedTotal <= budget;
+
+                    return (
+                      <div key={quote.vendorId} className="py-3.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
                             {quote.vendorName}
                           </span>
-                          <span className="text-[11px] font-mono-token text-architect-violet dark:text-[#a78bfa] bg-lavender-mist dark:bg-architect-violet/15 px-1.5 py-0.5 rounded border border-architect-violet/20 font-medium">
+                          <StatusBadge
+                            status={isFeasible ? "verified" : "warning"}
+                            label={isFeasible ? "Within Budget" : "Exceeds"}
+                          />
+                        </div>
+                        <div className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83]">
+                          {quote.productTitle}
+                        </div>
+                        <div className="flex items-center justify-between text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
+                          <span>{quote.deliveryDays}d Delivery • {quote.returnDays}d Return</span>
+                          <span className="font-mono-token text-[11px] text-architect-violet dark:text-[#a78bfa]">
                             {quote.sku}
                           </span>
                         </div>
-                        <div className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af]">
-                          {quote.productTitle}
-                        </div>
-                        <div className="flex items-center gap-3 text-[12px] text-[#6e6e78] dark:text-[#8e8a83] pt-0.5">
-                          <span className="flex items-center gap-1">
-                            <Truck className="w-3.5 h-3.5" aria-hidden="true" />
-                            {quote.deliveryDays}d Delivery
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
+                            {currencyPrefix}{quote.initialUnitAsk}/unit + {currencyPrefix}{quote.shippingCost}
                           </span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-                            {quote.returnDays}d Return Policy
-                          </span>
-                          <span>•</span>
-                          <span className="font-medium text-architect-violet dark:text-[#a78bfa]">
-                            {quote.condition}
-                          </span>
+                          <CurrencyDisplay amount={landedTotal} currency={currency} size="sm" />
                         </div>
                       </div>
-
-                      <div className="sm:text-right border-t sm:border-t-0 pt-2.5 sm:pt-0 border-smoke/70 dark:border-[#222227] shrink-0">
-                        <div className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83]">
-                          Initial Landed Cost
-                        </div>
-                        <CurrencyDisplay amount={landedTotal} currency={currency} size="md" />
-                        <div className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83] tabular-nums mt-0.5">
-                          Unit: {currencyPrefix}{quote.initialUnitAsk} • Ship: {currencyPrefix}{quote.shippingCost}
-                        </div>
-                        <div className="mt-1.5">
-                          <StatusBadge
-                            status={isFeasible ? "verified" : "warning"}
-                            label={isFeasible ? "Within Budget" : "Exceeds Budget"}
-                          />
-                        </div>
-                      </div>
-                    </InteractiveHoverCard>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             ) : (
-              <div className="py-16 text-center space-y-2.5">
-                <div className="w-10 h-10 rounded-full bg-warm-cream dark:bg-[#202025] border border-smoke dark:border-[#2b2b32] mx-auto flex items-center justify-center text-ash-gray">
+              <div className="py-16 text-center space-y-3">
+                <div className="w-10 h-10 rounded-full bg-smoke/40 dark:bg-[#202025] mx-auto flex items-center justify-center text-[#6e6e78] dark:text-[#8e8a83]">
                   <Package className="w-5 h-5" aria-hidden="true" />
                 </div>
-                <div className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-                  Catalog Unloaded
+                <div className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+                  Wholesale Catalog Unloaded
                 </div>
-                <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] max-w-xs mx-auto leading-relaxed">
-                  Click &ldquo;Preview Wholesale&rdquo; to test constraint validation against competing suppliers, or &ldquo;Enter Arena&rdquo; to commence autonomous negotiation.
+                <p className="text-[13px] text-[#6e6e78] dark:text-[#8e8a83] max-w-sm mx-auto leading-relaxed">
+                  Execute &ldquo;Preview Wholesale&rdquo; to query competing baseline quotes from Channel3 or &ldquo;Enter Arena&rdquo; to commence autonomous multi-agent negotiation.
                 </p>
               </div>
             )}
@@ -517,9 +563,11 @@ export function SourcingScreen({
           <div className="pt-3.5 mt-5 border-t border-smoke/80 dark:border-[#2b2b32] text-[12px] text-[#6e6e78] dark:text-[#8e8a83] flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5" aria-hidden="true" />
-              Source: Channel3 Wholesale Catalog API
+              Wholesale Feed: Channel3 API
             </span>
-            <span className="text-[#006840] dark:text-[#4ade80] font-medium">Deterministic Simulation</span>
+            <span className="text-[#6e6e78] dark:text-[#8e8a83] font-mono-token text-[11px]">
+              Deterministic Simulation
+            </span>
           </div>
         </div>
       </div>

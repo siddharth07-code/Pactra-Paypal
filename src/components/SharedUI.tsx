@@ -82,7 +82,7 @@ export function GhostButton({
 
 /**
  * Editorial Feature Card
- * Standard 12px radius, restrained padding, crisp border, zero AI slop.
+ * Standard 8px radius, restrained padding, crisp 1px hairline border, zero AI slop.
  */
 export function WarmFeatureCard({
   children,
@@ -93,7 +93,7 @@ export function WarmFeatureCard({
 }) {
   return (
     <div
-      className={`bg-paper-white dark:bg-[#18181b] rounded-cards p-6 sm:p-7 border border-smoke dark:border-[#2b2b32] shadow-card transition-colors ${className}`}
+      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#2b2b32] transition-colors ${className}`}
     >
       {children}
     </div>
@@ -101,7 +101,7 @@ export function WarmFeatureCard({
 }
 
 /**
- * VeriPay Panel (Restrained Violet Identifier Accent)
+ * VeriPay Panel (Restrained Technical Identifier Panel)
  */
 export function LavenderFeaturePanel({
   children,
@@ -112,7 +112,7 @@ export function LavenderFeaturePanel({
 }) {
   return (
     <div
-      className={`bg-lavender-mist/60 dark:bg-[#1e172a] rounded-cards p-6 sm:p-7 border border-architect-violet/20 dark:border-architect-violet/35 transition-colors ${className}`}
+      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#2b2b32] transition-colors ${className}`}
     >
       {children}
     </div>
@@ -131,7 +131,7 @@ export function MintMetricCallout({
 }) {
   return (
     <div
-      className={`bg-mint-whisper dark:bg-[#10211a] rounded-cards p-5 sm:p-6 border border-lichen-green/25 dark:border-lichen-green/35 transition-colors ${className}`}
+      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#2b2b32] transition-colors ${className}`}
     >
       {children}
     </div>
@@ -247,6 +247,7 @@ export function FormInput({
 /**
  * Precision Institutional Status Badge
  * Compact, restrained status indicator with 6px dot + label text.
+ * Muted, neutral background with semantic dot for high clarity without AI rainbow noise.
  * WCAG 2.2 AA non-color dependency compliant.
  */
 export function StatusBadge({
@@ -257,27 +258,27 @@ export function StatusBadge({
   label: string;
 }) {
   const dotColors = {
-    verified: "bg-lichen-green",
-    warning: "bg-ember-orange",
-    failure: "bg-[#ef4444]",
+    verified: "bg-[#00a86b] dark:bg-[#00cc88]",
+    warning: "bg-[#d97706] dark:bg-[#f59e0b]",
+    failure: "bg-[#dc2626] dark:bg-[#ef4444]",
     info: "bg-architect-violet dark:bg-[#a78bfa]",
-    neutral: "bg-ash-gray",
+    neutral: "bg-[#71717a] dark:bg-[#a1a1aa]",
   };
 
-  const bgStyles = {
-    verified: "bg-mint-whisper dark:bg-[#10211a] border-lichen-green/25 text-[#006840] dark:text-[#4ade80]",
-    warning: "bg-[#fff7ed] dark:bg-[#2b1708] border-ember-orange/25 text-[#c2410c] dark:text-[#fb923c]",
-    failure: "bg-[#fef2f2] dark:bg-[#2a1012] border-[#ef4444]/25 text-[#b91c1c] dark:text-[#f87171]",
-    info: "bg-lavender-mist dark:bg-[#1f162c] border-architect-violet/25 text-architect-violet dark:text-[#c4b5fd]",
-    neutral: "bg-warm-cream/80 dark:bg-[#1e1e22] border-smoke dark:border-[#2b2b32] text-[#4a4a52] dark:text-[#b8b5af]",
+  const textStyles = {
+    verified: "text-[#065f46] dark:text-[#34d399]",
+    warning: "text-[#92400e] dark:text-[#fbbf24]",
+    failure: "text-[#991b1b] dark:text-[#f87171]",
+    info: "text-architect-violet dark:text-[#c4b5fd]",
+    neutral: "text-[#52525b] dark:text-[#a1a1aa]",
   };
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-[6px] px-2.5 py-0.5 border text-[12px] font-medium select-none tracking-[-0.01em] ${bgStyles[status]}`}
+      className="inline-flex items-center gap-1.5 rounded-[4px] px-2 py-0.5 border border-smoke/80 dark:border-[#2b2b32] bg-smoke/30 dark:bg-[#1f1f23] text-[11.5px] font-medium select-none tracking-[-0.01em]"
     >
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColors[status]}`} aria-hidden="true" />
-      <span>{label}</span>
+      <span className={textStyles[status]}>{label}</span>
     </span>
   );
 }

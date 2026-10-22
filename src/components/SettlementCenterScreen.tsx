@@ -263,7 +263,7 @@ export function SettlementCenterScreen({
           subtitle="Zero-trust ACWORLD audit verification and cryptographically bound PayPal Orders v2 settlement."
         />
         <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
-          <span className="text-[11.5px] font-mono-token font-medium px-2.5 py-1 rounded-[4px] bg-[#fff7ed] dark:bg-[#2b1708] text-ember-orange border border-ember-orange/25">
+          <span className="text-[11.5px] font-mono-token font-medium px-2.5 py-1 rounded-[4px] bg-smoke/30 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2b2b32]">
             PayPal Sandbox
           </span>
           <StatusBadge status={badgeConfig.status} label={badgeConfig.label} />
@@ -395,9 +395,9 @@ export function SettlementCenterScreen({
                       </span>
                     </div>
                     {mandateBudget > 0 && (
-                      <div className="flex justify-between items-center text-[12.5px] bg-mint-whisper dark:bg-[#10211a] p-2 rounded-[6px] border border-lichen-green/25">
-                        <span className="text-[#006840] dark:text-[#4ade80] font-medium">Procurement Savings:</span>
-                        <span className="font-mono-token text-[#006840] dark:text-[#4ade80] font-semibold">
+                      <div className="flex justify-between items-center text-[13px] pt-1">
+                        <span className="text-[#6e6e78] dark:text-[#8e8a83]">Procurement Savings:</span>
+                        <span className="font-mono-token text-[#006840] dark:text-lichen-green font-semibold">
                           +${netSavings.toLocaleString()} ({savingsPct.toFixed(1)}%)
                         </span>
                       </div>
@@ -601,10 +601,10 @@ export function SettlementCenterScreen({
                   {/* Status Banner */}
                   {auditCert ? (
                     <div
-                      className={`p-4 rounded-[8px] border flex items-center justify-between ${
+                      className={`p-3.5 rounded-[8px] border flex items-center justify-between ${
                         auditCert.passed
-                          ? "bg-mint-whisper dark:bg-[#10211a] border-lichen-green/30 text-[#006840] dark:text-[#4ade80]"
-                          : "bg-[#feeef0] dark:bg-[#2b1012] border-[#ef4444]/30 text-[#dc2626] dark:text-[#f87171]"
+                          ? "bg-paper-white dark:bg-[#18181b] border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0]"
+                          : "bg-paper-white dark:bg-[#18181b] border-[#ef4444]/40 text-[#dc2626] dark:text-[#f87171]"
                       }`}
                     >
                       <div className="flex items-center gap-2.5 font-semibold text-[13.5px]">
@@ -613,20 +613,20 @@ export function SettlementCenterScreen({
                         ) : (
                           <ShieldAlert className="w-4 h-4 text-[#ef4444] shrink-0" aria-hidden="true" />
                         )}
-                        <span>
+                        <span className="tracking-tight">
                           {auditCert.passed
-                            ? "ALL 5 INVARIANTS CRYPTOGRAPHICALLY VERIFIED"
-                            : "FAIL-CLOSED: AUDIT GATE BLOCKED"}
+                            ? "All 5 Invariants Independently Verified"
+                            : "Fail-Closed: Audit Gate Blocked"}
                         </span>
                       </div>
-                      <span className="text-[11px] font-mono-token px-2 py-0.5 rounded-[4px] bg-paper-white dark:bg-[#141416] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2b2b32]">
+                      <span className="text-[11px] font-mono-token px-2 py-0.5 rounded-[4px] bg-smoke/30 dark:bg-[#202025] text-[#6e6e78] dark:text-[#8e8a83] border border-smoke dark:border-[#2b2b32]">
                         #{auditCert.certificateId.slice(-8)}
                       </span>
                     </div>
                   ) : (
-                    <div className="p-3.5 rounded-[8px] bg-[#fff8eb] dark:bg-[#261a08] border border-ember-orange/30 text-ember-orange text-[12.5px] flex items-center justify-between">
+                    <div className="p-3.5 rounded-[8px] bg-smoke/30 dark:bg-[#1c1c20] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0] text-[12.5px] flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0 text-ember-orange" aria-hidden="true" />
+                        <AlertCircle className="w-4 h-4 shrink-0 text-[#6e6e78] dark:text-[#8e8a83]" aria-hidden="true" />
                         <span>Pre-Checkout Audit Pending Server Evaluation</span>
                       </div>
                       <button
@@ -641,7 +641,7 @@ export function SettlementCenterScreen({
                   )}
 
                   {/* Semantic Invariant Rows (Matched by key, never by array position) */}
-                  <div className="space-y-2.5 pt-1">
+                  <div className="divide-y divide-smoke/80 dark:divide-[#242429] pt-1">
                     {REQUIRED_INVARIANTS.map((req) => {
                       const inv = auditCert?.invariants?.find((i) => i.name === req.key);
                       const isEvaluated = Boolean(inv);
@@ -650,13 +650,13 @@ export function SettlementCenterScreen({
                       return (
                         <div
                           key={req.key}
-                          className="bg-warm-cream/30 dark:bg-[#141416] rounded-[8px] p-3.5 border border-smoke/80 dark:border-[#25252b] flex items-start justify-between gap-3 shadow-2xs"
+                          className="py-3.5 flex items-start justify-between gap-4"
                         >
                           <div className="space-y-0.5">
                             <div className="font-semibold text-[13.5px] text-obsidian dark:text-[#f6f4f0]">
                               {req.title}
                             </div>
-                            <div className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] leading-relaxed">
+                            <div className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] leading-relaxed">
                               {inv?.reason || req.desc}
                             </div>
                           </div>
@@ -664,9 +664,9 @@ export function SettlementCenterScreen({
                             className={`px-2 py-0.5 rounded-[4px] text-[11px] font-mono-token font-medium shrink-0 ${
                               isEvaluated
                                 ? isPassed
-                                  ? "bg-mint-whisper dark:bg-[#10211a] text-[#006840] dark:text-[#4ade80] border border-lichen-green/25"
-                                  : "bg-[#feeef0] dark:bg-[#2b1012] text-[#dc2626] dark:text-[#f87171] border border-[#ef4444]/25"
-                                : "bg-warm-cream dark:bg-[#202025] text-[#6e6e78] dark:text-[#8e8a83] border border-smoke dark:border-[#2b2b32]"
+                                  ? "bg-smoke/30 dark:bg-[#202025] text-[#006840] dark:text-lichen-green border border-lichen-green/30"
+                                  : "bg-smoke/30 dark:bg-[#202025] text-[#dc2626] dark:text-[#f87171] border border-[#ef4444]/30"
+                                : "bg-smoke/30 dark:bg-[#202025] text-[#6e6e78] dark:text-[#8e8a83] border border-smoke dark:border-[#2b2b32]"
                             }`}
                           >
                             {isEvaluated ? (isPassed ? "PASSED" : "FAILED") : "PENDING"}
