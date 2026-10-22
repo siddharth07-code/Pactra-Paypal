@@ -83,6 +83,7 @@ export interface VendorQuote {
   vendorName: string;
   sku: string;
   productTitle: string;
+  category?: string; // Product commercial category (e.g. "monitors", "laptops", "servers")
   initialUnitAsk: number; // Initial asking unit price
   currentUnitBid: number; // Current negotiated unit price
   shippingCost: number; // Shipping cost
@@ -91,6 +92,101 @@ export interface VendorQuote {
   condition: ProductCondition;
   status: VendorQuoteStatus;
   dataSource: DataSource;
+}
+
+/**
+ * Phase 3: Sourcing & Vendor Evaluation Intelligence Types
+ */
+export type CompatibilityAssessmentStatus = "MATCH" | "MISMATCH" | "UNKNOWN";
+export type QuoteEligibilityStatus = "ELIGIBLE" | "INELIGIBLE" | "NEEDS_REVIEW";
+export type EvaluationProvenance = "DETERMINISTIC_RULES" | "GEMINI_ASSISTED" | "SIMULATED_FIXTURE";
+
+export interface SpecificationMatchResult {
+  specName: string;
+  mandatedValue: string;
+  actualValue?: string;
+  mandatory: boolean;
+  matchStatus: CompatibilityAssessmentStatus;
+  evidence?: string;
+}
+
+export interface QuoteFinancialEvaluation {
+  unitPrice: number;
+  quantity: number;
+  shippingCost: number;
+  landedCost: number;
+  maxTotalBudget: number;
+  withinBudget: boolean;
+  budgetVariance: number; // landedCost - maxTotalBudget (negative = savings)
+  currency: string;
+  currencySupported: boolean;
+}
+
+export interface QuoteSlaEvaluation {
+  offeredDeliveryDays: number;
+  mandatedMaxDeliveryDays: number;
+  deliveryCompliant: boolean;
+  offeredReturnDays: number;
+  mandatedMinReturnDays: number;
+  returnCompliant: boolean;
+  offeredCondition: ProductCondition;
+  mandatedCondition?: ProductCondition;
+  conditionCompliant: boolean;
+}
+
+export interface QuoteProductCompatibility {
+  categoryMatch: boolean;
+  detectedCategory: string;
+  mandatedCategory: string;
+  specificationMatches: SpecificationMatchResult[];
+  overallCompatibility: CompatibilityAssessmentStatus;
+  explanation: string;
+}
+
+export interface QuoteEvaluation {
+  vendorId: string;
+  vendorName: string;
+  sku: string;
+  productTitle: string;
+  status: QuoteEligibilityStatus;
+  financials: QuoteFinancialEvaluation;
+  sla: QuoteSlaEvaluation;
+  compatibility: QuoteProductCompatibility;
+  evidence: {
+    dataSource: DataSource;
+    isFixture: boolean;
+    hasMerchantAttestation: boolean;
+    merchantAttestationWarning?: string;
+  };
+  disqualificationReasons: string[];
+  reviewReasons: string[];
+  rankingScore?: number; // 0 to 100, computed only for ELIGIBLE quotes
+  rankingBreakdown?: {
+    costScore: number; // 0 - 50 pts
+    specScore: number; // 0 - 25 pts
+    deliveryScore: number; // 0 - 15 pts
+    returnScore: number; // 0 - 10 pts
+  };
+  rankingExplanation?: string;
+  evaluationProvenance: EvaluationProvenance;
+  evaluatedAt: string;
+}
+
+export interface SourcingEvaluationResult {
+  evaluations: Record<string, QuoteEvaluation>;
+  rankedQuotes: Array<{ quote: VendorQuote; evaluation: QuoteEvaluation }>;
+  eligibleQuotes: VendorQuote[];
+  ineligibleQuotes: VendorQuote[];
+  reviewQuotes: VendorQuote[];
+  hasEligibleQuotes: boolean;
+  bestQuote?: VendorQuote;
+  summary: {
+    totalQuotesEvaluated: number;
+    eligibleCount: number;
+    ineligibleCount: number;
+    reviewCount: number;
+    evaluatedAt: string;
+  };
 }
 
 /**
@@ -232,6 +328,8 @@ export interface ProcurementSession {
   turns: NegotiationTurn[];
   selectedQuote?: VendorQuote;
   finalOffer?: NegotiationOffer;
+  quoteEvaluations?: Record<string, QuoteEvaluation>;
+  sourcingSummary?: SourcingEvaluationResult["summary"];
   status: ProcurementSessionStatus;
   merkleRoot?: string; // Pre-settlement evidence root
   preSettlementRoot?: string; // Explicit pre-settlement evidence root

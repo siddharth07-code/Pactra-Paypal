@@ -20,6 +20,7 @@ import { parseProcurementMandate } from "@/lib/mandate-parser";
 import { Channel3Client } from "@/lib/channel3-client";
 import { NegotiationOrchestrator } from "@/lib/negotiation-orchestrator";
 import { GeminiNegotiationClient } from "@/lib/gemini-client";
+import { SourcingEvaluator } from "@/lib/sourcing-evaluator";
 import { sessionStore } from "@/lib/session-store";
 import type { ProcurementMandate, VendorQuote } from "@/types/pactum";
 
@@ -194,14 +195,57 @@ export async function POST(req: NextRequest) {
             dataSource = sourcingResult.dataSource;
           }
 
+          // Revalidate vendor quotes against mandate using SourcingEvaluator
+          const evaluator = new SourcingEvaluator();
+          const evaluationResult = await evaluator.evaluateSourcedQuotes(mandate, quotes);
+
+          // Ensure session is persisted with sourcing evaluation in authoritative store
+          let currentSessionId = targetSessionId;
+          if (!currentSessionId) {
+            const newSession = sessionStore.createSession(mandate, quotes);
+            newSession.status = "SOURCING";
+            newSession.quoteEvaluations = evaluationResult.evaluations;
+            newSession.sourcingSummary = evaluationResult.summary;
+            sessionStore.saveSession(newSession);
+            currentSessionId = newSession.id;
+          } else {
+            const existing = sessionStore.getSession(currentSessionId);
+            if (existing) {
+              existing.quoteEvaluations = evaluationResult.evaluations;
+              existing.sourcingSummary = evaluationResult.summary;
+              sessionStore.saveSession(existing);
+            }
+          }
+
           sendEvent("SOURCING_COMPLETED", {
+            sessionId: currentSessionId,
             mandate,
             quotes,
+            evaluations: evaluationResult.evaluations,
+            eligibleQuotes: evaluationResult.eligibleQuotes,
+            rankedQuotes: evaluationResult.rankedQuotes,
+            hasEligibleQuotes: evaluationResult.hasEligibleQuotes,
+            sourcingSummary: evaluationResult.summary,
             isFixture,
             dataSource,
           });
 
-          // Initialize orchestrator with SSE emitter
+          // Server-side eligibility gate: prevent negotiation if no quotes are eligible
+          if (!evaluationResult.hasEligibleQuotes) {
+            const ineligibles = evaluationResult.summary.ineligibleCount;
+            const reviews = evaluationResult.summary.reviewCount;
+            const failureDetail = `Sourcing eligibility gate blocked negotiation: 0 of ${quotes.length} vendor quotes are eligible (${ineligibles} disqualified, ${reviews} require review).`;
+            sendEvent("NEGOTIATION_FAILED", {
+              sessionId: currentSessionId,
+              error: "Sourcing gate failure: No eligible quotes satisfy the mandate.",
+              detail: failureDetail,
+              evaluations: evaluationResult.evaluations,
+              summary: evaluationResult.summary,
+            });
+            return;
+          }
+
+          // Initialize orchestrator with SSE emitter using strictly eligible quotes
           const geminiClient = new GeminiNegotiationClient();
           const orchestrator = new NegotiationOrchestrator({
             geminiClient,
@@ -212,9 +256,15 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          // Execute negotiation loop, reusing existing session ID if available
-          const orchestrationResult = await orchestrator.runNegotiation(mandate, quotes, targetSessionId);
+          // Execute negotiation loop with eligible quotes, reusing existing session ID if available
+          const orchestrationResult = await orchestrator.runNegotiation(
+            mandate,
+            evaluationResult.eligibleQuotes,
+            currentSessionId
+          );
           if (orchestrationResult.session) {
+            orchestrationResult.session.quoteEvaluations = evaluationResult.evaluations;
+            orchestrationResult.session.sourcingSummary = evaluationResult.summary;
             sessionStore.saveSession(orchestrationResult.session);
           }
         } catch (err: unknown) {

@@ -18,8 +18,17 @@ import {
   Sparkles,
   HelpCircle,
   CheckCircle2,
+  XCircle,
+  AlertTriangle,
 } from "lucide-react";
-import type { VendorQuote, CurrencyCode, ProcurementMandate, MandateStatus } from "@/types/pactum";
+import type {
+  VendorQuote,
+  CurrencyCode,
+  ProcurementMandate,
+  MandateStatus,
+  QuoteEvaluation,
+  SourcingEvaluationResult,
+} from "@/types/pactum";
 
 interface SourcingScreenProps {
   onStartNegotiation: (
@@ -70,6 +79,9 @@ export function SourcingScreen({
 
   // Sourced quotes preview & session reuse
   const [sourcedQuotes, setSourcedQuotes] = useState<VendorQuote[] | null>(null);
+  const [quoteEvaluations, setQuoteEvaluations] = useState<Record<string, QuoteEvaluation> | null>(null);
+  const [hasEligibleQuotes, setHasEligibleQuotes] = useState<boolean>(true);
+  const [sourcingSummary, setSourcingSummary] = useState<SourcingEvaluationResult["summary"] | null>(null);
   const [previewedSessionId, setPreviewedSessionId] = useState<string | null>(null);
   const [isSourcing, setIsSourcing] = useState(false);
   const [sourcingError, setSourcingError] = useState<string | null>(null);
@@ -119,6 +131,9 @@ export function SourcingScreen({
     setContradictions([]);
     setClarificationQuestions([]);
     setMissingFieldsList([]);
+    setQuoteEvaluations(null);
+    setHasEligibleQuotes(true);
+    setSourcingSummary(null);
   };
 
   const handleItemQueryChange = (val: string) => {
@@ -197,6 +212,9 @@ export function SourcingScreen({
     setErrors({});
     setPreviewedSessionId(null);
     setSourcedQuotes(null);
+    setQuoteEvaluations(null);
+    setHasEligibleQuotes(true);
+    setSourcingSummary(null);
     setSourcingError(null);
     setMandateStatus("READY");
     setClarificationQuestions([]);
@@ -320,6 +338,9 @@ export function SourcingScreen({
       }
 
       setSourcedQuotes(data.quotes || []);
+      setQuoteEvaluations(data.evaluations || null);
+      setHasEligibleQuotes(data.hasEligibleQuotes !== undefined ? data.hasEligibleQuotes : (data.quotes?.length > 0));
+      setSourcingSummary(data.sourcingSummary || null);
       setPreviewedSessionId(data.sessionId || null);
       if (data.mandateIntelligence) {
         setMandateStatus(data.mandateIntelligence.status);
@@ -334,6 +355,11 @@ export function SourcingScreen({
   const handleEnterArena = () => {
     if (mandateStatus === "INVALID") {
       setSourcingError("Cannot enter negotiation arena with contradictory constraints. Please resolve constraints first.");
+      return;
+    }
+
+    if (sourcedQuotes && !hasEligibleQuotes) {
+      setSourcingError("Cannot enter negotiation arena: No retrieved quotes satisfy the authoritative mandate. Adjust constraints or review disqualification reasons.");
       return;
     }
 
@@ -397,14 +423,14 @@ export function SourcingScreen({
         </button>
         <button
           type="button"
-          onClick={() => applyPreset(50, "Enterprise Rack Servers", 15000, 3, 60)}
+          onClick={() => applyPreset(4, "Enterprise Rack Servers", 15000, 5, 30)}
           className={`px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
-            itemQuery === "Enterprise Rack Servers" && budget === 15000 && quantity === 50
+            itemQuery === "Enterprise Rack Servers" && budget === 15000 && quantity === 4
               ? "bg-smoke/60 dark:bg-[#25252b] border-ember-orange/50 text-obsidian dark:text-white"
               : "bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0]"
           }`}
         >
-          Scenario C ($15.0k / 50 Servers)
+          Scenario C ($15.0k / 4 Servers)
         </button>
       </div>
 
@@ -634,12 +660,17 @@ export function SourcingScreen({
             </GhostButton>
             <PrimaryButton
               onClick={handleEnterArena}
-              disabled={isLoading || isSourcing}
+              disabled={isLoading || isSourcing || (sourcedQuotes !== null && !hasEligibleQuotes)}
               className="flex-1"
             >
               Enter Arena
             </PrimaryButton>
           </div>
+          {sourcedQuotes !== null && !hasEligibleQuotes && (
+            <p className="text-[11.5px] text-rose-600 dark:text-rose-400 text-center pt-1 font-medium">
+              Cannot enter arena: 0 retrieved vendor quotes are eligible
+            </p>
+          )}
         </div>
 
         {/* Right Column: Wholesale Vendor Quotes Comparison */}
@@ -655,10 +686,38 @@ export function SourcingScreen({
                 </p>
               </div>
               <StatusBadge
-                status={sourcedQuotes ? "verified" : "neutral"}
-                label={sourcedQuotes ? `${sourcedQuotes.length} Quotes Loaded` : "Awaiting Preview"}
+                status={
+                  !sourcedQuotes
+                    ? "neutral"
+                    : sourcedQuotes.length === 0
+                    ? "warning"
+                    : hasEligibleQuotes
+                    ? "verified"
+                    : "failure"
+                }
+                label={
+                  !sourcedQuotes
+                    ? "Awaiting Preview"
+                    : sourcedQuotes.length === 0
+                    ? "No Matching Quotes"
+                    : quoteEvaluations
+                    ? `${sourcedQuotes.length} Quotes (${sourcingSummary?.eligibleCount ?? 0} Eligible)`
+                    : `${sourcedQuotes.length} Quotes Loaded`
+                }
               />
             </div>
+
+            {quoteEvaluations && sourcedQuotes && sourcedQuotes.length > 0 && !hasEligibleQuotes && (
+              <div className="mt-4 p-3 rounded-[6px] bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 text-[12.5px] text-rose-800 dark:text-rose-300 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold">All Sourced Quotes Disqualified or Require Review</div>
+                  <div className="text-[12px] opacity-90 mt-0.5">
+                    None of the {sourcedQuotes.length} supplier quotes satisfy your active mandate constraints. Review individual failure reasons below or loosen constraints before commencing negotiation.
+                  </div>
+                </div>
+              </div>
+            )}
 
             {sourcedQuotes && sourcedQuotes.length > 0 ? (
               <div className="pt-4">
@@ -668,16 +727,46 @@ export function SourcingScreen({
                     <thead>
                       <tr className="border-b border-smoke dark:border-[#28282e] text-[11px] font-mono-token uppercase tracking-wider text-[#6e6e78] dark:text-[#8e8a83]">
                         <th scope="col" className="pb-3 font-medium">Supplier &amp; SKU</th>
-                        <th scope="col" className="pb-3 px-3 font-medium">SLAs</th>
+                        <th scope="col" className="pb-3 px-3 font-medium">SLAs &amp; Specs</th>
                         <th scope="col" className="pb-3 px-3 font-medium text-right">Unit / Ship</th>
                         <th scope="col" className="pb-3 px-3 font-medium text-right">Landed Cost</th>
-                        <th scope="col" className="pb-3 pl-3 text-right font-medium">Budget Status</th>
+                        <th scope="col" className="pb-3 pl-3 text-right font-medium">Evaluation &amp; Rank</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-smoke/80 dark:divide-[#242429]">
                       {sourcedQuotes.map((quote) => {
-                        const landedTotal = quote.initialUnitAsk * quantity + quote.shippingCost;
-                        const isFeasible = landedTotal <= budget;
+                        const evalResult = quoteEvaluations ? quoteEvaluations[quote.vendorId] : undefined;
+                        const landedTotal = evalResult ? evalResult.financials.landedCost : quote.initialUnitAsk * quantity + quote.shippingCost;
+                        const isFeasible = evalResult ? evalResult.financials.withinBudget : landedTotal <= budget;
+
+                        // Find ranking index among eligible offers
+                        const eligibleQuotesSorted = sourcedQuotes
+                          .filter((q) => quoteEvaluations?.[q.vendorId]?.status === "ELIGIBLE")
+                          .sort((a, b) => (quoteEvaluations?.[b.vendorId]?.rankingScore || 0) - (quoteEvaluations?.[a.vendorId]?.rankingScore || 0));
+                        const rankIndex = eligibleQuotesSorted.findIndex((q) => q.vendorId === quote.vendorId);
+                        const rankNumber = rankIndex >= 0 ? rankIndex + 1 : undefined;
+
+                        const badgeStatus = evalResult
+                          ? evalResult.status === "ELIGIBLE"
+                            ? "verified"
+                            : evalResult.status === "NEEDS_REVIEW"
+                            ? "warning"
+                            : "failure"
+                          : isFeasible
+                          ? "verified"
+                          : "warning";
+
+                        const badgeLabel = evalResult
+                          ? evalResult.status === "ELIGIBLE"
+                            ? rankNumber
+                              ? `Eligible • Rank #${rankNumber} (${evalResult.rankingScore} pts)`
+                              : "Eligible"
+                            : evalResult.status === "NEEDS_REVIEW"
+                            ? "Needs Review"
+                            : "Ineligible"
+                          : isFeasible
+                          ? "Within Budget"
+                          : "Exceeds";
 
                         return (
                           <tr
@@ -699,16 +788,71 @@ export function SourcingScreen({
                                   {quote.condition}
                                 </span>
                               </div>
+                              {evalResult && evalResult.disqualificationReasons.length > 0 && (
+                                <div className="pt-2 text-[11px] text-rose-600 dark:text-rose-400 space-y-0.5">
+                                  {evalResult.disqualificationReasons.map((reason, idx) => (
+                                    <div key={idx} className="flex items-start gap-1">
+                                      <XCircle className="w-3 h-3 shrink-0 mt-0.5" />
+                                      <span>{reason}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {evalResult && evalResult.reviewReasons.length > 0 && (
+                                <div className="pt-2 text-[11px] text-amber-600 dark:text-amber-400 space-y-0.5">
+                                  {evalResult.reviewReasons.map((reason, idx) => (
+                                    <div key={idx} className="flex items-start gap-1">
+                                      <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                                      <span>{reason}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {evalResult && evalResult.status === "ELIGIBLE" && evalResult.rankingExplanation && (
+                                <div className="pt-1.5 text-[11px] text-[#065f46] dark:text-[#34d399] flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 shrink-0" />
+                                  <span className="line-clamp-1">{evalResult.rankingExplanation}</span>
+                                </div>
+                              )}
                             </td>
                             <td className="py-3.5 px-3 whitespace-nowrap">
                               <div className="text-obsidian dark:text-[#f6f4f0] flex items-center gap-1">
                                 <Truck className="w-3.5 h-3.5 text-[#6e6e78] dark:text-[#8e8a83]" aria-hidden="true" />
-                                <span>{quote.deliveryDays}d delivery</span>
+                                <span>
+                                  {quote.deliveryDays}d delivery{" "}
+                                  {evalResult && !evalResult.sla.deliveryCompliant && (
+                                    <span className="text-rose-500 font-medium text-[11px]">(&gt;{maxDelivery}d)</span>
+                                  )}
+                                </span>
                               </div>
                               <div className="text-[#6e6e78] dark:text-[#8e8a83] text-[12px] flex items-center gap-1 mt-0.5">
                                 <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-                                <span>{quote.returnDays}d return</span>
+                                <span>
+                                  {quote.returnDays}d return{" "}
+                                  {evalResult && !evalResult.sla.returnCompliant && (
+                                    <span className="text-rose-500 font-medium text-[11px]">(&lt;{minReturn}d)</span>
+                                  )}
+                                </span>
                               </div>
+                              {evalResult && (
+                                <div className="pt-1.5">
+                                  {evalResult.compatibility.overallCompatibility === "MATCH" && (
+                                    <span className="text-[10px] font-mono-token text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                      Specs Match
+                                    </span>
+                                  )}
+                                  {evalResult.compatibility.overallCompatibility === "UNKNOWN" && (
+                                    <span className="text-[10px] font-mono-token text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                      Specs Unknown
+                                    </span>
+                                  )}
+                                  {evalResult.compatibility.overallCompatibility === "MISMATCH" && (
+                                    <span className="text-[10px] font-mono-token text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
+                                      Spec Mismatch
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </td>
                             <td className="py-3.5 px-3 text-right whitespace-nowrap tabular-nums text-[#6e6e78] dark:text-[#8e8a83]">
                               <div>{currencyPrefix}{quote.initialUnitAsk.toLocaleString()} / unit</div>
@@ -716,11 +860,18 @@ export function SourcingScreen({
                             </td>
                             <td className="py-3.5 px-3 text-right whitespace-nowrap">
                               <CurrencyDisplay amount={landedTotal} currency={currency} size="sm" />
+                              {evalResult && (
+                                <div className={`text-[11px] tabular-nums mt-0.5 ${evalResult.financials.budgetVariance <= 0 ? "text-[#065f46] dark:text-[#34d399]" : "text-rose-500"}`}>
+                                  {evalResult.financials.budgetVariance <= 0
+                                    ? `-${currencyPrefix}${Math.abs(evalResult.financials.budgetVariance).toLocaleString()} under`
+                                    : `+${currencyPrefix}${evalResult.financials.budgetVariance.toLocaleString()} over`}
+                                </div>
+                              )}
                             </td>
                             <td className="py-3.5 pl-3 text-right whitespace-nowrap">
                               <StatusBadge
-                                status={isFeasible ? "verified" : "warning"}
-                                label={isFeasible ? "Within Budget" : "Exceeds"}
+                                status={badgeStatus}
+                                label={badgeLabel}
                               />
                             </td>
                           </tr>
@@ -733,8 +884,37 @@ export function SourcingScreen({
                 {/* Mobile Breakdown */}
                 <div className="sm:hidden divide-y divide-smoke/80 dark:divide-[#242429]">
                   {sourcedQuotes.map((quote) => {
-                    const landedTotal = quote.initialUnitAsk * quantity + quote.shippingCost;
-                    const isFeasible = landedTotal <= budget;
+                    const evalResult = quoteEvaluations ? quoteEvaluations[quote.vendorId] : undefined;
+                    const landedTotal = evalResult ? evalResult.financials.landedCost : quote.initialUnitAsk * quantity + quote.shippingCost;
+                    const isFeasible = evalResult ? evalResult.financials.withinBudget : landedTotal <= budget;
+
+                    const eligibleQuotesSorted = sourcedQuotes
+                      .filter((q) => quoteEvaluations?.[q.vendorId]?.status === "ELIGIBLE")
+                      .sort((a, b) => (quoteEvaluations?.[b.vendorId]?.rankingScore || 0) - (quoteEvaluations?.[a.vendorId]?.rankingScore || 0));
+                    const rankIndex = eligibleQuotesSorted.findIndex((q) => q.vendorId === quote.vendorId);
+                    const rankNumber = rankIndex >= 0 ? rankIndex + 1 : undefined;
+
+                    const badgeStatus = evalResult
+                      ? evalResult.status === "ELIGIBLE"
+                        ? "verified"
+                        : evalResult.status === "NEEDS_REVIEW"
+                        ? "warning"
+                        : "failure"
+                      : isFeasible
+                      ? "verified"
+                      : "warning";
+
+                    const badgeLabel = evalResult
+                      ? evalResult.status === "ELIGIBLE"
+                        ? rankNumber
+                          ? `Rank #${rankNumber} (${evalResult.rankingScore} pts)`
+                          : "Eligible"
+                        : evalResult.status === "NEEDS_REVIEW"
+                        ? "Needs Review"
+                        : "Ineligible"
+                      : isFeasible
+                      ? "Within Budget"
+                      : "Exceeds";
 
                     return (
                       <div key={quote.vendorId} className="py-3.5 space-y-2">
@@ -743,8 +923,8 @@ export function SourcingScreen({
                             {quote.vendorName}
                           </span>
                           <StatusBadge
-                            status={isFeasible ? "verified" : "warning"}
-                            label={isFeasible ? "Within Budget" : "Exceeds"}
+                            status={badgeStatus}
+                            label={badgeLabel}
                           />
                         </div>
                         <div className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83]">
@@ -762,6 +942,26 @@ export function SourcingScreen({
                           </span>
                           <CurrencyDisplay amount={landedTotal} currency={currency} size="sm" />
                         </div>
+                        {evalResult && evalResult.disqualificationReasons.length > 0 && (
+                          <div className="text-[11px] text-rose-600 dark:text-rose-400 space-y-0.5 pt-1">
+                            {evalResult.disqualificationReasons.map((reason, idx) => (
+                              <div key={idx} className="flex items-start gap-1">
+                                <XCircle className="w-3 h-3 shrink-0 mt-0.5" />
+                                <span>{reason}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {evalResult && evalResult.reviewReasons.length > 0 && (
+                          <div className="text-[11px] text-amber-600 dark:text-amber-400 space-y-0.5 pt-1">
+                            {evalResult.reviewReasons.map((reason, idx) => (
+                              <div key={idx} className="flex items-start gap-1">
+                                <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                                <span>{reason}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -773,10 +973,12 @@ export function SourcingScreen({
                   <Package className="w-5 h-5" aria-hidden="true" />
                 </div>
                 <div className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-                  Wholesale Catalog Unloaded
+                  {sourcedQuotes && sourcedQuotes.length === 0 ? "No Matching Wholesale Quotes" : "Wholesale Catalog Unloaded"}
                 </div>
                 <p className="text-[13px] text-[#6e6e78] dark:text-[#8e8a83] max-w-sm mx-auto leading-relaxed">
-                  Execute &ldquo;Preview Wholesale&rdquo; to query competing baseline quotes from Channel3 or &ldquo;Enter Arena&rdquo; to commence autonomous multi-agent negotiation.
+                  {sourcedQuotes && sourcedQuotes.length === 0
+                    ? `No supplier catalog items matched category "${itemQuery}". Supported categories: 4K Monitors, Developer Laptops, Enterprise Rack Servers, Standing Desks, and Managed Switches.`
+                    : "Execute \"Preview Wholesale\" to query competing baseline quotes from Channel3 or \"Enter Arena\" to commence autonomous multi-agent negotiation."}
                 </p>
               </div>
             )}
@@ -788,7 +990,9 @@ export function SourcingScreen({
               Wholesale Feed: Channel3 API
             </span>
             <span className="text-[#6e6e78] dark:text-[#8e8a83] font-mono-token text-[11px]">
-              Deterministic Simulation
+              {sourcedQuotes && sourcedQuotes[0]?.dataSource === "MOCK_CATALOG"
+                ? "Deterministic Simulation Catalog"
+                : "Live Channel3 Wholesale"}
             </span>
           </div>
         </div>

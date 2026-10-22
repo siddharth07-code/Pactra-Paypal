@@ -197,6 +197,8 @@ class AuthoritativeSessionStore {
     session.postAuditRoot = undefined;
     session.paypalOrderId = undefined;
     session.paypalCaptureId = undefined;
+    session.quoteEvaluations = undefined;
+    session.sourcingSummary = undefined;
     session.status = "MANDATE_PENDING";
     session.updatedAt = new Date().toISOString();
 

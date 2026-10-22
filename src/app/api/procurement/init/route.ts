@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractProcurementMandate } from "@/lib/mandate-parser";
 import { Channel3Client } from "@/lib/channel3-client";
+import { SourcingEvaluator } from "@/lib/sourcing-evaluator";
 import { sessionStore } from "@/lib/session-store";
 import type { ProcurementMandate, CurrencyCode } from "@/types/pactum";
 
@@ -142,9 +143,15 @@ export async function POST(req: NextRequest) {
     const sourcingClient = new Channel3Client();
     const sourcingResult = await sourcingClient.sourceQuotes(mandate);
 
-    // 5. Create authoritative session in server store only after successful mandate validation
+    // 5. Evaluate vendor quotes deterministically and assess product compatibility
+    const evaluator = new SourcingEvaluator();
+    const evaluationResult = await evaluator.evaluateSourcedQuotes(mandate, sourcingResult.quotes);
+
+    // 6. Create authoritative session in server store only after successful mandate validation
     const session = sessionStore.createSession(mandate, sourcingResult.quotes);
     session.status = "SOURCING";
+    session.quoteEvaluations = evaluationResult.evaluations;
+    session.sourcingSummary = evaluationResult.summary;
     sessionStore.saveSession(session);
 
     return NextResponse.json({
@@ -153,6 +160,11 @@ export async function POST(req: NextRequest) {
       sessionId: session.id,
       mandate,
       quotes: sourcingResult.quotes,
+      evaluations: evaluationResult.evaluations,
+      rankedQuotes: evaluationResult.rankedQuotes,
+      eligibleQuotes: evaluationResult.eligibleQuotes,
+      hasEligibleQuotes: evaluationResult.hasEligibleQuotes,
+      sourcingSummary: evaluationResult.summary,
       isFixture: sourcingResult.isFixture,
       dataSource: sourcingResult.dataSource,
     });

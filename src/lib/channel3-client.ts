@@ -16,10 +16,11 @@ export interface SourcingResult {
   dataSource: "CHANNEL3" | "MOCK_CATALOG";
   isFixture: boolean;
   timestamp: string;
+  category?: string;
 }
 
 /**
- * Deterministic wholesale catalog fixtures for the hackathon demonstration:
+ * Deterministic wholesale catalog fixtures for monitors (Default demonstration benchmark):
  * 25 units of 4K USB-C Business Monitors
  * Baseline asks:
  * - Vendor A: $375/unit, $150 shipping, 4 days delivery, 30-day return policy
@@ -32,6 +33,7 @@ export const DETERMINISTIC_FIXTURE_QUOTES: VendorQuote[] = [
     vendorName: "Apex Displays Wholesale",
     sku: "APX-MON-4K-USBC-27",
     productTitle: 'Apex Pro 27" 4K UHD IPS USB-C Monitor 90W PD',
+    category: "monitors",
     initialUnitAsk: 375.0,
     currentUnitBid: 375.0,
     shippingCost: 150.0,
@@ -46,6 +48,7 @@ export const DETERMINISTIC_FIXTURE_QUOTES: VendorQuote[] = [
     vendorName: "DisplayWorld Direct",
     sku: "DWD-4K-27-UB",
     productTitle: 'DisplayWorld Ultra 27" 4K Business Display USB-C',
+    category: "monitors",
     initialUnitAsk: 385.0,
     currentUnitBid: 385.0,
     shippingCost: 100.0,
@@ -60,6 +63,7 @@ export const DETERMINISTIC_FIXTURE_QUOTES: VendorQuote[] = [
     vendorName: "NexTech Commercial Supplies",
     sku: "NXT-4K-U27-HUB",
     productTitle: 'NexTech Commercial 27" 4K IPS USB-C Hub Monitor',
+    category: "monitors",
     initialUnitAsk: 360.0,
     currentUnitBid: 360.0,
     shippingCost: 250.0,
@@ -72,7 +76,254 @@ export const DETERMINISTIC_FIXTURE_QUOTES: VendorQuote[] = [
 ];
 
 /**
- * Sourcing Client for retrieving 3 competing B2B vendor quotes.
+ * Multi-category deterministic fixtures to prevent cross-category quote contamination
+ * (Phase 3 Requirement 6: Do not present monitor quotes as matching servers, laptops, or furniture).
+ */
+export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
+  monitors: DETERMINISTIC_FIXTURE_QUOTES,
+  laptops: [
+    {
+      vendorId: "vendor-apex-laptops",
+      vendorName: "Apex Enterprise Systems",
+      sku: "APX-LAP-DEV15-32G",
+      productTitle: 'Apex DevBook Pro 15" Laptop Core i7 32GB RAM 1TB SSD',
+      category: "laptops",
+      initialUnitAsk: 1150.0,
+      currentUnitBid: 1150.0,
+      shippingCost: 120.0,
+      deliveryDays: 4,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    },
+    {
+      vendorId: "vendor-displayworld-mobile",
+      vendorName: "DisplayWorld Mobile Systems",
+      sku: "DWD-LAP-WS16",
+      productTitle: 'DisplayWorld WorkStation Laptop 16" 32GB RAM 1TB',
+      category: "laptops",
+      initialUnitAsk: 1220.0,
+      currentUnitBid: 1220.0,
+      shippingCost: 90.0,
+      deliveryDays: 3,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    },
+    {
+      vendorId: "vendor-nextech-computing",
+      vendorName: "NexTech Enterprise Systems",
+      sku: "NXT-LAP-EE14",
+      productTitle: 'NexTech Enterprise Elite Laptop 14" 16GB RAM 512GB SSD',
+      category: "laptops",
+      initialUnitAsk: 980.0,
+      currentUnitBid: 980.0,
+      shippingCost: 150.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    },
+  ],
+  servers: [
+    {
+      vendorId: "vendor-apex-servers",
+      vendorName: "Apex Cloud Infrastructure",
+      sku: "APX-SRV-2U-XEON",
+      productTitle: "Apex Enterprise 2U Rackmount Server Dual Xeon 64GB ECC",
+      category: "servers",
+      initialUnitAsk: 2800.0,
+      currentUnitBid: 2800.0,
+      shippingCost: 350.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    },
+    {
+      vendorId: "vendor-displayworld-datacenter",
+      vendorName: "DisplayWorld Data Systems",
+      sku: "DWD-SRV-CR2U",
+      productTitle: "DisplayWorld CloudRack 2U Enterprise Server 128GB ECC",
+      category: "servers",
+      initialUnitAsk: 3100.0,
+      currentUnitBid: 3100.0,
+      shippingCost: 280.0,
+      deliveryDays: 4,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    },
+    {
+      vendorId: "vendor-nextech-servers",
+      vendorName: "NexTech Server Solutions",
+      sku: "NXT-SRV-HD1U",
+      productTitle: "NexTech HighDensity 1U Rack Server 64GB ECC",
+      category: "servers",
+      initialUnitAsk: 2450.0,
+      currentUnitBid: 2450.0,
+      shippingCost: 400.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    },
+  ],
+  furniture: [
+    {
+      vendorId: "vendor-apex-furniture",
+      vendorName: "Apex Commercial Furniture",
+      sku: "APX-DSK-DUAL60",
+      productTitle: 'Apex ErgoRise Dual-Motor Commercial Standing Desk 60"x30"',
+      category: "furniture",
+      initialUnitAsk: 380.0,
+      currentUnitBid: 380.0,
+      shippingCost: 180.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    },
+    {
+      vendorId: "vendor-displayworld-office",
+      vendorName: "DisplayWorld Office Ergonomics",
+      sku: "DWD-DSK-PL72",
+      productTitle: 'DisplayWorld ProLift Commercial Sit-Stand Desk 72"x30"',
+      category: "furniture",
+      initialUnitAsk: 420.0,
+      currentUnitBid: 420.0,
+      shippingCost: 150.0,
+      deliveryDays: 4,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    },
+    {
+      vendorId: "vendor-nextech-workspaces",
+      vendorName: "NexTech Commercial Workspaces",
+      sku: "NXT-DSK-HD60",
+      productTitle: 'NexTech HeavyDuty Motorized Standing Desk 60"x30"',
+      category: "furniture",
+      initialUnitAsk: 350.0,
+      currentUnitBid: 350.0,
+      shippingCost: 220.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    },
+  ],
+  networking: [
+    {
+      vendorId: "vendor-apex-networks",
+      vendorName: "Apex Networks Wholesale",
+      sku: "APX-NET-48POE",
+      productTitle: "Apex NetCore 48-Port PoE+ Managed Gigabit Switch 370W",
+      category: "networking",
+      initialUnitAsk: 680.0,
+      currentUnitBid: 680.0,
+      shippingCost: 140.0,
+      deliveryDays: 4,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    },
+    {
+      vendorId: "vendor-displayworld-telecom",
+      vendorName: "DisplayWorld Network Solutions",
+      sku: "DWD-NET-SX48",
+      productTitle: "DisplayWorld SwitchX 48-Port Gigabit Enterprise PoE+",
+      category: "networking",
+      initialUnitAsk: 720.0,
+      currentUnitBid: 720.0,
+      shippingCost: 110.0,
+      deliveryDays: 3,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    },
+    {
+      vendorId: "vendor-nextech-networks",
+      vendorName: "NexTech Telecom Supplies",
+      sku: "NXT-NET-24POE",
+      productTitle: "NexTech Edge 24-Port Managed Switch PoE+ 250W",
+      category: "networking",
+      initialUnitAsk: 510.0,
+      currentUnitBid: 510.0,
+      shippingCost: 160.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    },
+  ],
+};
+
+function matchCategoryKeywords(text: string): string {
+  if (/\b(monitor|monitors|display|displays|screen|screens)\b/i.test(text)) {
+    return "monitors";
+  }
+  if (/\b(laptop|laptops|notebook|notebooks|thinkpad|macbook|chromebook)\b/i.test(text)) {
+    return "laptops";
+  }
+  if (/\b(server|servers|rackmount|poweredge|proliant|xeon)\b/i.test(text)) {
+    return "servers";
+  }
+  if (/\b(desk|desks|standing desk|sit-stand|furniture|table|tables)\b/i.test(text)) {
+    return "furniture";
+  }
+  if (/\b(switch|switches|networking|router|routers|ethernet switch)\b/i.test(text)) {
+    return "networking";
+  }
+  return "unknown";
+}
+
+/**
+ * Deterministically detects the commercial category from a mandate
+ */
+export function detectMandateCategory(mandate: ProcurementMandate): string {
+  // Check structured requiredSpecs first
+  if (mandate.requiredSpecs && Array.isArray(mandate.requiredSpecs)) {
+    for (const spec of mandate.requiredSpecs) {
+      const name = spec.name.toLowerCase();
+      if (name === "category" || name === "productcategory") {
+        const val = spec.value.toLowerCase();
+        const matched = matchCategoryKeywords(val);
+        if (matched !== "unknown") return matched;
+        return val;
+      }
+    }
+  }
+
+  // 1. Inspect itemQuery text first
+  if (mandate.itemQuery) {
+    const itemMatch = matchCategoryKeywords(mandate.itemQuery);
+    if (itemMatch !== "unknown") return itemMatch;
+  }
+
+  // 2. Fall back to rawPrompt text
+  if (mandate.rawPrompt) {
+    const promptMatch = matchCategoryKeywords(mandate.rawPrompt);
+    if (promptMatch !== "unknown") return promptMatch;
+  }
+
+  return "unknown";
+}
+
+/**
+ * Sourcing Client for retrieving competing B2B vendor quotes.
  */
 export class Channel3Client {
   private apiKey: string | undefined;
@@ -82,13 +333,16 @@ export class Channel3Client {
   }
 
   /**
-   * Queries Channel3 or returns deterministic fixtures if API key is not configured.
+   * Queries Channel3 or returns category-constrained deterministic fixtures.
+   * If no fixtures exist for an unsupported category, returns an empty quote array
+   * rather than cross-contaminating with monitor quotes.
    */
   public async sourceQuotes(
     mandate: ProcurementMandate,
     options?: { forceFixtures?: boolean }
   ): Promise<SourcingResult> {
     const useFixtures = options?.forceFixtures || !this.apiKey;
+    const detectedCategory = detectMandateCategory(mandate);
 
     if (!useFixtures && this.apiKey) {
       try {
@@ -108,6 +362,7 @@ export class Channel3Client {
             maxBudget: mandate.maxTotalBudget,
             maxDeliveryDays: mandate.maxDeliveryDays,
             minReturnDays: mandate.minReturnDays,
+            category: detectedCategory !== "unknown" ? detectedCategory : undefined,
           }),
           signal: controller.signal,
         });
@@ -116,15 +371,17 @@ export class Channel3Client {
 
         if (response.ok) {
           const data = (await response.json()) as { quotes: VendorQuote[] };
-          if (Array.isArray(data.quotes) && data.quotes.length >= 3) {
+          if (Array.isArray(data.quotes) && data.quotes.length >= 1) {
             return {
-              quotes: data.quotes.slice(0, 3).map((q) => ({
+              quotes: data.quotes.map((q) => ({
                 ...q,
+                category: q.category || (detectedCategory !== "unknown" ? detectedCategory : undefined),
                 dataSource: "CHANNEL3",
               })),
               dataSource: "CHANNEL3",
               isFixture: false,
               timestamp: new Date().toISOString(),
+              category: detectedCategory,
             };
           }
         }
@@ -133,12 +390,26 @@ export class Channel3Client {
       }
     }
 
-    // Return deterministic fixtures with explicit labeling
+    // Return category-specific deterministic fixtures with explicit labeling
+    const catalog = FIXTURE_CATALOGS_BY_CATEGORY[detectedCategory];
+    if (catalog && catalog.length > 0) {
+      return {
+        quotes: catalog.map((q) => ({ ...q })),
+        dataSource: "MOCK_CATALOG",
+        isFixture: true,
+        timestamp: new Date().toISOString(),
+        category: detectedCategory,
+      };
+    }
+
+    // No appropriate fixtures exist for this category — return clear empty results state
+    // (Never return monitor quotes for unrelated mandate categories!)
     return {
-      quotes: DETERMINISTIC_FIXTURE_QUOTES.map((q) => ({ ...q })),
+      quotes: [],
       dataSource: "MOCK_CATALOG",
       isFixture: true,
       timestamp: new Date().toISOString(),
+      category: detectedCategory,
     };
   }
 }
