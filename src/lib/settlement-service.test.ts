@@ -306,4 +306,80 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
       expect(res.session?.paypalCaptureId).toBeUndefined();
     });
   });
+
+  describe("Phase 4.2 Settlement Gate Hardening", () => {
+    it("rejects checkout initiation if agreementRecord is from an older mandate version", async () => {
+      const staleSession: ProcurementSession = {
+        ...validSession,
+        id: "session-stale-mandate-initiate",
+        mandate: {
+          ...validSession.mandate,
+          version: 2,
+        },
+        agreementRecord: {
+          agreementId: "agree-stale-version",
+          sessionId: "session-stale-mandate-initiate",
+          vendorId: validSession.selectedQuote!.vendorId,
+          vendorName: validSession.selectedQuote!.vendorName,
+          sku: validSession.selectedQuote!.sku,
+          agreedPrice: 320,
+          agreedOffer: validSession.finalOffer!,
+          totalCost: 320 * 25 + 150,
+          agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+          acceptingParty: "VENDOR",
+          acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
+          round: 4,
+          acceptedAt: new Date().toISOString(),
+          mandateVersion: 1, // Stale!
+        },
+      };
+      sessionStore.saveSession(staleSession);
+
+      const service = new SettlementService();
+      const res = await service.initiateCheckout({ sessionId: staleSession.id });
+
+      expect(res.success).toBe(false);
+      expect(res.blockedAtGate).toBe(true);
+      expect(res.error).toContain("Stale agreement rejected");
+    });
+
+    it("rejects capture completion if agreementRecord is from an older mandate version", async () => {
+      const staleSession: ProcurementSession = {
+        ...validSession,
+        id: "session-stale-mandate-capture",
+        mandate: {
+          ...validSession.mandate,
+          version: 2,
+        },
+        agreementRecord: {
+          agreementId: "agree-stale-version-capture",
+          sessionId: "session-stale-mandate-capture",
+          vendorId: validSession.selectedQuote!.vendorId,
+          vendorName: validSession.selectedQuote!.vendorName,
+          sku: validSession.selectedQuote!.sku,
+          agreedPrice: 320,
+          agreedOffer: validSession.finalOffer!,
+          totalCost: 320 * 25 + 150,
+          agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+          acceptingParty: "VENDOR",
+          acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
+          round: 4,
+          acceptedAt: new Date().toISOString(),
+          mandateVersion: 1, // Stale!
+        },
+      };
+      sessionStore.saveSession(staleSession);
+
+      const service = new SettlementService();
+      const res = await service.completeSettlement({
+        sessionId: staleSession.id,
+        orderId: staleSession.paypalOrderId!,
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.blockedAtGate).toBe(true);
+      expect(res.error).toContain("Stale agreement rejected");
+    });
+  });
 });
+

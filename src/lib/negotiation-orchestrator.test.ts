@@ -398,6 +398,8 @@ describe("Negotiation Orchestrator Unit Tests", () => {
         totalCost: 8150,
         round: 4,
         agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+        acceptingParty: "VENDOR",
+        acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
         acceptedAt: new Date().toISOString(),
       };
       session.auditCertificate = {
@@ -428,5 +430,208 @@ describe("Negotiation Orchestrator Unit Tests", () => {
       expect(revisedSession.status).toBe("MANDATE_PENDING");
     });
   });
+
+  describe("Phase 4.2 Mutual Acceptance & Winner Selection Policy", () => {
+    it("emits explicit VENDOR_ACCEPTANCE or BUYER_ACCEPTANCE event on deal formation", async () => {
+      const emittedEvents: Array<{ type: string; payload: Record<string, unknown> }> = [];
+
+      const orchestrator = new NegotiationOrchestrator({
+        maxRounds: 4,
+        onEvent: (ev) => {
+          emittedEvents.push(ev);
+        },
+      });
+
+      const result = await orchestrator.runNegotiation(mandate, DETERMINISTIC_FIXTURE_QUOTES);
+
+      expect(result.completed).toBe(true);
+      expect(result.session.agreementRecord).toBeDefined();
+
+      const record = result.session.agreementRecord!;
+      expect(record.offerReference).toBeDefined();
+      expect(["VENDOR", "BUYER"]).toContain(record.acceptingParty);
+      expect([
+        "VENDOR_ACCEPTED_BUYER_OFFER",
+        "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+      ]).toContain(record.acceptanceMechanism);
+
+      // Verify explicit acceptance event was emitted for the agreed deal
+      const acceptanceEvents = emittedEvents.filter(
+        (e) => e.type === "VENDOR_ACCEPTANCE" || e.type === "BUYER_ACCEPTANCE"
+      );
+      expect(acceptanceEvents.length).toBeGreaterThanOrEqual(1);
+      const matchingEvent = acceptanceEvents.find((e) => e.payload.agreementId === record.agreementId);
+      expect(matchingEvent).toBeDefined();
+      expect(matchingEvent!.payload.agreedPrice).toBe(record.agreedPrice);
+    });
+
+    it("ranks candidates by highest multi-attribute utility (utility-maximizing policy)", async () => {
+      // Both vendors use the same FLEXIBLE strategy profile (via 'nextech' prefix)
+      // Vendor 1: slightly higher price ($320), but 1-day delivery and 60-day return policy
+      // Vendor 2: slightly lower price ($310, $10 cheaper), but 5-day delivery and 30-day return policy
+      // SLA utility differential is +0.3000, while price utility differential is only 0.70 * (10 / 93.75) = -0.0747
+      // Net utility is higher for Vendor 1 (0.7107 vs 0.4853), so Vendor 1 must win under multi-attribute utility policy!
+      const quoteHighUtility: VendorQuote = {
+        ...DETERMINISTIC_FIXTURE_QUOTES[0],
+        vendorId: "vendor-nextech-high-util",
+        vendorName: "NexTech High Utility",
+        initialUnitAsk: 380,
+        currentUnitBid: 345,
+        deliveryDays: 1, // max SLA utility (D_t = 1.0)
+        returnDays: 60,   // max SLA utility (R_t = 1.0)
+        shippingCost: 100, // Landed: 345 * 25 + 100 = 8725 -> after concession: ~330 * 25 + 100 = 8350 <= 8500
+      };
+
+      const quoteLowCost: VendorQuote = {
+        ...DETERMINISTIC_FIXTURE_QUOTES[0],
+        vendorId: "vendor-nextech-low-cost",
+        vendorName: "NexTech Low Cost",
+        initialUnitAsk: 380,
+        currentUnitBid: 335,
+        deliveryDays: 5, // min SLA utility (D_t = 0.0)
+        returnDays: 30,   // min SLA utility (R_t = 0.0)
+        shippingCost: 100, // Landed: ~320 * 25 + 100 = 8100 (Cheaper!)
+      };
+
+      const orchestrator = new NegotiationOrchestrator({
+        maxRounds: 1,
+      });
+
+      const result = await orchestrator.runNegotiation(mandate, [quoteLowCost, quoteHighUtility]);
+
+      expect(result.completed).toBe(true);
+      // Under multi-attribute utility policy, the superior SLA package wins despite higher price
+      expect(result.selectedQuote?.vendorId).toBe("vendor-nextech-high-util");
+    });
+
+    it("breaks utility ties by lowest total landed cost (secondary tie-breaker)", async () => {
+      // Two vendors with identical SLAs and unit price, but different shipping costs
+      const quoteCheaperShipping: VendorQuote = {
+        ...DETERMINISTIC_FIXTURE_QUOTES[0],
+        vendorId: "vendor-cheap-ship",
+        currentUnitBid: 315,
+        deliveryDays: 3,
+        returnDays: 35,
+        shippingCost: 50, // Landed: 315 * 25 + 50 = 7925
+      };
+
+      const quoteExpensiveShipping: VendorQuote = {
+        ...DETERMINISTIC_FIXTURE_QUOTES[0],
+        vendorId: "vendor-exp-ship",
+        currentUnitBid: 315,
+        deliveryDays: 3,
+        returnDays: 35,
+        shippingCost: 200, // Landed: 315 * 25 + 200 = 8075
+      };
+
+      const orchestrator = new NegotiationOrchestrator({
+        maxRounds: 1,
+      });
+
+      const result = await orchestrator.runNegotiation(mandate, [
+        quoteExpensiveShipping,
+        quoteCheaperShipping,
+      ]);
+
+      expect(result.completed).toBe(true);
+      expect(result.selectedQuote?.vendorId).toBe("vendor-cheap-ship");
+      expect(result.totalCost).toBe(7925);
+    });
+
+    it("breaks equal utility and equal landed cost ties alphabetically by vendorId (tertiary tie-breaker)", async () => {
+      const quoteA: VendorQuote = {
+        ...DETERMINISTIC_FIXTURE_QUOTES[0],
+        vendorId: "vendor-alpha",
+        currentUnitBid: 315,
+        deliveryDays: 3,
+        returnDays: 35,
+        shippingCost: 100, // Landed: 315 * 25 + 100 = 7975
+      };
+
+      const quoteB: VendorQuote = {
+        ...DETERMINISTIC_FIXTURE_QUOTES[0],
+        vendorId: "vendor-beta",
+        currentUnitBid: 315,
+        deliveryDays: 3,
+        returnDays: 35,
+        shippingCost: 100, // Landed: 315 * 25 + 100 = 7975
+      };
+
+      const orchestrator = new NegotiationOrchestrator({
+        maxRounds: 1,
+      });
+
+      // Pass quoteB first to ensure sort order determines winner, not insertion order
+      const result = await orchestrator.runNegotiation(mandate, [quoteB, quoteA]);
+
+      expect(result.completed).toBe(true);
+      expect(result.selectedQuote?.vendorId).toBe("vendor-alpha");
+    });
+
+    it("prevents duplicate acceptance events and preserves original agreement when vendor already agreed in early round", async () => {
+      const emittedEvents: Array<{ type: string; payload: Record<string, unknown> }> = [];
+      const quoteAgreeEarly: VendorQuote = {
+        ...DETERMINISTIC_FIXTURE_QUOTES[0],
+        vendorId: "vendor-agree-early",
+        initialUnitAsk: 300,
+        currentUnitBid: 280,
+        shippingCost: 50,
+      };
+
+      const orchestrator = new NegotiationOrchestrator({
+        maxRounds: 4,
+        onEvent: (ev) => {
+          emittedEvents.push(ev);
+        },
+      });
+
+      const result = await orchestrator.runNegotiation(mandate, [quoteAgreeEarly]);
+      expect(result.completed).toBe(true);
+      expect(result.session.agreementRecord).toBeDefined();
+
+      // Only ONE acceptance event should be emitted across all 4 rounds
+      const acceptanceEvents = emittedEvents.filter(
+        (e) => e.type === "VENDOR_ACCEPTANCE" || e.type === "BUYER_ACCEPTANCE"
+      );
+      expect(acceptanceEvents.length).toBe(1);
+      expect(acceptanceEvents[0].payload.agreementId).toBe(result.session.agreementRecord!.agreementId);
+    });
+
+    it("marks counteroffers as expired and produces NO_DEAL when deadline reached without acceptable counteroffer", async () => {
+      const emittedEvents: Array<{ type: string; payload: Record<string, unknown> }> = [];
+      const quoteUnfeasible: VendorQuote = {
+        ...DETERMINISTIC_FIXTURE_QUOTES[0],
+        vendorId: "vendor-unfeasible",
+        initialUnitAsk: 450,
+        currentUnitBid: 420,
+        shippingCost: 500, // Landed: 420 * 25 + 500 = 11,000 >> $8,500
+      };
+
+      const orchestrator = new NegotiationOrchestrator({
+        maxRounds: 2,
+        onEvent: (ev) => {
+          emittedEvents.push(ev);
+        },
+      });
+
+      const result = await orchestrator.runNegotiation(mandate, [quoteUnfeasible]);
+      expect(result.completed).toBe(false);
+      expect(result.session.status).toBe("AUDIT_FAILED");
+      expect(result.session.agreementRecord).toBeUndefined();
+      expect(result.selectedQuote).toBeUndefined();
+      expect(result.finalOffer).toBeUndefined();
+
+      // Verify NO acceptance events were emitted
+      const acceptanceEvents = emittedEvents.filter(
+        (e) => e.type === "VENDOR_ACCEPTANCE" || e.type === "BUYER_ACCEPTANCE"
+      );
+      expect(acceptanceEvents.length).toBe(0);
+
+      const noDealEvent = emittedEvents.find((e) => e.type === "NEGOTIATION_COMPLETED");
+      expect(noDealEvent).toBeDefined();
+      expect(noDealEvent!.payload.outcome).toBe("NO_DEAL");
+    });
+  });
 });
+
 

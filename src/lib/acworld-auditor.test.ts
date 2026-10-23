@@ -144,4 +144,65 @@ describe("ACWORLD Final-State Auditor Unit Tests", () => {
     expect(inv5.passed).toBe(false);
     expect(inv5.reason).toContain("Cryptographic lineage mismatch");
   });
+
+  it("fails Invariant 1 when agreementRecord is from an older mandate revision", () => {
+    const staleAgreementSession: ProcurementSession = {
+      ...validSession,
+      mandate: {
+        ...validSession.mandate,
+        version: 2, // Current mandate is version 2
+      },
+      agreementRecord: {
+        agreementId: "agree-stale",
+        sessionId: validSession.id,
+        vendorId: "vendor-apex",
+        vendorName: "Apex Displays Wholesale",
+        sku: "APX-4K-27-USBC",
+        agreedPrice: 320,
+        agreedOffer: validSession.finalOffer!,
+        totalCost: 320 * 25 + 150,
+        agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+        acceptingParty: "VENDOR",
+        acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
+        round: 4,
+        acceptedAt: new Date().toISOString(),
+        mandateVersion: 1, // Stale agreement from version 1!
+      },
+    };
+
+    const cert = auditor.audit({ session: staleAgreementSession });
+    expect(cert.passed).toBe(false);
+    const inv1 = cert.invariants.find((i) => i.name === "SKU_INTEGRITY")!;
+    expect(inv1.passed).toBe(false);
+    expect(inv1.reason).toContain("Stale agreement rejected");
+  });
+
+  it("fails Invariant 1 when agreementRecord vendor does not match selectedQuote", () => {
+    const mismatchedVendorSession: ProcurementSession = {
+      ...validSession,
+      agreementRecord: {
+        agreementId: "agree-wrong-vendor",
+        sessionId: validSession.id,
+        vendorId: "vendor-other", // Mismatched vendor!
+        vendorName: "Other Vendor",
+        sku: "OTHER-SKU",
+        agreedPrice: 320,
+        agreedOffer: validSession.finalOffer!,
+        totalCost: 320 * 25 + 150,
+        agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+        acceptingParty: "VENDOR",
+        acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
+        round: 4,
+        acceptedAt: new Date().toISOString(),
+        mandateVersion: 1,
+      },
+    };
+
+    const cert = auditor.audit({ session: mismatchedVendorSession });
+    expect(cert.passed).toBe(false);
+    const inv1 = cert.invariants.find((i) => i.name === "SKU_INTEGRITY")!;
+    expect(inv1.passed).toBe(false);
+    expect(inv1.reason).toContain("Agreement vendor mismatch");
+  });
 });
+

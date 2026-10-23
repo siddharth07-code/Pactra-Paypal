@@ -100,6 +100,25 @@ export class SettlementService {
       };
     }
 
+    if (session.agreementRecord) {
+      if (session.agreementRecord.mandateVersion !== (session.mandate.version ?? 1)) {
+        return {
+          success: false,
+          sessionId,
+          error: `Stale agreement rejected: agreement is from mandate version ${session.agreementRecord.mandateVersion}, current mandate is version ${session.mandate.version ?? 1}.`,
+          blockedAtGate: true,
+        };
+      }
+      if (session.agreementRecord.vendorId !== session.selectedQuote.vendorId) {
+        return {
+          success: false,
+          sessionId,
+          error: `Agreement vendor mismatch: recorded agreement vendor ${session.agreementRecord.vendorId} does not match selected vendor ${session.selectedQuote.vendorId}.`,
+          blockedAtGate: true,
+        };
+      }
+    }
+
     const finalOffer = session.finalOffer;
     const totalAmount = finalOffer.unitPrice * finalOffer.quantity + finalOffer.shippingCost;
 
@@ -288,6 +307,27 @@ export class SettlementService {
         error: `Session ${sessionId} has no final agreed offer or selected quote.`,
         blockedAtGate: true,
       };
+    }
+
+    if (session.agreementRecord) {
+      if (session.agreementRecord.mandateVersion !== (session.mandate.version ?? 1)) {
+        return {
+          success: false,
+          sessionId,
+          auditCertificate: this.buildFailedCertificate(sessionId, "Stale agreement from older mandate version."),
+          error: `Stale agreement rejected: agreement is from mandate version ${session.agreementRecord.mandateVersion}, current mandate is version ${session.mandate.version ?? 1}.`,
+          blockedAtGate: true,
+        };
+      }
+      if (session.agreementRecord.vendorId !== session.selectedQuote.vendorId) {
+        return {
+          success: false,
+          sessionId,
+          auditCertificate: this.buildFailedCertificate(sessionId, "Agreement vendor mismatch."),
+          error: `Agreement vendor mismatch: recorded agreement vendor ${session.agreementRecord.vendorId} does not match selected vendor ${session.selectedQuote.vendorId}.`,
+          blockedAtGate: true,
+        };
+      }
     }
 
     this.activeCaptureLocks.add(sessionId);

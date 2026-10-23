@@ -47,6 +47,12 @@ export class AcworldAuditor {
       skuReason = "Audit failed: No authoritative vendor quote was selected.";
     } else if (!finalOffer) {
       skuReason = "Audit failed: No agreed final offer is recorded.";
+    } else if (session.agreementRecord && session.agreementRecord.mandateVersion !== (mandate.version ?? 1)) {
+      skuReason = `Stale agreement rejected: agreement is from mandate version ${session.agreementRecord.mandateVersion}, current mandate is version ${mandate.version ?? 1}.`;
+    } else if (session.agreementRecord && session.agreementRecord.vendorId !== selectedQuote.vendorId) {
+      skuReason = `Agreement vendor mismatch: recorded agreement vendor ${session.agreementRecord.vendorId} does not match selected vendor ${selectedQuote.vendorId}.`;
+    } else if (session.agreementRecord && Math.abs(session.agreementRecord.agreedPrice - finalOffer.unitPrice) > 0.01) {
+      skuReason = `Agreement price mismatch: recorded agreed price $${session.agreementRecord.agreedPrice} does not match final offer $${finalOffer.unitPrice}.`;
     } else {
       // Check condition requirement if mandate specifies one
       if (mandate.requiredCondition && selectedQuote.condition !== mandate.requiredCondition) {

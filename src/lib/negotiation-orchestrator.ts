@@ -220,6 +220,12 @@ export class NegotiationOrchestrator {
         const state = vendorState.get(vendor.vendorId)!;
         const profile = vendorProfiles.get(vendor.vendorId)!;
 
+        // Mutual agreement already authoritatively reached with this vendor in an earlier round.
+        // Skip further proposal generation to prevent duplicate acceptance or modification of accepted terms.
+        if (state.agreement) {
+          continue;
+        }
+
         // Build cross-vendor intelligence summaries (strictly eligible competitors)
         const competingEligibleOffers: CompetingVendorOfferSummary[] = activeQuotes
           .filter((q) => q.vendorId !== vendor.vendorId)
@@ -476,6 +482,7 @@ export class NegotiationOrchestrator {
             accepted: vendorResponse.accepted,
           });
 
+          const turnId = `turn_${crypto.randomBytes(4).toString("hex")}`;
           if (vendorResponse.accepted) {
             const agreement: AgreementRecord = {
               agreementId: `agree_${crypto.randomBytes(6).toString("hex")}`,
@@ -483,10 +490,13 @@ export class NegotiationOrchestrator {
               vendorId: vendor.vendorId,
               vendorName: vendor.vendorName,
               sku: vendor.sku,
+              offerReference: turnId,
               agreedPrice: vendorResponse.unitAsk,
               agreedOffer: { ...offer, unitPrice: vendorResponse.unitAsk },
               totalCost: vendorResponse.unitAsk * mandate.quantity + vendor.shippingCost,
               agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+              acceptingParty: "VENDOR",
+              acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
               round,
               acceptedAt: new Date().toISOString(),
               mandateVersion: mandate.version ?? 1,
@@ -498,7 +508,7 @@ export class NegotiationOrchestrator {
           }
 
           const vendorTurn: NegotiationTurn = {
-            id: `turn_${crypto.randomBytes(4).toString("hex")}`,
+            id: turnId,
             round,
             vendorId: vendor.vendorId,
             actor: "VENDOR",
@@ -532,6 +542,23 @@ export class NegotiationOrchestrator {
               turn: vendorTurn,
             },
           });
+
+          if (vendorResponse.accepted) {
+            await this.emit({
+              type: "VENDOR_ACCEPTANCE",
+              payload: {
+                sessionId,
+                round,
+                vendorId: vendor.vendorId,
+                vendorName: vendor.vendorName,
+                agreedPrice: vendorResponse.unitAsk,
+                agreementId: state.agreement?.agreementId,
+                acceptingParty: "VENDOR",
+                acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
+                turn: vendorTurn,
+              },
+            });
+          }
         }
       }
 
@@ -597,16 +624,20 @@ export class NegotiationOrchestrator {
           arithmeticValid &&
           utility >= deadlineThreshold - 1e-6
         ) {
+          const acceptTurnId = `turn_${crypto.randomBytes(4).toString("hex")}`;
           const agreement: AgreementRecord = {
             agreementId: `agree_${crypto.randomBytes(6).toString("hex")}`,
             sessionId,
             vendorId: vendor.vendorId,
             vendorName: vendor.vendorName,
             sku: vendor.sku,
+            offerReference: acceptTurnId,
             agreedPrice: finalAsk,
             agreedOffer: candidateOffer,
             totalCost,
             agreedBy: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+            acceptingParty: "BUYER",
+            acceptanceMechanism: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
             round: this.maxRounds,
             acceptedAt: new Date().toISOString(),
             mandateVersion: mandate.version ?? 1,
@@ -615,7 +646,7 @@ export class NegotiationOrchestrator {
           state.offerState = "ACCEPTED";
 
           const acceptTurn: NegotiationTurn = {
-            id: `turn_${crypto.randomBytes(4).toString("hex")}`,
+            id: acceptTurnId,
             round: this.maxRounds,
             vendorId: vendor.vendorId,
             actor: "BUYER",
@@ -631,6 +662,21 @@ export class NegotiationOrchestrator {
             timestamp: new Date().toISOString(),
           };
           turns.push(acceptTurn);
+
+          await this.emit({
+            type: "BUYER_ACCEPTANCE",
+            payload: {
+              sessionId,
+              round: this.maxRounds,
+              vendorId: vendor.vendorId,
+              vendorName: vendor.vendorName,
+              agreedPrice: finalAsk,
+              agreementId: agreement.agreementId,
+              acceptingParty: "BUYER",
+              acceptanceMechanism: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+              turn: acceptTurn,
+            },
+          });
         } else {
           state.offerState = "EXPIRED";
         }

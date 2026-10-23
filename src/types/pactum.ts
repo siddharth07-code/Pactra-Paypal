@@ -217,10 +217,13 @@ export interface AgreementRecord {
   vendorId: string;
   vendorName: string;
   sku: string;
+  offerReference?: string;
   agreedPrice: number;
   agreedOffer: NegotiationOffer;
   totalCost: number;
   agreedBy: AgreementType;
+  acceptingParty: "VENDOR" | "BUYER";
+  acceptanceMechanism: AgreementType;
   round: number;
   acceptedAt: string;
   mandateVersion: number;

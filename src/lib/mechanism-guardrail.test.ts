@@ -502,6 +502,81 @@ describe("Mechanism-Design Guardrail Unit Tests", () => {
       expect(nanResult.passed).toBe(false);
       expect(nanResult.reason).toContain("invalid or non-numeric");
     });
+
+    it("demonstrates realistic procurement utility vs initial Boulware threshold behavior", () => {
+      // Mandate: D_max = 5, R_min = 30. Vendor initial ask = 380, target price (25% off) = 285.
+      // Realistic wholesale offer with 3-day delivery and 30-day return policy:
+      const realisticOffer: NegotiationOffer = {
+        unitPrice: 285.0, // target discount -> P_t = 1.0
+        quantity: 25,
+        deliveryDays: 3,  // D_t = (5 - 3) / 4 = 0.50
+        returnDays: 30,   // R_t = (30 - 30) / 30 = 0.0
+        shippingCost: 150,
+      };
+
+      const { utility, P_t, D_t, R_t } = calculateUtility(
+        realisticOffer,
+        sampleMandate,
+        sampleVendorQuote,
+        0.25
+      );
+
+      // Utility = 0.70 * 1.0 + 0.15 * 0.50 + 0.15 * 0.0 = 0.775
+      expect(P_t).toBe(1.0);
+      expect(D_t).toBe(0.50);
+      expect(R_t).toBe(0.0);
+      expect(utility).toBeCloseTo(0.775);
+
+      const T = 4;
+      const U_min = 0.35;
+      const beta = 3.0;
+
+      // In Round 1: tau(1) = 0.9898 -> Realistic offer is BLOCKED by Boulware (forcing firm stance)
+      const tau_1 = calculateBoulwareThreshold(1, T, U_min, beta);
+      expect(checkPredicateD(utility, 1, T, U_min, beta).passed).toBe(false);
+      expect(utility).toBeLessThan(tau_1);
+
+      // In Round 2: tau(2) = 0.9188 -> Still blocked
+      const tau_2 = calculateBoulwareThreshold(2, T, U_min, beta);
+      expect(checkPredicateD(utility, 2, T, U_min, beta).passed).toBe(false);
+      expect(utility).toBeLessThan(tau_2);
+
+      // In Round 3: tau(3) = 0.7258 -> Now FEASIBLE as threshold relaxes toward deadline
+      const tau_3 = calculateBoulwareThreshold(3, T, U_min, beta);
+      expect(checkPredicateD(utility, 3, T, U_min, beta).passed).toBe(true);
+      expect(utility).toBeGreaterThan(tau_3);
+
+      // In Round 4: tau(4) = 0.3500 -> Feasible
+      expect(checkPredicateD(utility, 4, T, U_min, beta).passed).toBe(true);
+    });
+
+    it("verifies anti-thrashing integer-cent strict monotonicity across sequential rounds", () => {
+      // Simulate multi-round sequence
+      const baseOffer: NegotiationOffer = {
+        unitPrice: 300.0,
+        quantity: 25,
+        deliveryDays: 4,
+        returnDays: 30,
+        shippingCost: 150,
+      };
+
+      // Round 1 -> Round 2: concession to 305.00 is valid
+      const r2Offer: NegotiationOffer = { ...baseOffer, unitPrice: 305.0 };
+      expect(checkPredicateE(r2Offer, baseOffer, 360.0).passed).toBe(true);
+
+      // Attempting to retreat even by 1 cent (304.99) is strictly rejected
+      const r2Retreat: NegotiationOffer = { ...baseOffer, unitPrice: 304.99 };
+      expect(checkPredicateE(r2Retreat, r2Offer, 360.0).passed).toBe(false);
+
+      // Round 2 -> Round 3: concession to 310.00 is valid
+      const r3Offer: NegotiationOffer = { ...baseOffer, unitPrice: 310.0 };
+      expect(checkPredicateE(r3Offer, r2Offer, 355.0).passed).toBe(true);
+
+      // Strict monotonicity in integer cents prevents any negative drift accumulation
+      expect(toCents(r3Offer.unitPrice)).toBeGreaterThan(toCents(r2Offer.unitPrice));
+      expect(toCents(r2Offer.unitPrice)).toBeGreaterThan(toCents(baseOffer.unitPrice));
+    });
   });
 });
+
 
