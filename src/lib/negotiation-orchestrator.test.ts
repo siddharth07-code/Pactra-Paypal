@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { NegotiationOrchestrator } from "./negotiation-orchestrator";
 import { DETERMINISTIC_FIXTURE_QUOTES } from "./channel3-client";
 import { GeminiNegotiationClient } from "./gemini-client";
+import { sessionStore } from "./session-store";
 import type { ProcurementMandate, VendorQuote, StructuredNegotiationState } from "../types/pactum";
 
 describe("Negotiation Orchestrator Unit Tests", () => {
@@ -121,7 +122,14 @@ describe("Negotiation Orchestrator Unit Tests", () => {
       maxRounds: 2, // 2 rounds for fast test
     });
 
-    const result = await orchestrator.runNegotiation(mandate, DETERMINISTIC_FIXTURE_QUOTES.slice(0, 1));
+    const feasibleQuote: VendorQuote = {
+      ...DETERMINISTIC_FIXTURE_QUOTES[0],
+      initialUnitAsk: 340.0,
+      currentUnitBid: 326.39,
+      shippingCost: 150.0,
+    };
+
+    const result = await orchestrator.runNegotiation(mandate, [feasibleQuote]);
 
     expect(result.completed).toBe(true);
     // In round 1, for 1 vendor: exactly 1 approved BUYER turn and 1 VENDOR turn
@@ -164,7 +172,14 @@ describe("Negotiation Orchestrator Unit Tests", () => {
       },
     });
 
-    const result = await orchestrator.runNegotiation(mandate, DETERMINISTIC_FIXTURE_QUOTES.slice(0, 1));
+    const feasibleLiveQuote: VendorQuote = {
+      ...DETERMINISTIC_FIXTURE_QUOTES[0],
+      initialUnitAsk: 340.0,
+      currentUnitBid: 310.0,
+      shippingCost: 150.0,
+    };
+
+    const result = await orchestrator.runNegotiation(mandate, [feasibleLiveQuote]);
 
     expect(result.completed).toBe(true);
     const buyerProposalEvents = emittedEvents.filter((e) => e.type === "BUYER_PROPOSAL");
@@ -302,6 +317,116 @@ describe("Negotiation Orchestrator Unit Tests", () => {
     expect(result.completed).toBe(true);
     // Lower landed cost must win
     expect(result.selectedQuote?.vendorId).toBe("vendor-tie-a");
-    expect(result.totalCost).toBe(8259.75);
+    expect(result.totalCost).toBe(8100);
+  });
+
+  describe("Agreement Semantics & Terminal Outcomes Verification (Phase 4.1)", () => {
+    it("creates an explicit AgreementRecord with mutual acceptance and records turnType/offerState", async () => {
+      const orchestrator = new NegotiationOrchestrator({
+        maxRounds: 4,
+      });
+
+      const result = await orchestrator.runNegotiation(mandate, DETERMINISTIC_FIXTURE_QUOTES);
+
+      expect(result.completed).toBe(true);
+      expect(result.session.agreementRecord).toBeDefined();
+
+      const record = result.session.agreementRecord!;
+      expect(record.agreementId).toBeDefined();
+      expect(record.vendorId).toBe(result.selectedQuote?.vendorId);
+      expect(record.agreedPrice).toBe(result.finalOffer?.unitPrice);
+      expect(record.totalCost).toBe(result.totalCost);
+      expect(["VENDOR_ACCEPTED_BUYER_OFFER", "BUYER_ACCEPTED_VENDOR_COUNTEROFFER"]).toContain(record.agreedBy);
+      expect(record.mandateVersion).toBe(mandate.version ?? 1);
+
+      // Verify all turns have explicit turnType and offerState
+      for (const turn of result.session.turns) {
+        expect(turn.turnType).toBeDefined();
+        expect(["PROPOSAL", "COUNTEROFFER", "ACCEPTANCE", "REJECTION"]).toContain(turn.turnType);
+        expect(turn.offerState).toBeDefined();
+        expect(["PROPOSED", "COUNTEROFFERED", "ACCEPTED", "REJECTED", "EXPIRED"]).toContain(turn.offerState);
+      }
+    });
+
+    it("clears winner and final offer on NO_DEAL, leaving no stale agreement record", async () => {
+      const impossibleMandate: ProcurementMandate = {
+        ...mandate,
+        id: "mandate-impossible-nodeal",
+        maxTotalBudget: 500, // $20/unit, cannot be satisfied
+      };
+
+      const orchestrator = new NegotiationOrchestrator({
+        maxRounds: 2,
+      });
+
+      const result = await orchestrator.runNegotiation(impossibleMandate, DETERMINISTIC_FIXTURE_QUOTES);
+
+      expect(result.completed).toBe(false);
+      expect(result.selectedQuote).toBeUndefined();
+      expect(result.finalOffer).toBeUndefined();
+      expect(result.totalCost).toBeUndefined();
+      expect(result.session.agreementRecord).toBeUndefined();
+      expect(result.session.status).toBe("AUDIT_FAILED");
+    });
+
+    it("invalidates stale agreement record when mandate is revised in sessionStore", () => {
+      const session = sessionStore.createSession(mandate);
+      session.status = "AUDIT_PASSED";
+      session.selectedQuote = DETERMINISTIC_FIXTURE_QUOTES[0];
+      session.finalOffer = {
+        unitPrice: 320,
+        quantity: 25,
+        deliveryDays: 4,
+        returnDays: 30,
+        shippingCost: 150,
+      };
+      session.agreementRecord = {
+        agreementId: "agree-123",
+        sessionId: session.id,
+        vendorId: DETERMINISTIC_FIXTURE_QUOTES[0].vendorId,
+        vendorName: DETERMINISTIC_FIXTURE_QUOTES[0].vendorName,
+        sku: DETERMINISTIC_FIXTURE_QUOTES[0].sku,
+        mandateVersion: 1,
+        agreedPrice: 320,
+        agreedOffer: {
+          unitPrice: 320,
+          quantity: 25,
+          deliveryDays: 4,
+          returnDays: 30,
+          shippingCost: 150,
+        },
+        totalCost: 8150,
+        round: 4,
+        agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+        acceptedAt: new Date().toISOString(),
+      };
+      session.auditCertificate = {
+        certificateId: "cert-123",
+        sessionId: session.id,
+        passed: true,
+        invariants: [
+          { name: "SKU_INTEGRITY", passed: true },
+          { name: "PRICE_CEILING", passed: true },
+          { name: "RETURN_POLICY", passed: true },
+          { name: "DELIVERY_SLA", passed: true },
+          { name: "CRYPTOGRAPHIC_LINEAGE", passed: true },
+        ],
+        timestamp: new Date().toISOString(),
+        verifiedRoot: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      };
+
+      // Revise the mandate with new budget
+      const revisedSession = sessionStore.reviseMandate(session.id, {
+        maxTotalBudget: 9000,
+      });
+
+      expect(revisedSession.mandate.version).toBe(2);
+      expect(revisedSession.agreementRecord).toBeUndefined();
+      expect(revisedSession.selectedQuote).toBeUndefined();
+      expect(revisedSession.finalOffer).toBeUndefined();
+      expect(revisedSession.auditCertificate).toBeUndefined();
+      expect(revisedSession.status).toBe("MANDATE_PENDING");
+    });
   });
 });
+

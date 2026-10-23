@@ -19,8 +19,15 @@ import type {
   CompetingVendorOfferSummary,
   GuardrailInterventionSummary,
   QuoteEvaluation,
+  AgreementRecord,
+  NegotiationOfferState,
 } from "../types/pactum";
-import { verifyBuyerOffer, calculateUtility, type GuardrailConfig } from "./mechanism-guardrail";
+import {
+  verifyBuyerOffer,
+  calculateUtility,
+  calculateBoulwareThreshold,
+  type GuardrailConfig,
+} from "./mechanism-guardrail";
 import { VeriPayMerkleTree } from "./veripay-merkle";
 import { GeminiNegotiationClient } from "./gemini-client";
 import { AcworldAuditor } from "./acworld-auditor";
@@ -186,6 +193,8 @@ export class NegotiationOrchestrator {
           accepted?: boolean;
         }>;
         interventions: GuardrailInterventionSummary[];
+        agreement?: AgreementRecord;
+        offerState: NegotiationOfferState;
       }
     >();
 
@@ -195,6 +204,7 @@ export class NegotiationOrchestrator {
         previousBuyerOffers: [],
         previousVendorCounteroffers: [],
         interventions: [],
+        offerState: "PROPOSED",
       });
     }
 
@@ -260,6 +270,7 @@ export class NegotiationOrchestrator {
             requiredCondition: mandate.requiredCondition,
           },
           previousGuardrailInterventions: [...state.interventions],
+          agreementRecord: state.agreement,
           status: "ACTIVE",
         };
 
@@ -329,6 +340,8 @@ export class NegotiationOrchestrator {
             round,
             vendorId: vendor.vendorId,
             actor: "BUYER",
+            turnType: "REJECTION",
+            offerState: "REJECTED",
             message: proposal.message,
             proposedOffer: offer,
             guardrailStatus: guardrailResult.status,
@@ -376,12 +389,45 @@ export class NegotiationOrchestrator {
             previousVendorAsk: state.currentVendorAsk,
             config: adjustedConfig,
           });
+
+          if (!guardrailResult.passed) {
+            state.offerState = "REJECTED";
+            turns.push({
+              id: `turn_${crypto.randomBytes(4).toString("hex")}`,
+              round,
+              vendorId: vendor.vendorId,
+              actor: "BUYER",
+              turnType: "REJECTION",
+              offerState: "REJECTED",
+              message: proposal.message,
+              proposedOffer: offer,
+              guardrailStatus: guardrailResult.status,
+              guardrailReason: guardrailResult.reason,
+              generator: proposal.generator,
+              timestamp: new Date().toISOString(),
+            });
+            await this.emit({
+              type: "GUARDRAIL_BLOCKED",
+              payload: {
+                sessionId,
+                round,
+                vendorId: vendor.vendorId,
+                vendorName: vendor.vendorName,
+                status: guardrailResult.status,
+                reason: guardrailResult.reason,
+                rejectedOffer: offer,
+                generator: proposal.generator,
+                latencyMs: proposal.latencyMs,
+              },
+            });
+          }
         }
 
         // Only transmit to vendor if APPROVED
         if (guardrailResult.passed) {
           state.previousBuyerOffer = offer;
           state.previousBuyerOffers.push(offer);
+          state.offerState = "PROPOSED";
 
           // Record approved buyer turn with explicit provenance
           const buyerTurn: NegotiationTurn = {
@@ -389,6 +435,8 @@ export class NegotiationOrchestrator {
             round,
             vendorId: vendor.vendorId,
             actor: "BUYER",
+            turnType: "PROPOSAL",
+            offerState: "PROPOSED",
             message: proposal.message,
             proposedOffer: offer,
             utilityScore: guardrailResult.utilityScore,
@@ -428,11 +476,35 @@ export class NegotiationOrchestrator {
             accepted: vendorResponse.accepted,
           });
 
+          if (vendorResponse.accepted) {
+            const agreement: AgreementRecord = {
+              agreementId: `agree_${crypto.randomBytes(6).toString("hex")}`,
+              sessionId,
+              vendorId: vendor.vendorId,
+              vendorName: vendor.vendorName,
+              sku: vendor.sku,
+              agreedPrice: vendorResponse.unitAsk,
+              agreedOffer: { ...offer, unitPrice: vendorResponse.unitAsk },
+              totalCost: vendorResponse.unitAsk * mandate.quantity + vendor.shippingCost,
+              agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+              round,
+              acceptedAt: new Date().toISOString(),
+              mandateVersion: mandate.version ?? 1,
+            };
+            state.agreement = agreement;
+            state.offerState = "ACCEPTED";
+          } else {
+            state.offerState = "COUNTEROFFERED";
+          }
+
           const vendorTurn: NegotiationTurn = {
             id: `turn_${crypto.randomBytes(4).toString("hex")}`,
             round,
             vendorId: vendor.vendorId,
             actor: "VENDOR",
+            turnType: vendorResponse.accepted ? "ACCEPTANCE" : "COUNTEROFFER",
+            offerState: vendorResponse.accepted ? "ACCEPTED" : "COUNTEROFFERED",
+            agreementId: state.agreement?.agreementId,
             message: vendorResponse.message,
             proposedOffer: {
               ...offer,
@@ -455,6 +527,7 @@ export class NegotiationOrchestrator {
               provenance: "SIMULATED_VENDOR",
               strategyType: profile.strategyType,
               accepted: vendorResponse.accepted,
+              agreementId: state.agreement?.agreementId,
               atFloor: vendorResponse.atFloor,
               turn: vendorTurn,
             },
@@ -480,65 +553,141 @@ export class NegotiationOrchestrator {
       });
     }
 
+    // Step B.2: Negotiation Closing & Agreement Formation
+    // For vendors where mutual agreement has not yet been formed, check if the buyer accepts their final counteroffer at the deadline
+    for (const vendor of activeQuotes) {
+      const state = vendorState.get(vendor.vendorId)!;
+      if (!state.agreement && state.previousBuyerOffer) {
+        const finalAsk = state.currentVendorAsk;
+        const totalCost = finalAsk * mandate.quantity + vendor.shippingCost;
+        const withinBudget = totalCost <= mandate.maxTotalBudget;
+        const deliveryCompliant = vendor.deliveryDays <= mandate.maxDeliveryDays;
+        const returnCompliant = vendor.returnDays >= mandate.minReturnDays;
+        const conditionCompliant =
+          !mandate.requiredCondition || vendor.condition === mandate.requiredCondition;
+        const arithmeticValid = Number.isFinite(totalCost) && totalCost > 0 && finalAsk > 0;
+
+        const candidateOffer: NegotiationOffer = {
+          unitPrice: finalAsk,
+          quantity: mandate.quantity,
+          deliveryDays: vendor.deliveryDays,
+          returnDays: vendor.returnDays,
+          shippingCost: vendor.shippingCost,
+        };
+
+        const { utility } = calculateUtility(
+          candidateOffer,
+          mandate,
+          vendor,
+          this.guardrailConfig.targetPriceDiscount ?? 0.25
+        );
+
+        const deadlineThreshold = calculateBoulwareThreshold(
+          this.maxRounds,
+          this.maxRounds,
+          this.guardrailConfig.minUtility ?? 0.35,
+          this.guardrailConfig.boulwareBeta ?? 3.0
+        );
+
+        if (
+          withinBudget &&
+          deliveryCompliant &&
+          returnCompliant &&
+          conditionCompliant &&
+          arithmeticValid &&
+          utility >= deadlineThreshold - 1e-6
+        ) {
+          const agreement: AgreementRecord = {
+            agreementId: `agree_${crypto.randomBytes(6).toString("hex")}`,
+            sessionId,
+            vendorId: vendor.vendorId,
+            vendorName: vendor.vendorName,
+            sku: vendor.sku,
+            agreedPrice: finalAsk,
+            agreedOffer: candidateOffer,
+            totalCost,
+            agreedBy: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+            round: this.maxRounds,
+            acceptedAt: new Date().toISOString(),
+            mandateVersion: mandate.version ?? 1,
+          };
+          state.agreement = agreement;
+          state.offerState = "ACCEPTED";
+
+          const acceptTurn: NegotiationTurn = {
+            id: `turn_${crypto.randomBytes(4).toString("hex")}`,
+            round: this.maxRounds,
+            vendorId: vendor.vendorId,
+            actor: "BUYER",
+            turnType: "ACCEPTANCE",
+            offerState: "ACCEPTED",
+            agreementId: agreement.agreementId,
+            message: `Simulated buyer response: We accept your final wholesale terms of $${finalAsk.toFixed(2)} per unit for ${mandate.quantity} units with ${vendor.deliveryDays}-day delivery and ${vendor.returnDays}-day return protection.`,
+            proposedOffer: candidateOffer,
+            utilityScore: utility,
+            boulwareThreshold: deadlineThreshold,
+            guardrailStatus: "APPROVED",
+            generator: "DETERMINISTIC_FALLBACK",
+            timestamp: new Date().toISOString(),
+          };
+          turns.push(acceptTurn);
+        } else {
+          state.offerState = "EXPIRED";
+        }
+      }
+    }
+
     // Step C: Deterministic Offer Ranking, Validation, & Selection Policy
-    // Validate each vendor's final terms strictly against all mandatory mandate constraints
-    const evaluatedQuotes = activeQuotes.map((quote) => {
-      const state = vendorState.get(quote.vendorId);
-      const agreedUnitPrice = state?.previousBuyerOffer?.unitPrice ?? quote.currentUnitBid;
-      const totalCost = agreedUnitPrice * mandate.quantity + quote.shippingCost;
+    // Only vendors with a valid, authoritative AgreementRecord are eligible candidates
+    const evaluatedCandidates = activeQuotes
+      .map((quote) => {
+        const state = vendorState.get(quote.vendorId);
+        const agreement = state?.agreement;
+        if (!agreement) {
+          return null;
+        }
 
-      // 1. Financial check: within budget ceiling
-      const withinBudget = totalCost <= mandate.maxTotalBudget;
+        // Authoritatively re-validate the agreement against the current locked mandate
+        const withinBudget = agreement.totalCost <= mandate.maxTotalBudget;
+        const deliveryCompliant = agreement.agreedOffer.deliveryDays <= mandate.maxDeliveryDays;
+        const returnCompliant = agreement.agreedOffer.returnDays >= mandate.minReturnDays;
+        const conditionCompliant =
+          !mandate.requiredCondition || quote.condition === mandate.requiredCondition;
+        const arithmeticValid =
+          Number.isFinite(agreement.totalCost) &&
+          agreement.totalCost > 0 &&
+          agreement.agreedPrice > 0;
+        const mandateVersionValid =
+          agreement.mandateVersion === (mandate.version ?? 1);
 
-      // 2. Delivery SLA check: delivery time <= mandated max delivery
-      const deliveryCompliant = quote.deliveryDays <= mandate.maxDeliveryDays;
+        const feasible =
+          withinBudget &&
+          deliveryCompliant &&
+          returnCompliant &&
+          conditionCompliant &&
+          arithmeticValid &&
+          mandateVersionValid;
 
-      // 3. Return Policy check: return window >= mandated min return
-      const returnCompliant = quote.returnDays >= mandate.minReturnDays;
+        if (!feasible) return null;
 
-      // 4. Condition check (if mandated)
-      const conditionCompliant =
-        !mandate.requiredCondition || quote.condition === mandate.requiredCondition;
+        const { utility } = calculateUtility(
+          agreement.agreedOffer,
+          mandate,
+          quote,
+          this.guardrailConfig.targetPriceDiscount ?? 0.25
+        );
 
-      // 5. Numerical validity
-      const arithmeticValid = Number.isFinite(totalCost) && totalCost > 0 && agreedUnitPrice > 0;
-
-      const feasible =
-        withinBudget &&
-        deliveryCompliant &&
-        returnCompliant &&
-        conditionCompliant &&
-        arithmeticValid;
-
-      const candidateOffer: NegotiationOffer = {
-        unitPrice: agreedUnitPrice,
-        quantity: mandate.quantity,
-        deliveryDays: quote.deliveryDays,
-        returnDays: quote.returnDays,
-        shippingCost: quote.shippingCost,
-      };
-
-      const { utility } = calculateUtility(
-        candidateOffer,
-        mandate,
-        quote,
-        this.guardrailConfig.targetPriceDiscount ?? 0.25
-      );
-
-      return {
-        quote,
-        agreedUnitPrice,
-        totalCost,
-        feasible,
-        utility,
-        candidateOffer,
-      };
-    });
-
-    const feasibleCandidates = evaluatedQuotes.filter((item) => item.feasible);
+        return {
+          quote,
+          agreement,
+          totalCost: agreement.totalCost,
+          utility,
+        };
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
 
     // If NO offer is acceptable/feasible, orchestrator produces an explicit no-deal outcome
-    if (feasibleCandidates.length === 0) {
+    if (evaluatedCandidates.length === 0) {
       const session: ProcurementSession = {
         id: sessionId,
         mandate,
@@ -546,6 +695,7 @@ export class NegotiationOrchestrator {
         turns,
         selectedQuote: undefined,
         finalOffer: undefined,
+        agreementRecord: undefined,
         status: "AUDIT_FAILED",
         merkleRoot: merkleTree.getRootHash(),
         preSettlementRoot: merkleTree.getRootHash(),
@@ -584,7 +734,7 @@ export class NegotiationOrchestrator {
     // 1. Highest multi-attribute utility score
     // 2. Deterministic tie-breaking by lowest total landed cost (if utility difference < 1e-4)
     // 3. Deterministic alphabetical tie-breaking by vendorId (if cost difference < $0.01)
-    feasibleCandidates.sort((a, b) => {
+    evaluatedCandidates.sort((a, b) => {
       const utilityDiff = b.utility - a.utility;
       if (Math.abs(utilityDiff) > 1e-4) {
         return utilityDiff;
@@ -596,15 +746,9 @@ export class NegotiationOrchestrator {
       return a.quote.vendorId.localeCompare(b.quote.vendorId);
     });
 
-    const winner = feasibleCandidates[0];
+    const winner = evaluatedCandidates[0];
 
-    const finalOffer: NegotiationOffer = {
-      unitPrice: winner.agreedUnitPrice,
-      quantity: mandate.quantity,
-      deliveryDays: winner.quote.deliveryDays,
-      returnDays: winner.quote.returnDays,
-      shippingCost: winner.quote.shippingCost,
-    };
+    const finalOffer: NegotiationOffer = winner.agreement.agreedOffer;
 
     // Calculate baseline cost vs negotiated savings
     const initialBaselineCost =
@@ -621,6 +765,7 @@ export class NegotiationOrchestrator {
       turns,
       selectedQuote: winner.quote,
       finalOffer,
+      agreementRecord: winner.agreement,
       status: "AUDIT_PENDING",
       merkleRoot: merkleTree.getRootHash(),
       preSettlementRoot: merkleTree.getRootHash(),
@@ -636,6 +781,7 @@ export class NegotiationOrchestrator {
       turns,
       selectedQuote: winner.quote,
       finalOffer,
+      agreementRecord: winner.agreement,
       status: auditCertificate.passed ? "AUDIT_PASSED" : "AUDIT_FAILED",
       auditCertificate,
       merkleRoot: merkleTree.getRootHash(),

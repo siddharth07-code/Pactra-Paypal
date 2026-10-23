@@ -322,9 +322,23 @@ export function calculateUtility(
   const w_d = 0.15;
   const w_r = 0.15;
 
+  // Defensive validation for numerical integrity
+  if (
+    !offer ||
+    !Number.isFinite(offer.unitPrice) ||
+    !Number.isFinite(offer.deliveryDays) ||
+    !Number.isFinite(offer.returnDays) ||
+    !vendorQuote ||
+    !Number.isFinite(vendorQuote.initialUnitAsk) ||
+    vendorQuote.initialUnitAsk <= 0
+  ) {
+    return { utility: 0, P_t: 0, D_t: 0, R_t: 0 };
+  }
+
   const p_ask = vendorQuote.initialUnitAsk;
+  const safeDiscount = Number.isFinite(targetDiscount) && targetDiscount > 0 && targetDiscount < 1 ? targetDiscount : 0.25;
   // target price: e.g. 25% discount off initial unit ask
-  const p_target = p_ask * (1 - targetDiscount);
+  const p_target = p_ask * (1 - safeDiscount);
 
   // Price component P_t
   let P_t = 0;
@@ -357,10 +371,11 @@ export function calculateUtility(
   }
   R_t = Math.max(0, Math.min(1, R_t));
 
-  const utility = w_p * P_t + w_d * D_t + w_r * R_t;
+  const rawUtility = w_p * P_t + w_d * D_t + w_r * R_t;
+  const utility = Number.isFinite(rawUtility) ? Math.max(0, Math.min(1, rawUtility)) : 0;
 
   return {
-    utility: Math.max(0, Math.min(1, utility)),
+    utility,
     P_t,
     D_t,
     R_t,
@@ -383,12 +398,39 @@ export function calculateBoulwareThreshold(
   U_min: number = 0.35,
   beta: number = 3.0
 ): number {
-  if (T <= 0) return U_min;
+  if (!Number.isFinite(t) || !Number.isFinite(T) || T <= 0) {
+    return Number.isFinite(U_min) ? Math.max(0, Math.min(1, U_min)) : 0.35;
+  }
+  const safeUmin = Number.isFinite(U_min) ? Math.max(0, Math.min(1, U_min)) : 0.35;
+  const safeBeta = Number.isFinite(beta) && beta > 0 ? beta : 3.0;
+
   // Normalized round progress: clamped to [0, 1]
   const progress = Math.max(0, Math.min(1, t / T));
-  const decay = Math.pow(progress, beta);
-  const threshold = U_min + (1 - U_min) * (1 - decay);
+  const decay = Math.pow(progress, safeBeta);
+  const threshold = safeUmin + (1 - safeUmin) * (1 - decay);
   return Math.max(0, Math.min(1, threshold));
+}
+
+/**
+ * Predicate D verifier helper
+ */
+export function checkPredicateD(
+  utility: number,
+  round: number,
+  T: number = 5,
+  U_min: number = 0.35,
+  beta: number = 3.0
+): GuardrailCheckDetail {
+  const threshold = calculateBoulwareThreshold(round, T, U_min, beta);
+  const passed = utility >= threshold - 1e-6; // small tolerance for floating point
+  return {
+    passed,
+    predicate: "D_BOULWARE",
+    reason: passed
+      ? undefined
+      : `Utility score ${utility.toFixed(4)} fails Boulware threshold ${threshold.toFixed(4)} in round ${round} of ${T}.`,
+    computedValues: { utility, threshold, round, maxRounds: T },
+  };
 }
 
 /**
@@ -406,6 +448,20 @@ export function checkPredicateE(
   previousBuyerOffer?: NegotiationOffer,
   previousVendorAsk?: number
 ): GuardrailCheckDetail {
+  if (
+    !offer ||
+    typeof offer.unitPrice !== "number" ||
+    !Number.isFinite(offer.unitPrice) ||
+    offer.unitPrice < 0
+  ) {
+    return {
+      passed: false,
+      predicate: "E_ANTI_THRASHING",
+      reason: "Anti-thrashing violated: proposed unit price is invalid or non-numeric.",
+      computedValues: { proposedPrice: offer?.unitPrice },
+    };
+  }
+
   const p_t = offer.unitPrice;
 
   // Upper bound check: p_t <= p_(vendor, t-1)
@@ -531,15 +587,7 @@ export function verifyBuyerOffer(
 
   // Predicate D: Boulware Threshold check
   const threshold = calculateBoulwareThreshold(round, T, U_min, beta);
-  const predDPassed = utility >= threshold - 1e-6; // small tolerance for floating point
-  const predD: GuardrailCheckDetail = {
-    passed: predDPassed,
-    predicate: "D_BOULWARE",
-    reason: predDPassed
-      ? undefined
-      : `Utility score ${utility.toFixed(4)} fails Boulware threshold ${threshold.toFixed(4)} in round ${round} of ${T}.`,
-    computedValues: { utility, threshold, round, maxRounds: T },
-  };
+  const predD = checkPredicateD(utility, round, T, U_min, beta);
   details.push(predD);
 
   if (!predD.passed) {

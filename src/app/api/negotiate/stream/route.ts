@@ -66,6 +66,18 @@ export async function POST(req: NextRequest) {
     if (sessionId && typeof sessionId === "string") {
       const existingSession = sessionStore.getSession(sessionId);
       if (existingSession && existingSession.quotes && existingSession.quotes.length > 0) {
+        if (
+          existingSession.status === "PAYPAL_CAPTURED" ||
+          existingSession.status === "SETTLED" ||
+          existingSession.status === "CANCELLED"
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: `Session ${sessionId} has already reached terminal status (${existingSession.status}) and cannot re-enter negotiation.`,
+            }),
+            { status: 409, headers: { "Content-Type": "application/json" } }
+          );
+        }
         mandate = existingSession.mandate;
         reusedQuotes = existingSession.quotes;
         targetSessionId = existingSession.id;

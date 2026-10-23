@@ -191,6 +191,7 @@ class AuthoritativeSessionStore {
     // Invalidate stale offers, certificates, and roots
     session.selectedQuote = undefined;
     session.finalOffer = undefined;
+    session.agreementRecord = undefined;
     session.auditCertificate = undefined;
     session.merkleRoot = undefined;
     session.preSettlementRoot = undefined;

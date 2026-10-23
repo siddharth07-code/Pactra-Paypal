@@ -4,6 +4,7 @@ import {
   checkPredicateB,
   calculateUtility,
   calculateBoulwareThreshold,
+  checkPredicateD,
   checkPredicateE,
   verifyBuyerOffer,
   toCents,
@@ -348,4 +349,159 @@ describe("Mechanism-Design Guardrail Unit Tests", () => {
       expect(result.reason).toContain("Simulated demonstration intervention");
     });
   });
+
+  describe("Adversarial & Boundary Verification (Phase 4.1)", () => {
+    it("handles exact Boulware threshold equality and near-boundary values", () => {
+      const T = 4;
+      const U_min = 0.35;
+      const beta = 3.0;
+
+      // In final round t=4, tau(4) = 0.35
+      const tau_4 = calculateBoulwareThreshold(4, T, U_min, beta);
+      expect(tau_4).toBeCloseTo(0.35);
+
+      // Exact equality: utility = 0.35
+      const exactResult = checkPredicateD(0.35, 4, T, U_min, beta);
+      expect(exactResult.passed).toBe(true);
+
+      // Value immediately above: 0.350001
+      const aboveResult = checkPredicateD(0.350001, 4, T, U_min, beta);
+      expect(aboveResult.passed).toBe(true);
+
+      // Value immediately below: 0.34999
+      const belowResult = checkPredicateD(0.34999, 4, T, U_min, beta);
+      expect(belowResult.passed).toBe(false);
+      expect(belowResult.reason).toContain("fails Boulware threshold");
+    });
+
+    it("evaluates Boulware threshold at boundary t=0 and t=1", () => {
+      const T = 5;
+      const U_min = 0.35;
+
+      // At round 0 (before round 1), threshold is firm 1.0
+      const tau_0 = calculateBoulwareThreshold(0, T, U_min);
+      expect(tau_0).toBe(1.0);
+
+      // At round 1, (1/5)^3 = 1/125 = 0.008 -> 0.35 + 0.65 * 0.992 = 0.9948
+      const tau_1 = calculateBoulwareThreshold(1, T, U_min);
+      expect(tau_1).toBeGreaterThan(0.99);
+      expect(tau_1).toBeLessThanOrEqual(1.0);
+
+      // Out of bounds round (t > T) clamps cleanly to U_min
+      const tau_over = calculateBoulwareThreshold(10, T, U_min);
+      expect(tau_over).toBe(U_min);
+    });
+
+    it("handles non-finite or degenerate arguments to calculateBoulwareThreshold", () => {
+      expect(calculateBoulwareThreshold(NaN, 4, 0.35)).toBe(0.35);
+      expect(calculateBoulwareThreshold(1, NaN, 0.35)).toBe(0.35);
+      expect(calculateBoulwareThreshold(1, 0, 0.35)).toBe(0.35);
+      // When U_min is NaN, safely falls back to 0.35 default and computes valid threshold in [0, 1]
+      const tauWithNanUmin = calculateBoulwareThreshold(1, 4, NaN);
+      expect(Number.isFinite(tauWithNanUmin)).toBe(true);
+      expect(tauWithNanUmin).toBeGreaterThan(0.9);
+      expect(tauWithNanUmin).toBeLessThanOrEqual(1.0);
+      expect(calculateBoulwareThreshold(4, 4, NaN)).toBeCloseTo(0.35);
+    });
+
+    it("strictly clamps utility components P_t, D_t, R_t to [0, 1] under extreme values", () => {
+      // Extremely low price (higher than ask, or negative price)
+      const extremeHighPriceOffer: NegotiationOffer = {
+        unitPrice: 500.0, // Above initial ask (380)
+        quantity: 25,
+        deliveryDays: 10, // Exceeds maxDeliveryDays (5)
+        returnDays: 10,   // Below minReturnDays (30)
+        shippingCost: 0,
+      };
+
+      const { utility, P_t, D_t, R_t } = calculateUtility(
+        extremeHighPriceOffer,
+        sampleMandate,
+        sampleVendorQuote,
+        0.25
+      );
+
+      expect(P_t).toBe(0);
+      expect(D_t).toBe(0);
+      expect(R_t).toBe(0);
+      expect(utility).toBe(0);
+
+      // Extremely aggressive buyer offer (far below target price, generous return, 1 day delivery)
+      const extremeAggressiveOffer: NegotiationOffer = {
+        unitPrice: 100.0, // Far below target 285
+        quantity: 25,
+        deliveryDays: 0,  // < 1
+        returnDays: 90,   // > 60
+        shippingCost: 0,
+      };
+
+      const aggressiveResult = calculateUtility(
+        extremeAggressiveOffer,
+        sampleMandate,
+        sampleVendorQuote,
+        0.25
+      );
+
+      expect(aggressiveResult.P_t).toBe(1.0);
+      expect(aggressiveResult.D_t).toBe(1.0);
+      expect(aggressiveResult.R_t).toBe(1.0);
+      expect(aggressiveResult.utility).toBe(1.0);
+    });
+
+    it("safely handles non-numeric or NaN values in calculateUtility without throwing", () => {
+      const nanOffer: NegotiationOffer = {
+        unitPrice: NaN,
+        quantity: 25,
+        deliveryDays: NaN,
+        returnDays: NaN,
+        shippingCost: 0,
+      };
+
+      const result = calculateUtility(nanOffer, sampleMandate, sampleVendorQuote);
+      expect(result.utility).toBe(0);
+      expect(Number.isFinite(result.utility)).toBe(true);
+    });
+
+    it("verifies Predicate E exact boundaries and micro-tolerance handling", () => {
+      const prevBuyerOffer: NegotiationOffer = {
+        unitPrice: 320.0,
+        quantity: 25,
+        deliveryDays: 4,
+        returnDays: 30,
+        shippingCost: 150,
+      };
+      const prevVendorAsk = 350.0;
+
+      // Exact equality with prevBuyerOffer (repeating previous bid): valid
+      const repeatBid: NegotiationOffer = { ...prevBuyerOffer, unitPrice: 320.0 };
+      expect(checkPredicateE(repeatBid, prevBuyerOffer, prevVendorAsk).passed).toBe(true);
+
+      // Exact equality with prevVendorAsk (meeting vendor's ask): valid
+      const meetAsk: NegotiationOffer = { ...prevBuyerOffer, unitPrice: 350.0 };
+      expect(checkPredicateE(meetAsk, prevBuyerOffer, prevVendorAsk).passed).toBe(true);
+
+      // Concession within boundaries: valid
+      const validConcession: NegotiationOffer = { ...prevBuyerOffer, unitPrice: 335.0 };
+      expect(checkPredicateE(validConcession, prevBuyerOffer, prevVendorAsk).passed).toBe(true);
+
+      // Violation: dropping below previous buyer offer by 2 cents: rejected
+      const bidUnder: NegotiationOffer = { ...prevBuyerOffer, unitPrice: 319.98 };
+      const bidUnderResult = checkPredicateE(bidUnder, prevBuyerOffer, prevVendorAsk);
+      expect(bidUnderResult.passed).toBe(false);
+      expect(bidUnderResult.reason).toContain("decreased below previous buyer offer");
+
+      // Violation: exceeding vendor ask by 2 cents: rejected
+      const bidOver: NegotiationOffer = { ...prevBuyerOffer, unitPrice: 350.02 };
+      const bidOverResult = checkPredicateE(bidOver, prevBuyerOffer, prevVendorAsk);
+      expect(bidOverResult.passed).toBe(false);
+      expect(bidOverResult.reason).toContain("exceeds vendor's previous ask");
+
+      // Non-numeric unit price: rejected
+      const nanBid: NegotiationOffer = { ...prevBuyerOffer, unitPrice: NaN };
+      const nanResult = checkPredicateE(nanBid, prevBuyerOffer, prevVendorAsk);
+      expect(nanResult.passed).toBe(false);
+      expect(nanResult.reason).toContain("invalid or non-numeric");
+    });
+  });
 });
+

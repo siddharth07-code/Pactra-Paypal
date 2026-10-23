@@ -194,11 +194,32 @@ export function calculateSimulatedVendorCounteroffer(params: {
   const { vendorQuote, buyerOffer, round, maxRounds } = params;
   const profile = params.profile ?? getVendorSimulationProfile(vendorQuote);
 
-  const currentAsk = vendorQuote.currentUnitBid;
-  const buyerBid = buyerOffer.unitPrice;
-  const floor = profile.minimumAcceptablePrice;
-  const safeMaxRounds = Math.max(1, maxRounds);
-  const roundProgress = Math.max(0, Math.min(1, round / safeMaxRounds));
+  const currentAsk = vendorQuote?.currentUnitBid;
+  const buyerBid = buyerOffer?.unitPrice;
+  const floor = profile?.minimumAcceptablePrice;
+  const safeMaxRounds = Number.isFinite(maxRounds) && maxRounds > 0 ? maxRounds : 4;
+  const safeRound = Number.isFinite(round) && round > 0 ? round : 1;
+  const roundProgress = Math.max(0, Math.min(1, safeRound / safeMaxRounds));
+
+  // Defensive validation: handle malformed or non-numeric commercial inputs
+  if (
+    !Number.isFinite(currentAsk) ||
+    currentAsk <= 0 ||
+    !Number.isFinite(buyerBid) ||
+    buyerBid <= 0 ||
+    !Number.isFinite(floor) ||
+    floor <= 0
+  ) {
+    const safeHoldPrice = Number.isFinite(floor) && floor > 0 ? floor : (vendorQuote?.initialUnitAsk ?? 350);
+    return {
+      unitAsk: safeHoldPrice,
+      message: `Simulated supplier response: Commercial parameters are invalid or non-numeric. We hold our firm offer at $${safeHoldPrice.toFixed(2)} per unit.`,
+      accepted: false,
+      atFloor: true,
+      provenance: "SIMULATED_VENDOR",
+      strategyType: profile?.strategyType ?? "FIRM",
+    };
+  }
 
   // Case 1: Buyer bid meets or exceeds vendor's current ask -> Immediate agreement
   if (buyerBid >= currentAsk) {

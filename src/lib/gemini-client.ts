@@ -300,6 +300,81 @@ MANDATORY RULES:
   }
 
   /**
+   * Authoritatively filters and sanitizes competing quotes for competitive benchmarking.
+   * Guarantees:
+   * 1. Active vendor is excluded.
+   * 2. Ineligible and NEEDS_REVIEW quotes are excluded.
+   * 3. Currency matches mandate currency.
+   * 4. Numerical values (unit bid, shipping) are positive, finite numbers.
+   * 5. Mandate SLA and budget constraints are respected.
+   * 6. Duplicate vendor IDs are deduplicated.
+   */
+  public filterEligibleCompetitors(
+    activeVendorQuote: VendorQuote,
+    mandate: ProcurementMandate,
+    competingQuotes?: VendorQuote[],
+    quoteEvaluations?: Record<string, QuoteEvaluation>
+  ): VendorQuote[] {
+    if (!competingQuotes || competingQuotes.length === 0) return [];
+
+    const candidateMap = new Map<string, VendorQuote>();
+
+    for (const q of competingQuotes) {
+      if (!q || !q.vendorId) continue;
+      // Exclude active vendor from competitor benchmark
+      if (q.vendorId === activeVendorQuote.vendorId) continue;
+
+      // Validate numeric values
+      if (
+        !Number.isFinite(q.currentUnitBid) ||
+        q.currentUnitBid <= 0 ||
+        !Number.isFinite(q.shippingCost) ||
+        q.shippingCost < 0 ||
+        !Number.isFinite(q.deliveryDays) ||
+        q.deliveryDays <= 0 ||
+        !Number.isFinite(q.returnDays) ||
+        q.returnDays < 0
+      ) {
+        continue;
+      }
+
+      // Check currency consistency
+      const evalItem = quoteEvaluations ? quoteEvaluations[q.vendorId] : undefined;
+      const currency = evalItem?.financials?.currency ?? (q as { currency?: string }).currency ?? mandate.currency;
+      if (currency !== mandate.currency) {
+        continue;
+      }
+
+      // Check eligibility status
+      if (quoteEvaluations) {
+        if (!evalItem || evalItem.status !== "ELIGIBLE") {
+          continue;
+        }
+      } else {
+        // Fallback checks when evaluations are not passed: ensure compliance with mandate constraints
+        if (q.deliveryDays > mandate.maxDeliveryDays) continue;
+        if (q.returnDays < mandate.minReturnDays) continue;
+        const totalLanded = q.currentUnitBid * mandate.quantity + q.shippingCost;
+        if (totalLanded > mandate.maxTotalBudget) continue;
+      }
+
+      // Deduplicate: if duplicate vendorId, retain the one with lower landed cost
+      const existing = candidateMap.get(q.vendorId);
+      if (!existing) {
+        candidateMap.set(q.vendorId, q);
+      } else {
+        const existingLanded = existing.currentUnitBid * mandate.quantity + existing.shippingCost;
+        const newLanded = q.currentUnitBid * mandate.quantity + q.shippingCost;
+        if (newLanded < existingLanded) {
+          candidateMap.set(q.vendorId, q);
+        }
+      }
+    }
+
+    return Array.from(candidateMap.values());
+  }
+
+  /**
    * Builds safe prompt providing internal enterprise constraints, negotiation history,
    * cross-vendor intelligence, and current supplier state while isolating untrusted vendor fields.
    */
@@ -337,34 +412,29 @@ MANDATORY RULES:
 
     // 2. Cross-Vendor Competitive Intelligence (Filter ONLY ELIGIBLE competitors)
     let competitorSection = "No competing eligible suppliers available for benchmarking.";
-    if (competingQuotes && competingQuotes.length > 0) {
-      // Exclude current vendor and strictly exclude INELIGIBLE or NEEDS_REVIEW quotes
-      const eligibleCompetitors = competingQuotes.filter((q) => {
-        if (q.vendorId === vendorQuote.vendorId) return false;
-        if (quoteEvaluations) {
-          const evalResult = quoteEvaluations[q.vendorId];
-          return evalResult?.status === "ELIGIBLE";
-        }
-        return q.status === "ACTIVE";
+    const eligibleCompetitors = this.filterEligibleCompetitors(
+      vendorQuote,
+      mandate,
+      competingQuotes,
+      quoteEvaluations
+    );
+
+    if (eligibleCompetitors.length > 0) {
+      const summaries = eligibleCompetitors.map((comp) => {
+        const landed = comp.currentUnitBid * mandate.quantity + comp.shippingCost;
+        return `- ${this.sanitizeVendorField(comp.vendorName)} (${this.sanitizeVendorField(comp.sku)}): Landed Cost $${landed.toFixed(2)} ($${comp.currentUnitBid.toFixed(2)}/unit + $${comp.shippingCost.toFixed(2)} ship), Delivery: ${comp.deliveryDays}d, Return: ${comp.returnDays}d, Condition: ${comp.condition}, Source: ${comp.dataSource}`;
       });
 
-      if (eligibleCompetitors.length > 0) {
-        const summaries = eligibleCompetitors.map((comp) => {
-          const landed = comp.currentUnitBid * mandate.quantity + comp.shippingCost;
-          return `- ${this.sanitizeVendorField(comp.vendorName)} (${this.sanitizeVendorField(comp.sku)}): Landed Cost $${landed.toFixed(2)} ($${comp.currentUnitBid.toFixed(2)}/unit + $${comp.shippingCost.toFixed(2)} ship), Delivery: ${comp.deliveryDays}d, Return: ${comp.returnDays}d, Condition: ${comp.condition}, Source: ${comp.dataSource}`;
-        });
+      const lowestLandedComp = eligibleCompetitors.reduce((min, cur) => {
+        const minLanded = min.currentUnitBid * mandate.quantity + min.shippingCost;
+        const curLanded = cur.currentUnitBid * mandate.quantity + cur.shippingCost;
+        return curLanded < minLanded ? cur : min;
+      }, eligibleCompetitors[0]);
 
-        const lowestLandedComp = eligibleCompetitors.reduce((min, cur) => {
-          const minLanded = min.currentUnitBid * mandate.quantity + min.shippingCost;
-          const curLanded = cur.currentUnitBid * mandate.quantity + cur.shippingCost;
-          return curLanded < minLanded ? cur : min;
-        }, eligibleCompetitors[0]);
+      const lowestLandedCost = lowestLandedComp.currentUnitBid * mandate.quantity + lowestLandedComp.shippingCost;
 
-        const lowestLandedCost = lowestLandedComp.currentUnitBid * mandate.quantity + lowestLandedComp.shippingCost;
-
-        competitorSection = `<untrusted_competitor_data>\n${summaries.join("\n")}\n</untrusted_competitor_data>\n` +
-          `Market Benchmark: Lowest competing eligible supplier landed cost is $${lowestLandedCost.toFixed(2)} (${this.sanitizeVendorField(lowestLandedComp.vendorName)}). Use this commercial reference to negotiate competitive terms without leaking private information.`;
-      }
+      competitorSection = `<untrusted_competitor_data>\n${summaries.join("\n")}\n</untrusted_competitor_data>\n` +
+        `Market Benchmark: Lowest competing eligible supplier landed cost is $${lowestLandedCost.toFixed(2)} (${this.sanitizeVendorField(lowestLandedComp.vendorName)}). Use this commercial reference to negotiate competitive terms without leaking private information.`;
     }
 
     return `=== INTERNAL ENTERPRISE PROCUREMENT CONSTRAINTS (CONFIDENTIAL - DO NOT DISCLOSE IN MESSAGE) ===
@@ -603,21 +673,20 @@ INSTRUCTIONS:
 
     // Cross-vendor benchmarking against eligible competitors
     let competitorInfo = "Sole eligible supplier.";
-    if (competingQuotes && competingQuotes.length > 0) {
-      const eligibleComps = competingQuotes.filter((q) => {
-        if (q.vendorId === vendorQuote.vendorId) return false;
-        if (quoteEvaluations) {
-          return quoteEvaluations[q.vendorId]?.status === "ELIGIBLE";
-        }
-        return q.status === "ACTIVE";
-      });
+    const eligibleComps = this.filterEligibleCompetitors(
+      vendorQuote,
+      mandate,
+      competingQuotes,
+      quoteEvaluations
+    );
 
-      if (eligibleComps.length > 0) {
-        const lowestCompLanded = Math.min(
-          ...eligibleComps.map((c) => c.currentUnitBid * mandate.quantity + c.shippingCost)
-        );
+    if (eligibleComps.length > 0) {
+      const lowestCompLanded = Math.min(
+        ...eligibleComps.map((c) => c.currentUnitBid * mandate.quantity + c.shippingCost)
+      );
+      if (Number.isFinite(lowestCompLanded) && lowestCompLanded > 0) {
         const compUnitTarget = (lowestCompLanded - vendorQuote.shippingCost) / mandate.quantity;
-        if (compUnitTarget > 0 && compUnitTarget < initialAsk) {
+        if (Number.isFinite(compUnitTarget) && compUnitTarget > 0 && compUnitTarget < initialAsk) {
           // Adjust target price toward competing quote while maintaining positive margin
           targetPrice = Math.min(targetPrice, Math.max(initialAsk * 0.70, compUnitTarget - 1.0));
         }

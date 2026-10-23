@@ -258,4 +258,77 @@ describe("Vendor Simulator Unit Tests", () => {
     expect(run1.atFloor).toBe(run2.atFloor);
     expect(run1.strategyType).toBe(run2.strategyType);
   });
+
+  // 7. Exact-floor acceptance when vendor is at floor
+  it("immediately accepts when vendor is at floor and buyer offer meets that floor", () => {
+    const floor = 330.0;
+    const profile = getVendorSimulationProfile(quoteApex, {
+      minimumAcceptablePrice: floor,
+    });
+
+    const atFloorQuote: VendorQuote = {
+      ...quoteApex,
+      currentUnitBid: floor,
+    };
+
+    const exactFloorOffer: NegotiationOffer = {
+      ...buyerOffer,
+      unitPrice: floor,
+    };
+
+    const result = calculateSimulatedVendorCounteroffer({
+      vendorQuote: atFloorQuote,
+      buyerOffer: exactFloorOffer,
+      round: 3,
+      maxRounds: 4,
+      profile,
+    });
+
+    expect(result.accepted).toBe(true);
+    expect(result.unitAsk).toBe(floor);
+    expect(result.message).toContain("accept your proposal");
+    expect(result.provenance).toBe("SIMULATED_VENDOR");
+  });
+
+  // 8. Robustness against malformed state (NaN, negative inputs)
+  it("safely handles malformed inputs (NaN, negative bid) without crashing", () => {
+    const malformedOffer: NegotiationOffer = {
+      unitPrice: NaN,
+      quantity: -5,
+      deliveryDays: NaN,
+      returnDays: -30,
+      shippingCost: NaN,
+    };
+
+    const result = calculateSimulatedVendorCounteroffer({
+      vendorQuote: quoteApex,
+      buyerOffer: malformedOffer,
+      round: 1,
+      maxRounds: 4,
+    });
+
+    expect(Number.isFinite(result.unitAsk)).toBe(true);
+    expect(result.unitAsk).toBeGreaterThanOrEqual(300);
+    expect(result.accepted).toBe(false);
+    expect(result.provenance).toBe("SIMULATED_VENDOR");
+  });
+
+  // 9. Buyer bids above current ask
+  it("accepts and honors current ask when buyer bids above current ask", () => {
+    const generousOffer: NegotiationOffer = {
+      ...buyerOffer,
+      unitPrice: 400.0, // Higher than ask of 375
+    };
+
+    const result = calculateSimulatedVendorCounteroffer({
+      vendorQuote: quoteApex,
+      buyerOffer: generousOffer,
+      round: 1,
+      maxRounds: 4,
+    });
+
+    expect(result.accepted).toBe(true);
+    expect(result.unitAsk).toBe(375.0); // caps at currentUnitBid
+  });
 });
+

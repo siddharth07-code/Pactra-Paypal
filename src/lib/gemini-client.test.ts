@@ -757,4 +757,131 @@ describe("Gemini Negotiation Client Unit Tests", () => {
     expect(proposal.tacticalRationale).toContain("Benchmarked against 1 eligible competitor");
     expect(proposal.tacticalRationale).toContain("Boulware threshold");
   });
+
+  describe("Competitor Benchmarking Adversarial Verification (Phase 4.1)", () => {
+    it("excludes active vendor from its own competitor benchmark", () => {
+      const client = new GeminiNegotiationClient();
+      const comps = client.filterEligibleCompetitors(quote, mandate, [quote]);
+      expect(comps.length).toBe(0);
+    });
+
+    it("filters out quotes with incompatible currencies", () => {
+      const client = new GeminiNegotiationClient();
+      const eurQuote: VendorQuote = {
+        ...quote,
+        vendorId: "vendor-eur",
+        currentUnitBid: 300,
+      };
+
+      const quoteEvaluations = {
+        "vendor-eur": {
+          status: "ELIGIBLE",
+          financials: { currency: "EUR" },
+        } as unknown as QuoteEvaluation,
+      };
+
+      const filtered = client.filterEligibleCompetitors(
+        quote,
+        mandate, // mandate currency is USD
+        [eurQuote],
+        quoteEvaluations
+      );
+      expect(filtered.length).toBe(0);
+    });
+
+    it("filters out quotes with malformed or negative shipping and bids", () => {
+      const client = new GeminiNegotiationClient();
+      const negativeShippingQuote: VendorQuote = {
+        ...quote,
+        vendorId: "vendor-neg-ship",
+        shippingCost: -50,
+      };
+      const nanBidQuote: VendorQuote = {
+        ...quote,
+        vendorId: "vendor-nan-bid",
+        currentUnitBid: NaN,
+      };
+      const zeroShippingQuote: VendorQuote = {
+        ...quote,
+        vendorId: "vendor-zero-ship",
+        shippingCost: 0, // valid free shipping
+      };
+
+      const quoteEvaluations = {
+        "vendor-neg-ship": { status: "ELIGIBLE" } as unknown as QuoteEvaluation,
+        "vendor-nan-bid": { status: "ELIGIBLE" } as unknown as QuoteEvaluation,
+        "vendor-zero-ship": { status: "ELIGIBLE" } as unknown as QuoteEvaluation,
+      };
+
+      const filtered = client.filterEligibleCompetitors(
+        quote,
+        mandate,
+        [negativeShippingQuote, nanBidQuote, zeroShippingQuote],
+        quoteEvaluations
+      );
+
+      expect(filtered.length).toBe(1);
+      expect(filtered[0].vendorId).toBe("vendor-zero-ship");
+    });
+
+    it("strictly excludes INELIGIBLE and NEEDS_REVIEW quotes", () => {
+      const client = new GeminiNegotiationClient();
+      const comp1: VendorQuote = { ...quote, vendorId: "comp-1", currentUnitBid: 310 };
+      const comp2: VendorQuote = { ...quote, vendorId: "comp-2", currentUnitBid: 305 };
+      const comp3: VendorQuote = { ...quote, vendorId: "comp-3", currentUnitBid: 300 };
+
+      const quoteEvaluations = {
+        "comp-1": { status: "INELIGIBLE" } as unknown as QuoteEvaluation,
+        "comp-2": { status: "NEEDS_REVIEW" } as unknown as QuoteEvaluation,
+        "comp-3": { status: "ELIGIBLE" } as unknown as QuoteEvaluation,
+      };
+
+      const filtered = client.filterEligibleCompetitors(
+        quote,
+        mandate,
+        [comp1, comp2, comp3],
+        quoteEvaluations
+      );
+
+      expect(filtered.length).toBe(1);
+      expect(filtered[0].vendorId).toBe("comp-3");
+    });
+
+    it("deduplicates multiple quotes from the same vendor retaining lower landed cost", () => {
+      const client = new GeminiNegotiationClient();
+      const compHigherLanded: VendorQuote = {
+        ...quote,
+        vendorId: "comp-dup",
+        currentUnitBid: 310,
+        shippingCost: 200, // 310 * 25 + 200 = 7950
+      };
+      const compLowerLanded: VendorQuote = {
+        ...quote,
+        vendorId: "comp-dup",
+        currentUnitBid: 310,
+        shippingCost: 50, // 310 * 25 + 50 = 7800
+      };
+
+      const quoteEvaluations = {
+        "comp-dup": { status: "ELIGIBLE" } as unknown as QuoteEvaluation,
+      };
+
+      const filtered = client.filterEligibleCompetitors(
+        quote,
+        mandate,
+        [compHigherLanded, compLowerLanded],
+        quoteEvaluations
+      );
+
+      expect(filtered.length).toBe(1);
+      expect(filtered[0].shippingCost).toBe(50);
+    });
+
+    it("safely handles no competitors or empty quote list", () => {
+      const client = new GeminiNegotiationClient();
+      expect(client.filterEligibleCompetitors(quote, mandate, [])).toEqual([]);
+      expect(client.filterEligibleCompetitors(quote, mandate, undefined)).toEqual([]);
+    });
+  });
 });
+
