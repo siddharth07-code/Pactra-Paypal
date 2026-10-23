@@ -22,6 +22,7 @@ import type {
   InvariantResult,
 } from "../types/pactum";
 import { toCents, fromCents } from "./mechanism-guardrail";
+import { CryptographicFlightRecorder } from "./flight-recorder";
 
 export interface AuditRequest {
   session: ProcurementSession;
@@ -175,17 +176,44 @@ export class AcworldAuditor {
 
     if (!verifiedRoot || verifiedRoot.length !== 64 || verifiedRoot === "0".repeat(64)) {
       lineageReason = "Cryptographic lineage failed: Session has no valid pre-settlement Merkle root.";
-    } else if (expectedOrderCustomId) {
-      // Must match VERIPAY_ROOT:<merkle_root> or VERIPAY_ROOT:<merkle_root>;SESSION:<sessionId>
-      const expectedPrefix = `VERIPAY_ROOT:${verifiedRoot}`;
-      if (!expectedOrderCustomId.includes(expectedPrefix)) {
-        lineageReason = `Cryptographic lineage mismatch: PayPal order custom_id (${expectedOrderCustomId}) does not match verified root (${verifiedRoot}).`;
-      } else {
-        lineagePassed = true;
+    } else if (session.flightRecord) {
+      try {
+        const recorder = CryptographicFlightRecorder.fromSerialized(session.flightRecord);
+        const integrity = recorder.verifyIntegrity();
+        if (!integrity.valid) {
+          lineageReason = `Cryptographic flight recorder integrity failed: ${integrity.error}`;
+        } else if (session.agreementRecord) {
+          const events = recorder.getEvents();
+          const hasAgreementEvent = events.some(
+            (e) =>
+              e.agreementId === session.agreementRecord?.agreementId ||
+              e.eventType === "AGREEMENT_CREATED" ||
+              e.eventType === "VENDOR_ACCEPTANCE" ||
+              e.eventType === "BUYER_ACCEPTANCE"
+          );
+          if (!hasAgreementEvent) {
+            lineageReason = `Lineage failure: Agreement ${session.agreementRecord.agreementId} has no corresponding acceptance/creation event in flight recorder.`;
+          } else {
+            lineagePassed = true;
+          }
+        } else {
+          lineagePassed = true;
+        }
+      } catch (err) {
+        lineageReason = `Cryptographic flight recorder integrity failed: ${err instanceof Error ? err.message : String(err)}`;
       }
     } else {
       // Lineage verified from valid session evidence root
       lineagePassed = true;
+    }
+
+    if (lineagePassed && expectedOrderCustomId) {
+      // Must match VERIPAY_ROOT:<merkle_root> or VERIPAY_ROOT:<merkle_root>;SESSION:<sessionId>
+      const expectedPrefix = `VERIPAY_ROOT:${verifiedRoot}`;
+      if (!expectedOrderCustomId.includes(expectedPrefix)) {
+        lineagePassed = false;
+        lineageReason = `Cryptographic lineage mismatch: PayPal order custom_id (${expectedOrderCustomId}) does not match verified root (${verifiedRoot}).`;
+      }
     }
 
     invariants.push({

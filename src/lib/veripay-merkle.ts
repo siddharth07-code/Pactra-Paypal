@@ -26,6 +26,9 @@ import type {
  * Handles arrays, primitives, booleans, numbers, and null.
  */
 export function canonicalJson(data: unknown): string {
+  if (data === undefined) {
+    return "";
+  }
   if (data === null || typeof data !== "object") {
     return JSON.stringify(data);
   }
@@ -35,7 +38,9 @@ export function canonicalJson(data: unknown): string {
   }
 
   const obj = data as Record<string, unknown>;
-  const sortedKeys = Object.keys(obj).sort();
+  const sortedKeys = Object.keys(obj)
+    .filter((key) => obj[key] !== undefined)
+    .sort();
   const pairs = sortedKeys.map((key) => {
     return JSON.stringify(key) + ":" + canonicalJson(obj[key]);
   });

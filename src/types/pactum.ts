@@ -339,15 +339,64 @@ export interface NegotiationTurn {
  * 4.4 MerkleAuditNode
  * Committed flight-recorder event in SHA-256 Merkle tree
  */
-export type MerkleEventType =
+export type FlightRecorderEventType =
+  | "MANDATE_CREATED"
   | "MANDATE_LOCKED"
   | "MANDATE_REVISED"
   | "CHANNEL3_CATALOG_SNAPSHOT"
   | "KERNEL_DOM_ATTESTATION"
+  | "SOURCING_COMPLETED"
+  | "QUOTE_EVALUATED"
+  | "BUYER_PROPOSAL"
+  | "GUARDRAIL_INTERVENTION"
+  | "GUARDRAIL_BLOCKED"
+  | "VENDOR_COUNTEROFFER"
+  | "VENDOR_ACCEPTANCE"
+  | "BUYER_ACCEPTANCE"
+  | "OFFER_REJECTED"
+  | "OFFER_EXPIRED"
+  | "AGREEMENT_CREATED"
   | "VERIFIED_NEGOTIATION_ROUND"
   | "ACWORLD_FINAL_STATE_AUDIT"
+  | "ACWORLD_AUDIT_PASSED"
+  | "ACWORLD_AUDIT_FAILED"
   | "SETTLEMENT_AUTHORIZED"
-  | "SETTLEMENT_CAPTURED";
+  | "SETTLEMENT_CAPTURED"
+  | "SETTLEMENT_COMPLETED"
+  | "SETTLEMENT_FAILED"
+  | "CHECKOUT_CANCELLED"
+  | "DISPUTE_OPENED"
+  | "DISPUTE_EVIDENCE_VERIFIED"
+  | "DISPUTE_RESOLVED";
+
+export type MerkleEventType = FlightRecorderEventType;
+
+export interface FlightRecorderEvent<T = Record<string, unknown>> {
+  eventId: string;
+  sessionId: string;
+  eventType: FlightRecorderEventType;
+  schemaVersion: number;
+  sequenceNumber: number;
+  timestamp: string;
+  mandateVersion: number;
+  agreementId?: string;
+  offerReference?: string;
+  previousEventHash?: string;
+  payloadHash?: string;
+  leafHash?: string;
+  publicPayload: T;
+}
+
+export interface SerializedFlightRecord {
+  sessionId: string;
+  schemaVersion: number;
+  rootHash: string;
+  lastSequenceNumber: number;
+  lastEventHash: string;
+  events: FlightRecorderEvent[];
+  auditNodes: MerkleAuditNode[];
+  exportedAt: string;
+}
 
 export interface MerkleAuditNode {
   index: number;
@@ -355,6 +404,7 @@ export interface MerkleAuditNode {
   timestamp: string;
   payloadHash: string; // SHA-256 of canonical event data
   leafHash: string; // SHA-256(0x00 || canonicalJSON(event))
+  eventId?: string;
 }
 
 /**
@@ -457,8 +507,53 @@ export interface ProcurementSession {
     returnPolicyText: string;
     timestamp: string;
   };
+  flightRecord?: SerializedFlightRecord;
+  disputes?: DisputeRecord[];
   createdAt: string;
   updatedAt: string;
+}
+
+export type DisputeCategory =
+  | "WRONG_ITEM"
+  | "PRICE_MISMATCH"
+  | "DELIVERY_BREACH"
+  | "RETURN_POLICY_BREACH"
+  | "AGREEMENT_MISMATCH"
+  | "EVIDENCE_INTEGRITY_FAILURE"
+  | "SETTLEMENT_MISMATCH"
+  | "OTHER";
+
+export type DisputeStatus =
+  | "OPENED"
+  | "VERIFIED"
+  | "FAILED_VERIFICATION"
+  | "INSUFFICIENT_EVIDENCE"
+  | "RESOLVED";
+
+export interface DisputeInvariantCheck {
+  invariant: string;
+  passed: boolean;
+  details?: string;
+}
+
+export interface DisputeRecord {
+  disputeId: string;
+  sessionId: string;
+  agreementId?: string;
+  settlementReference?: string;
+  category: DisputeCategory;
+  description: string;
+  claimedValue?: number | string;
+  status: DisputeStatus;
+  openedAt: string;
+  resolvedAt?: string;
+  evidenceRoot: string;
+  resolutionRationale?: string;
+  verifiedInvariants: DisputeInvariantCheck[];
+  inclusionProofs: MerkleInclusionProof[];
+  paypalDisputeId?: string;
+  refundRequested?: boolean;
+  refundApproved?: boolean;
 }
 
 export type PayPalOperationType = "AUTHORIZE" | "CAPTURE" | "CREATE_INVOICE" | "SEND_INVOICE" | "DISPUTE_EVIDENCE";

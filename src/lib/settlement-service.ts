@@ -150,13 +150,11 @@ export class SettlementService {
       };
     }
 
-    // Evaluate or verify independent ACWORLD Pre-Checkout Audit
-    if (!session.auditCertificate) {
-      const preAuditCert = this.auditor.audit({ session });
-      session.auditCertificate = preAuditCert;
-      session.status = preAuditCert.passed ? "AUDIT_PASSED" : "AUDIT_FAILED";
-      sessionStore.saveSession(session);
-    }
+    // Evaluate authoritative ACWORLD Pre-Checkout Audit Gate
+    const preAuditCert = this.auditor.audit({ session });
+    session.auditCertificate = preAuditCert;
+    session.status = preAuditCert.passed ? "AUDIT_PASSED" : "AUDIT_FAILED";
+    sessionStore.saveSession(session);
 
     if (!session.auditCertificate.passed) {
       const failingInvariants = session.auditCertificate.invariants

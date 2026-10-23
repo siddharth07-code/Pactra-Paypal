@@ -204,5 +204,58 @@ describe("ACWORLD Final-State Auditor Unit Tests", () => {
     expect(inv1.passed).toBe(false);
     expect(inv1.reason).toContain("Agreement vendor mismatch");
   });
+
+  it("fails Invariant 5 when session flightRecord fails cryptographic integrity", () => {
+    const tamperedSession: ProcurementSession = {
+      ...validSession,
+      flightRecord: {
+        sessionId: validSession.id,
+        schemaVersion: 1,
+        rootHash: validSession.merkleRoot!,
+        lastSequenceNumber: 1,
+        lastEventHash: "0".repeat(64),
+        events: [
+          {
+            eventId: "evt_1",
+            sessionId: validSession.id,
+            eventType: "MANDATE_CREATED",
+            schemaVersion: 1,
+            sequenceNumber: 0,
+            timestamp: new Date().toISOString(),
+            mandateVersion: 1,
+            previousEventHash: "0".repeat(64),
+            payloadHash: "bad-hash", // Tampered!
+            leafHash: "bad-leaf",
+            publicPayload: { test: "data" },
+          },
+        ],
+        auditNodes: [],
+        exportedAt: new Date().toISOString(),
+      },
+    };
+
+    const cert = auditor.audit({ session: tamperedSession });
+    expect(cert.passed).toBe(false);
+    const inv5 = cert.invariants.find((i) => i.name === "CRYPTOGRAPHIC_LINEAGE")!;
+    expect(inv5.passed).toBe(false);
+    expect(inv5.reason).toContain("Cryptographic flight recorder integrity failed");
+  });
+
+  it("fails Invariant 3 when merchant attestation is missing for Channel3 sourced quote", () => {
+    const missingAttestationSession: ProcurementSession = {
+      ...validSession,
+      selectedQuote: {
+        ...validSession.selectedQuote!,
+        dataSource: "CHANNEL3",
+      },
+      merchantAttestation: undefined, // Missing attestation!
+    };
+
+    const cert = auditor.audit({ session: missingAttestationSession });
+    expect(cert.passed).toBe(false);
+    const inv3 = cert.invariants.find((i) => i.name === "RETURN_POLICY")!;
+    expect(inv3.passed).toBe(false);
+    expect(inv3.reason).toContain("Merchant DOM attestation evidence missing");
+  });
 });
 

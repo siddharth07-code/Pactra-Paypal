@@ -123,6 +123,8 @@ function getFetchSignal(timeoutMs: number): AbortSignal | undefined {
 }
 
 export class PayPalClient {
+  public static mockOrders = new Map<string, PayPalOrderDetails>();
+
   private clientId: string;
   private clientSecret: string;
   private baseUrl: string;
@@ -243,6 +245,23 @@ export class PayPalClient {
     if (!this.clientId || !this.clientSecret) {
       const mockId = `MOCK_ORDER_${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
       const mockApprovalUrl = `https://www.sandbox.paypal.com/checkoutnow?token=${mockId}`;
+      const mockOrder: PayPalOrderDetails = {
+        id: mockId,
+        status: "APPROVED",
+        intent: "AUTHORIZE",
+        purchase_units: [
+          {
+            reference_id: params.sessionId,
+            custom_id: customId,
+            amount: {
+              currency_code: params.currency,
+              value: total,
+            },
+          },
+        ],
+      };
+      PayPalClient.mockOrders.set(mockId, mockOrder);
+
       return {
         id: mockId,
         status: "CREATED",
@@ -288,6 +307,10 @@ export class PayPalClient {
    */
   public async getOrder(orderId: string): Promise<PayPalOrderDetails> {
     if (!this.clientId || !this.clientSecret) {
+      const stored = PayPalClient.mockOrders.get(orderId);
+      if (stored) {
+        return stored;
+      }
       return {
         id: orderId,
         status: "APPROVED",
