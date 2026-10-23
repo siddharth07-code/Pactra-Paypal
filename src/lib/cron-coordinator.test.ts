@@ -324,5 +324,97 @@ describe("Cron Coordinator & Safe Session Retention", () => {
       expect(lockAcquiredAgain).toBe(true);
       coordinator.releaseLock("cleanup");
     });
+
+    it("supports acquireLockAsync and releaseLockAsync with ownership tokens and safe expiration", async () => {
+      const lock1 = await coordinator.acquireLockAsync("cleanup", 50);
+      expect(lock1.acquired).toBe(true);
+      expect(lock1.token).toBeTruthy();
+
+      // Overlapping request while lock is held must fail
+      const lock2 = await coordinator.acquireLockAsync("cleanup", 50);
+      expect(lock2.acquired).toBe(false);
+
+      // Attempting to release with an incorrect token must fail
+      const badRelease = await coordinator.releaseLockAsync("cleanup", "invalid_token_xyz");
+      expect(badRelease).toBe(false);
+
+      // Release with correct owner token succeeds
+      const goodRelease = await coordinator.releaseLockAsync("cleanup", lock1.token);
+      expect(goodRelease).toBe(true);
+
+      // Can be re-acquired immediately after release
+      const lock3 = await coordinator.acquireLockAsync("cleanup", 40);
+      expect(lock3.acquired).toBe(true);
+
+      // Safe lease expiration: wait for timeout
+      await new Promise((r) => setTimeout(r, 55));
+      const lock4 = await coordinator.acquireLockAsync("cleanup", 50);
+      expect(lock4.acquired).toBe(true);
+      await coordinator.releaseLockAsync("cleanup", lock4.token);
+    });
+
+    it("reports lockBackend accurately as single-instance local memory when Redis is absent", () => {
+      const health = coordinator.getHealthReport();
+      expect(health.lockBackend).toBe("memory (single-instance only)");
+      expect(health.cronConfig.lockBackend).toBe("memory (single-instance only)");
+    });
+  });
+
+  describe("Hardened Invariant Safeguards", () => {
+    const baseSession: ProcurementSession = {
+      id: "session-hardened-base",
+      mandate: {
+        id: "mandate-hardened",
+        rawPrompt: "Purchase 25 monitors under $8,500",
+        itemQuery: "4K Monitors",
+        quantity: 25,
+        maxTotalBudget: 8500,
+        maxDeliveryDays: 5,
+        minReturnDays: 30,
+        requiredSpecs: [],
+        currency: "USD",
+        createdAt: new Date(Date.now() - 40 * 86400000).toISOString(),
+      },
+      quotes: [],
+      turns: [],
+      status: "CANCELLED",
+      createdAt: new Date(Date.now() - 40 * 86400000).toISOString(),
+      updatedAt: new Date(Date.now() - 40 * 86400000).toISOString(),
+    };
+
+    it("preserves sessions with auditCertificate even if status is AUDIT_FAILED", () => {
+      const failedAuditSession: ProcurementSession = {
+        ...baseSession,
+        id: "failed-audit-sess",
+        status: "AUDIT_FAILED",
+        auditCertificate: {
+          certificateId: "cert-fail-1",
+          sessionId: "failed-audit-sess",
+          passed: false,
+          invariants: [],
+          verifiedRoot: "0".repeat(64),
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      const result = coordinator.evaluateSession(failedAuditSession, 30);
+      expect(result.eligible).toBe(false);
+      expect(result.isProtected).toBe(true);
+      expect(result.reason).toBe("HAS_MERKLE_EVIDENCE");
+    });
+
+    it("preserves sessions with unfinalized paypalOrderId", () => {
+      const pendingOrderSession: ProcurementSession = {
+        ...baseSession,
+        id: "pending-order-sess",
+        status: "PAYPAL_AUTHORIZED",
+        paypalOrderId: "ORDER_ABC_123",
+      };
+
+      const result = coordinator.evaluateSession(pendingOrderSession, 30);
+      expect(result.eligible).toBe(false);
+      expect(result.isProtected).toBe(true);
+      expect(result.reason).toBe("PAYPAL_CAPTURE_PENDING");
+    });
   });
 });

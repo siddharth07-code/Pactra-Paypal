@@ -274,4 +274,70 @@ describe("Gemini Quota Protection & Circuit Breaker", () => {
       expect(decision.unitPrice).toBeLessThan(quote.initialUnitAsk);
     });
   });
+
+  describe("Probe Deadlock & Auto-Recovery Protection", () => {
+    it("calling getStatus() during HALF_OPEN does NOT claim the probe or deadlock the circuit", async () => {
+      const probeCoordinator = new GeminiQuotaCoordinator({
+        maxRequestsPerMinute: 10,
+        maxConcurrentRequests: 2,
+        maxAttempts: 2,
+        providerTimeoutMs: 1000,
+        circuitBreakerThreshold: 1,
+        circuitBreakerCooldownMs: 50,
+      });
+
+      probeCoordinator.recordFailure(new Error("503"));
+      expect(probeCoordinator.getCircuitState()).toBe("OPEN");
+
+      // Wait for cooldown
+      await new Promise((r) => setTimeout(r, 60));
+      expect(probeCoordinator.getCircuitState()).toBe("HALF_OPEN");
+
+      // Inspection via getStatus() (e.g. from monitoring / health checks)
+      const status1 = probeCoordinator.getStatus();
+      expect(status1.circuitState).toBe("HALF_OPEN");
+      expect(status1.isAdmissible).toBe(true);
+
+      const status2 = probeCoordinator.getStatus();
+      expect(status2.isAdmissible).toBe(true);
+
+      // The actual execution / admission probe should still be freely admissible!
+      const actualProbeAdmission = probeCoordinator.checkAdmission();
+      expect(actualProbeAdmission.allowed).toBe(true);
+
+      // Second actual attempt while probe is in flight is rejected
+      const secondAdmission = probeCoordinator.checkAdmission();
+      expect(secondAdmission.allowed).toBe(false);
+      expect(secondAdmission.reason).toBe("HALF_OPEN_PROBE_IN_FLIGHT");
+    });
+
+    it("auto-recovers from a hung probe that exceeded provider timeout", async () => {
+      const autoRecoverCoordinator = new GeminiQuotaCoordinator({
+        maxRequestsPerMinute: 10,
+        maxConcurrentRequests: 2,
+        maxAttempts: 2,
+        providerTimeoutMs: 50, // 50ms provider timeout
+        circuitBreakerThreshold: 1,
+        circuitBreakerCooldownMs: 20,
+      });
+
+      autoRecoverCoordinator.recordFailure(new Error("503"));
+      await new Promise((r) => setTimeout(r, 30));
+      expect(autoRecoverCoordinator.getCircuitState()).toBe("HALF_OPEN");
+
+      // First check claims the probe
+      const firstCheck = autoRecoverCoordinator.checkAdmission();
+      expect(firstCheck.allowed).toBe(true);
+
+      // Immediately after, second check is blocked
+      expect(autoRecoverCoordinator.checkAdmission().allowed).toBe(false);
+
+      // Wait beyond providerTimeoutMs (60ms > 50ms) without probe completion
+      await new Promise((r) => setTimeout(r, 65));
+
+      // Coordinator auto-clears the hung probe and admits next request
+      const recoveredAdmission = autoRecoverCoordinator.checkAdmission();
+      expect(recoveredAdmission.allowed).toBe(true);
+    });
+  });
 });

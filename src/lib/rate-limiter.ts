@@ -12,6 +12,7 @@
 
 import { NextRequest } from "next/server";
 import Redis from "ioredis";
+import crypto from "crypto";
 
 export interface RateLimitPolicy {
   name: string;
@@ -186,24 +187,28 @@ export class MemoryRateLimiterBackend implements RateLimiterBackend {
 const REDIS_SLIDING_WINDOW_LUA = `
 local key = KEYS[1]
 local now = tonumber(ARGV[1])
-local window = tonumber(ARGV[2])
+local windowMs = tonumber(ARGV[2])
 local limit = tonumber(ARGV[3])
-local clearBefore = now - window
+local clearBefore = now - windowMs
 
 redis.call('ZREMRANGEBYSCORE', key, 0, clearBefore)
 local currentCount = redis.call('ZCARD', key)
 
 if currentCount < limit then
     redis.call('ZADD', key, now, now .. '-' .. ARGV[4])
-    redis.call('EXPIRE', key, window + 1)
-    return {1, limit - currentCount - 1, 0}
+    redis.call('PEXPIRE', key, windowMs + 1000)
+    local resetEpoch = math.ceil((now + windowMs) / 1000)
+    return {1, limit - currentCount - 1, 0, resetEpoch}
 else
     local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
     local retryAfter = 1
+    local resetEpoch = math.ceil((now + windowMs) / 1000)
     if #oldest > 1 then
-        retryAfter = math.max(1, math.ceil((tonumber(oldest[2]) + window - now) / 1000))
+        local oldestTs = tonumber(oldest[2])
+        retryAfter = math.max(1, math.ceil((oldestTs + windowMs - now) / 1000))
+        resetEpoch = math.ceil((oldestTs + windowMs) / 1000)
     end
-    return {0, 0, retryAfter}
+    return {0, 0, retryAfter, resetEpoch}
 end
 `;
 
@@ -229,9 +234,8 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
 
         this.client.on("error", (err) => {
           this.isConnected = false;
-          // Silent fallback to memory backend
           if (process.env.NODE_ENV !== "test") {
-            console.warn("[RateLimiter] Redis error, falling back to in-memory:", err.message);
+            console.error("[RateLimiter] Redis connection error:", err.message);
           }
         });
       } catch {
@@ -246,7 +250,26 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
     limit: number,
     windowSeconds: number
   ): Promise<RateLimitResult> {
+    const isStrictRedisProduction =
+      process.env.RATE_LIMIT_BACKEND === "redis" &&
+      (process.env.RATE_LIMIT_FAIL_CLOSED === "true" ||
+        (process.env.NODE_ENV === "production" && process.env.RATE_LIMIT_FAIL_OPEN !== "true"));
+
     if (!this.client) {
+      if (isStrictRedisProduction) {
+        console.error(
+          "[RateLimiter] CRITICAL: Distributed Redis rate limiter is configured but uninitialized. Failing closed to prevent unmetered cluster traffic."
+        );
+        return {
+          allowed: false,
+          limit,
+          remaining: 0,
+          resetEpochSeconds: Math.ceil(Date.now() / 1000) + 5,
+          retryAfterSeconds: 5,
+          policy: key.split(":")[0] ?? "unknown",
+          identity: key.split(":").slice(1).join(":"),
+        };
+      }
       return this.fallbackMemory.incrementAndCheck(key, limit, windowSeconds);
     }
 
@@ -256,6 +279,20 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
       }
 
       if (this.client.status !== "ready") {
+        if (isStrictRedisProduction) {
+          console.error(
+            `[RateLimiter] CRITICAL: Redis rate limiter is not ready (status: ${this.client.status}). Failing closed.`
+          );
+          return {
+            allowed: false,
+            limit,
+            remaining: 0,
+            resetEpochSeconds: Math.ceil(Date.now() / 1000) + 5,
+            retryAfterSeconds: 5,
+            policy: key.split(":")[0] ?? "unknown",
+            identity: key.split(":").slice(1).join(":"),
+          };
+        }
         return this.fallbackMemory.incrementAndCheck(key, limit, windowSeconds);
       }
 
@@ -271,12 +308,12 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
         windowSeconds * 1000,
         limit,
         nonce
-      )) as [number, number, number];
+      )) as [number, number, number, number];
 
       const allowed = res[0] === 1;
       const remaining = res[1];
       const retryAfterSeconds = res[2];
-      const resetEpochSeconds = Math.ceil((now + windowSeconds * 1000) / 1000);
+      const resetEpochSeconds = res[3] ?? Math.ceil((now + windowSeconds * 1000) / 1000);
 
       return {
         allowed,
@@ -287,8 +324,22 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
         policy: key.split(":")[0] ?? "unknown",
         identity: key.split(":").slice(1).join(":"),
       };
-    } catch {
-      // Degrade gracefully to in-memory limiter
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (isStrictRedisProduction) {
+        console.error(
+          `[RateLimiter] CRITICAL: Redis command failed in strict distributed mode (${errMsg}). Failing closed.`
+        );
+        return {
+          allowed: false,
+          limit,
+          remaining: 0,
+          resetEpochSeconds: Math.ceil(Date.now() / 1000) + 5,
+          retryAfterSeconds: 5,
+          policy: key.split(":")[0] ?? "unknown",
+          identity: key.split(":").slice(1).join(":"),
+        };
+      }
       return this.fallbackMemory.incrementAndCheck(key, limit, windowSeconds);
     }
   }
@@ -326,27 +377,42 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
 
 /**
  * Extracts and normalizes client identity from request headers.
- * Does NOT trust arbitrary spoofed headers unless trusted proxy is enabled.
+ * Protects against identity header spoofing:
+ * - customAuthId passed directly by authenticated server-side handlers is trusted.
+ * - x-pactum-user-id / x-authenticated-user headers are ONLY trusted if verified via
+ *   INTERNAL_GATEWAY_SECRET. Raw client requests cannot spoof user identity.
+ * - Proxy headers (cf-connecting-ip, x-forwarded-for, x-real-ip) are ONLY trusted when
+ *   TRUST_PROXY, TRUST_PROXY_HEADERS, or VERCEL=1 is explicitly configured.
  */
 export function extractClientIdentity(req: NextRequest, customAuthId?: string): string {
-  // 1. Explicit authenticated user identifier if passed by caller
+  // 1. Explicit authenticated user identifier if passed by verified server-side caller
   if (customAuthId && /^[\w-]{1,64}$/.test(customAuthId)) {
     return `user:${customAuthId}`;
   }
 
-  // 2. Authenticated user/account ID header if set by an upstream auth gateway
-  const authUserId =
-    req.headers.get("x-pactum-user-id") ||
-    req.headers.get("x-authenticated-user");
-  if (authUserId && /^[\w-]{1,64}$/.test(authUserId)) {
-    return `user:${authUserId}`;
+  // 2. Gateway-authenticated identity: ONLY trust headers if internal gateway authentication is verified
+  const internalSecret = process.env.INTERNAL_GATEWAY_SECRET || process.env.GATEWAY_SHARED_SECRET;
+  const providedGatewaySecret = req.headers.get("x-internal-gateway-secret");
+  const isGatewayTrusted = Boolean(
+    internalSecret &&
+      providedGatewaySecret &&
+      internalSecret.length === providedGatewaySecret.length &&
+      crypto.timingSafeEqual(Buffer.from(internalSecret), Buffer.from(providedGatewaySecret))
+  );
+
+  if (isGatewayTrusted) {
+    const authUserId =
+      req.headers.get("x-pactum-user-id") ||
+      req.headers.get("x-authenticated-user");
+    if (authUserId && /^[\w-]{1,64}$/.test(authUserId)) {
+      return `user:${authUserId}`;
+    }
   }
 
-  // 3. Client IP normalization
+  // 3. Client IP normalization: ONLY trust proxy headers if explicit proxy trust is enabled
   const trustProxy =
     process.env.TRUST_PROXY === "true" ||
     process.env.TRUST_PROXY_HEADERS === "true" ||
-    process.env.NODE_ENV === "production" ||
     process.env.VERCEL === "1";
 
   let clientIp: string | null = null;
@@ -370,7 +436,7 @@ export function extractClientIdentity(req: NextRequest, customAuthId?: string): 
   }
 
   if (!clientIp) {
-    // Attempt NextRequest ip field if populated
+    // Attempt NextRequest ip field if populated by platform
     clientIp = (req as { ip?: string }).ip ?? null;
   }
 

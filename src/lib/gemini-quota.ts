@@ -63,6 +63,7 @@ export class GeminiQuotaCoordinator {
   private activeConcurrent = 0;
   private requestTimestamps: number[] = [];
   private isProbeExecuting = false;
+  private probeStartedAt = 0;
 
   constructor(customConfig?: Partial<GeminiQuotaConfig>) {
     this.config = {
@@ -93,6 +94,7 @@ export class GeminiQuotaCoordinator {
       if (now >= this.circuitOpenedAt + cooldown) {
         this.circuitState = "HALF_OPEN";
         this.isProbeExecuting = false;
+        this.probeStartedAt = 0;
         this.logEvent("GEMINI_CIRCUIT_HALF_OPEN", {
           message: "Circuit cooldown expired. Entering HALF_OPEN probe state.",
         });
@@ -129,8 +131,10 @@ export class GeminiQuotaCoordinator {
   /**
    * Checks whether a new Gemini call can be admitted right now.
    * If not, returns the rejection reason and cooldown time.
+   * Parameter options.claim controls whether admission marks a HALF_OPEN probe slot in flight.
+   * Queries and health checks MUST set claim: false to prevent deadlocking the circuit.
    */
-  public checkAdmission(): {
+  public checkAdmission(options?: { claim?: boolean }): {
     admissible: boolean;
     allowed: boolean;
     reason?: QuotaRejectionReason;
@@ -151,6 +155,16 @@ export class GeminiQuotaCoordinator {
     }
 
     if (state === "HALF_OPEN") {
+      // Auto-recover hung probe if execution exceeded timeout
+      if (
+        this.isProbeExecuting &&
+        this.probeStartedAt > 0 &&
+        now - this.probeStartedAt > this.config.providerTimeoutMs
+      ) {
+        this.isProbeExecuting = false;
+        this.probeStartedAt = 0;
+      }
+
       if (this.isProbeExecuting) {
         return {
           admissible: false,
@@ -159,8 +173,13 @@ export class GeminiQuotaCoordinator {
           retryAfterMs: 2000,
         };
       }
-      // Single probe allowed and marked active
-      this.isProbeExecuting = true;
+
+      // Single probe allowed; claim slot only if requested (default true for admissions, false for inspects)
+      const shouldClaim = options?.claim !== false;
+      if (shouldClaim) {
+        this.isProbeExecuting = true;
+        this.probeStartedAt = now;
+      }
       return { admissible: true, allowed: true };
     }
 
@@ -224,22 +243,23 @@ export class GeminiQuotaCoordinator {
       const isProbe = this.circuitState === "HALF_OPEN";
       if (isProbe) {
         this.isProbeExecuting = true;
+        this.probeStartedAt = Date.now();
       }
       this.activeConcurrent++;
       const callStart = Date.now();
       this.requestTimestamps.push(callStart);
 
-      const controller = new AbortController();
       let timeoutHandle: NodeJS.Timeout | undefined;
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutHandle = setTimeout(() => {
-          controller.abort();
-          reject(new Error(`PROVIDER_TIMEOUT: Gemini request exceeded ${this.config.providerTimeoutMs}ms.`));
-        }, this.config.providerTimeoutMs);
-      });
-
       try {
+        const controller = new AbortController();
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(() => {
+            controller.abort();
+            reject(new Error(`PROVIDER_TIMEOUT: Gemini request exceeded ${this.config.providerTimeoutMs}ms.`));
+          }, this.config.providerTimeoutMs);
+        });
+
         this.logEvent("GEMINI_REQUEST_ADMITTED", {
           operationName,
           attempt,
@@ -276,6 +296,7 @@ export class GeminiQuotaCoordinator {
         this.activeConcurrent = Math.max(0, this.activeConcurrent - 1);
         if (isProbe) {
           this.isProbeExecuting = false;
+          this.probeStartedAt = 0;
         }
       }
     }
@@ -398,7 +419,7 @@ export class GeminiQuotaCoordinator {
       windowLimit: this.config.maxRequestsPerMinute,
       circuitOpenedAt: this.circuitOpenedAt ? new Date(this.circuitOpenedAt).toISOString() : undefined,
       cooldownRemainingMs: remainingMs,
-      isAdmissible: this.checkAdmission().admissible,
+      isAdmissible: this.checkAdmission({ claim: false }).admissible,
     };
   }
 
@@ -410,6 +431,7 @@ export class GeminiQuotaCoordinator {
     this.activeConcurrent = 0;
     this.requestTimestamps = [];
     this.isProbeExecuting = false;
+    this.probeStartedAt = 0;
   }
 
   public forceOpen(cooldownMs?: number): void {

@@ -12,6 +12,7 @@
 
 import crypto from "crypto";
 import { NextRequest } from "next/server";
+import Redis from "ioredis";
 import { sessionStore } from "./session-store";
 import { defaultGeminiQuotaCoordinator } from "./gemini-quota";
 import { defaultRateLimiter } from "./rate-limiter";
@@ -89,6 +90,7 @@ export interface SystemHealthReport {
   environment: string;
   maintenanceConfigured: boolean;
   rateLimiterBackend: string;
+  lockBackend: string;
   sessionStore: {
     totalSessions: number;
     activeNegotiations: number;
@@ -116,6 +118,7 @@ export interface SystemHealthReport {
   cronConfig: {
     cronConfigured: boolean;
     retentionDays: number;
+    lockBackend?: string;
   };
 }
 
@@ -145,30 +148,153 @@ export interface CleanupReport {
 }
 
 export class CronCoordinator {
-  private activeLocks = new Set<string>();
+  private redisClient: Redis | null = null;
+  private localMemoryLocks = new Map<
+    string,
+    { token: string; expiresAt: number; timer?: NodeJS.Timeout }
+  >();
   private startTime = Date.now();
 
+  constructor(redisUrl?: string) {
+    const url = redisUrl || process.env.REDIS_URL;
+    if (url) {
+      try {
+        this.redisClient = new Redis(url, {
+          lazyConnect: true,
+          enableOfflineQueue: false,
+          maxRetriesPerRequest: 1,
+          connectTimeout: 2000,
+        });
+
+        this.redisClient.on("error", (err) => {
+          if (process.env.NODE_ENV !== "test") {
+            console.error("[CronCoordinator] Redis lock client error:", err.message);
+          }
+        });
+      } catch {
+        this.redisClient = null;
+      }
+    }
+  }
+
   /**
-   * Acquires a job lock to prevent concurrent or overlapping executions.
+   * Acquires a distributed lock using Redis if available (via atomic SET key token PX leaseMs NX),
+   * or safely falls back to local in-memory lock with ownership token and auto-expiration.
    */
-  public acquireLock(jobId: string, timeoutMs?: number): boolean {
-    if (this.activeLocks.has(jobId)) {
+  public async acquireLockAsync(
+    jobId: string,
+    leaseMs: number = 60000
+  ): Promise<{ acquired: boolean; token?: string; backend: "redis" | "memory" }> {
+    const token = crypto.randomUUID();
+    const lockKey = `pactum:lock:${jobId}`;
+
+    if (this.redisClient) {
+      try {
+        if (this.redisClient.status === "wait") {
+          await this.redisClient.connect().catch(() => {});
+        }
+        if (this.redisClient.status === "ready") {
+          const res = await this.redisClient.set(lockKey, token, "PX", leaseMs, "NX");
+          if (res === "OK") {
+            return { acquired: true, token, backend: "redis" };
+          }
+          return { acquired: false, backend: "redis" };
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV !== "test") {
+          console.warn("[CronCoordinator] Distributed Redis lock error, falling back to local memory:", err);
+        }
+      }
+    }
+
+    // Local in-memory lock (Single-Instance Only)
+    const now = Date.now();
+    const existing = this.localMemoryLocks.get(jobId);
+    if (existing && existing.expiresAt > now) {
+      return { acquired: false, backend: "memory" };
+    }
+
+    if (existing?.timer) {
+      clearTimeout(existing.timer);
+    }
+
+    const timer = setTimeout(() => {
+      this.localMemoryLocks.delete(jobId);
+    }, leaseMs);
+
+    this.localMemoryLocks.set(jobId, { token, expiresAt: now + leaseMs, timer });
+    return { acquired: true, token, backend: "memory" };
+  }
+
+  /**
+   * Releases a distributed or in-memory job lock with strict ownership token verification.
+   * If Redis is used, executes an atomic Lua script ensuring only the lock owner can delete the key.
+   */
+  public async releaseLockAsync(jobId: string, token?: string): Promise<boolean> {
+    const lockKey = `pactum:lock:${jobId}`;
+
+    if (this.redisClient && this.redisClient.status === "ready" && token) {
+      try {
+        const LUA_RELEASE = `
+          if redis.call("get", KEYS[1]) == ARGV[1] then
+            return redis.call("del", KEYS[1])
+          else
+            return 0
+          end
+        `;
+        const res = (await this.redisClient.eval(LUA_RELEASE, 1, lockKey, token)) as number;
+        return res === 1;
+      } catch {
+        // Fall through to memory cleanup
+      }
+    }
+
+    const existing = this.localMemoryLocks.get(jobId);
+    if (existing) {
+      if (!token || existing.token === token) {
+        if (existing.timer) clearTimeout(existing.timer);
+        this.localMemoryLocks.delete(jobId);
+        return true;
+      }
       return false;
     }
-    this.activeLocks.add(jobId);
-    if (timeoutMs && timeoutMs > 0) {
-      setTimeout(() => {
-        this.activeLocks.delete(jobId);
-      }, timeoutMs);
+    return false;
+  }
+
+  /**
+   * Synchronous job lock acquisition for in-process single-instance execution and testing.
+   * Enforces auto-expiration timeout and ownership token generation.
+   */
+  public acquireLock(jobId: string, timeoutMs: number = 60000): boolean {
+    const now = Date.now();
+    const existing = this.localMemoryLocks.get(jobId);
+    if (existing && existing.expiresAt > now) {
+      return false;
     }
+    if (existing?.timer) {
+      clearTimeout(existing.timer);
+    }
+    const token = crypto.randomUUID();
+    const timer =
+      timeoutMs > 0
+        ? setTimeout(() => {
+            this.localMemoryLocks.delete(jobId);
+          }, timeoutMs)
+        : undefined;
+
+    this.localMemoryLocks.set(jobId, { token, expiresAt: now + timeoutMs, timer });
     return true;
   }
 
   /**
-   * Releases a job lock upon completion.
+   * Synchronous job lock release.
    */
   public releaseLock(jobId: string): void {
-    this.activeLocks.delete(jobId);
+    const existing = this.localMemoryLocks.get(jobId);
+    if (existing?.timer) {
+      clearTimeout(existing.timer);
+    }
+    this.localMemoryLocks.delete(jobId);
   }
 
   /**
@@ -210,6 +336,11 @@ export class CronCoordinator {
       pendingReconciliation > 0 ||
       !limiterBackend.isReady();
 
+    const lockBackend =
+      this.redisClient && this.redisClient.status === "ready"
+        ? "redis"
+        : "memory (single-instance only)";
+
     return {
       status: isDegraded ? "DEGRADED" : "HEALTHY",
       timestamp: new Date().toISOString(),
@@ -217,6 +348,7 @@ export class CronCoordinator {
       environment: process.env.NODE_ENV || "development",
       maintenanceConfigured: Boolean(process.env.CRON_SECRET),
       rateLimiterBackend: limiterBackend.getBackendType(),
+      lockBackend,
       sessionStore: {
         totalSessions: sessions.length,
         activeNegotiations,
@@ -244,6 +376,7 @@ export class CronCoordinator {
       cronConfig: {
         cronConfigured: Boolean(process.env.CRON_SECRET),
         retentionDays,
+        lockBackend,
       },
     };
   }
@@ -290,11 +423,13 @@ export class CronCoordinator {
       };
     }
 
-    // Invariant 2: Pending or uncertain PayPal capture
+    // Invariant 2: Pending or uncertain PayPal capture / unfinalized order
     if (
       session.status === "CAPTURE_PENDING_RECONCILIATION" ||
       session.status === "AWAITING_PAYPAL_APPROVAL" ||
-      session.status === "PAYPAL_AUTHORIZED"
+      session.status === "PAYPAL_AUTHORIZED" ||
+      session.paypalAuthorizationId ||
+      (session.paypalOrderId && !session.paypalCaptureId && session.status !== "CANCELLED")
     ) {
       return {
         sessionId: session.id,
@@ -329,15 +464,21 @@ export class CronCoordinator {
       };
     }
 
-    // Invariant 4: Merkle evidence / flight-recorder lineage
-    if (session.merkleRoot || session.preSettlementRoot || session.postAuditRoot || session.flightRecord) {
+    // Invariant 4: Merkle evidence / flight-recorder lineage & audit certificates
+    if (
+      session.merkleRoot ||
+      session.preSettlementRoot ||
+      session.postAuditRoot ||
+      session.flightRecord ||
+      session.auditCertificate
+    ) {
       return {
         sessionId: session.id,
         status: session.status,
         ageDays,
         updatedAt: sessionTimestampStr,
         isProtected: true,
-        protectionReason: "Preserved for cryptographic SHA-256 Merkle flight-recorder evidence.",
+        protectionReason: "Preserved for cryptographic SHA-256 Merkle flight-recorder evidence and audit verification.",
         eligibleForDeletion: false,
         eligible: false,
         reason: "HAS_MERKLE_EVIDENCE",

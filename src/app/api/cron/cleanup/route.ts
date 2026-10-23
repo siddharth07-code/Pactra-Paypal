@@ -34,13 +34,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 3. Acquire concurrency lock
-  const locked = defaultCronCoordinator.acquireLock("cleanup");
-  if (!locked) {
+  // 3. Acquire distributed concurrency lock (or local memory with auto-expiration)
+  const lock = await defaultCronCoordinator.acquireLockAsync("cleanup", 60000);
+  if (!lock.acquired) {
     return NextResponse.json(
       {
         error: "Session cleanup maintenance job is already in progress.",
         message: "Concurrent execution prevented.",
+        lockBackend: lock.backend,
       },
       { status: 409 }
     );
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ report, ...report }, { status: 200 });
   } finally {
-    defaultCronCoordinator.releaseLock("cleanup");
+    await defaultCronCoordinator.releaseLockAsync("cleanup", lock.token);
   }
 }
 

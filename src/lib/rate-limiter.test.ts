@@ -168,4 +168,73 @@ describe("API Rate Limiter Engine", () => {
       expect(body.message).toContain("Rate limit exceeded for PAYPAL_SETTLEMENT");
     });
   });
+
+  describe("Adversarial Identity Spoofing & Proxy Trust", () => {
+    it("rejects client-supplied user headers without internal gateway secret", () => {
+      const req = new NextRequest("http://localhost:3000/api/procurement/init", {
+        headers: {
+          "x-authenticated-user": "victim_user_999",
+          "x-pactum-user-id": "victim_user_999",
+        },
+      });
+
+      // No customAuthId and no gateway secret -> MUST NOT trust user header
+      const identity = extractClientIdentity(req);
+      expect(identity).not.toBe("user:victim_user_999");
+      expect(identity).toMatch(/^(anon:|ip:)/);
+    });
+
+    it("accepts user headers when validated by internal gateway secret", () => {
+      const originalSecret = process.env.INTERNAL_GATEWAY_SECRET;
+      process.env.INTERNAL_GATEWAY_SECRET = "secret_gateway_token_123";
+
+      try {
+        const req = new NextRequest("http://localhost:3000/api/procurement/init", {
+          headers: {
+            "x-authenticated-user": "verified_officer_1",
+            "x-internal-gateway-secret": "secret_gateway_token_123",
+          },
+        });
+
+        const identity = extractClientIdentity(req);
+        expect(identity).toBe("user:verified_officer_1");
+      } finally {
+        if (originalSecret === undefined) {
+          delete process.env.INTERNAL_GATEWAY_SECRET;
+        } else {
+          process.env.INTERNAL_GATEWAY_SECRET = originalSecret;
+        }
+      }
+    });
+
+    it("does not trust proxy headers in production unless TRUST_PROXY or VERCEL is explicitly configured", () => {
+      const origNodeEnv = process.env.NODE_ENV;
+      const origTrust = process.env.TRUST_PROXY;
+      const origTrustHeaders = process.env.TRUST_PROXY_HEADERS;
+      const origVercel = process.env.VERCEL;
+
+      (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+      delete process.env.TRUST_PROXY;
+      delete process.env.TRUST_PROXY_HEADERS;
+      delete process.env.VERCEL;
+
+      try {
+        const req = new NextRequest("http://localhost:3000/api/procurement/init", {
+          headers: {
+            "x-forwarded-for": "203.0.113.195",
+            "x-real-ip": "203.0.113.195",
+          },
+        });
+
+        const identity = extractClientIdentity(req);
+        // Untrusted proxy headers should be ignored in production when TRUST_PROXY is not set
+        expect(identity).not.toBe("ip:203.0.113.195");
+      } finally {
+        (process.env as Record<string, string | undefined>).NODE_ENV = origNodeEnv;
+        if (origTrust !== undefined) process.env.TRUST_PROXY = origTrust;
+        if (origTrustHeaders !== undefined) process.env.TRUST_PROXY_HEADERS = origTrustHeaders;
+        if (origVercel !== undefined) process.env.VERCEL = origVercel;
+      }
+    });
+  });
 });
