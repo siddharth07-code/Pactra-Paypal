@@ -128,7 +128,7 @@ class AuthoritativeSessionStore {
   public saveSession(session: ProcurementSession): void {
     const updated = {
       ...session,
-      updatedAt: new Date().toISOString(),
+      updatedAt: session.updatedAt ?? new Date().toISOString(),
     };
     this.sessions.set(session.id, JSON.parse(JSON.stringify(updated)));
     this.saveToDisk();
@@ -219,6 +219,18 @@ class AuthoritativeSessionStore {
   public getMandateHistory(sessionId: string): ProcurementMandate[] {
     const history = this.mandateHistory.get(sessionId);
     return history ? JSON.parse(JSON.stringify(history)) : [];
+  }
+
+  /**
+   * Deletes an authoritative session by ID (e.g. during scheduled maintenance cleanup).
+   */
+  public deleteSession(sessionId: string): boolean {
+    const existed = this.sessions.delete(sessionId);
+    this.mandateHistory.delete(sessionId);
+    if (existed) {
+      this.saveToDisk();
+    }
+    return existed;
   }
 
   /**

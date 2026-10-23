@@ -23,6 +23,7 @@ import { GeminiNegotiationClient } from "@/lib/gemini-client";
 import { SourcingEvaluator } from "@/lib/sourcing-evaluator";
 import { sessionStore } from "@/lib/session-store";
 import type { ProcurementMandate, VendorQuote } from "@/types/pactum";
+import { defaultRateLimiter } from "@/lib/rate-limiter";
 
 // Active sessions set to prevent duplicate negotiation runs from repeated requests
 const activeRunningSessions = new Set<string>();
@@ -30,6 +31,12 @@ const activeRunningSessions = new Set<string>();
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  // Enforce rate limiting before opening the SSE stream
+  const rateLimit = await defaultRateLimiter.check(req, "NEGOTIATION_STREAM");
+  if (!rateLimit.allowed) {
+    return rateLimit.response!;
+  }
+
   try {
     let body: {
       prompt?: string;

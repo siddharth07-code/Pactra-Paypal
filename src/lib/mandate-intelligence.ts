@@ -8,6 +8,11 @@
 
 import crypto from "crypto";
 import { GoogleGenAI, Type, type Schema } from "@google/genai";
+import {
+  defaultGeminiQuotaCoordinator,
+  GeminiQuotaCoordinator,
+  GeminiQuotaError,
+} from "./gemini-quota";
 import type {
   ProcurementMandate,
   MandateIntelligenceResult,
@@ -129,6 +134,7 @@ export class MandateIntelligenceService {
   private ai: GoogleGenAI | null = null;
   private modelName: string;
   private timeoutMs: number;
+  private quotaCoordinator: GeminiQuotaCoordinator;
 
   constructor(options?: GeminiClientOptions) {
     if (options?.aiClient) {
@@ -141,6 +147,20 @@ export class MandateIntelligenceService {
     }
     this.modelName = options?.modelName ?? process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
     this.timeoutMs = options?.timeoutMs ?? 8000;
+    if (options?.quotaCoordinator) {
+      this.quotaCoordinator = options.quotaCoordinator;
+    } else if (options?.aiClient) {
+      this.quotaCoordinator = new GeminiQuotaCoordinator({
+        maxRequestsPerMinute: 10000,
+        maxConcurrentRequests: 1000,
+        maxAttempts: 1,
+        providerTimeoutMs: 15000,
+        circuitBreakerThreshold: 1000,
+        circuitBreakerCooldownMs: 100,
+      });
+    } else {
+      this.quotaCoordinator = defaultGeminiQuotaCoordinator;
+    }
   }
 
   public getModelName(): string {
@@ -175,23 +195,33 @@ export class MandateIntelligenceService {
 
     // Attempt schema-validated Gemini extraction if client is configured
     if (this.ai) {
-      const controller = new AbortController();
-      let timeoutId: NodeJS.Timeout | undefined;
-
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          controller.abort();
-          reject(
-            new GeminiRequestError(
-              "REQUEST_TIMEOUT",
-              `Gemini Mandate extraction timed out after ${this.timeoutMs}ms.`
-            )
-          );
-        }, this.timeoutMs);
-      });
+      const effectiveTimeout = this.timeoutMs;
 
       try {
-        const userPrompt = `Enterprise Procurement Request to Analyze:
+        const validatedResult = await this.quotaCoordinator.execute(
+          "extractMandate",
+          async (quotaSignal) => {
+            const controller = new AbortController();
+            let timeoutId: NodeJS.Timeout | undefined;
+
+            const timeoutPromise = new Promise<never>((_, reject) => {
+              timeoutId = setTimeout(() => {
+                controller.abort();
+                reject(
+                  new GeminiRequestError(
+                    "REQUEST_TIMEOUT",
+                    `Gemini Mandate extraction timed out after ${effectiveTimeout}ms.`
+                  )
+                );
+              }, effectiveTimeout);
+            });
+
+            if (quotaSignal) {
+              quotaSignal.addEventListener("abort", () => controller.abort());
+            }
+
+            try {
+              const userPrompt = `Enterprise Procurement Request to Analyze:
 """
 ${rawPrompt}
 """
@@ -199,50 +229,56 @@ Context Currency Hint: ${input.currency || "None (extract from prompt)"}
 
 Extract the structured procurement mandate according to the required schema.`;
 
-        const apiCall = this.ai.models.generateContent({
-          model: this.modelName,
-          contents: userPrompt,
-          config: {
-            systemInstruction: MANDATE_SYSTEM_INSTRUCTION,
-            abortSignal: controller.signal,
-            httpOptions: { timeout: this.timeoutMs },
-            responseMimeType: "application/json",
-            responseSchema: BUYER_MANDATE_SCHEMA,
-            temperature: 0.1, // Low temperature for factual constraint extraction
-          },
-        });
+              const apiCall = this.ai!.models.generateContent({
+                model: this.modelName,
+                contents: userPrompt,
+                config: {
+                  systemInstruction: MANDATE_SYSTEM_INSTRUCTION,
+                  abortSignal: controller.signal,
+                  httpOptions: { timeout: effectiveTimeout },
+                  responseMimeType: "application/json",
+                  responseSchema: BUYER_MANDATE_SCHEMA,
+                  temperature: 0.1, // Low temperature for factual constraint extraction
+                },
+              });
 
-        const response = await Promise.race([apiCall, timeoutPromise]);
-        const latencyMs = Date.now() - startTime;
+              const response = await Promise.race([apiCall, timeoutPromise]);
 
-        if (!response || typeof response.text !== "string" || !response.text.trim()) {
-          throw new GeminiRequestError(
-            "INVALID_SCHEMA_RESPONSE",
-            "Model returned empty response text for mandate extraction."
-          );
-        }
+              if (!response || typeof response.text !== "string" || !response.text.trim()) {
+                throw new GeminiRequestError(
+                  "INVALID_SCHEMA_RESPONSE",
+                  "Model returned empty response text for mandate extraction."
+                );
+              }
 
-        let rawText = response.text.trim();
-        if (rawText.startsWith("```")) {
-          rawText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-        }
+              let rawText = response.text.trim();
+              if (rawText.startsWith("```")) {
+                rawText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+              }
 
-        let parsed: Record<string, unknown>;
-        try {
-          parsed = JSON.parse(rawText);
-        } catch (jsonErr) {
-          throw new GeminiRequestError(
-            "INVALID_SCHEMA_RESPONSE",
-            `Model mandate response was not valid JSON: ${jsonErr instanceof Error ? jsonErr.message : String(jsonErr)}`
-          );
-        }
+              let parsed: Record<string, unknown>;
+              try {
+                parsed = JSON.parse(rawText);
+              } catch (jsonErr) {
+                throw new GeminiRequestError(
+                  "INVALID_SCHEMA_RESPONSE",
+                  `Model mandate response was not valid JSON: ${jsonErr instanceof Error ? jsonErr.message : String(jsonErr)}`
+                );
+              }
 
-        // Run authoritative deterministic validation on model extraction
-        const validatedResult = this.deterministicallyValidateExtraction(parsed, rawPrompt, input.currency);
+              return this.deterministicallyValidateExtraction(parsed, rawPrompt, input.currency);
+            } finally {
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+              }
+            }
+          }
+        );
+
         return {
           ...validatedResult,
           extractor: "GEMINI_LIVE",
-          latencyMs,
+          latencyMs: Date.now() - startTime,
         };
       } catch (err: unknown) {
         const classified = this.classifyError(err);
@@ -285,10 +321,6 @@ Extract the structured procurement mandate according to the required schema.`;
           latencyMs: Date.now() - startTime,
           error: `${classified.code}: ${classified.message}`,
         };
-      } finally {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
       }
     }
 
@@ -319,6 +351,9 @@ Extract the structured procurement mandate according to the required schema.`;
   private classifyError(err: unknown): GeminiRequestError {
     if (err instanceof GeminiRequestError) {
       return err;
+    }
+    if (err instanceof GeminiQuotaError) {
+      return new GeminiRequestError("RATE_LIMIT_EXCEEDED", `RATE_LIMITED: ${err.message}`, 429);
     }
     const message = err instanceof Error ? err.message : String(err);
     const status = typeof (err as { status?: number }).status === "number"

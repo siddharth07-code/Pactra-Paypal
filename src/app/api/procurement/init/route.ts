@@ -10,6 +10,7 @@ import { extractProcurementMandate } from "@/lib/mandate-parser";
 import { Channel3Client } from "@/lib/channel3-client";
 import { SourcingEvaluator } from "@/lib/sourcing-evaluator";
 import { sessionStore } from "@/lib/session-store";
+import { defaultRateLimiter } from "@/lib/rate-limiter";
 import type { ProcurementMandate, CurrencyCode } from "@/types/pactum";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const { prompt, currency, rawMandate, analyzeOnly } = body;
+
+    // Rate limiting check: separate policies for analysis vs session creation
+    const policy = analyzeOnly ? "MANDATE_ANALYZE" : "SESSION_CREATE";
+    const rateLimit = await defaultRateLimiter.check(req, policy);
+    if (!rateLimit.allowed) {
+      return rateLimit.response!;
+    }
 
     // 1. Analyze-only mode: returns extraction intelligence without creating a session
     if (analyzeOnly) {

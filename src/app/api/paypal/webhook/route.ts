@@ -8,8 +8,14 @@
 import { NextRequest } from "next/server";
 import { PayPalClient } from "@/lib/paypal-client";
 import { sessionStore } from "@/lib/session-store";
+import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
 
 export async function POST(req: NextRequest) {
+  const rateLimit = await defaultRateLimiter.checkLimit(req, "PAYPAL_SETTLEMENT");
+  if (!rateLimit.allowed) {
+    return createRateLimitResponse(rateLimit);
+  }
+
   try {
     const authAlgo = req.headers.get("paypal-auth-algo") ?? "";
     const certUrl = req.headers.get("paypal-cert-url") ?? "";

@@ -10,11 +10,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { disputeService } from "@/lib/dispute-service";
 import { sessionStore } from "@/lib/session-store";
+import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
 import type { DisputeCategory } from "@/types/pactum";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const rateLimit = await defaultRateLimiter.checkLimit(req, "DISPUTE_OPS");
+  if (!rateLimit.allowed) {
+    return createRateLimitResponse(rateLimit);
+  }
+
   try {
     let body: {
       sessionId?: string;
@@ -59,6 +65,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const rateLimit = await defaultRateLimiter.checkLimit(req, "DISPUTE_OPS");
+  if (!rateLimit.allowed) {
+    return createRateLimitResponse(rateLimit);
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const disputeId = searchParams.get("disputeId");

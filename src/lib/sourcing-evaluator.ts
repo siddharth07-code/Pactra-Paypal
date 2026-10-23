@@ -7,6 +7,7 @@
  */
 
 import { GoogleGenAI, Type, type Schema } from "@google/genai";
+import { defaultGeminiQuotaCoordinator } from "./gemini-quota";
 import type {
   ProcurementMandate,
   VendorQuote,
@@ -196,8 +197,7 @@ export async function evaluateProductCompatibility(
     try {
       const ai = new GoogleGenAI({ apiKey: options.apiKey });
       const model = options.modelName || process.env.GEMINI_MODEL || "gemini-2.5-flash";
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs || 4000);
+      const effectiveTimeout = options.timeoutMs || 4000;
 
       const prompt = `You are an expert enterprise procurement evaluator.
 Analyze whether the vendor quote satisfies the procurement mandate.
@@ -215,18 +215,31 @@ Vendor Quote:
 - SKU: ${quote.sku}
 - Condition: ${quote.condition}`;
 
-      const response = await ai.models.generateContent({
-        model,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: PRODUCT_COMPATIBILITY_SCHEMA,
-          temperature: 0.1,
-          abortSignal: controller.signal,
-        },
-      });
+      const response = await defaultGeminiQuotaCoordinator.execute(
+        "evaluateSourcedQuote",
+        async (quotaSignal) => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
+          if (quotaSignal) {
+            quotaSignal.addEventListener("abort", () => controller.abort());
+          }
 
-      clearTimeout(timeoutId);
+          try {
+            return await ai.models.generateContent({
+              model,
+              contents: prompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: PRODUCT_COMPATIBILITY_SCHEMA,
+                temperature: 0.1,
+                abortSignal: controller.signal,
+              },
+            });
+          } finally {
+            clearTimeout(timeoutId);
+          }
+        }
+      );
 
       if (response.text) {
         const parsed = JSON.parse(response.text);

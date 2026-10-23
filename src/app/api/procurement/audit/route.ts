@@ -8,10 +8,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionStore } from "@/lib/session-store";
 import { AcworldAuditor } from "@/lib/acworld-auditor";
+import { defaultRateLimiter } from "@/lib/rate-limiter";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const rateLimit = await defaultRateLimiter.check(req, "EVIDENCE_READ");
+  if (!rateLimit.allowed) {
+    return rateLimit.response!;
+  }
+
   try {
     let body: { sessionId?: string };
     try {

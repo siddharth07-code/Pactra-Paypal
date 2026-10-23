@@ -6,11 +6,13 @@ import { POST as captureHandler } from "./capture/route";
 import { POST as cancelHandler } from "./cancel/route";
 import { NextRequest } from "next/server";
 import { sessionStore } from "@/lib/session-store";
+import { defaultRateLimiter } from "@/lib/rate-limiter";
 import type { ProcurementSession } from "@/types/pactum";
 
 describe("PayPal API Routes Integration Tests", () => {
   beforeEach(() => {
     sessionStore.clear();
+    defaultRateLimiter.resetAll();
   });
 
   const validSession: ProcurementSession = {

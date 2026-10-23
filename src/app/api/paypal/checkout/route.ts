@@ -8,8 +8,14 @@
 
 import { NextRequest } from "next/server";
 import { SettlementService } from "@/lib/settlement-service";
+import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
 
 export async function POST(req: NextRequest) {
+  const rateLimit = await defaultRateLimiter.checkLimit(req, "PAYPAL_SETTLEMENT");
+  if (!rateLimit.allowed) {
+    return createRateLimitResponse(rateLimit);
+  }
+
   try {
     let body: { sessionId?: string };
     try {

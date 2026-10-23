@@ -9,10 +9,16 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { disputeService } from "@/lib/dispute-service";
+import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const rateLimit = await defaultRateLimiter.checkLimit(req, "DISPUTE_OPS");
+  if (!rateLimit.allowed) {
+    return createRateLimitResponse(rateLimit);
+  }
+
   try {
     let body: {
       disputeId?: string;

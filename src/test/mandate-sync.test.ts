@@ -2,12 +2,14 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { POST as streamPOST } from "@/app/api/negotiate/stream/route";
 import { POST as initPOST } from "@/app/api/procurement/init/route";
 import { sessionStore } from "@/lib/session-store";
+import { defaultRateLimiter } from "@/lib/rate-limiter";
 import { NextRequest } from "next/server";
 import type { ProcurementMandate } from "@/types/pactum";
 
 describe("Mandate Input Synchronization & Session Reuse Tests", () => {
   beforeEach(() => {
     sessionStore.clear();
+    defaultRateLimiter.resetAll();
   });
 
   it("accepts custom structured rawMandate and establishes negotiation stream with custom values", async () => {

@@ -7,6 +7,11 @@
  */
 
 import { GoogleGenAI, Type, type Schema } from "@google/genai";
+import {
+  defaultGeminiQuotaCoordinator,
+  GeminiQuotaCoordinator,
+  GeminiQuotaError,
+} from "./gemini-quota";
 import type {
   ProcurementMandate,
   VendorQuote,
@@ -52,6 +57,7 @@ export interface GeminiClientOptions {
   apiKey?: string;
   modelName?: string;
   timeoutMs?: number;
+  quotaCoordinator?: GeminiQuotaCoordinator;
   aiClient?: {
     models: {
       generateContent: (args: unknown) => Promise<{ text?: string }>;
@@ -120,6 +126,7 @@ export class GeminiNegotiationClient {
   private ai: GoogleGenAI | null = null;
   private modelName: string;
   private timeoutMs: number;
+  private quotaCoordinator: GeminiQuotaCoordinator;
 
   constructor(options?: GeminiClientOptions) {
     if (options?.aiClient) {
@@ -133,6 +140,20 @@ export class GeminiNegotiationClient {
     // Verified configurable model identifier; defaults to env var or verified gemini-2.5-flash
     this.modelName = options?.modelName ?? process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
     this.timeoutMs = options?.timeoutMs ?? 12000;
+    if (options?.quotaCoordinator) {
+      this.quotaCoordinator = options.quotaCoordinator;
+    } else if (options?.aiClient) {
+      this.quotaCoordinator = new GeminiQuotaCoordinator({
+        maxRequestsPerMinute: 10000,
+        maxConcurrentRequests: 1000,
+        maxAttempts: 1,
+        providerTimeoutMs: 15000,
+        circuitBreakerThreshold: 1000,
+        circuitBreakerCooldownMs: 100,
+      });
+    } else {
+      this.quotaCoordinator = defaultGeminiQuotaCoordinator;
+    }
   }
 
   public getModelName(): string {
@@ -141,6 +162,10 @@ export class GeminiNegotiationClient {
 
   public getTimeoutMs(): number {
     return this.timeoutMs;
+  }
+
+  public getQuotaCoordinator(): GeminiQuotaCoordinator {
+    return this.quotaCoordinator;
   }
 
   public hasLiveClient(): boolean {
@@ -163,85 +188,102 @@ export class GeminiNegotiationClient {
 
     const startTime = Date.now();
 
-    // If Gemini client is configured, attempt schema-validated live API call with real timeout
+    // If Gemini client is configured, attempt schema-validated live API call through Quota Coordinator
     if (this.ai) {
-      const controller = new AbortController();
-      let timeoutId: NodeJS.Timeout | undefined;
-
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          controller.abort();
-          reject(
-            new GeminiRequestError(
-              "REQUEST_TIMEOUT",
-              `Gemini API request timed out after ${this.timeoutMs}ms.`
-            )
-          );
-        }, this.timeoutMs);
-      });
+      const effectiveTimeout = this.timeoutMs;
 
       try {
-        const prompt = this.buildPrompt(params);
+        const validatedProposal = await this.quotaCoordinator.execute(
+          "generateBuyerOffer",
+          async (quotaSignal) => {
+            const controller = new AbortController();
+            let timeoutId: NodeJS.Timeout | undefined;
 
-        const systemInstruction = this.buildSystemInstruction();
+            const timeoutPromise = new Promise<never>((_, reject) => {
+              timeoutId = setTimeout(() => {
+                controller.abort();
+                reject(
+                  new GeminiRequestError(
+                    "REQUEST_TIMEOUT",
+                    `Gemini API request timed out after ${effectiveTimeout}ms.`
+                  )
+                );
+              }, effectiveTimeout);
+            });
 
-        const apiCall = this.ai.models.generateContent({
-          model: this.modelName,
-          contents: prompt,
-          config: {
-            systemInstruction,
-            abortSignal: controller.signal,
-            httpOptions: { timeout: Math.max(10000, this.timeoutMs) },
-            responseMimeType: "application/json",
-            responseSchema: BUYER_PROPOSAL_SCHEMA,
-            temperature: 0.2, // Low temperature for consistent rational negotiation
-          },
-        });
+            if (quotaSignal) {
+              quotaSignal.addEventListener("abort", () => controller.abort());
+            }
 
-        const response = await Promise.race([apiCall, timeoutPromise]);
-        const latencyMs = Date.now() - startTime;
+            try {
+              const prompt = this.buildPrompt(params);
+              const systemInstruction = this.buildSystemInstruction();
 
-        if (!response || typeof response.text !== "string" || !response.text.trim()) {
-          throw new GeminiRequestError(
-            "INVALID_SCHEMA_RESPONSE",
-            "Model returned empty or non-string response text."
-          );
-        }
+              const apiCall = this.ai!.models.generateContent({
+                model: this.modelName,
+                contents: prompt,
+                config: {
+                  systemInstruction,
+                  abortSignal: controller.signal,
+                  httpOptions: { timeout: Math.max(10000, effectiveTimeout) },
+                  responseMimeType: "application/json",
+                  responseSchema: BUYER_PROPOSAL_SCHEMA,
+                  temperature: 0.2, // Low temperature for consistent rational negotiation
+                },
+              });
 
-        // Bounded JSON parsing with safe fence stripping if present
-        let rawText = response.text.trim();
-        if (rawText.startsWith("```")) {
-          rawText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-        }
+              const response = await Promise.race([apiCall, timeoutPromise]);
 
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(rawText);
-        } catch (jsonErr) {
-          throw new GeminiRequestError(
-            "INVALID_SCHEMA_RESPONSE",
-            `Model response is not valid JSON: ${jsonErr instanceof Error ? jsonErr.message : String(jsonErr)}`
-          );
-        }
+              if (!response || typeof response.text !== "string" || !response.text.trim()) {
+                throw new GeminiRequestError(
+                  "INVALID_SCHEMA_RESPONSE",
+                  "Model returned empty or non-string response text."
+                );
+              }
 
-        const validated = this.validateAndSanitizeProposal(parsed, {
-          mandate,
-          vendorQuote,
-          previousBuyerOffer,
-          previousVendorAsk,
-        });
+              // Bounded JSON parsing with safe fence stripping if present
+              let rawText = response.text.trim();
+              if (rawText.startsWith("```")) {
+                rawText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+              }
 
-        if (!validated) {
-          throw new GeminiRequestError(
-            "INVALID_BOUNDS_PROPOSAL",
-            "Model proposal failed strict application-side schema or boundary validation."
-          );
-        }
+              let parsed: unknown;
+              try {
+                parsed = JSON.parse(rawText);
+              } catch (jsonErr) {
+                throw new GeminiRequestError(
+                  "INVALID_SCHEMA_RESPONSE",
+                  `Model response is not valid JSON: ${jsonErr instanceof Error ? jsonErr.message : String(jsonErr)}`
+                );
+              }
+
+              const validated = this.validateAndSanitizeProposal(parsed, {
+                mandate,
+                vendorQuote,
+                previousBuyerOffer,
+                previousVendorAsk,
+              });
+
+              if (!validated) {
+                throw new GeminiRequestError(
+                  "INVALID_BOUNDS_PROPOSAL",
+                  "Model proposal failed strict application-side schema or boundary validation."
+                );
+              }
+
+              return validated;
+            } finally {
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+              }
+            }
+          }
+        );
 
         return {
-          ...validated,
+          ...validatedProposal,
           generator: "GEMINI_LIVE",
-          latencyMs,
+          latencyMs: Date.now() - startTime,
           modelName: this.modelName,
         };
       } catch (err: unknown) {
@@ -261,10 +303,6 @@ export class GeminiNegotiationClient {
           modelName: this.modelName,
           error: `${classified.code}: ${classified.message}`,
         };
-      } finally {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
       }
     }
 
@@ -595,6 +633,10 @@ INSTRUCTIONS:
   private classifyError(err: unknown): GeminiRequestError {
     if (err instanceof GeminiRequestError) {
       return err;
+    }
+
+    if (err instanceof GeminiQuotaError) {
+      return new GeminiRequestError("RATE_LIMIT_EXCEEDED", err.message, 429);
     }
 
     const message = err instanceof Error ? err.message : String(err);
