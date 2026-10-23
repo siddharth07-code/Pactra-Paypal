@@ -260,7 +260,8 @@ export async function POST(req: NextRequest) {
           const orchestrationResult = await orchestrator.runNegotiation(
             mandate,
             evaluationResult.eligibleQuotes,
-            currentSessionId
+            currentSessionId,
+            evaluationResult.evaluations
           );
           if (orchestrationResult.session) {
             orchestrationResult.session.quoteEvaluations = evaluationResult.evaluations;

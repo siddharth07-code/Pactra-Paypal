@@ -4,7 +4,7 @@ import {
   GeminiRequestError,
   BUYER_PROPOSAL_SCHEMA,
 } from "./gemini-client";
-import type { ProcurementMandate, VendorQuote } from "../types/pactum";
+import type { ProcurementMandate, VendorQuote, QuoteEvaluation } from "../types/pactum";
 
 describe("Gemini Negotiation Client Unit Tests", () => {
   const mandate: ProcurementMandate = {
@@ -524,5 +524,237 @@ describe("Gemini Negotiation Client Unit Tests", () => {
     expect(capturedPrompt).not.toContain("<script>");
     // Exactly one legitimate outer closing tag should exist in the whole prompt
     expect((capturedPrompt.match(/<\/untrusted_vendor_data>/g) || []).length).toBe(1);
+  });
+
+  // Phase 4: Cross-vendor competitive intelligence & strict ineligible competitor exclusion
+  it("includes eligible competitors in prompt and strictly excludes ineligible competitors", async () => {
+    let capturedPrompt = "";
+    const mockGenerateContent = vi.fn().mockImplementation((args: { contents: string }) => {
+      capturedPrompt = args.contents;
+      return Promise.resolve({
+        text: JSON.stringify({
+          unitPrice: 315,
+          deliveryDays: 3,
+          returnDays: 35,
+          message: "Commercial proposal of $315 per unit.",
+          tacticalRationale: "Benchmarking against eligible competitor.",
+        }),
+      });
+    });
+
+    const client = new GeminiNegotiationClient({
+      aiClient: {
+        models: {
+          generateContent: mockGenerateContent,
+        },
+      },
+    });
+
+    const eligibleCompetitor: VendorQuote = {
+      vendorId: "vendor-b",
+      vendorName: "DisplayWorld Direct",
+      sku: "DWD-4K-27",
+      productTitle: "DisplayWorld 4K Display",
+      initialUnitAsk: 360,
+      currentUnitBid: 350,
+      shippingCost: 100,
+      deliveryDays: 3,
+      returnDays: 35,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    };
+
+    const ineligibleCompetitor: VendorQuote = {
+      vendorId: "vendor-ineligible",
+      vendorName: "Bad Vendor Refurb",
+      sku: "BAD-REFURB-1",
+      productTitle: "Used Broken Monitor",
+      initialUnitAsk: 200,
+      currentUnitBid: 200,
+      shippingCost: 50,
+      deliveryDays: 15,
+      returnDays: 0,
+      condition: "USED",
+      status: "REJECTED",
+      dataSource: "MOCK_CATALOG",
+    };
+
+    await client.generateBuyerOffer({
+      mandate,
+      vendorQuote: quote,
+      round: 2,
+      maxRounds: 4,
+      previousVendorAsk: 375,
+      competingQuotes: [quote, eligibleCompetitor, ineligibleCompetitor],
+      quoteEvaluations: {
+        "vendor-a": {
+          vendorId: "vendor-a",
+          vendorName: "Apex Displays",
+          sku: "APX-4K-27",
+          productTitle: "27 4K Monitor",
+          status: "ELIGIBLE",
+          financials: {} as unknown as QuoteEvaluation["financials"],
+          sla: {} as unknown as QuoteEvaluation["sla"],
+          compatibility: {} as unknown as QuoteEvaluation["compatibility"],
+          evidence: {} as unknown as QuoteEvaluation["evidence"],
+          disqualificationReasons: [],
+          reviewReasons: [],
+          evaluationProvenance: "DETERMINISTIC_RULES",
+          evaluatedAt: new Date().toISOString(),
+        },
+        "vendor-b": {
+          vendorId: "vendor-b",
+          vendorName: "DisplayWorld Direct",
+          sku: "DWD-4K-27",
+          productTitle: "DisplayWorld 4K Display",
+          status: "ELIGIBLE",
+          financials: {} as unknown as QuoteEvaluation["financials"],
+          sla: {} as unknown as QuoteEvaluation["sla"],
+          compatibility: {} as unknown as QuoteEvaluation["compatibility"],
+          evidence: {} as unknown as QuoteEvaluation["evidence"],
+          disqualificationReasons: [],
+          reviewReasons: [],
+          evaluationProvenance: "DETERMINISTIC_RULES",
+          evaluatedAt: new Date().toISOString(),
+        },
+        "vendor-ineligible": {
+          vendorId: "vendor-ineligible",
+          vendorName: "Bad Vendor Refurb",
+          sku: "BAD-REFURB-1",
+          productTitle: "Used Broken Monitor",
+          status: "INELIGIBLE",
+          financials: {} as unknown as QuoteEvaluation["financials"],
+          sla: {} as unknown as QuoteEvaluation["sla"],
+          compatibility: {} as unknown as QuoteEvaluation["compatibility"],
+          evidence: {} as unknown as QuoteEvaluation["evidence"],
+          disqualificationReasons: ["Delivery SLA exceeded: 15 days > 5 days"],
+          reviewReasons: [],
+          evaluationProvenance: "DETERMINISTIC_RULES",
+          evaluatedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    // Eligible competitor MUST be in prompt
+    expect(capturedPrompt).toContain("DisplayWorld Direct");
+    expect(capturedPrompt).toContain("Landed Cost $8850.00");
+    expect(capturedPrompt).toContain("Market Benchmark: Lowest competing eligible supplier");
+
+    // Ineligible competitor MUST NOT be in prompt
+    expect(capturedPrompt).not.toContain("Bad Vendor Refurb");
+    expect(capturedPrompt).not.toContain("BAD-REFURB-1");
+  });
+
+  // Phase 4: Structured negotiation history and guardrail feedback in prompt
+  it("injects chronological round history and guardrail intervention feedback into prompt", async () => {
+    let capturedPrompt = "";
+    const mockGenerateContent = vi.fn().mockImplementation((args: { contents: string }) => {
+      capturedPrompt = args.contents;
+      return Promise.resolve({
+        text: JSON.stringify({
+          unitPrice: 320,
+          deliveryDays: 4,
+          returnDays: 30,
+          message: "Revised proposal addressing guardrail feedback.",
+          tacticalRationale: "Correcting previous intervention.",
+        }),
+      });
+    });
+
+    const client = new GeminiNegotiationClient({
+      aiClient: {
+        models: {
+          generateContent: mockGenerateContent,
+        },
+      },
+    });
+
+    await client.generateBuyerOffer({
+      mandate,
+      vendorQuote: quote,
+      round: 3,
+      maxRounds: 4,
+      previousBuyerOffer: {
+        unitPrice: 315,
+        quantity: 25,
+        deliveryDays: 4,
+        returnDays: 30,
+        shippingCost: 150,
+      },
+      previousVendorAsk: 360,
+      guardrailFeedback: "Simulated demonstration intervention triggered in Round 2",
+      history: [
+        {
+          round: 1,
+          vendorId: "vendor-a",
+          actor: "BUYER",
+          message: "Round 1 proposal of $310",
+          proposedOffer: { unitPrice: 310, quantity: 25, deliveryDays: 4, returnDays: 30, shippingCost: 150 },
+          guardrailStatus: "APPROVED",
+          timestamp: new Date().toISOString(),
+        },
+        {
+          round: 1,
+          vendorId: "vendor-a",
+          actor: "VENDOR",
+          message: "Round 1 counter of $370",
+          proposedOffer: { unitPrice: 370, quantity: 25, deliveryDays: 4, returnDays: 30, shippingCost: 150 },
+          guardrailStatus: "APPROVED",
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    });
+
+    expect(capturedPrompt).toContain("Round 1 [BUYER]: $310.00/unit");
+    expect(capturedPrompt).toContain("Round 1 [VENDOR]: $370.00/unit");
+    expect(capturedPrompt).toContain("CRITICAL GUARDRAIL INTERVENTION TO CORRECT: Simulated demonstration intervention triggered in Round 2");
+    expect(capturedPrompt).toContain("Round: 3 of 4 (1 round(s) remaining after this offer)");
+  });
+
+  // Phase 4: Deterministic fallback benchmarking against competitors
+  it("adjusts deterministic proposal target based on competitor benchmarking and state awareness", () => {
+    const client = new GeminiNegotiationClient();
+
+    const competingEligibleQuote: VendorQuote = {
+      vendorId: "vendor-b",
+      vendorName: "Competitor B",
+      sku: "COMP-B-4K",
+      productTitle: "4K Monitor B",
+      initialUnitAsk: 340,
+      currentUnitBid: 320,
+      shippingCost: 100,
+      deliveryDays: 3,
+      returnDays: 35,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+    };
+
+    const proposal = client.generateDeterministicProposal({
+      mandate,
+      vendorQuote: quote,
+      round: 2,
+      maxRounds: 4,
+      previousBuyerOffer: {
+        unitPrice: 295,
+        quantity: 25,
+        deliveryDays: 4,
+        returnDays: 30,
+        shippingCost: 150,
+      },
+      previousVendorAsk: 370,
+      competingQuotes: [quote, competingEligibleQuote],
+      quoteEvaluations: {
+        "vendor-a": { status: "ELIGIBLE" } as unknown as QuoteEvaluation,
+        "vendor-b": { status: "ELIGIBLE" } as unknown as QuoteEvaluation,
+      },
+    });
+
+    expect(proposal.generator).toBe("DETERMINISTIC_FALLBACK");
+    expect(proposal.unitPrice).toBeGreaterThanOrEqual(295); // Anti-thrashing
+    expect(proposal.unitPrice).toBeLessThanOrEqual(370);
+    expect(proposal.tacticalRationale).toContain("Benchmarked against 1 eligible competitor");
+    expect(proposal.tacticalRationale).toContain("Boulware threshold");
   });
 });

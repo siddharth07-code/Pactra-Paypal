@@ -209,6 +209,83 @@ export type GuardrailStatus = "APPROVED" | "GUARDRAIL_BLOCKED" | "GUARDRAIL_INTE
 export type ProposalGenerator = "GEMINI_LIVE" | "DETERMINISTIC_FALLBACK";
 
 /**
+ * Vendor response provenance distinguishing simulated deterministic vendors from live external suppliers
+ */
+export type VendorResponseProvenance = "SIMULATED_VENDOR" | "LIVE_SUPPLIER";
+
+/**
+ * Commercial negotiation strategy types for vendor simulations
+ */
+export type VendorStrategyType = "FIRM" | "BALANCED" | "FLEXIBLE";
+
+/**
+ * Summary of a competing eligible vendor offer for cross-vendor intelligence
+ */
+export interface CompetingVendorOfferSummary {
+  vendorId: string;
+  vendorName: string;
+  sku: string;
+  currentUnitBid: number;
+  initialUnitAsk: number;
+  shippingCost: number;
+  deliveryDays: number;
+  returnDays: number;
+  currentLandedCost: number;
+  dataSource: DataSource;
+  eligibilityStatus: QuoteEligibilityStatus;
+  compatibilityExplanation?: string;
+}
+
+/**
+ * Summary of a previous guardrail intervention in the session
+ */
+export interface GuardrailInterventionSummary {
+  round: number;
+  vendorId: string;
+  status: GuardrailStatus;
+  predicateFailed?: string;
+  reason: string;
+  timestamp: string;
+}
+
+/**
+ * Phase 4: Structured Negotiation State
+ * Authoritative server-side state constructed per vendor and round.
+ */
+export interface StructuredNegotiationState {
+  sessionId: string;
+  mandateId: string;
+  mandateVersion: number;
+  round: number;
+  maxRounds: number;
+  remainingRounds: number;
+  activeVendorId: string;
+  originalQuote: VendorQuote;
+  currentVendorAsk: number;
+  currentBuyerOffer?: NegotiationOffer;
+  previousBuyerOffers: NegotiationOffer[];
+  previousVendorCounteroffers: Array<{
+    round: number;
+    unitAsk: number;
+    message: string;
+    accepted?: boolean;
+  }>;
+  competingEligibleOffers: CompetingVendorOfferSummary[];
+  currentLandedCost: number;
+  mandateConstraints: {
+    quantity: number;
+    maxTotalBudget: number;
+    maxDeliveryDays: number;
+    minReturnDays: number;
+    currency: CurrencyCode;
+    requiredSpecs?: RequiredSpecification[];
+    requiredCondition?: ProductCondition;
+  };
+  previousGuardrailInterventions: GuardrailInterventionSummary[];
+  status: "ACTIVE" | "TERMINATED_DEAL" | "TERMINATED_NO_DEAL";
+}
+
+/**
  * 4.3 NegotiationTurn
  * An individual round in multi-agent bargaining
  */
@@ -224,6 +301,7 @@ export interface NegotiationTurn {
   guardrailStatus: GuardrailStatus;
   guardrailReason?: string;
   generator?: ProposalGenerator;
+  vendorProvenance?: VendorResponseProvenance;
   timestamp: string;
 }
 

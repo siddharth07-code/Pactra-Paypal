@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { NegotiationOrchestrator } from "./negotiation-orchestrator";
 import { DETERMINISTIC_FIXTURE_QUOTES } from "./channel3-client";
 import { GeminiNegotiationClient } from "./gemini-client";
-import type { ProcurementMandate } from "../types/pactum";
+import type { ProcurementMandate, VendorQuote, StructuredNegotiationState } from "../types/pactum";
 
 describe("Negotiation Orchestrator Unit Tests", () => {
   const mandate: ProcurementMandate = {
@@ -175,5 +175,133 @@ describe("Negotiation Orchestrator Unit Tests", () => {
     const turn = result.session.turns.find((t) => t.actor === "BUYER");
     expect(turn?.generator).toBe("GEMINI_LIVE");
     expect(turn?.message).toBe("Live Gemini offer of $310.");
+  });
+
+  // Phase 4: Vendor simulation provenance and distinct strategies
+  it("tags vendor turns and SSE counteroffer events with SIMULATED_VENDOR provenance and strategy types", async () => {
+    const emittedEvents: Array<{ type: string; payload: Record<string, unknown> }> = [];
+
+    const orchestrator = new NegotiationOrchestrator({
+      maxRounds: 1,
+      onEvent: (ev) => {
+        emittedEvents.push(ev);
+      },
+    });
+
+    const result = await orchestrator.runNegotiation(mandate, DETERMINISTIC_FIXTURE_QUOTES);
+
+    const vendorCounterEvents = emittedEvents.filter((e) => e.type === "VENDOR_COUNTEROFFER");
+    expect(vendorCounterEvents.length).toBe(3); // 3 fixture vendors
+
+    for (const vce of vendorCounterEvents) {
+      expect(vce.payload.provenance).toBe("SIMULATED_VENDOR");
+      expect(vce.payload.strategyType).toBeDefined();
+      expect(["FIRM", "BALANCED", "FLEXIBLE"]).toContain(vce.payload.strategyType);
+    }
+
+    const vendorTurns = result.session.turns.filter((t) => t.actor === "VENDOR");
+    expect(vendorTurns.length).toBe(3);
+    for (const vt of vendorTurns) {
+      expect(vt.vendorProvenance).toBe("SIMULATED_VENDOR");
+      expect(vt.message).toContain("Simulated supplier response:");
+    }
+  });
+
+  // Phase 4: Passes structured negotiation state with cross-vendor intelligence to buyer generator
+  it("constructs and passes structured negotiation state with eligible competitors to buyer generator", async () => {
+    let capturedState: StructuredNegotiationState | null = null;
+
+    const mockGenerateBuyerOffer = vi.fn().mockImplementation((context) => {
+      capturedState = context.structuredState;
+      return Promise.resolve({
+        unitPrice: 310,
+        deliveryDays: 3,
+        returnDays: 35,
+        message: "Offer with structured state",
+        tacticalRationale: "State verified",
+        generator: "DETERMINISTIC_FALLBACK",
+      });
+    });
+
+    const mockClient = {
+      generateBuyerOffer: mockGenerateBuyerOffer,
+    } as unknown as GeminiNegotiationClient;
+
+    const orchestrator = new NegotiationOrchestrator({
+      geminiClient: mockClient,
+      maxRounds: 1,
+    });
+
+    await orchestrator.runNegotiation(mandate, DETERMINISTIC_FIXTURE_QUOTES);
+
+    expect(capturedState).not.toBeNull();
+    expect(capturedState!.sessionId).toBeDefined();
+    expect(capturedState!.round).toBe(1);
+    expect(capturedState!.maxRounds).toBe(1);
+    expect(capturedState!.remainingRounds).toBe(0);
+    expect(capturedState!.mandateConstraints.maxTotalBudget).toBe(8500);
+    expect(capturedState!.competingEligibleOffers.length).toBe(2); // 2 competitors for each vendor in a 3-vendor arena
+  });
+
+  // Phase 4: Explicit no-deal outcome when all offers exceed budget or violate SLA
+  it("produces an explicit no-deal outcome when all vendor quotes are infeasible", async () => {
+    const impossibleMandate: ProcurementMandate = {
+      ...mandate,
+      id: "mandate-impossible",
+      maxTotalBudget: 1000, // Impossibly low budget ($1,000 for 25 monitors = $40/unit)
+      maxDeliveryDays: 1, // Only 1 day delivery allowed (vendors offer 3-5 days)
+    };
+
+    const emittedEvents: Array<{ type: string; payload: Record<string, unknown> }> = [];
+
+    const orchestrator = new NegotiationOrchestrator({
+      maxRounds: 1,
+      onEvent: (ev) => {
+        emittedEvents.push(ev);
+      },
+    });
+
+    const result = await orchestrator.runNegotiation(impossibleMandate, DETERMINISTIC_FIXTURE_QUOTES);
+
+    expect(result.completed).toBe(false);
+    expect(result.selectedQuote).toBeUndefined();
+    expect(result.finalOffer).toBeUndefined();
+    expect(result.session.status).toBe("AUDIT_FAILED");
+
+    const completedEvent = emittedEvents.find((e) => e.type === "NEGOTIATION_COMPLETED");
+    expect(completedEvent).toBeDefined();
+    expect(completedEvent?.payload.outcome).toBe("NO_DEAL");
+    expect(completedEvent?.payload.reason).toContain("No vendor counteroffer satisfied");
+  });
+
+  // Phase 4: Deterministic tie-breaking by lowest total landed cost and vendor ID
+  it("breaks ties deterministically by lowest landed cost and vendor ID", async () => {
+    // Two vendors offering identical utility but different landed cost
+    const quote1: VendorQuote = {
+      ...DETERMINISTIC_FIXTURE_QUOTES[0],
+      vendorId: "vendor-tie-b",
+      vendorName: "Vendor Tie B",
+      currentUnitBid: 320,
+      shippingCost: 200, // Landed: 320 * 25 + 200 = 8200
+    };
+
+    const quote2: VendorQuote = {
+      ...DETERMINISTIC_FIXTURE_QUOTES[0],
+      vendorId: "vendor-tie-a",
+      vendorName: "Vendor Tie A",
+      currentUnitBid: 320,
+      shippingCost: 100, // Landed: 320 * 25 + 100 = 8100 (Cheaper!)
+    };
+
+    const orchestrator = new NegotiationOrchestrator({
+      maxRounds: 1,
+    });
+
+    const result = await orchestrator.runNegotiation(mandate, [quote1, quote2]);
+
+    expect(result.completed).toBe(true);
+    // Lower landed cost must win
+    expect(result.selectedQuote?.vendorId).toBe("vendor-tie-a");
+    expect(result.totalCost).toBe(8259.75);
   });
 });
