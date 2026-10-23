@@ -474,6 +474,7 @@ export type ProcurementSessionStatus =
   | "PAYPAL_CAPTURED"
   | "SETTLED"
   | "CANCELLED"
+  | "CAPTURE_PENDING_RECONCILIATION"
   | "DISPUTED";
 
 /**
@@ -530,6 +531,19 @@ export type DisputeStatus =
   | "INSUFFICIENT_EVIDENCE"
   | "RESOLVED";
 
+export type DisputeEvidenceIntegrity = "VALID" | "TAMPERED" | "INSUFFICIENT";
+export type DisputeClaimEvaluation = "BREACH_VERIFIED" | "NO_BREACH_DETECTED" | "INSUFFICIENT_EVIDENCE";
+export type DisputeRecommendedAction =
+  | "RECOMMEND_FULL_REFUND"
+  | "RECOMMEND_PARTIAL_REFUND"
+  | "REQUIRE_HUMAN_REVIEW"
+  | "REJECT_CLAIM";
+export type DisputeFinancialDisposition =
+  | "UNEXECUTED"
+  | "SUBMITTED_TO_PAYPAL"
+  | "REFUND_EXECUTED"
+  | "ARBITRATED";
+
 export interface DisputeInvariantCheck {
   invariant: string;
   passed: boolean;
@@ -553,7 +567,11 @@ export interface DisputeRecord {
   inclusionProofs: MerkleInclusionProof[];
   paypalDisputeId?: string;
   refundRequested?: boolean;
-  refundApproved?: boolean;
+  refundApproved?: boolean; // Rule-based refund approval recommendation (awaiting payment-gateway disposition)
+  evidenceIntegrity?: DisputeEvidenceIntegrity;
+  claimEvaluation?: DisputeClaimEvaluation;
+  recommendedAction?: DisputeRecommendedAction;
+  financialDisposition?: DisputeFinancialDisposition;
 }
 
 export type PayPalOperationType = "AUTHORIZE" | "CAPTURE" | "CREATE_INVOICE" | "SEND_INVOICE" | "DISPUTE_EVIDENCE";

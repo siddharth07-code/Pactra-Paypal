@@ -70,7 +70,9 @@ class AuthoritativeSessionStore {
         sessions: Array.from(this.sessions.values()),
         mandateHistory: Object.fromEntries(this.mandateHistory.entries()),
       };
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+      const tempPath = `${filePath}.tmp.${Date.now()}.${Math.random().toString(36).substring(2, 8)}`;
+      fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), "utf-8");
+      fs.renameSync(tempPath, filePath);
     } catch {
       // Ignore disk write error
     }

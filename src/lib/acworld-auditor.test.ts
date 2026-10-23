@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { AcworldAuditor } from "./acworld-auditor";
+import { CryptographicFlightRecorder } from "./flight-recorder";
 import type { ProcurementSession } from "../types/pactum";
 
 describe("ACWORLD Final-State Auditor Unit Tests", () => {
@@ -256,6 +257,52 @@ describe("ACWORLD Final-State Auditor Unit Tests", () => {
     const inv3 = cert.invariants.find((i) => i.name === "RETURN_POLICY")!;
     expect(inv3.passed).toBe(false);
     expect(inv3.reason).toContain("Merchant DOM attestation evidence missing");
+  });
+
+  it("fails Invariant 1 when agreement SKU does not match selected vendor quote SKU", () => {
+    const skuMismatchSession: ProcurementSession = {
+      ...validSession,
+      agreementRecord: {
+        agreementId: "agree-sku-mismatch-test",
+        sessionId: validSession.id,
+        vendorId: validSession.selectedQuote!.vendorId,
+        vendorName: validSession.selectedQuote!.vendorName,
+        sku: "WRONG-SKU-9999", // Mismatch!
+        agreedPrice: 320,
+        agreedOffer: validSession.finalOffer!,
+        totalCost: 320 * 25 + 150,
+        agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+        acceptingParty: "VENDOR",
+        acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
+        round: 4,
+        acceptedAt: new Date().toISOString(),
+        mandateVersion: 1,
+      },
+    };
+
+    const cert = auditor.audit({ session: skuMismatchSession });
+    expect(cert.passed).toBe(false);
+    const inv1 = cert.invariants.find((i) => i.name === "SKU_INTEGRITY")!;
+    expect(inv1.passed).toBe(false);
+    expect(inv1.reason).toContain("Agreement SKU mismatch");
+  });
+
+  it("fails Invariant 5 when flight record Merkle root does not match the session pre-settlement root anchor", () => {
+    const recorder = new CryptographicFlightRecorder(validSession.id);
+    recorder.recordEvent("MANDATE_CREATED", { test: "data" });
+    const realExport = recorder.exportFlightRecord();
+
+    const replacedHistorySession: ProcurementSession = {
+      ...validSession,
+      preSettlementRoot: "a".repeat(64), // Authoritative anchor that doesn't match realExport.rootHash
+      flightRecord: realExport,
+    };
+
+    const cert = auditor.audit({ session: replacedHistorySession });
+    expect(cert.passed).toBe(false);
+    const inv5 = cert.invariants.find((i) => i.name === "CRYPTOGRAPHIC_LINEAGE")!;
+    expect(inv5.passed).toBe(false);
+    expect(inv5.reason).toContain("Expected root commitment mismatch");
   });
 });
 

@@ -173,4 +173,126 @@ describe("CryptographicFlightRecorder Unit Tests", () => {
     expect(imported.getRootHash()).toBe(recorder.getRootHash());
     expect(imported.verifyIntegrity().valid).toBe(true);
   });
+
+  describe("Phase 5.1 Adversarial Integrity & Evidence Verification Tests", () => {
+    it("detects and rejects modified previousEventHash in middle of chain", () => {
+      const recorder = new CryptographicFlightRecorder("session-adv-prevhash");
+      recorder.recordEvent("MANDATE_CREATED", { budget: 8500 });
+      recorder.recordEvent("SOURCING_COMPLETED", { quotes: 3 });
+      recorder.recordEvent("AGREEMENT_CREATED", { agreedPrice: 320 });
+
+      const exported = recorder.exportFlightRecord();
+      // Adversary tampers with previousEventHash of event 2
+      exported.events[2].previousEventHash = "f".repeat(64);
+
+      expect(() => {
+        CryptographicFlightRecorder.fromSerialized(exported);
+      }).toThrow(/Hash chain broken/);
+    });
+
+    it("detects and rejects duplicate event or duplicate sequence number", () => {
+      const recorder = new CryptographicFlightRecorder("session-adv-dup");
+      recorder.recordEvent("MANDATE_CREATED", { budget: 8500 });
+      recorder.recordEvent("SOURCING_COMPLETED", { quotes: 3 });
+
+      const exported = recorder.exportFlightRecord();
+      // Duplicate event 1
+      exported.events.push({ ...exported.events[1] });
+
+      expect(() => {
+        CryptographicFlightRecorder.fromSerialized(exported);
+      }).toThrow(/Sequence discontinuity|Hash chain broken/);
+    });
+
+    it("detects and rejects modified sequence number (non-continuous sequence)", () => {
+      const recorder = new CryptographicFlightRecorder("session-adv-seqnum");
+      recorder.recordEvent("MANDATE_CREATED", { budget: 8500 });
+      recorder.recordEvent("SOURCING_COMPLETED", { quotes: 3 });
+
+      const exported = recorder.exportFlightRecord();
+      // Adversary modifies sequence number of event 1 from 1 to 5
+      exported.events[1].sequenceNumber = 5;
+
+      expect(() => {
+        CryptographicFlightRecorder.fromSerialized(exported);
+      }).toThrow(/Sequence discontinuity/);
+    });
+
+    it("detects and rejects cross-session event injection (wrong session ID in event)", () => {
+      const recorder = new CryptographicFlightRecorder("session-adv-cross");
+      recorder.recordEvent("MANDATE_CREATED", { budget: 8500 });
+      recorder.recordEvent("SOURCING_COMPLETED", { quotes: 3 });
+
+      const exported = recorder.exportFlightRecord();
+      // Inject event from a foreign session
+      exported.events[1].sessionId = "foreign-attacker-session";
+
+      expect(() => {
+        CryptographicFlightRecorder.fromSerialized(exported);
+      }).toThrow(/Cross-session event injection detected/);
+    });
+
+    it("fails proof verification when verified against a stale root prior to later commitments", () => {
+      const recorder = new CryptographicFlightRecorder("session-adv-stale");
+      recorder.recordEvent("MANDATE_CREATED", { budget: 8500 });
+      const staleRoot = recorder.getRootHash();
+
+      // Later events added to negotiation
+      recorder.recordEvent("SOURCING_COMPLETED", { quotes: 3 });
+      recorder.recordEvent("AGREEMENT_CREATED", { agreedPrice: 320 });
+      const currentRoot = recorder.getRootHash();
+      expect(currentRoot).not.toBe(staleRoot);
+
+      // Generate proof for event 0 under current tree
+      const proof = recorder.generateInclusionProof(0);
+
+      // Verifying current proof against stale root must fail
+      const validAgainstStale = recorder.verifyEventInclusion(0, proof, staleRoot);
+      expect(validAgainstStale).toBe(false);
+
+      // Valid against current root
+      const validAgainstCurrent = recorder.verifyEventInclusion(0, proof, currentRoot);
+      expect(validAgainstCurrent).toBe(true);
+    });
+
+    it("detects whole-history replacement attack using expectedRoot trust anchor", () => {
+      // Legitimate session
+      const legitimateRecorder = new CryptographicFlightRecorder("session-adv-replace");
+      legitimateRecorder.recordEvent("MANDATE_CREATED", { budget: 8500 });
+      legitimateRecorder.recordEvent("AGREEMENT_CREATED", { agreedPrice: 320 });
+      const trustedAnchorRoot = legitimateRecorder.getRootHash();
+
+      // Attacker fabricates an entirely new, internally consistent flight record
+      // with a different agreed price (e.g. $400)
+      const fabricatedRecorder = new CryptographicFlightRecorder("session-adv-replace");
+      fabricatedRecorder.recordEvent("MANDATE_CREATED", { budget: 8500 });
+      fabricatedRecorder.recordEvent("AGREEMENT_CREATED", { agreedPrice: 400 });
+      const fabricatedExport = fabricatedRecorder.exportFlightRecord();
+
+      // Attacker's export passes self-consistency check without anchor:
+      const imported = CryptographicFlightRecorder.fromSerialized(fabricatedExport);
+      expect(imported.verifyIntegrity().valid).toBe(true);
+
+      // BUT when verified against the trusted anchor root from the session commitment:
+      const anchoredIntegrity = imported.verifyIntegrity(trustedAnchorRoot);
+      expect(anchoredIntegrity.valid).toBe(false);
+      expect(anchoredIntegrity.error).toContain("Expected root commitment mismatch");
+    });
+
+    it("detects and rejects tampering of post-settlement events", () => {
+      const recorder = new CryptographicFlightRecorder("session-adv-postsettle");
+      recorder.recordEvent("MANDATE_CREATED", { budget: 8500 });
+      recorder.recordEvent("AGREEMENT_CREATED", { agreedPrice: 320 });
+      recorder.recordEvent("ACWORLD_AUDIT_PASSED", { certId: "cert-pass-1" });
+      recorder.recordEvent("SETTLEMENT_COMPLETED", { captureId: "CAPTURE-123" });
+
+      const exported = recorder.exportFlightRecord();
+      // Attacker tampers with settlement capture ID
+      exported.events[3].publicPayload.captureId = "CAPTURE-FRAUDULENT";
+
+      expect(() => {
+        CryptographicFlightRecorder.fromSerialized(exported);
+      }).toThrow(/Payload hash mismatch/);
+    });
+  });
 });

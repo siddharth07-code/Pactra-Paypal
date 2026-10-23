@@ -144,7 +144,12 @@ export async function GET(req: NextRequest) {
       events,
       integrity,
       inclusionProof,
-      isRootMatching: !session.preSettlementRoot || rootHash === session.preSettlementRoot,
+      isPreSettlementRootMatching: !session.preSettlementRoot || rootHash === session.preSettlementRoot,
+      isPostAuditRootMatching: !!session.postAuditRoot && rootHash === session.postAuditRoot,
+      isRootMatching:
+        !session.preSettlementRoot ||
+        rootHash === session.preSettlementRoot ||
+        (!!session.postAuditRoot && rootHash === session.postAuditRoot),
     });
   } catch (err) {
     return NextResponse.json(

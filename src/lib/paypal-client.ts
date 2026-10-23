@@ -65,6 +65,14 @@ export interface PayPalOrderDetails {
           value: string;
         };
       }>;
+      captures?: Array<{
+        id: string;
+        status: string;
+        amount?: {
+          currency_code: string;
+          value: string;
+        };
+      }>;
     };
   }>;
   links?: Array<{ href: string; rel: string; method: string }>;

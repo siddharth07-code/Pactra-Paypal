@@ -266,4 +266,101 @@ describe("DisputeService Unit Tests", () => {
     expect(paypalPkg.inclusionProofs.length).toBeGreaterThanOrEqual(1);
     expect(paypalPkg.evaluationOutcome.status).toBe("VERIFIED");
   });
+
+  describe("Phase 5.1 Dispute Semantics & Idempotency Tests", () => {
+    it("evaluates dispute idempotently without appending duplicate flight events", () => {
+      const dispute = service.openDispute({
+        sessionId: validSession.id,
+        category: "PRICE_MISMATCH",
+        description: "Idempotent evaluation test",
+      });
+
+      const firstEval = service.evaluateDispute({
+        disputeId: dispute.disputeId,
+        externalEvidence: { actualLandedPrice: 9000 },
+      });
+
+      const sessionAfterFirst = sessionStore.getSession(validSession.id)!;
+      const eventCountAfterFirst = sessionAfterFirst.flightRecord!.events.length;
+
+      // Second evaluation of the same dispute
+      const secondEval = service.evaluateDispute({
+        disputeId: dispute.disputeId,
+        externalEvidence: { actualLandedPrice: 9000 },
+      });
+
+      expect(secondEval.disputeId).toBe(firstEval.disputeId);
+      expect(secondEval.status).toBe(firstEval.status);
+      expect(secondEval.resolvedAt).toBe(firstEval.resolvedAt);
+
+      const sessionAfterSecond = sessionStore.getSession(validSession.id)!;
+      const eventCountAfterSecond = sessionAfterSecond.flightRecord!.events.length;
+
+      // Event count must be identical (no duplicate flight record event emitted)
+      expect(eventCountAfterSecond).toBe(eventCountAfterFirst);
+    });
+
+    it("distinguishes evidence integrity, claim evaluation, recommended action, and financial disposition", () => {
+      const dispute = service.openDispute({
+        sessionId: validSession.id,
+        category: "PRICE_MISMATCH",
+        description: "Semantic fields check",
+      });
+
+      const evaluated = service.evaluateDispute({
+        disputeId: dispute.disputeId,
+        externalEvidence: { actualLandedPrice: 9500 },
+      });
+
+      // Semantic separation:
+      // 1. Evidence integrity is VALID
+      expect(evaluated.evidenceIntegrity).toBe("VALID");
+      // 2. Claim is verified as a breach
+      expect(evaluated.claimEvaluation).toBe("BREACH_VERIFIED");
+      // 3. Recommended action is a refund recommendation
+      expect(evaluated.recommendedAction).toBe("RECOMMEND_FULL_REFUND");
+      // 4. Financial disposition is UNEXECUTED (refund is recommended, not yet executed on PayPal!)
+      expect(evaluated.financialDisposition).toBe("UNEXECUTED");
+    });
+
+    it("classifies insufficient delivery evidence as INSUFFICIENT and requires human review", () => {
+      const dispute = service.openDispute({
+        sessionId: validSession.id,
+        category: "DELIVERY_BREACH",
+        description: "Missing carrier documentation",
+      });
+
+      const evaluated = service.evaluateDispute({
+        disputeId: dispute.disputeId,
+        externalEvidence: {}, // Missing actualDeliveryDays and carrierTrackingUrl
+      });
+
+      expect(evaluated.evidenceIntegrity).toBe("INSUFFICIENT");
+      expect(evaluated.claimEvaluation).toBe("INSUFFICIENT_EVIDENCE");
+      expect(evaluated.recommendedAction).toBe("REQUIRE_HUMAN_REVIEW");
+      expect(evaluated.financialDisposition).toBe("UNEXECUTED");
+    });
+
+    it("classifies tampered evidence as TAMPERED and routes to human review", () => {
+      const dispute = service.openDispute({
+        sessionId: validSession.id,
+        category: "EVIDENCE_INTEGRITY_FAILURE",
+        description: "Tamper check",
+      });
+
+      // Tamper with session flight record
+      const session = sessionStore.getSession(validSession.id)!;
+      session.flightRecord!.events[0].publicPayload = { tampered: true };
+      sessionStore.saveSession(session);
+
+      const evaluated = service.evaluateDispute({
+        disputeId: dispute.disputeId,
+      });
+
+      expect(evaluated.evidenceIntegrity).toBe("TAMPERED");
+      expect(evaluated.claimEvaluation).toBe("BREACH_VERIFIED");
+      expect(evaluated.recommendedAction).toBe("REQUIRE_HUMAN_REVIEW");
+      expect(evaluated.financialDisposition).toBe("UNEXECUTED");
+    });
+  });
 });

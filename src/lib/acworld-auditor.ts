@@ -54,6 +54,8 @@ export class AcworldAuditor {
       skuReason = `Agreement vendor mismatch: recorded agreement vendor ${session.agreementRecord.vendorId} does not match selected vendor ${selectedQuote.vendorId}.`;
     } else if (session.agreementRecord && Math.abs(session.agreementRecord.agreedPrice - finalOffer.unitPrice) > 0.01) {
       skuReason = `Agreement price mismatch: recorded agreed price $${session.agreementRecord.agreedPrice} does not match final offer $${finalOffer.unitPrice}.`;
+    } else if (session.agreementRecord && session.agreementRecord.sku && selectedQuote.sku && session.agreementRecord.sku !== selectedQuote.sku) {
+      skuReason = `Agreement SKU mismatch: recorded agreement SKU ${session.agreementRecord.sku} does not match selected vendor SKU ${selectedQuote.sku}.`;
     } else {
       // Check condition requirement if mandate specifies one
       if (mandate.requiredCondition && selectedQuote.condition !== mandate.requiredCondition) {
@@ -179,7 +181,8 @@ export class AcworldAuditor {
     } else if (session.flightRecord) {
       try {
         const recorder = CryptographicFlightRecorder.fromSerialized(session.flightRecord);
-        const integrity = recorder.verifyIntegrity();
+        const expectedRootAnchor = session.postAuditRoot ?? session.preSettlementRoot ?? session.merkleRoot;
+        const integrity = recorder.verifyIntegrity(expectedRootAnchor);
         if (!integrity.valid) {
           lineageReason = `Cryptographic flight recorder integrity failed: ${integrity.error}`;
         } else if (session.agreementRecord) {
@@ -187,6 +190,7 @@ export class AcworldAuditor {
           const hasAgreementEvent = events.some(
             (e) =>
               e.agreementId === session.agreementRecord?.agreementId ||
+              (e.publicPayload as Record<string, unknown> | undefined)?.agreementId === session.agreementRecord?.agreementId ||
               e.eventType === "AGREEMENT_CREATED" ||
               e.eventType === "VENDOR_ACCEPTANCE" ||
               e.eventType === "BUYER_ACCEPTANCE"

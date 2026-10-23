@@ -9,6 +9,7 @@ import { AcworldAuditor } from "./acworld-auditor";
 import { PayPalClient } from "./paypal-client";
 import { sessionStore } from "./session-store";
 import { VeriPayMerkleTree } from "./veripay-merkle";
+import { CryptographicFlightRecorder } from "./flight-recorder";
 import type {
   AuditCertificate,
   ProcurementSession,
@@ -29,6 +30,7 @@ export interface SettleResponse {
   invoiceId?: string;
   error?: string;
   blockedAtGate?: boolean;
+  uncertain?: boolean;
 }
 
 export interface InitiateCheckoutRequest {
@@ -439,48 +441,113 @@ export class SettlementService {
       sessionStore.saveSession(session);
 
       // 4. AUDITED CAPTURE OPERATION
-      const captureTarget = authorizationId || orderId;
-      const captureResult = await this.paypalClient.capturePayment(captureTarget, {
-        currency: session.mandate.currency,
-        value: totalAmount,
-      });
+      // Idempotency: Check if remote order was already captured on PayPal (e.g. from an earlier interrupted attempt)
+      const existingCaptures = orderDetails.purchase_units?.[0]?.payments?.captures;
+      const completedCapture = existingCaptures?.find((c) => c.status === "COMPLETED");
 
-      if (captureResult.status !== "COMPLETED") {
-        return {
-          success: false,
-          sessionId,
-          auditCertificate,
-          orderId,
-          authorizationId,
-          error: `PayPal capture returned non-completed status: ${captureResult.status}`,
-          blockedAtGate: false,
-        };
+      let captureId: string;
+      if (completedCapture) {
+        captureId = completedCapture.id;
+      } else {
+        const captureTarget = authorizationId || orderId;
+        try {
+          const captureResult = await this.paypalClient.capturePayment(captureTarget, {
+            currency: session.mandate.currency,
+            value: totalAmount,
+          });
+
+          if (captureResult.status !== "COMPLETED") {
+            return {
+              success: false,
+              sessionId,
+              auditCertificate,
+              orderId,
+              authorizationId,
+              error: `PayPal capture returned non-completed status: ${captureResult.status}`,
+              blockedAtGate: false,
+            };
+          }
+          captureId = captureResult.id;
+        } catch (captureErr: unknown) {
+          const errMsg = captureErr instanceof Error ? captureErr.message : String(captureErr);
+          const isTimeout = /timeout|abort|econnreset|etimedout/i.test(errMsg);
+          if (isTimeout) {
+            session.status = "CAPTURE_PENDING_RECONCILIATION";
+            sessionStore.saveSession(session);
+            return {
+              success: false,
+              sessionId,
+              auditCertificate,
+              orderId,
+              authorizationId,
+              error: `Network timeout communicating with PayPal during capture: ${errMsg}. Session left in uncertain remote state and marked CAPTURE_PENDING_RECONCILIATION for authoritative reconciliation.`,
+              uncertain: true,
+              blockedAtGate: false,
+            };
+          }
+          throw captureErr;
+        }
       }
 
-      session.paypalCaptureId = captureResult.id;
+      session.paypalCaptureId = captureId;
       session.captureAmount = totalAmount;
       session.status = "PAYPAL_CAPTURED";
 
       // 5. Post-Audit & Settlement Merkle Event Commitment
-      const merkleTree = new VeriPayMerkleTree();
-      merkleTree.addEvent("ACWORLD_FINAL_STATE_AUDIT", {
-        sessionId,
-        certificateId: auditCertificate.certificateId,
-        passed: auditCertificate.passed,
-        verifiedRoot: auditCertificate.verifiedRoot,
-        timestamp: new Date().toISOString(),
-      });
-
-      merkleTree.addEvent("SETTLEMENT_CAPTURED", {
-        sessionId,
-        paypalOrderId: session.paypalOrderId,
-        paypalCaptureId: session.paypalCaptureId,
-        amount: totalAmount,
-        currency: session.mandate.currency,
-        timestamp: new Date().toISOString(),
-      });
-
-      session.postAuditRoot = merkleTree.getRootHash();
+      if (session.flightRecord) {
+        const recorder = CryptographicFlightRecorder.fromSerialized(session.flightRecord);
+        recorder.recordEvent(
+          "ACWORLD_AUDIT_PASSED",
+          {
+            certificateId: auditCertificate.certificateId,
+            sessionId,
+            passed: auditCertificate.passed,
+            verifiedRoot: auditCertificate.verifiedRoot,
+          },
+          {
+            mandateVersion: session.mandate.version ?? 1,
+            agreementId: session.agreementRecord?.agreementId,
+            timestamp: auditCertificate.timestamp,
+          }
+        );
+        recorder.recordEvent(
+          "SETTLEMENT_COMPLETED",
+          {
+            sessionId,
+            paypalOrderId: session.paypalOrderId,
+            paypalAuthorizationId: authorizationId,
+            paypalCaptureId: session.paypalCaptureId,
+            amount: totalAmount,
+            currency: session.mandate.currency,
+            status: "SETTLED",
+          },
+          {
+            mandateVersion: session.mandate.version ?? 1,
+            agreementId: session.agreementRecord?.agreementId,
+            timestamp: new Date().toISOString(),
+          }
+        );
+        session.flightRecord = recorder.exportFlightRecord();
+        session.postAuditRoot = recorder.getRootHash();
+      } else {
+        const merkleTree = new VeriPayMerkleTree();
+        merkleTree.addEvent("ACWORLD_FINAL_STATE_AUDIT", {
+          sessionId,
+          certificateId: auditCertificate.certificateId,
+          passed: auditCertificate.passed,
+          verifiedRoot: auditCertificate.verifiedRoot,
+          timestamp: new Date().toISOString(),
+        });
+        merkleTree.addEvent("SETTLEMENT_CAPTURED", {
+          sessionId,
+          paypalOrderId: session.paypalOrderId,
+          paypalCaptureId: session.paypalCaptureId,
+          amount: totalAmount,
+          currency: session.mandate.currency,
+          timestamp: new Date().toISOString(),
+        });
+        session.postAuditRoot = merkleTree.getRootHash();
+      }
 
       // 6. B2B Negotiated Invoice Creation
       let invoiceId: string | undefined;

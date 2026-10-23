@@ -256,15 +256,25 @@ export class CryptographicFlightRecorder {
 
   /**
    * Deterministically audits the complete sequence of events from genesis to root.
-   * Detects alteration, deletion, insertion, or reordering of any event.
+   * Detects alteration, deletion, insertion, cross-session injection, or reordering of any event.
+   * If expectedRoot is provided, validates that the computed root matches the external trust anchor.
    */
-  public verifyIntegrity(): FlightRecorderIntegrityResult {
+  public verifyIntegrity(expectedRoot?: string): FlightRecorderIntegrityResult {
     const rootHash = this.getRootHash();
 
     if (this.events.length === 0) {
+      const emptyValid = rootHash === "0".repeat(64);
+      if (expectedRoot && expectedRoot !== rootHash) {
+        return {
+          valid: false,
+          error: `Empty flight recorder root mismatch with expected root: expected ${expectedRoot}, found ${rootHash}.`,
+          verifiedEvents: 0,
+          rootHash,
+        };
+      }
       return {
-        valid: rootHash === "0".repeat(64),
-        error: rootHash === "0".repeat(64) ? undefined : "Empty flight recorder root mismatch.",
+        valid: emptyValid,
+        error: emptyValid ? undefined : "Empty flight recorder root mismatch.",
         verifiedEvents: 0,
         rootHash,
       };
@@ -275,6 +285,16 @@ export class CryptographicFlightRecorder {
 
     for (let i = 0; i < this.events.length; i++) {
       const event = this.events[i];
+
+      // 0. Session binding check
+      if (event.sessionId !== this.sessionId) {
+        return {
+          valid: false,
+          error: `Cross-session event injection detected at index ${i}: event belongs to session ${event.sessionId}, expected ${this.sessionId}.`,
+          verifiedEvents: i,
+          rootHash,
+        };
+      }
 
       // 1. Sequence number check
       if (event.sequenceNumber !== i) {
@@ -344,6 +364,16 @@ export class CryptographicFlightRecorder {
       };
     }
 
+    // 6. Expected root commitment verification against external trust anchor
+    if (expectedRoot && expectedRoot !== rootHash) {
+      return {
+        valid: false,
+        error: `Expected root commitment mismatch: expected ${expectedRoot}, but flight recorder root is ${rootHash}. Potential unauthorized root replacement attack.`,
+        verifiedEvents: this.events.length,
+        rootHash,
+      };
+    }
+
     return {
       valid: true,
       verifiedEvents: this.events.length,
@@ -391,7 +421,7 @@ export class CryptographicFlightRecorder {
 
     recorder.lastEventHash = expectedPrevHash;
 
-    const integrity = recorder.verifyIntegrity();
+    const integrity = recorder.verifyIntegrity(record.rootHash);
     if (!integrity.valid) {
       throw new Error(`Flight record integrity verification failed upon reconstitution: ${integrity.error}`);
     }

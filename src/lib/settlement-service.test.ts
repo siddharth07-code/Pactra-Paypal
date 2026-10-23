@@ -380,6 +380,126 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
       expect(res.blockedAtGate).toBe(true);
       expect(res.error).toContain("Stale agreement rejected");
     });
+
+    it("rejects settlement if agreement SKU does not match selected vendor SKU", async () => {
+      const skuMismatchSession: ProcurementSession = {
+        ...validSession,
+        id: "session-sku-mismatch",
+        agreementRecord: {
+          agreementId: "agree-sku-mismatch",
+          sessionId: "session-sku-mismatch",
+          vendorId: validSession.selectedQuote!.vendorId,
+          vendorName: validSession.selectedQuote!.vendorName,
+          sku: "DIFFERENT-SKU-999", // Mismatch with selectedQuote.sku "APX-4K-27"
+          agreedPrice: 320,
+          agreedOffer: validSession.finalOffer!,
+          totalCost: 320 * 25 + 150,
+          agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+          acceptingParty: "VENDOR",
+          acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
+          round: 4,
+          acceptedAt: new Date().toISOString(),
+          mandateVersion: 1,
+        },
+      };
+      sessionStore.saveSession(skuMismatchSession);
+
+      const service = new SettlementService();
+      const res = await service.completeSettlement({
+        sessionId: skuMismatchSession.id,
+        orderId: "ORDER-MOCK-SKU",
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.blockedAtGate).toBe(true);
+      expect(res.error).toContain("Agreement SKU mismatch");
+    });
+
+    it("reconciles existing completed capture idempotently without issuing duplicate capture", async () => {
+      const settledSession = {
+        ...validSession,
+        paypalAuthorizationId: "AUTH-EXISTING-123",
+      };
+      sessionStore.saveSession(settledSession);
+
+      const mockPayPalClient = new PayPalClient();
+      // Mock getOrder to simulate that the order was already captured remotely
+      vi.spyOn(mockPayPalClient, "getOrder").mockResolvedValue({
+        id: "ORDER-ALREADY-CAPTURED",
+        status: "COMPLETED",
+        intent: "AUTHORIZE",
+        purchase_units: [
+          {
+            reference_id: "default",
+            amount: { currency_code: "USD", value: "8150.00" },
+            payments: {
+              captures: [
+                {
+                  id: "EXISTING-CAPTURE-789",
+                  status: "COMPLETED",
+                  amount: { currency_code: "USD", value: "8150.00" },
+                },
+              ],
+            },
+          },
+        ],
+      });
+      const captureSpy = vi.spyOn(mockPayPalClient, "capturePayment");
+
+      const service = new SettlementService({ paypalClient: mockPayPalClient });
+      const res = await service.completeSettlement({
+        sessionId: settledSession.id,
+        orderId: "ORDER-ALREADY-CAPTURED",
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.captureId).toBe("EXISTING-CAPTURE-789");
+      // capturePayment must NOT have been called because existing capture was reconciled
+      expect(captureSpy).not.toHaveBeenCalled();
+
+      const updated = sessionStore.getSession(settledSession.id)!;
+      expect(updated.status).toBe("SETTLED");
+      expect(updated.paypalCaptureId).toBe("EXISTING-CAPTURE-789");
+    });
+
+    it("handles capture network timeout by marking session CAPTURE_PENDING_RECONCILIATION without false failure", async () => {
+      const timeoutSession = {
+        ...validSession,
+        paypalAuthorizationId: "AUTH-TIMEOUT-123",
+      };
+      sessionStore.saveSession(timeoutSession);
+
+      const mockPayPalClient = new PayPalClient();
+      vi.spyOn(mockPayPalClient, "getOrder").mockResolvedValue({
+        id: "ORDER-TIMEOUT-TEST",
+        status: "APPROVED",
+        intent: "AUTHORIZE",
+        purchase_units: [
+          {
+            reference_id: "default",
+            amount: { currency_code: "USD", value: "8150.00" },
+          },
+        ],
+      });
+      vi.spyOn(mockPayPalClient, "capturePayment").mockRejectedValue(
+        new Error("Request timed out: ETIMEDOUT connect to api-m.sandbox.paypal.com")
+      );
+
+      const service = new SettlementService({ paypalClient: mockPayPalClient });
+      const res = await service.completeSettlement({
+        sessionId: timeoutSession.id,
+        orderId: "ORDER-TIMEOUT-TEST",
+      });
+
+      // Must report uncertain status
+      expect(res.success).toBe(false);
+      expect(res.uncertain).toBe(true);
+      expect(res.blockedAtGate).toBe(false);
+      expect(res.error).toContain("uncertain remote state");
+
+      const updated = sessionStore.getSession(timeoutSession.id)!;
+      expect(updated.status).toBe("CAPTURE_PENDING_RECONCILIATION");
+    });
   });
 });
 

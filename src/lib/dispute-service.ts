@@ -22,6 +22,10 @@ import type {
   DisputeInvariantCheck,
   ProcurementSession,
   MerkleInclusionProof,
+  DisputeEvidenceIntegrity,
+  DisputeClaimEvaluation,
+  DisputeRecommendedAction,
+  DisputeFinancialDisposition,
 } from "../types/pactum";
 
 export interface OpenDisputeParams {
@@ -80,6 +84,10 @@ export interface PayPalDisputeEvidencePackage {
     status: string;
     rationale: string;
     verifiedInvariants: DisputeInvariantCheck[];
+    evidenceIntegrity?: DisputeEvidenceIntegrity;
+    claimEvaluation?: DisputeClaimEvaluation;
+    recommendedAction?: DisputeRecommendedAction;
+    financialDisposition?: DisputeFinancialDisposition;
   };
   timestamp: string;
 }
@@ -194,6 +202,12 @@ export class DisputeService {
     }
 
     const dispute = targetSession.disputes![disputeIndex];
+
+    // Idempotency: If dispute is already resolved, return existing result without duplicate events
+    if (dispute.status !== "OPENED" && dispute.resolvedAt) {
+      return dispute;
+    }
+
     let recorder: CryptographicFlightRecorder | undefined;
     let integrity: { valid: boolean; error?: string; verifiedEvents: number; rootHash: string };
 
@@ -218,12 +232,24 @@ export class DisputeService {
       },
     ];
 
+    let evidenceIntegrity: DisputeEvidenceIntegrity = integrity.valid ? "VALID" : "TAMPERED";
+    let claimEvaluation: DisputeClaimEvaluation = "INSUFFICIENT_EVIDENCE";
+    let recommendedAction: DisputeRecommendedAction = "REQUIRE_HUMAN_REVIEW";
     let resolutionStatus: DisputeRecord["status"] = "FAILED_VERIFICATION";
     let rationale = "";
 
     if (!integrity.valid) {
-      resolutionStatus = "VERIFIED";
-      rationale = `Evidence integrity compromised: ${integrity.error}`;
+      if (dispute.category === "EVIDENCE_INTEGRITY_FAILURE") {
+        claimEvaluation = "BREACH_VERIFIED";
+        resolutionStatus = "VERIFIED";
+        recommendedAction = "REQUIRE_HUMAN_REVIEW";
+        rationale = `Evidence integrity compromised: ${integrity.error}`;
+      } else {
+        claimEvaluation = "INSUFFICIENT_EVIDENCE";
+        resolutionStatus = "INSUFFICIENT_EVIDENCE";
+        recommendedAction = "REQUIRE_HUMAN_REVIEW";
+        rationale = `Claim cannot be deterministically verified: committed flight recorder failed integrity verification (${integrity.error}). Human audit required.`;
+      }
       invariants.push({
         invariant: "EVIDENCE_CONSISTENCY",
         passed: false,
@@ -243,7 +269,9 @@ export class DisputeService {
       switch (dispute.category) {
         case "PRICE_MISMATCH": {
           if (!agreement) {
+            claimEvaluation = "INSUFFICIENT_EVIDENCE";
             resolutionStatus = "FAILED_VERIFICATION";
+            recommendedAction = "REJECT_CLAIM";
             rationale = "No authoritative agreement found to compare price against.";
             break;
           }
@@ -251,7 +279,9 @@ export class DisputeService {
           if (externalEvidence?.actualLandedPrice !== undefined) {
             const agreedTotal = agreement.totalCost;
             if (externalEvidence.actualLandedPrice > agreedTotal + 0.01) {
+              claimEvaluation = "BREACH_VERIFIED";
               resolutionStatus = "VERIFIED";
+              recommendedAction = "RECOMMEND_FULL_REFUND";
               rationale = `Price breach verified: agreed landed cost is $${agreedTotal.toFixed(2)}, but vendor billed $${externalEvidence.actualLandedPrice.toFixed(2)} (overcharge of $${(externalEvidence.actualLandedPrice - agreedTotal).toFixed(2)}).`;
               invariants.push({
                 invariant: "PRICE_COMPLIANCE",
@@ -259,7 +289,9 @@ export class DisputeService {
                 details: `Billed $${externalEvidence.actualLandedPrice} vs agreed $${agreedTotal}`,
               });
             } else {
+              claimEvaluation = "NO_BREACH_DETECTED";
               resolutionStatus = "FAILED_VERIFICATION";
+              recommendedAction = "REJECT_CLAIM";
               rationale = `Price compliance confirmed: billed price $${externalEvidence.actualLandedPrice.toFixed(2)} is within agreed cost $${agreedTotal.toFixed(2)}.`;
               invariants.push({
                 invariant: "PRICE_COMPLIANCE",
@@ -268,7 +300,9 @@ export class DisputeService {
               });
             }
           } else if (targetSession.captureAmount && targetSession.captureAmount > agreement.totalCost + 0.01) {
+            claimEvaluation = "BREACH_VERIFIED";
             resolutionStatus = "VERIFIED";
+            recommendedAction = "RECOMMEND_FULL_REFUND";
             rationale = `Settlement capture overcharge verified: captured $${targetSession.captureAmount.toFixed(2)}, agreed was $${agreement.totalCost.toFixed(2)}.`;
             invariants.push({
               invariant: "SETTLEMENT_PRICE",
@@ -276,7 +310,9 @@ export class DisputeService {
               details: "Captured amount exceeds agreed price.",
             });
           } else {
+            claimEvaluation = "INSUFFICIENT_EVIDENCE";
             resolutionStatus = "INSUFFICIENT_EVIDENCE";
+            recommendedAction = "REQUIRE_HUMAN_REVIEW";
             rationale = "No invoice or billed price was provided to substantiate the alleged overcharge.";
             invariants.push({
               invariant: "PRICE_COMPLIANCE",
@@ -289,7 +325,9 @@ export class DisputeService {
 
         case "DELIVERY_BREACH": {
           if (!agreement) {
+            claimEvaluation = "INSUFFICIENT_EVIDENCE";
             resolutionStatus = "FAILED_VERIFICATION";
+            recommendedAction = "REJECT_CLAIM";
             rationale = "No authoritative agreement found to compare delivery SLA against.";
             break;
           }
@@ -297,7 +335,9 @@ export class DisputeService {
           const agreedDays = agreement.agreedOffer.deliveryDays;
           if (externalEvidence?.actualDeliveryDays !== undefined) {
             if (externalEvidence.actualDeliveryDays > agreedDays) {
+              claimEvaluation = "BREACH_VERIFIED";
               resolutionStatus = "VERIFIED";
+              recommendedAction = "RECOMMEND_FULL_REFUND";
               rationale = `Delivery SLA breach verified: agreed delivery window is ${agreedDays} day(s), but delivery took ${externalEvidence.actualDeliveryDays} day(s).`;
               invariants.push({
                 invariant: "DELIVERY_SLA_COMPLIANCE",
@@ -305,7 +345,9 @@ export class DisputeService {
                 details: `Delivered in ${externalEvidence.actualDeliveryDays}d vs SLA ${agreedDays}d`,
               });
             } else {
+              claimEvaluation = "NO_BREACH_DETECTED";
               resolutionStatus = "FAILED_VERIFICATION";
+              recommendedAction = "REJECT_CLAIM";
               rationale = `Delivery SLA complied: delivery in ${externalEvidence.actualDeliveryDays} day(s) satisfies agreed ${agreedDays}-day limit.`;
               invariants.push({
                 invariant: "DELIVERY_SLA_COMPLIANCE",
@@ -314,7 +356,9 @@ export class DisputeService {
               });
             }
           } else {
+            claimEvaluation = "INSUFFICIENT_EVIDENCE";
             resolutionStatus = "INSUFFICIENT_EVIDENCE";
+            recommendedAction = "REQUIRE_HUMAN_REVIEW";
             rationale = "Carrier tracking or signed delivery timestamp is required to verify delivery breach.";
             invariants.push({
               invariant: "DELIVERY_SLA_COMPLIANCE",
@@ -327,7 +371,9 @@ export class DisputeService {
 
         case "RETURN_POLICY_BREACH": {
           if (!agreement) {
+            claimEvaluation = "INSUFFICIENT_EVIDENCE";
             resolutionStatus = "FAILED_VERIFICATION";
+            recommendedAction = "REJECT_CLAIM";
             rationale = "No authoritative agreement found to verify return policy terms.";
             break;
           }
@@ -336,7 +382,9 @@ export class DisputeService {
           const attestationText = targetSession.merchantAttestation?.returnPolicyText;
 
           if (externalEvidence?.returnRefusedWithinWindow === true) {
+            claimEvaluation = "BREACH_VERIFIED";
             resolutionStatus = "VERIFIED";
+            recommendedAction = "RECOMMEND_FULL_REFUND";
             rationale = `Return policy breach verified: supplier refused customer return within agreed ${agreedReturnDays}-day return protection window (backed by merchant policy: "${attestationText ?? "Standard wholesale policy"}").`;
             invariants.push({
               invariant: "RETURN_POLICY_COMPLIANCE",
@@ -344,7 +392,9 @@ export class DisputeService {
               details: `Supplier refused return within ${agreedReturnDays}d window`,
             });
           } else if (externalEvidence?.returnRefusedWithinWindow === false) {
+            claimEvaluation = "NO_BREACH_DETECTED";
             resolutionStatus = "FAILED_VERIFICATION";
+            recommendedAction = "REJECT_CLAIM";
             rationale = "Return request was honored by supplier.";
             invariants.push({
               invariant: "RETURN_POLICY_COMPLIANCE",
@@ -352,7 +402,9 @@ export class DisputeService {
               details: "Return honored.",
             });
           } else {
+            claimEvaluation = "INSUFFICIENT_EVIDENCE";
             resolutionStatus = "INSUFFICIENT_EVIDENCE";
+            recommendedAction = "REQUIRE_HUMAN_REVIEW";
             rationale = "Documentation of supplier's refusal to accept return within the agreed window is required.";
             invariants.push({
               invariant: "RETURN_POLICY_COMPLIANCE",
@@ -365,14 +417,18 @@ export class DisputeService {
 
         case "WRONG_ITEM": {
           if (!agreement || !quote) {
+            claimEvaluation = "INSUFFICIENT_EVIDENCE";
             resolutionStatus = "FAILED_VERIFICATION";
+            recommendedAction = "REJECT_CLAIM";
             rationale = "No authoritative quote/agreement found to verify item SKU.";
             break;
           }
 
           if (externalEvidence?.deliveredSku) {
             if (externalEvidence.deliveredSku !== quote.sku) {
+              claimEvaluation = "BREACH_VERIFIED";
               resolutionStatus = "VERIFIED";
+              recommendedAction = "RECOMMEND_FULL_REFUND";
               rationale = `Wrong item breach verified: agreed product SKU is '${quote.sku}', but supplier delivered SKU '${externalEvidence.deliveredSku}'.`;
               invariants.push({
                 invariant: "SKU_MATCH",
@@ -380,7 +436,9 @@ export class DisputeService {
                 details: `Delivered SKU '${externalEvidence.deliveredSku}' !== agreed '${quote.sku}'`,
               });
             } else {
+              claimEvaluation = "NO_BREACH_DETECTED";
               resolutionStatus = "FAILED_VERIFICATION";
+              recommendedAction = "REJECT_CLAIM";
               rationale = `Item verified: delivered SKU '${externalEvidence.deliveredSku}' matches contracted SKU.`;
               invariants.push({
                 invariant: "SKU_MATCH",
@@ -389,7 +447,9 @@ export class DisputeService {
               });
             }
           } else {
+            claimEvaluation = "INSUFFICIENT_EVIDENCE";
             resolutionStatus = "INSUFFICIENT_EVIDENCE";
+            recommendedAction = "REQUIRE_HUMAN_REVIEW";
             rationale = "Inspection report, serial number, or delivered packing slip required to prove wrong SKU.";
             invariants.push({
               invariant: "SKU_MATCH",
@@ -402,7 +462,9 @@ export class DisputeService {
 
         case "SETTLEMENT_MISMATCH": {
           if (!agreement) {
+            claimEvaluation = "INSUFFICIENT_EVIDENCE";
             resolutionStatus = "FAILED_VERIFICATION";
+            recommendedAction = "REJECT_CLAIM";
             rationale = "No authoritative agreement found.";
             break;
           }
@@ -410,7 +472,9 @@ export class DisputeService {
           const captured = targetSession.captureAmount;
           const agreed = agreement.totalCost;
           if (captured !== undefined && Math.abs(captured - agreed) > 0.01) {
+            claimEvaluation = "BREACH_VERIFIED";
             resolutionStatus = "VERIFIED";
+            recommendedAction = "RECOMMEND_FULL_REFUND";
             rationale = `Settlement mismatch verified: captured amount ($${captured.toFixed(2)}) does not match agreed contract ($${agreed.toFixed(2)}).`;
             invariants.push({
               invariant: "CAPTURE_AMOUNT_EQUALITY",
@@ -418,7 +482,9 @@ export class DisputeService {
               details: `Captured $${captured} vs agreed $${agreed}`,
             });
           } else {
+            claimEvaluation = "NO_BREACH_DETECTED";
             resolutionStatus = "FAILED_VERIFICATION";
+            recommendedAction = "REJECT_CLAIM";
             rationale = `Settlement reconciled: captured amount ($${captured?.toFixed(2) ?? agreed.toFixed(2)}) matches agreed contract.`;
             invariants.push({
               invariant: "CAPTURE_AMOUNT_EQUALITY",
@@ -430,15 +496,24 @@ export class DisputeService {
         }
 
         case "EVIDENCE_INTEGRITY_FAILURE": {
-          resolutionStatus = integrity.valid ? "FAILED_VERIFICATION" : "VERIFIED";
-          rationale = integrity.valid
-            ? "Evidence integrity verified: all Merkle leaves and hash chain links are valid."
-            : `Evidence integrity breach verified: ${integrity.error}`;
+          if (!integrity.valid) {
+            claimEvaluation = "BREACH_VERIFIED";
+            resolutionStatus = "VERIFIED";
+            recommendedAction = "REQUIRE_HUMAN_REVIEW";
+            rationale = `Evidence integrity breach verified: ${integrity.error}`;
+          } else {
+            claimEvaluation = "NO_BREACH_DETECTED";
+            resolutionStatus = "FAILED_VERIFICATION";
+            recommendedAction = "REJECT_CLAIM";
+            rationale = "Evidence integrity verified: all Merkle leaves and hash chain links are valid.";
+          }
           break;
         }
 
         default: {
+          claimEvaluation = "INSUFFICIENT_EVIDENCE";
           resolutionStatus = "INSUFFICIENT_EVIDENCE";
+          recommendedAction = "REQUIRE_HUMAN_REVIEW";
           rationale = `Dispute category '${dispute.category}' requires manual administrative review.`;
           invariants.push({
             invariant: "CATEGORY_SUPPORTED",
@@ -448,6 +523,10 @@ export class DisputeService {
           break;
         }
       }
+    }
+
+    if (claimEvaluation === "INSUFFICIENT_EVIDENCE" && evidenceIntegrity === "VALID") {
+      evidenceIntegrity = "INSUFFICIENT";
     }
 
     // 3. Generate Merkle Inclusion Proofs for key lifecycle events
@@ -506,7 +585,7 @@ export class DisputeService {
           status: resolutionStatus,
           rationale,
           resolvedAt,
-          refundApproved: resolutionStatus === "VERIFIED" && dispute.refundRequested,
+          refundApproved: resolutionStatus === "VERIFIED" && !!dispute.refundRequested,
         },
         {
           mandateVersion: targetSession.mandate.version ?? 1,
@@ -525,7 +604,11 @@ export class DisputeService {
     dispute.verifiedInvariants = invariants;
     dispute.inclusionProofs = inclusionProofs;
     dispute.evidenceRoot = recorder ? recorder.getRootHash() : (targetSession.preSettlementRoot ?? "0".repeat(64));
-    dispute.refundApproved = resolutionStatus === "VERIFIED" && dispute.refundRequested;
+    dispute.refundApproved = resolutionStatus === "VERIFIED" && !!dispute.refundRequested;
+    dispute.evidenceIntegrity = evidenceIntegrity;
+    dispute.claimEvaluation = claimEvaluation;
+    dispute.recommendedAction = recommendedAction;
+    dispute.financialDisposition = "UNEXECUTED";
     targetSession.disputes![disputeIndex] = dispute;
 
     sessionStore.saveSession(targetSession);
@@ -605,6 +688,10 @@ export class DisputeService {
         status: dispute.status,
         rationale: dispute.resolutionRationale ?? "Pending deterministic evaluation.",
         verifiedInvariants: dispute.verifiedInvariants,
+        evidenceIntegrity: dispute.evidenceIntegrity,
+        claimEvaluation: dispute.claimEvaluation,
+        recommendedAction: dispute.recommendedAction,
+        financialDisposition: dispute.financialDisposition ?? "UNEXECUTED",
       },
       timestamp: new Date().toISOString(),
     };
