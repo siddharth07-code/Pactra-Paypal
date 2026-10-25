@@ -37,16 +37,47 @@ export function OverviewScreen({
 }: OverviewScreenProps) {
   const activeSession = sessions[0]; // Authoritative current session
 
-  // Accurate metric calculations based strictly on real authoritative sessions
-  const totalVolume = sessions.reduce((sum, s) => sum + s.mandate.maxTotalBudget, 0);
+  // Group sessions by currency to prevent invalid mixed-currency summation
+  const currencies = Array.from(new Set(sessions.map((s) => s.mandate.currency || "USD")));
+  const primaryCurrency = currencies[0] || "USD";
+  const isSingleCurrency = currencies.length <= 1;
+
+  // Total volume in primary currency
+  const totalVolume = sessions
+    .filter((s) => (s.mandate.currency || "USD") === primaryCurrency)
+    .reduce((sum, s) => sum + s.mandate.maxTotalBudget, 0);
+
+  // Authoritative settled sessions: strictly confirmed terminal settled state
   const settledCount = sessions.filter(
-    (s) => s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED"
+    (s) =>
+      (s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED") &&
+      Boolean(s.paypalCaptureId || s.status === "SETTLED")
   ).length;
+
+  // Active mandate runs: strictly non-terminal states (exclude both SETTLED and PAYPAL_CAPTURED)
   const activeCount = sessions.filter(
-    (s) => s.status !== "SETTLED" && s.status !== "CANCELLED" && s.status !== "AUDIT_FAILED"
+    (s) =>
+      s.status !== "SETTLED" &&
+      s.status !== "PAYPAL_CAPTURED" &&
+      s.status !== "CANCELLED" &&
+      s.status !== "AUDIT_FAILED" &&
+      s.status !== "DISPUTED"
   ).length;
+
+  // Verified realized savings: ONLY count sessions that reached confirmed settlement or passed audit
+  // with an agreed vendor offer matching primary currency
   const verifiedSavings = sessions.reduce((sum, s) => {
-    if (s.finalOffer && s.selectedQuote) {
+    const isSettledOrVerified =
+      s.status === "SETTLED" ||
+      s.status === "PAYPAL_CAPTURED" ||
+      (s.status === "AUDIT_PASSED" && Boolean(s.agreementRecord));
+
+    if (
+      isSettledOrVerified &&
+      s.finalOffer &&
+      s.selectedQuote &&
+      (s.mandate.currency || "USD") === primaryCurrency
+    ) {
       const initialTotal = s.selectedQuote.initialUnitAsk * s.finalOffer.quantity + s.selectedQuote.shippingCost;
       const finalTotal = s.finalOffer.unitPrice * s.finalOffer.quantity + s.finalOffer.shippingCost;
       const diff = initialTotal - finalTotal;
@@ -131,10 +162,14 @@ export function OverviewScreen({
                 <TrendingUp className="w-4 h-4 text-ember-orange group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
               </div>
               <div className="text-[24px] sm:text-[28px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-                <CurrencyDisplay amount={totalVolume} size="xl" />
+                <CurrencyDisplay amount={totalVolume} currency={primaryCurrency} size="xl" />
               </div>
               <div className="flex items-center justify-between text-[11.5px] text-secondary mt-2 pt-2 border-t border-smoke/70 dark:border-[#242429]">
-                <span>{sessions.length} recorded {sessions.length === 1 ? "session" : "sessions"}</span>
+                <span>
+                  {isSingleCurrency
+                    ? `${sessions.length} recorded ${sessions.length === 1 ? "session" : "sessions"}`
+                    : `Primary (${primaryCurrency}) • ${currencies.length} currencies`}
+                </span>
                 <span className="text-ember-orange font-medium text-[11px] opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                   Browse <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
                 </span>
@@ -224,7 +259,7 @@ export function OverviewScreen({
               </div>
               <div className="text-[24px] sm:text-[28px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                 {verifiedSavings > 0 ? (
-                  <CurrencyDisplay amount={verifiedSavings} size="xl" className="text-lichen-green dark:text-[#4ade80]" />
+                  <CurrencyDisplay amount={verifiedSavings} currency={primaryCurrency} size="xl" className="text-lichen-green dark:text-[#4ade80]" />
                 ) : (
                   <span className="text-secondary text-[20px] font-medium font-sans">Pending</span>
                 )}

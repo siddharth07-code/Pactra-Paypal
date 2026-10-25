@@ -30,6 +30,7 @@ export function ProcurementHistoryScreen({
 }: ProcurementHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<"NEWEST" | "OLDEST" | "BUDGET_DESC" | "BUDGET_ASC">("NEWEST");
   const [inspectedSession, setInspectedSession] = useState<ProcurementSession | null>(null);
 
   // Close inspector on Escape key
@@ -49,22 +50,44 @@ export function ProcurementHistoryScreen({
     };
   }, [inspectedSession]);
 
-  const filteredSessions = sessions.filter((s) => {
-    const query = searchQuery.trim().toLowerCase();
-    const matchesSearch =
-      query === "" ||
-      s.id.toLowerCase().includes(query) ||
-      s.mandate.itemQuery.toLowerCase().includes(query) ||
-      (s.selectedQuote?.vendorName.toLowerCase().includes(query) ?? false);
+  const filteredSessions = sessions
+    .filter((s) => {
+      const query = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        query === "" ||
+        s.id.toLowerCase().includes(query) ||
+        s.mandate.itemQuery.toLowerCase().includes(query) ||
+        (s.selectedQuote?.vendorName.toLowerCase().includes(query) ?? false);
 
-    const matchesStatus =
-      statusFilter === "ALL" ||
-      (statusFilter === "SETTLED" && (s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED")) ||
-      (statusFilter === "FAILED" && s.status === "AUDIT_FAILED") ||
-      (statusFilter === "ACTIVE" && s.status !== "SETTLED" && s.status !== "AUDIT_FAILED" && s.status !== "CANCELLED");
+      const matchesStatus =
+        statusFilter === "ALL" ||
+        (statusFilter === "SETTLED" && (s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED")) ||
+        (statusFilter === "FAILED" && s.status === "AUDIT_FAILED") ||
+        (statusFilter === "DISPUTED" && (s.status === "DISPUTED" || s.status === "CAPTURE_PENDING_RECONCILIATION")) ||
+        (statusFilter === "ACTIVE" &&
+          s.status !== "SETTLED" &&
+          s.status !== "PAYPAL_CAPTURED" &&
+          s.status !== "AUDIT_FAILED" &&
+          s.status !== "CANCELLED" &&
+          s.status !== "DISPUTED");
 
-    return matchesSearch && matchesStatus;
-  });
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      if (sortBy === "NEWEST") {
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      }
+      if (sortBy === "OLDEST") {
+        return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+      }
+      if (sortBy === "BUDGET_DESC") {
+        return (b.mandate?.maxTotalBudget ?? 0) - (a.mandate?.maxTotalBudget ?? 0);
+      }
+      if (sortBy === "BUDGET_ASC") {
+        return (a.mandate?.maxTotalBudget ?? 0) - (b.mandate?.maxTotalBudget ?? 0);
+      }
+      return 0;
+    });
 
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
@@ -112,20 +135,38 @@ export function ProcurementHistoryScreen({
           )}
         </div>
 
-        <div className="flex items-center gap-2.5 w-full sm:w-auto self-start sm:self-auto">
-          <Filter className="w-4 h-4 text-[#888888]" aria-hidden="true" />
-          <label htmlFor="history-status-filter" className="sr-only">Filter by session status</label>
-          <select
-            id="history-status-filter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-warm-cream/40 dark:bg-[#121214] rounded-[8px] px-3.5 py-2 text-[13.5px] text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#2e2e34] focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer font-medium transition-colors"
-          >
-            <option value="ALL">All States ({sessions.length})</option>
-            <option value="SETTLED">Settled &amp; Captured</option>
-            <option value="ACTIVE">Active in Negotiation</option>
-            <option value="FAILED">Audit Blocked</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto self-start sm:self-auto">
+          <div className="flex items-center gap-1.5">
+            <Filter className="w-4 h-4 text-[#888888]" aria-hidden="true" />
+            <label htmlFor="history-status-filter" className="sr-only">Filter by session status</label>
+            <select
+              id="history-status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-warm-cream/40 dark:bg-[#121214] rounded-[8px] px-3.5 py-2 text-[13px] text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#2e2e34] focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer font-medium transition-colors"
+            >
+              <option value="ALL">All States ({sessions.length})</option>
+              <option value="SETTLED">Settled &amp; Captured</option>
+              <option value="ACTIVE">Active in Negotiation</option>
+              <option value="FAILED">Audit Blocked</option>
+              <option value="DISPUTED">Disputed / Pending Recon</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="history-sort-by" className="sr-only">Sort sessions by</label>
+            <select
+              id="history-sort-by"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as "NEWEST" | "OLDEST" | "BUDGET_DESC" | "BUDGET_ASC")}
+              className="bg-warm-cream/40 dark:bg-[#121214] rounded-[8px] px-3.5 py-2 text-[13px] text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#2e2e34] focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer font-medium transition-colors"
+            >
+              <option value="NEWEST">Sort: Newest First</option>
+              <option value="OLDEST">Sort: Oldest First</option>
+              <option value="BUDGET_DESC">Sort: Budget (High-Low)</option>
+              <option value="BUDGET_ASC">Sort: Budget (Low-High)</option>
+            </select>
+          </div>
         </div>
       </div>
 

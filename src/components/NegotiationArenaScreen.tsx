@@ -13,6 +13,7 @@ import {
   Lock,
   ChevronDown,
   ArrowRight,
+  AlertTriangle,
 } from "lucide-react";
 import type { VendorQuote, ProcurementMandate } from "@/types/pactum";
 
@@ -64,10 +65,28 @@ export function NegotiationArenaScreen({
     return max;
   }, 1);
 
-  const completed = events.some((ev) => ev.type === "NEGOTIATION_COMPLETED");
+  const completedEvent = events.find((ev) => ev.type === "NEGOTIATION_COMPLETED");
   const failed = events.some((ev) => ev.type === "NEGOTIATION_FAILED");
-  const winningEvent = events.find((ev) => ev.type === "NEGOTIATION_COMPLETED");
-  const winningVendorId = winningEvent?.payload?.winningVendorId as string | undefined;
+
+  const isNoDeal = Boolean(
+    completedEvent &&
+    (completedEvent.payload.outcome === "NO_DEAL" ||
+      (!completedEvent.payload.selectedVendor &&
+        !completedEvent.payload.winningVendor &&
+        !completedEvent.payload.winningVendorId))
+  );
+
+  const isConsensusDeal = Boolean(
+    completedEvent &&
+    completedEvent.payload.outcome !== "NO_DEAL" &&
+    (completedEvent.payload.selectedVendor ||
+      completedEvent.payload.winningVendor ||
+      completedEvent.payload.winningVendorId)
+  );
+
+  const winningVendorId = completedEvent?.payload?.winningVendorId as string | undefined;
+  const winningVendorName = (completedEvent?.payload?.selectedVendor ||
+    completedEvent?.payload?.winningVendor) as string | undefined;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
@@ -84,9 +103,10 @@ export function NegotiationArenaScreen({
                 Live Turn
               </span>
             )}
-            {completed && <StatusBadge status="verified" label="Consensus Reached" />}
+            {isConsensusDeal && <StatusBadge status="verified" label="Consensus Reached" />}
+            {isNoDeal && <StatusBadge status="warning" label="No Deal Reached" />}
             {failed && <StatusBadge status="failure" label="Negotiation Halted" />}
-            {!isStreaming && !completed && !failed && (
+            {!isStreaming && !isConsensusDeal && !isNoDeal && !failed && (
               <StatusBadge status="neutral" label="Active Workspace" />
             )}
           </div>
@@ -119,7 +139,7 @@ export function NegotiationArenaScreen({
           </div>
         </div>
 
-        {completed && onProceedToSettlement && (
+        {isConsensusDeal && onProceedToSettlement && (
           <PrimaryButton onClick={onProceedToSettlement} className="self-start md:self-auto shrink-0">
             Proceed to Settlement Gate
           </PrimaryButton>
@@ -151,7 +171,7 @@ export function NegotiationArenaScreen({
                 quote.currentUnitBid * (mandate?.quantity || 25) + quote.shippingCost;
               const isFeasible = landedCost <= (mandate?.maxTotalBudget || 8500);
               const isSelected = selectedVendorId === quote.vendorId;
-              const isWinner = winningVendorId === quote.vendorId;
+              const isWinner = isConsensusDeal && (winningVendorId === quote.vendorId || winningVendorName === quote.vendorName);
 
               return (
                 <div
@@ -409,6 +429,39 @@ export function NegotiationArenaScreen({
 
                 // 6. NEGOTIATION COMPLETED
                 if (ev.type === "NEGOTIATION_COMPLETED") {
+                  const isDealTurn =
+                    p.outcome !== "NO_DEAL" &&
+                    Boolean(p.selectedVendor || p.winningVendor || p.winningVendorId);
+
+                  if (!isDealTurn) {
+                    return (
+                      <div
+                        key={ev.id}
+                        className="py-3.5 px-4 rounded-[6px] bg-amber-500/[0.08] dark:bg-amber-500/10 border-l-2 border-l-amber-500 border-y border-r border-amber-500/20 space-y-2 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                          <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                          <span className="font-semibold text-[14px]">
+                            Negotiation Concluded — No Deal
+                          </span>
+                        </div>
+                        <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
+                          {String(
+                            p.reason ||
+                              "No competing vendor counteroffer satisfied mandatory budget and SLA constraints."
+                          )}
+                        </p>
+                        <div className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] pt-0.5">
+                          Settlement gate is closed for this session. Revise mandate constraints or source alternative wholesale catalogs.
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const vendorName = String(p.selectedVendor || p.winningVendor || "Selected Supplier");
+                  const totalCostVal = p.totalCost ?? p.finalTotalCost ?? p.finalAmount;
+                  const savingsVal = p.savings ?? p.savingsAmount ?? 0;
+
                   return (
                     <div
                       key={ev.id}
@@ -417,7 +470,7 @@ export function NegotiationArenaScreen({
                       <div className="flex items-center gap-2 text-[#006840] dark:text-[#4ade80]">
                         <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
                         <span className="font-semibold text-[14px]">
-                          Consensus Reached with {String(p.winningVendor || "Selected Supplier")}
+                          Consensus Reached with {vendorName}
                         </span>
                       </div>
 
@@ -425,14 +478,14 @@ export function NegotiationArenaScreen({
                         <span>
                           Final Landed Cost:{" "}
                           <strong className="text-obsidian dark:text-white tabular-nums">
-                            ${String(p.finalTotalCost || p.finalAmount)}
+                            ${String(totalCostVal ?? "—")}
                           </strong>
                         </span>
                         <span>•</span>
                         <span>
                           Net Savings:{" "}
                           <strong className="text-[#006840] dark:text-[#4ade80] tabular-nums">
-                            +${String(p.savingsAmount || 0)}
+                            +${String(savingsVal)}
                           </strong>
                         </span>
                       </div>

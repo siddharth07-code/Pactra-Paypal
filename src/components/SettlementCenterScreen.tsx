@@ -513,12 +513,17 @@ export function SettlementCenterScreen({
                       </PrimaryButton>
 
                       {/* Explicit Explanations for Readiness State */}
-                      {isAuditMissing && (
+                      {(!finalOffer || !selectedQuote) && (
+                        <p className="text-[12px] text-amber-700 dark:text-amber-400 text-center font-medium">
+                          Settlement Ineligible: This mandate has no agreed vendor offer or concluded in No Deal. A valid negotiated agreement is required.
+                        </p>
+                      )}
+                      {isAuditMissing && finalOffer && selectedQuote && (
                         <p className="text-[12px] text-architect-violet dark:text-[#a78bfa] text-center font-medium">
                           Audit Required: Run ACWORLD Pre-Checkout Audit before releasing PayPal authorization.
                         </p>
                       )}
-                      {isAuditFailed && (
+                      {isAuditFailed && finalOffer && selectedQuote && (
                         <p className="text-[12px] text-[#dc2626] dark:text-[#f87171] text-center font-medium">
                           PayPal checkout blocked: One or more ACWORLD audit invariants failed.
                         </p>

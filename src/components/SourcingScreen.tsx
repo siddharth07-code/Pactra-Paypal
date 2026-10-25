@@ -787,6 +787,9 @@ export function SourcingScreen({
                                 <span className="text-[11px] text-[#6e6e78] dark:text-[#8e8a83]">
                                   {quote.condition}
                                 </span>
+                                <span className="text-[10px] font-mono-token px-1.5 py-0.5 rounded bg-smoke/30 dark:bg-[#1a1a1e] text-[#6e6e78] dark:text-[#8e8a83] border border-smoke/60 dark:border-[#2a2a30]">
+                                  {quote.dataSource === "MOCK_CATALOG" ? "Simulated Fixture" : "Channel3 Wholesale"}
+                                </span>
                               </div>
                               {evalResult && evalResult.disqualificationReasons.length > 0 && (
                                 <div className="pt-2 text-[11px] text-rose-600 dark:text-rose-400 space-y-0.5">
@@ -932,9 +935,14 @@ export function SourcingScreen({
                         </div>
                         <div className="flex items-center justify-between text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
                           <span>{quote.deliveryDays}d Delivery • {quote.returnDays}d Return</span>
-                          <span className="font-mono-token text-[11px] text-architect-violet dark:text-[#a78bfa]">
-                            {quote.sku}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono-token text-[11px] text-architect-violet dark:text-[#a78bfa]">
+                              {quote.sku}
+                            </span>
+                            <span className="text-[9.5px] font-mono-token px-1 py-0.5 rounded bg-smoke/30 dark:bg-[#1a1a1e] text-[#6e6e78] dark:text-[#8e8a83] border border-smoke/60 dark:border-[#2a2a30]">
+                              {quote.dataSource === "MOCK_CATALOG" ? "Simulated" : "Live API"}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex items-center justify-between pt-1">
                           <span className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
