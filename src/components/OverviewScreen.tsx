@@ -45,33 +45,43 @@ export function OverviewScreen({
   const activeCount = sessions.filter(
     (s) => s.status !== "SETTLED" && s.status !== "CANCELLED" && s.status !== "AUDIT_FAILED"
   ).length;
+  const verifiedSavings = sessions.reduce((sum, s) => {
+    if (s.finalOffer && s.selectedQuote) {
+      const initialTotal = s.selectedQuote.initialUnitAsk * s.finalOffer.quantity + s.selectedQuote.shippingCost;
+      const finalTotal = s.finalOffer.unitPrice * s.finalOffer.quantity + s.finalOffer.shippingCost;
+      const diff = initialTotal - finalTotal;
+      return sum + (diff > 0 ? diff : 0);
+    }
+    return sum;
+  }, 0);
 
   return (
-    <div className="w-full space-y-12 sm:space-y-16 animate-in fade-in duration-150">
-      {/* 1. HERO VAULT: Institutional Headline & Dual CTAs */}
-      <section className="w-full bg-[#0a0a0c] text-white py-16 sm:py-20 px-6 sm:px-8 border-b border-[#232328]">
-        <div className="max-w-[1240px] mx-auto space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[4px] bg-white/[0.06] border border-white/10 text-[12.5px] text-white/90 font-medium tracking-tight">
-            <span className="w-1.5 h-1.5 rounded-full bg-lichen-green" aria-hidden="true" />
-            <span>Autonomous Procurement &amp; Cryptographic Settlement</span>
+    <div className="w-full space-y-8 sm:space-y-10 animate-in fade-in duration-150">
+      {/* 1. INSTITUTIONAL COMMAND HEADER */}
+      <section className="bg-paper-white dark:bg-[#18181b] border-b border-smoke dark:border-[#27272a] py-8 sm:py-12 px-4 sm:px-6 lg:px-8 transition-colors">
+        <div className="max-w-[1280px] mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-3 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[5px] bg-architect-violet/[0.08] dark:bg-architect-violet/15 border border-architect-violet/20 dark:border-architect-violet/30 text-[11.5px] font-mono-token font-medium text-architect-violet dark:text-[#b490f5] uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+              <span>Autonomous Procurement &amp; Cryptographic Settlement</span>
+            </div>
+
+            <h1 className="text-[28px] sm:text-[36px] font-semibold leading-[1.12] tracking-[-0.03em] text-obsidian dark:text-[#f5f3ef]">
+              Procurement Command Center
+            </h1>
+
+            <p className="text-[14px] sm:text-[15px] text-secondary font-normal leading-relaxed">
+              Define natural-language mandates, compete wholesale catalogs, enforce mathematical Boulware guardrails, and settle verifiably through PayPal.
+            </p>
           </div>
 
-          <h1 className="text-[36px] sm:text-[50px] font-semibold leading-[1.08] tracking-[-0.035em] text-white max-w-3xl">
-            Procurement, with proof.
-          </h1>
-
-          <p className="text-[16px] sm:text-[18px] text-white/70 font-normal leading-[1.5] max-w-2xl">
-            Source intelligently. Negotiate within constraints. Settle only when the evidence checks out.
-          </p>
-
-          <div className="pt-2 flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             <PrimaryButton onClick={onStartNew} ariaLabel="Launch new procurement mandate">
               Launch Procurement Mandate
             </PrimaryButton>
             {activeSession ? (
               <GhostButton
                 onClick={() => onOpenSession(activeSession)}
-                className="text-white border-white/20 bg-white/5 hover:bg-white/10 dark:hover:bg-white/10 hover:border-white/40"
                 ariaLabel={`View active session ${activeSession.id}`}
               >
                 View Active Session
@@ -79,31 +89,20 @@ export function OverviewScreen({
             ) : onNavigateHistory ? (
               <GhostButton
                 onClick={onNavigateHistory}
-                className="text-white border-white/20 bg-white/5 hover:bg-white/10 dark:hover:bg-white/10 hover:border-white/40"
                 ariaLabel="Browse procurement history"
               >
                 Browse History
               </GhostButton>
-            ) : (
-              <a
-                href="https://sandbox.paypal.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 h-10 rounded-[8px] bg-white/5 border border-white/20 hover:bg-white/10 text-white font-medium text-[14px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                aria-label="Explore PayPal Sandbox in new tab"
-              >
-                Explore Sandbox
-              </a>
-            )}
+            ) : null}
           </div>
         </div>
       </section>
 
-      {/* Centered Page Body (1240px max width container) */}
-      <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 space-y-12 sm:space-y-16 w-full">
+      {/* Main Content Body (max-w-[1280px] container) */}
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8 sm:space-y-10 w-full">
         {/* 2. REAL OPERATIONAL METRIC TILES */}
         <section aria-label="Procurement Metrics">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
             <InteractiveHoverCard
               onClick={() => {
                 if (onNavigateHistory) {
@@ -125,18 +124,18 @@ export function OverviewScreen({
                 }
               }}
               aria-label="View procurement mandate history"
-              className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#232328] hover:border-smoke-dark dark:hover:border-[#383842] shadow-2xs hover:shadow-sm cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+              className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 border border-smoke dark:border-[#27272a] hover:border-smoke-dark dark:hover:border-[#383842] shadow-2xs hover:shadow-xs cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
             >
-              <div className="flex items-center justify-between text-[#6e6e78] dark:text-[#8e8a83] text-[12.5px] mb-2 font-medium">
+              <div className="flex items-center justify-between text-secondary text-[12px] mb-2 font-medium">
                 <span>Total Mandate Ceiling</span>
                 <TrendingUp className="w-4 h-4 text-ember-orange group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
               </div>
-              <div className="text-[26px] sm:text-[30px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+              <div className="text-[24px] sm:text-[28px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                 <CurrencyDisplay amount={totalVolume} size="xl" />
               </div>
-              <div className="flex items-center justify-between text-[12px] text-[#6e6e78] dark:text-[#8e8a83] mt-2 pt-2 border-t border-smoke/60 dark:border-[#222227]">
-                <span>Across {sessions.length} recorded sessions</span>
-                <span className="text-ember-orange font-medium text-[11.5px] opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              <div className="flex items-center justify-between text-[11.5px] text-secondary mt-2 pt-2 border-t border-smoke/70 dark:border-[#242429]">
+                <span>{sessions.length} recorded {sessions.length === 1 ? "session" : "sessions"}</span>
+                <span className="text-ember-orange font-medium text-[11px] opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                   Browse <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
                 </span>
               </div>
@@ -163,18 +162,18 @@ export function OverviewScreen({
                 }
               }}
               aria-label={activeSession ? `Resume active session ${activeSession.id}` : "Start new procurement mandate"}
-              className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#232328] hover:border-smoke-dark dark:hover:border-[#383842] shadow-2xs hover:shadow-sm cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+              className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 border border-smoke dark:border-[#27272a] hover:border-smoke-dark dark:hover:border-[#383842] shadow-2xs hover:shadow-xs cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
             >
-              <div className="flex items-center justify-between text-[#6e6e78] dark:text-[#8e8a83] text-[12.5px] mb-2 font-medium">
+              <div className="flex items-center justify-between text-secondary text-[12px] mb-2 font-medium">
                 <span>Active Mandate Runs</span>
                 <Layers className="w-4 h-4 text-architect-violet dark:text-[#a78bfa] group-hover:scale-105 transition-transform" aria-hidden="true" />
               </div>
-              <div className="text-[26px] sm:text-[30px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
+              <div className="text-[24px] sm:text-[28px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
                 {activeCount}
               </div>
-              <div className="flex items-center justify-between text-[12px] text-[#6e6e78] dark:text-[#8e8a83] mt-2 pt-2 border-t border-smoke/60 dark:border-[#222227]">
-                <span>Evaluating quotes or ready for settlement</span>
-                <span className="text-architect-violet dark:text-[#a78bfa] font-medium text-[11.5px] opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              <div className="flex items-center justify-between text-[11.5px] text-secondary mt-2 pt-2 border-t border-smoke/70 dark:border-[#242429]">
+                <span>In sourcing or arena</span>
+                <span className="text-architect-violet dark:text-[#a78bfa] font-medium text-[11px] opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                   {activeSession ? "Resume" : "Start"} <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
                 </span>
               </div>
@@ -201,22 +200,40 @@ export function OverviewScreen({
                 }
               }}
               aria-label="View cryptographically settled sessions"
-              className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#232328] hover:border-smoke-dark dark:hover:border-[#383842] shadow-2xs hover:shadow-sm cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+              className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 border border-smoke dark:border-[#27272a] hover:border-smoke-dark dark:hover:border-[#383842] shadow-2xs hover:shadow-xs cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
             >
-              <div className="flex items-center justify-between text-[#6e6e78] dark:text-[#8e8a83] text-[12.5px] mb-2 font-medium">
+              <div className="flex items-center justify-between text-secondary text-[12px] mb-2 font-medium">
                 <span>Cryptographically Settled</span>
                 <ShieldCheck className="w-4 h-4 text-lichen-green group-hover:scale-105 transition-transform" aria-hidden="true" />
               </div>
-              <div className="text-[26px] sm:text-[30px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
+              <div className="text-[24px] sm:text-[28px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
                 {settledCount}
               </div>
-              <div className="flex items-center justify-between text-[12px] text-[#6e6e78] dark:text-[#8e8a83] mt-2 pt-2 border-t border-smoke/60 dark:border-[#222227]">
-                <span>Audited &amp; captured via PayPal Orders v2</span>
-                <span className="text-lichen-green font-medium text-[11.5px] opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              <div className="flex items-center justify-between text-[11.5px] text-secondary mt-2 pt-2 border-t border-smoke/70 dark:border-[#242429]">
+                <span>PayPal Orders v2 verified</span>
+                <span className="text-lichen-green font-medium text-[11px] opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                   Audit Logs <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
                 </span>
               </div>
             </InteractiveHoverCard>
+
+            <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 border border-smoke dark:border-[#27272a] shadow-2xs transition-colors">
+              <div className="flex items-center justify-between text-secondary text-[12px] mb-2 font-medium">
+                <span>Verified Realized Savings</span>
+                <Lock className="w-4 h-4 text-lichen-green" aria-hidden="true" />
+              </div>
+              <div className="text-[24px] sm:text-[28px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+                {verifiedSavings > 0 ? (
+                  <CurrencyDisplay amount={verifiedSavings} size="xl" className="text-lichen-green dark:text-[#4ade80]" />
+                ) : (
+                  <span className="text-secondary text-[20px] font-medium font-sans">Pending</span>
+                )}
+              </div>
+              <div className="flex items-center justify-between text-[11.5px] text-secondary mt-2 pt-2 border-t border-smoke/70 dark:border-[#242429]">
+                <span>{verifiedSavings > 0 ? "From agreed discounts" : "Requires settled agreement"}</span>
+                <span className="font-mono-token text-[11px]">Strict proof</span>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -540,6 +557,28 @@ export function OverviewScreen({
                 </button>
               </div>
             )}
+          </section>
+        )}
+
+        {/* Empty state when no sessions exist */}
+        {sessions.length === 0 && (
+          <section className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-8 sm:p-12 border border-smoke dark:border-[#27272a] shadow-2xs text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-smoke/40 dark:bg-[#202025] border border-smoke dark:border-[#2b2b32] flex items-center justify-center mx-auto text-architect-violet dark:text-[#a78bfa]">
+              <Cpu className="w-5 h-5" aria-hidden="true" />
+            </div>
+            <div className="space-y-1.5 max-w-md mx-auto">
+              <h3 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0]">
+                No Active Procurement Mandates
+              </h3>
+              <p className="text-[13.5px] text-secondary leading-relaxed">
+                Submit a natural-language mandate to automatically source wholesale quotes, run game-theoretic Boulware negotiations, and settle verifiably through PayPal.
+              </p>
+            </div>
+            <div className="pt-2">
+              <PrimaryButton onClick={onStartNew} ariaLabel="Launch first mandate">
+                Launch First Procurement Mandate
+              </PrimaryButton>
+            </div>
           </section>
         )}
       </div>

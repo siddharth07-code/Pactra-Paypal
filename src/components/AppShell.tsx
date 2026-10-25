@@ -33,6 +33,8 @@ interface AppShellProps {
 export function AppShell({
   currentScreen,
   onNavigate,
+  activeSessionId,
+  activeBudgetString,
   isNegotiating = false,
   children,
 }: AppShellProps) {
@@ -79,39 +81,39 @@ export function AppShell({
       </a>
 
       {/* Top Navigation Bar: Persistent Institutional Fintech Header */}
-      <header className="w-full bg-paper-white/95 dark:bg-[#111114]/95 backdrop-blur-md border-b border-smoke/80 dark:border-[#222226] sticky top-0 z-40 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.25)]">
-        <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 h-[76px] flex items-center justify-between gap-4">
+      <header className="w-full bg-paper-white/95 dark:bg-[#18181b]/95 backdrop-blur-md border-b border-smoke/80 dark:border-[#27272a] sticky top-0 z-40 transition-colors shadow-2xs">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 h-[76px] flex items-center justify-between gap-4">
           
           {/* ZONE 1 — LEFT: BRAND IDENTITY */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             <button
               type="button"
               onClick={() => onNavigate("overview")}
-              className="group flex items-center gap-3 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111114] rounded-[9px] p-0.5"
+              className="group flex items-center gap-2.5 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] rounded-[8px] p-1"
               aria-label="PACTUM Home — Return to Overview"
             >
               {/* Brand Monogram */}
               <div
-                className="w-9 h-9 rounded-[9px] bg-ember-orange text-white font-semibold text-[16px] flex items-center justify-center shadow-xs transition-transform group-hover:scale-105 duration-200 shrink-0"
+                className="w-8 h-8 rounded-[7px] bg-ember-orange text-white font-semibold text-[15px] flex items-center justify-center shadow-xs transition-transform group-hover:scale-105 duration-150 shrink-0 select-none"
                 aria-hidden="true"
               >
                 P
               </div>
               {/* Brand Wordmark */}
-              <span className="text-[19px] sm:text-[20px] font-semibold tracking-[-0.035em] text-obsidian dark:text-[#f5f3ef] transition-colors group-hover:text-ember-orange">
+              <span className="text-[18px] sm:text-[19px] font-semibold tracking-[-0.03em] text-obsidian dark:text-[#f5f3ef] transition-colors group-hover:text-ember-orange select-none">
                 PACTUM
               </span>
             </button>
 
             {/* Subtle Vertical Divider */}
             <span
-              className="h-4 w-px bg-smoke/90 dark:bg-[#2b2b30] hidden sm:block shrink-0"
+              className="h-4 w-px bg-smoke dark:bg-[#2e2e34] hidden sm:block shrink-0"
               aria-hidden="true"
             />
 
             {/* VERIPAY Secondary Product Identifier */}
             <div
-              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[5px] bg-architect-violet/[0.07] dark:bg-architect-violet/15 border border-architect-violet/20 dark:border-architect-violet/30 text-architect-violet dark:text-[#b490f5] text-[11px] font-mono-token font-medium tracking-[0.06em] uppercase select-none shrink-0"
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[5px] bg-architect-violet/[0.08] dark:bg-architect-violet/15 border border-architect-violet/20 dark:border-architect-violet/30 text-architect-violet dark:text-[#b490f5] text-[11px] font-mono-token font-medium tracking-[0.06em] uppercase select-none shrink-0"
               title="VeriPay Cryptographic Verification Engine"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-architect-violet dark:bg-[#b490f5]" aria-hidden="true" />
@@ -135,13 +137,15 @@ export function AppShell({
                   type="button"
                   onClick={() => onNavigate(item.id as NavScreen)}
                   aria-current={isActive ? "page" : undefined}
-                  className={`relative h-full flex items-center px-3 xl:px-3.5 text-[13.5px] xl:text-[14px] font-medium tracking-[-0.01em] transition-colors duration-150 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111114] ${
+                  className={`relative h-full flex items-center px-3 text-[13.5px] font-medium tracking-[-0.01em] transition-colors duration-150 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] ${
                     isActive
                       ? "text-obsidian dark:text-white"
-                      : "text-[#666666] dark:text-[#9e9ea7] hover:text-obsidian dark:hover:text-[#f5f3ef]"
+                      : "text-secondary hover:text-obsidian dark:hover:text-[#f5f3ef]"
                   }`}
                 >
-                  <span className="py-1 px-1.5 rounded-[6px] transition-colors hover:bg-smoke/35 dark:hover:bg-[#1c1c20]/60 flex items-center gap-1.5">
+                  <span className={`py-1 px-2 rounded-[6px] transition-colors flex items-center gap-1.5 ${
+                    isActive ? "bg-smoke/40 dark:bg-[#222227]" : "hover:bg-smoke/30 dark:hover:bg-[#1f1f24]"
+                  }`}>
                     <span>{item.label}</span>
                     {/* Live negotiation indicator — strictly reflects real state */}
                     {showLiveBadge && (
@@ -154,7 +158,7 @@ export function AppShell({
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                         </span>
-                        <span className="hidden xl:inline">Live</span>
+                        <span>Live</span>
                       </span>
                     )}
                   </span>
@@ -171,8 +175,24 @@ export function AppShell({
             })}
           </nav>
 
-          {/* ZONE 3 — RIGHT: APPEARANCE CONTROL & MOBILE TRIGGER */}
+          {/* ZONE 3 — RIGHT: CONTEXT PILL & CONTROLS */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            {/* Active Session Indicator Pill if active */}
+            {activeSessionId && (
+              <div
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-smoke/40 dark:bg-[#202025] border border-smoke dark:border-[#2e2e34] text-[11.5px] font-mono-token text-secondary"
+                title={`Active procurement session: ${activeSessionId}${activeBudgetString ? ` (${activeBudgetString})` : ""}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                <span className="truncate max-w-[120px]">{activeSessionId}</span>
+                {activeBudgetString && (
+                  <span className="hidden xl:inline text-obsidian dark:text-[#f6f4f0] font-medium border-l border-smoke dark:border-[#2e2e34] pl-1.5">
+                    {activeBudgetString}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Compact Institutional Theme Toggle (Light / Dark) */}
             <ThemeToggle />
 
@@ -280,7 +300,7 @@ export function AppShell({
         className={`flex-1 w-full focus:outline-none ${
           currentScreen === "overview"
             ? "w-full"
-            : "max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12"
+            : "max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10"
         }`}
       >
         {children}
@@ -289,21 +309,21 @@ export function AppShell({
       {/* Back to Top Floating Button */}
       <BackToTopButton />
 
-      {/* Editorial Footer Bar (DESIGN.md: CTA Footer Bar) */}
-      <footer className="w-full bg-warm-cream dark:bg-[#151515] border-t border-smoke dark:border-[#2a2a2a] mt-20 transition-colors no-print">
-        <div className="max-w-[1240px] mx-auto px-6 py-12 flex flex-col sm:flex-row items-center justify-between gap-6 text-[14px] text-[#666666] dark:text-[#a5a19b]">
-          <div className="flex items-center gap-3">
-            <span className="font-medium text-obsidian dark:text-[#f5f3ef]">PACTUM</span>
-            <span aria-hidden="true">—</span>
+      {/* Editorial Footer Bar */}
+      <footer className="w-full bg-paper-white dark:bg-[#141417] border-t border-smoke dark:border-[#27272a] mt-16 transition-colors no-print">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-secondary">
+          <div className="flex items-center gap-2.5">
+            <span className="font-semibold text-obsidian dark:text-[#f5f3ef]">PACTUM</span>
+            <span aria-hidden="true" className="text-ash-gray">/</span>
             <span>Negotiate Intelligently. Settle Verifiably.</span>
           </div>
-          <div className="flex flex-wrap items-center gap-6">
-            <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-lichen-green" aria-hidden="true" />
+          <div className="flex flex-wrap items-center gap-5 text-[12.5px]">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-lichen-green" aria-hidden="true" />
               PayPal Orders v2 Verified Gate
             </span>
             <span>Boulware β=3.0</span>
-            <span className="text-architect-violet dark:text-[#9d6ce6] font-medium">
+            <span className="text-architect-violet dark:text-[#a78bfa] font-medium font-mono-token">
               SHA-256 Merkle Engine
             </span>
           </div>

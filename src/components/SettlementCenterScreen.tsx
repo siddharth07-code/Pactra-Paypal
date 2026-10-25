@@ -16,6 +16,7 @@ import {
   StatusBadge,
   ConfirmationModal,
   SectionHeader,
+  NoticeBanner,
 } from "./SharedUI";
 import {
   ShieldAlert,
@@ -240,6 +241,10 @@ export function SettlementCenterScreen({
         return { status: "info" as const, label: "Authorized by Buyer" };
       case "AWAITING_PAYPAL_APPROVAL":
         return { status: "warning" as const, label: "Awaiting PayPal Approval" };
+      case "CAPTURE_PENDING_RECONCILIATION":
+        return { status: "warning" as const, label: "Capture Pending Reconciliation" };
+      case "DISPUTED":
+        return { status: "warning" as const, label: "Disputed" };
       case "AUDIT_PASSED":
         return { status: "verified" as const, label: "Audit Verified" };
       case "AUDIT_FAILED":
@@ -422,6 +427,15 @@ export function SettlementCenterScreen({
                 )}
 
                 {/* Status Specific Notice */}
+                {session.status === "CAPTURE_PENDING_RECONCILIATION" && (
+                  <NoticeBanner
+                    variant="warning"
+                    title="Payment Outcome Uncertain — Reconciliation Required"
+                  >
+                    A capture request was transmitted, but the network or PayPal Sandbox response timed out or returned an ambiguous state. Order #{session.paypalOrderId || "..."} requires reconciliation before taking further action. Do not re-attempt capture to prevent duplicate charges.
+                  </NoticeBanner>
+                )}
+
                 {session.status === "AWAITING_PAYPAL_APPROVAL" && (
                   <div className="p-3.5 rounded-[6px] bg-[#fff8eb] dark:bg-[#281a08] border border-ember-orange/30 text-ember-orange text-[12.5px] space-y-1">
                     <div className="font-semibold flex items-center gap-1.5">
@@ -440,6 +454,11 @@ export function SettlementCenterScreen({
                     <div className="p-3 bg-mint-whisper dark:bg-[#10211a] rounded-[8px] text-center text-[13px] text-[#006840] dark:text-[#4ade80] font-semibold flex items-center justify-center gap-2 border border-lichen-green/25">
                       <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                       <span>PayPal Funds Captured &amp; Invoice Created</span>
+                    </div>
+                  ) : session.status === "CAPTURE_PENDING_RECONCILIATION" ? (
+                    <div className="p-3 bg-amber-500/10 dark:bg-amber-500/15 rounded-[8px] text-center text-[13px] text-amber-800 dark:text-amber-300 font-semibold flex items-center justify-center gap-2 border border-amber-500/30">
+                      <AlertCircle className="w-4 h-4" aria-hidden="true" />
+                      <span>Capture Retries Disabled — Awaiting Reconciliation</span>
                     </div>
                   ) : session.status === "PAYPAL_AUTHORIZED" ? (
                     <PrimaryButton

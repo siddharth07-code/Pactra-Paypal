@@ -10,6 +10,9 @@ import {
   ArrowUp,
   X,
   AlertTriangle,
+  AlertCircle,
+  CheckCircle2,
+  Info,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 
@@ -719,4 +722,155 @@ export function InteractiveHoverButton({
     </button>
   );
 }
+
+/**
+ * Secondary Button (alias to GhostButton with explicit styling)
+ */
+export const SecondaryButton = GhostButton;
+
+/**
+ * Skeleton Loader Primitive
+ * Subtle pulse animation for loading states without layout shifts.
+ */
+export function SkeletonLoader({
+  className = "",
+  width = "w-full",
+  height = "h-4",
+}: {
+  className?: string;
+  width?: string;
+  height?: string;
+}) {
+  return (
+    <div
+      className={`bg-smoke/60 dark:bg-[#25252b] rounded-[6px] animate-pulse ${width} ${height} ${className}`}
+      aria-hidden="true"
+    />
+  );
+}
+
+/**
+ * Accessible Institutional Notice / Warning Banner
+ */
+export function NoticeBanner({
+  variant = "info",
+  title,
+  children,
+  className = "",
+}: {
+  variant?: "info" | "warning" | "error" | "success";
+  title?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const styles = {
+    info: {
+      bg: "bg-architect-violet/[0.06] dark:bg-architect-violet/10 border-architect-violet/25 dark:border-architect-violet/30 text-architect-violet dark:text-[#c4b5fd]",
+      icon: Info,
+      iconColor: "text-architect-violet dark:text-[#a78bfa]",
+    },
+    warning: {
+      bg: "bg-amber-500/[0.08] dark:bg-amber-500/10 border-amber-500/30 dark:border-amber-500/35 text-amber-900 dark:text-amber-200",
+      icon: AlertTriangle,
+      iconColor: "text-amber-600 dark:text-amber-400",
+    },
+    error: {
+      bg: "bg-red-500/[0.08] dark:bg-red-500/10 border-red-500/30 dark:border-red-500/35 text-red-900 dark:text-red-200",
+      icon: AlertCircle,
+      iconColor: "text-red-600 dark:text-red-400",
+    },
+    success: {
+      bg: "bg-emerald-500/[0.08] dark:bg-emerald-500/10 border-emerald-500/30 dark:border-emerald-500/35 text-emerald-900 dark:text-emerald-200",
+      icon: CheckCircle2,
+      iconColor: "text-emerald-600 dark:text-emerald-400",
+    },
+  }[variant];
+
+  const Icon = styles.icon;
+
+  return (
+    <div
+      role={variant === "error" ? "alert" : "status"}
+      className={`rounded-[8px] p-3.5 border flex items-start gap-3 text-[13px] leading-relaxed ${styles.bg} ${className}`}
+    >
+      <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${styles.iconColor}`} aria-hidden="true" />
+      <div className="space-y-0.5 flex-1">
+        {title && <div className="font-semibold">{title}</div>}
+        <div className="opacity-95">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Standardized Financial Stat Card
+ */
+export function StatCard({
+  title,
+  value,
+  subtitle,
+  action,
+  icon: Icon,
+  iconColor = "text-ember-orange",
+  onClick,
+  className = "",
+}: {
+  title: string;
+  value: React.ReactNode;
+  subtitle?: string;
+  action?: { label: string; onClick?: () => void };
+  icon?: React.ComponentType<{ className?: string }>;
+  iconColor?: string;
+  onClick?: () => void;
+  className?: string;
+}) {
+  return (
+    <InteractiveHoverCard
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      aria-label={onClick ? `View ${title}` : undefined}
+      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] shadow-2xs hover:shadow-xs transition-colors select-none group ${
+        onClick ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange" : ""
+      } ${className}`}
+    >
+      <div className="flex items-center justify-between text-secondary text-[12.5px] mb-2 font-medium">
+        <span>{title}</span>
+        {Icon && <Icon className={`w-4 h-4 ${iconColor} group-hover:scale-105 transition-transform`} aria-hidden="true" />}
+      </div>
+      <div className="text-[26px] sm:text-[30px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
+        {value}
+      </div>
+      {(subtitle || action) && (
+        <div className="flex items-center justify-between text-[12px] text-secondary mt-2 pt-2 border-t border-smoke/70 dark:border-[#242429]">
+          <span>{subtitle}</span>
+          {action && (
+            <span
+              onClick={(e) => {
+                if (action.onClick) {
+                  e.stopPropagation();
+                  action.onClick();
+                }
+              }}
+              className="text-ember-orange font-medium text-[11.5px] opacity-90 group-hover:opacity-100 transition-opacity flex items-center gap-0.5"
+            >
+              {action.label} <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+            </span>
+          )}
+        </div>
+      )}
+    </InteractiveHoverCard>
+  );
+}
+
 

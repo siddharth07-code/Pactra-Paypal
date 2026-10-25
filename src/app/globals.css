@@ -84,45 +84,46 @@
 :root {
   /* ========================================================
      LIGHT THEME TOKENS (Institutional Lithic Precision)
+     #F7F7F4 Canvas, #FFFFFF Surface, #171717 Primary Text
      ======================================================== */
-  --color-page-bg: #fcfbf9;
+  --color-page-bg: #F7F7F4;
   --color-surface-primary: #ffffff;
-  --color-surface-secondary: #f6f3ee;
+  --color-surface-secondary: #f0f0ed;
   --color-surface-elevated: #ffffff;
   --color-surface-card: #ffffff;
-  --color-surface-panel: #f7f3fd;
-  --color-surface-whisper: #f0fdf7;
+  --color-surface-panel: #f5f2fb;
+  --color-surface-whisper: #f0fdf4;
 
-  --color-text-primary: #111113;
-  --color-text-secondary: #4a4a52;
-  --color-text-muted: #6e6e78;
+  --color-text-primary: #171717;
+  --color-text-secondary: #737373;
+  --color-text-muted: #8e8e93;
 
-  --color-border-primary: #e2dfd9;
-  --color-border-subtle: #edeae4;
+  --color-border-primary: #E5E5E2;
+  --color-border-subtle: #EEEEEA;
 
-  --color-ember-orange: #ff6600;
-  --color-ember-hover: #e65c00;
-  --color-architect-violet: #5c2999;
+  --color-ember-orange: #F97316;
+  --color-ember-hover: #EA580C;
+  --color-architect-violet: #5C2999;
   --color-lavender-mist: #f6f1fe;
-  --color-lichen-green: #00a86b;
-  --color-mint-whisper: #f0fdf7;
+  --color-lichen-green: #16A34A;
+  --color-mint-whisper: #f0fdf4;
   --color-sandstone: #aa8855;
   --color-bark-brown: #665233;
   --color-honey-bronze: #eec07a;
-  --color-obsidian: #111113;
+  --color-obsidian: #171717;
   --color-paper-white: #ffffff;
-  --color-warm-cream: #f6f3ee;
-  --color-ash-gray: #767680;
-  --color-smoke: #e2dfd9;
+  --color-warm-cream: #F7F7F4;
+  --color-ash-gray: #737373;
+  --color-smoke: #E5E5E2;
 
-  /* Shadows */
+  /* Shadows — Restrained, crisp, no bloated glows */
   --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
   --shadow-xl: 0 12px 24px -4px rgba(0, 0, 0, 0.06);
 
   /* Scrollbar */
-  --scrollbar-track: #f6f3ee;
-  --scrollbar-thumb: #ded9d0;
+  --scrollbar-track: #F7F7F4;
+  --scrollbar-thumb: #DEDAD4;
 }
 
 .dark,
@@ -131,34 +132,34 @@
      DARK THEME TOKENS (Institutional Precision Darkroom)
      ======================================================== */
   --color-page-bg: #111113;
-  --color-surface-primary: #18181b;
-  --color-surface-secondary: #1f1f23;
-  --color-surface-elevated: #26262b;
-  --color-surface-card: #18181b;
+  --color-surface-primary: #18181B;
+  --color-surface-secondary: #1F1F23;
+  --color-surface-elevated: #27272A;
+  --color-surface-card: #18181B;
   --color-surface-panel: #221a2c;
   --color-surface-whisper: #10211a;
 
-  --color-text-primary: #f6f4f0;
-  --color-text-secondary: #b8b5af;
-  --color-text-muted: #8e8a83;
+  --color-text-primary: #F5F3EF;
+  --color-text-secondary: #A3A3A3;
+  --color-text-muted: #737373;
 
-  --color-border-primary: #2b2b32;
-  --color-border-subtle: #222227;
+  --color-border-primary: #27272A;
+  --color-border-subtle: #202024;
 
-  --color-ember-orange: #ff6600;
-  --color-ember-hover: #ff771a;
+  --color-ember-orange: #F97316;
+  --color-ember-hover: #FB923C;
   --color-architect-violet: #a78bfa;
   --color-lavender-mist: #2a1e3b;
-  --color-lichen-green: #00cc88;
+  --color-lichen-green: #22C55E;
   --color-mint-whisper: #10211a;
   --color-sandstone: #c4a26e;
   --color-bark-brown: #ded0bc;
   --color-honey-bronze: #f2cb88;
   --color-obsidian: #ffffff;
-  --color-paper-white: #18181b;
-  --color-warm-cream: #1f1f23;
+  --color-paper-white: #18181B;
+  --color-warm-cream: #1F1F23;
   --color-ash-gray: #8e8a83;
-  --color-smoke: #2b2b32;
+  --color-smoke: #27272A;
 
   /* Shadows */
   --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
@@ -166,7 +167,7 @@
   --shadow-xl: 0 16px 32px 0 rgba(0, 0, 0, 0.55);
 
   /* Scrollbar */
-  --scrollbar-track: #18181b;
+  --scrollbar-track: #18181B;
   --scrollbar-thumb: #2d2d35;
 }
 

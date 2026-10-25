@@ -69,20 +69,20 @@ export function ProcurementHistoryScreen({
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-smoke/70 dark:border-[#26262b]">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-smoke/80 dark:border-[#27272a]">
         <div>
-          <span className="text-[12px] font-mono uppercase tracking-[0.08em] text-architect-violet dark:text-[#b490f5] font-medium block mb-1">
+          <span className="text-[11.5px] font-mono uppercase tracking-[0.08em] text-architect-violet dark:text-[#b490f5] font-medium block mb-1">
             Authoritative Audit Trail
           </span>
-          <h1 className="text-[32px] sm:text-[36px] font-medium tracking-[-0.03em] text-obsidian dark:text-[#f5f3ef]">
+          <h1 className="text-[26px] sm:text-[30px] font-semibold tracking-tight text-obsidian dark:text-[#f6f4f0]">
             Procurement History
           </h1>
-          <p className="text-[15px] text-[#555555] dark:text-[#a5a19b] mt-1 max-w-2xl leading-relaxed">
+          <p className="text-[14px] text-secondary mt-1 max-w-2xl leading-relaxed">
             Immutable transaction records of procurement mandates, negotiated supplier terms, Merkle roots, and cryptographic audit proofs.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83] bg-smoke/30 dark:bg-[#1f1f23] px-3 py-1 rounded-[6px] border border-smoke dark:border-[#2b2b32]">
+          <span className="text-[11.5px] font-mono-token text-secondary bg-smoke/40 dark:bg-[#1f1f23] px-3 py-1 rounded-[6px] border border-smoke dark:border-[#27272a]">
             Authoritative In-Memory Store
           </span>
         </div>
