@@ -85,6 +85,7 @@ export function SettlementCenterScreen({
   const [auditError, setAuditError] = useState<string | null>(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [isReconciling, setIsReconciling] = useState(false);
 
   const selectedQuote = session?.selectedQuote;
   const finalOffer = session?.finalOffer;
@@ -229,6 +230,32 @@ export function SettlementCenterScreen({
       setCheckoutError(err instanceof Error ? err.message : "Capture request failed.");
     } finally {
       setIsCapturing(false);
+    }
+  };
+
+  /**
+   * Authoritative reconciliation trigger for CAPTURE_PENDING_RECONCILIATION
+   */
+  const handleReconcile = async () => {
+    if (!session?.id || isReconciling) return;
+    setIsReconciling(true);
+    setCheckoutError(null);
+
+    try {
+      const res = await fetch("/api/paypal/reconcile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: session.id }),
+      });
+      const data = await res.json();
+      if (!res.ok && res.status !== 504) {
+        throw new Error(data.message || data.error || "Authoritative reconciliation query failed.");
+      }
+      if (onRefreshSession) await onRefreshSession();
+    } catch (err: unknown) {
+      setCheckoutError(err instanceof Error ? err.message : "Reconciliation query failed.");
+    } finally {
+      setIsReconciling(false);
     }
   };
 
@@ -456,9 +483,28 @@ export function SettlementCenterScreen({
                       <span>PayPal Funds Captured &amp; Invoice Created</span>
                     </div>
                   ) : session.status === "CAPTURE_PENDING_RECONCILIATION" ? (
-                    <div className="p-3 bg-amber-500/10 dark:bg-amber-500/15 rounded-[8px] text-center text-[13px] text-amber-800 dark:text-amber-300 font-semibold flex items-center justify-center gap-2 border border-amber-500/30">
-                      <AlertCircle className="w-4 h-4" aria-hidden="true" />
-                      <span>Capture Retries Disabled — Awaiting Reconciliation</span>
+                    <div className="space-y-3">
+                      <div className="p-3 bg-amber-500/10 dark:bg-amber-500/15 rounded-[8px] text-center text-[13px] text-amber-800 dark:text-amber-300 font-semibold flex items-center justify-center gap-2 border border-amber-500/30">
+                        <AlertCircle className="w-4 h-4" aria-hidden="true" />
+                        <span>Blind Capture Retries Blocked — Reconciliation Required</span>
+                      </div>
+                      <PrimaryButton
+                        onClick={handleReconcile}
+                        disabled={isReconciling}
+                        className="w-full flex items-center justify-center gap-2"
+                      >
+                        {isReconciling ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                            <span>Querying PayPal Orders API...</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck className="w-4 h-4" aria-hidden="true" />
+                            <span>Reconcile PayPal Status</span>
+                          </>
+                        )}
+                      </PrimaryButton>
                     </div>
                   ) : session.status === "PAYPAL_AUTHORIZED" ? (
                     <PrimaryButton

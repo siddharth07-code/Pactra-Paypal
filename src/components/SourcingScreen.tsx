@@ -299,6 +299,11 @@ export function SourcingScreen({
       return;
     }
 
+    if (mandateStatus === "NEEDS_CLARIFICATION" && missingFieldsList.length > 0) {
+      setSourcingError("Mandate requires clarification. Please complete the highlighted missing or ambiguous constraints before sourcing.");
+      return;
+    }
+
     const errs = validateFieldValues(itemQuery, quantity, budget, maxDelivery, minReturn);
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
@@ -355,6 +360,11 @@ export function SourcingScreen({
   const handleEnterArena = () => {
     if (mandateStatus === "INVALID") {
       setSourcingError("Cannot enter negotiation arena with contradictory constraints. Please resolve constraints first.");
+      return;
+    }
+
+    if (mandateStatus === "NEEDS_CLARIFICATION" && missingFieldsList.length > 0) {
+      setSourcingError("Cannot enter negotiation arena while mandate requires clarification. Please resolve highlighted missing fields.");
       return;
     }
 

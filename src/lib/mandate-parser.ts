@@ -184,16 +184,24 @@ export function parseProcurementMandate(input: MandateParseInput): MandateParseR
   const clarificationQuestions: string[] = [];
 
   // 1. Quantity extraction: e.g. "purchase 25", "order 10", "buy 50", "qty: 12", "quantity of 100"
+  // Remove currency expressions (e.g. $8,500, €5,000, £10,000) so amounts/commas are not misparsed as quantities
+  const promptSansCurrency = normalizedPrompt.replace(/[\$€£]\s*[\d,]+(?:\.\d+)?/g, " ");
+
   let quantity: number | null = null;
   const qtyMatch =
-    normalizedPrompt.match(/\b(?:purchase|order|buy|procure|acquire|source|qty:?|quantity(?:\s+of)?)\s+(\d+)\b/i) ||
-    normalizedPrompt.match(/\b(\d+)\s+(?:units?|pieces?|items?|pack(?:s)?)\b/i) ||
-    normalizedPrompt.match(/\b(\d+)\s+([a-zA-Z0-9\s-]+?)(?:\s+(?:under|for|with|at|budget|delivery|within|min|sla|\$|€|£)\b|$)/i);
+    promptSansCurrency.match(/\b(?:purchase|order|buy|procure|acquire|source|qty:?|quantity(?:\s+of)?)\s+(\d+)\b(?!\s*k\b)/i) ||
+    promptSansCurrency.match(/\b(\d+)\s+(?:units?|pieces?|items?|pack(?:s)?)\b/i) ||
+    promptSansCurrency.match(/\b(\d+)\s+([a-zA-Z0-9\s-]+?)(?:\s+(?:under|for|with|at|budget|delivery|within|min|sla|\$|€|£)\b|$)/i);
 
   if (qtyMatch) {
-    const q = parseInt(qtyMatch[1], 10);
-    if (Number.isInteger(q) && q > 0) {
-      quantity = q;
+    // Ensure matched number is not a resolution (e.g. 4k), refresh rate, memory size, or SLA day count
+    const matchIndex = qtyMatch.index ?? 0;
+    const followingText = promptSansCurrency.slice(matchIndex + qtyMatch[1].length).trim();
+    if (!/^(?:k|p|hz|gb|tb|days?|hours?|weeks?|months?)\b/i.test(followingText)) {
+      const q = parseInt(qtyMatch[1], 10);
+      if (Number.isInteger(q) && q > 0) {
+        quantity = q;
+      }
     }
   }
 

@@ -161,6 +161,12 @@ class AuthoritativeSessionStore {
       throw new Error(`Session ${sessionId} not found.`);
     }
 
+    if (session.status === "PAYPAL_CAPTURED" || session.status === "SETTLED") {
+      throw new Error(
+        `Cannot revise mandate for session ${sessionId}: transaction is already captured and settled.`
+      );
+    }
+
     // Validate proposed revision parameters
     if (newParams.maxTotalBudget !== undefined) {
       if (!Number.isFinite(newParams.maxTotalBudget) || newParams.maxTotalBudget <= 0) {
@@ -171,6 +177,18 @@ class AuthoritativeSessionStore {
     if (newParams.quantity !== undefined) {
       if (!Number.isInteger(newParams.quantity) || newParams.quantity <= 0) {
         throw new Error(`Invalid quantity revision: ${newParams.quantity}. Quantity must be a positive integer.`);
+      }
+    }
+
+    if (newParams.maxDeliveryDays !== undefined) {
+      if (!Number.isInteger(newParams.maxDeliveryDays) || newParams.maxDeliveryDays < 1) {
+        throw new Error(`Invalid delivery SLA revision: ${newParams.maxDeliveryDays}. Must be an integer >= 1.`);
+      }
+    }
+
+    if (newParams.minReturnDays !== undefined) {
+      if (!Number.isInteger(newParams.minReturnDays) || newParams.minReturnDays < 0) {
+        throw new Error(`Invalid return policy revision: ${newParams.minReturnDays}. Must be an integer >= 0.`);
       }
     }
 
@@ -190,7 +208,7 @@ class AuthoritativeSessionStore {
     };
 
     session.mandate = revisedMandate;
-    // Invalidate stale offers, certificates, and roots
+    // Strictly invalidate all stale offers, agreements, certificates, roots, orders, and turns
     session.selectedQuote = undefined;
     session.finalOffer = undefined;
     session.agreementRecord = undefined;
@@ -199,9 +217,16 @@ class AuthoritativeSessionStore {
     session.preSettlementRoot = undefined;
     session.postAuditRoot = undefined;
     session.paypalOrderId = undefined;
+    session.paypalAuthorizationId = undefined;
+    session.paypalApprovalUrl = undefined;
     session.paypalCaptureId = undefined;
+    session.paypalInvoiceId = undefined;
+    session.captureAmount = undefined;
+    session.invoiceStatus = undefined;
     session.quoteEvaluations = undefined;
     session.sourcingSummary = undefined;
+    session.turns = [];
+    session.flightRecord = undefined;
     session.status = "MANDATE_PENDING";
     session.updatedAt = new Date().toISOString();
 

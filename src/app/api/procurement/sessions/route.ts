@@ -35,3 +35,82 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Failed to retrieve sessions." }, { status: 500 });
   }
 }
+
+export async function POST(req: NextRequest) {
+  const rateLimit = await defaultRateLimiter.check(req, "MANDATE_ANALYZE");
+  if (!rateLimit.allowed) {
+    return rateLimit.response!;
+  }
+
+  try {
+    const body = await req.json().catch(() => ({}));
+    const { action, sessionId, newParams } = body;
+
+    if (!sessionId || typeof sessionId !== "string") {
+      return NextResponse.json(
+        { error: "Field 'sessionId' is required and must be a string." },
+        { status: 400 }
+      );
+    }
+
+    if (action === "revise") {
+      if (!newParams || typeof newParams !== "object") {
+        return NextResponse.json(
+          { error: "Field 'newParams' must be an object containing revised mandate fields." },
+          { status: 400 }
+        );
+      }
+      try {
+        const revisedSession = sessionStore.reviseMandate(sessionId, newParams);
+        return NextResponse.json({
+          success: true,
+          action: "revise",
+          session: revisedSession,
+          mandateVersion: revisedSession.mandate.version,
+        });
+      } catch (err: unknown) {
+        return NextResponse.json(
+          { error: err instanceof Error ? err.message : "Failed to revise mandate." },
+          { status: 422 }
+        );
+      }
+    }
+
+    if (action === "lock") {
+      try {
+        const lockedSession = sessionStore.lockMandate(sessionId);
+        return NextResponse.json({
+          success: true,
+          action: "lock",
+          session: lockedSession,
+        });
+      } catch (err: unknown) {
+        return NextResponse.json(
+          { error: err instanceof Error ? err.message : "Failed to lock mandate." },
+          { status: 404 }
+        );
+      }
+    }
+
+    if (action === "history") {
+      const history = sessionStore.getMandateHistory(sessionId);
+      return NextResponse.json({
+        success: true,
+        action: "history",
+        sessionId,
+        history,
+      });
+    }
+
+    return NextResponse.json(
+      { error: `Unknown action '${action}'. Supported actions: 'revise', 'lock', 'history'.` },
+      { status: 400 }
+    );
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { error: "Internal error processing session mutation.", detail: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
+  }
+}
+

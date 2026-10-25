@@ -13,6 +13,7 @@ import { CryptographicFlightRecorder } from "./flight-recorder";
 import type {
   AuditCertificate,
   ProcurementSession,
+  ProcurementSessionStatus,
 } from "../types/pactum";
 
 export interface SettleRequest {
@@ -93,6 +94,24 @@ export class SettlementService {
       };
     }
 
+    if (session.status === "CAPTURE_PENDING_RECONCILIATION") {
+      return {
+        success: false,
+        sessionId,
+        error: `Session ${sessionId} is in CAPTURE_PENDING_RECONCILIATION state. Authoritative reconciliation is required before initiating a new checkout.`,
+        blockedAtGate: true,
+      };
+    }
+
+    if (session.status === "CANCELLED" || session.status === "AUDIT_FAILED") {
+      return {
+        success: false,
+        sessionId,
+        error: `Session ${sessionId} has status '${session.status}' and cannot proceed to settlement checkout.`,
+        blockedAtGate: true,
+      };
+    }
+
     if (!session.finalOffer || !session.selectedQuote) {
       return {
         success: false,
@@ -103,6 +122,14 @@ export class SettlementService {
     }
 
     if (session.agreementRecord) {
+      if (session.agreementRecord.sessionId && session.agreementRecord.sessionId !== sessionId) {
+        return {
+          success: false,
+          sessionId,
+          error: `Agreement session mismatch: recorded agreement session ${session.agreementRecord.sessionId} does not match active session ${sessionId}.`,
+          blockedAtGate: true,
+        };
+      }
       if (session.agreementRecord.mandateVersion !== (session.mandate.version ?? 1)) {
         return {
           success: false,
@@ -288,6 +315,28 @@ export class SettlementService {
       };
     }
 
+    if (session.status === "CAPTURE_PENDING_RECONCILIATION") {
+      return {
+        success: false,
+        sessionId,
+        auditCertificate: session.auditCertificate ?? this.buildFailedCertificate(sessionId, "Capture outcome uncertain: reconciliation required before re-attempting capture."),
+        orderId: session.paypalOrderId,
+        error: `Session ${sessionId} is in CAPTURE_PENDING_RECONCILIATION state. Blind capture retry is blocked. Authoritative reconciliation is required.`,
+        blockedAtGate: true,
+        uncertain: true,
+      };
+    }
+
+    if (session.status === "CANCELLED") {
+      return {
+        success: false,
+        sessionId,
+        auditCertificate: this.buildFailedCertificate(sessionId, "Session is cancelled."),
+        error: `Session ${sessionId} is cancelled and cannot be captured.`,
+        blockedAtGate: true,
+      };
+    }
+
     // Verify orderId binding to avoid arbitrary client injection
     if (session.paypalOrderId && session.paypalOrderId !== orderId) {
       return {
@@ -310,6 +359,15 @@ export class SettlementService {
     }
 
     if (session.agreementRecord) {
+      if (session.agreementRecord.sessionId && session.agreementRecord.sessionId !== sessionId) {
+        return {
+          success: false,
+          sessionId,
+          auditCertificate: this.buildFailedCertificate(sessionId, "Agreement session mismatch."),
+          error: `Agreement session mismatch: recorded agreement session ${session.agreementRecord.sessionId} does not match active session ${sessionId}.`,
+          blockedAtGate: true,
+        };
+      }
       if (session.agreementRecord.mandateVersion !== (session.mandate.version ?? 1)) {
         return {
           success: false,
@@ -635,6 +693,28 @@ export class SettlementService {
       };
     }
 
+    if (session.status === "CAPTURE_PENDING_RECONCILIATION") {
+      return {
+        success: false,
+        sessionId,
+        auditCertificate: session.auditCertificate ?? this.buildFailedCertificate(sessionId, "Session is pending reconciliation."),
+        orderId: session.paypalOrderId,
+        error: `Session ${sessionId} is in CAPTURE_PENDING_RECONCILIATION state. Blind capture retry is blocked. Explicit authoritative reconciliation is required.`,
+        blockedAtGate: true,
+        uncertain: true,
+      };
+    }
+
+    if (session.status === "CANCELLED" || session.status === "AUDIT_FAILED") {
+      return {
+        success: false,
+        sessionId,
+        auditCertificate: this.buildFailedCertificate(sessionId, `Session has status '${session.status}'.`),
+        error: `Session ${sessionId} has status '${session.status}' and cannot proceed to settlement.`,
+        blockedAtGate: true,
+      };
+    }
+
     if (!session.finalOffer || !session.selectedQuote) {
       return {
         success: false,
@@ -643,6 +723,36 @@ export class SettlementService {
         error: `Session ${sessionId} has no final agreed offer or selected quote.`,
         blockedAtGate: true,
       };
+    }
+
+    if (session.agreementRecord) {
+      if (session.agreementRecord.sessionId && session.agreementRecord.sessionId !== sessionId) {
+        return {
+          success: false,
+          sessionId,
+          auditCertificate: this.buildFailedCertificate(sessionId, "Agreement session mismatch."),
+          error: `Agreement session mismatch: recorded agreement session ${session.agreementRecord.sessionId} does not match active session ${sessionId}.`,
+          blockedAtGate: true,
+        };
+      }
+      if (session.agreementRecord.mandateVersion !== (session.mandate.version ?? 1)) {
+        return {
+          success: false,
+          sessionId,
+          auditCertificate: this.buildFailedCertificate(sessionId, "Stale agreement from older mandate version."),
+          error: `Stale agreement rejected: agreement is from mandate version ${session.agreementRecord.mandateVersion}, current mandate is version ${session.mandate.version ?? 1}.`,
+          blockedAtGate: true,
+        };
+      }
+      if (session.agreementRecord.vendorId !== session.selectedQuote.vendorId) {
+        return {
+          success: false,
+          sessionId,
+          auditCertificate: this.buildFailedCertificate(sessionId, "Agreement vendor mismatch."),
+          error: `Agreement vendor mismatch: recorded agreement vendor ${session.agreementRecord.vendorId} does not match selected vendor ${session.selectedQuote.vendorId}.`,
+          blockedAtGate: true,
+        };
+      }
     }
 
     // Pre-create authorized order if not already present
@@ -673,6 +783,117 @@ export class SettlementService {
       orderId: session.paypalOrderId,
       createInvoice,
     });
+  }
+
+  /**
+   * Phase C: Reconcile Uncertain Settlement
+   * Authoritatively inspects remote PayPal order to determine if a timed-out capture succeeded.
+   * If remote capture completed: recovers session to PAYPAL_CAPTURED and finalizes.
+   * If remote order is still authorized and uncaptured: leaves order safe for audited capture.
+   */
+  public async reconcileSettlement(request: { sessionId: string }): Promise<{
+    success: boolean;
+    sessionId: string;
+    status: ProcurementSessionStatus;
+    reconciled: boolean;
+    captureId?: string;
+    message: string;
+    error?: string;
+  }> {
+    const { sessionId } = request;
+    const session = sessionStore.getSession(sessionId);
+    if (!session) {
+      return {
+        success: false,
+        sessionId,
+        status: "CANCELLED",
+        reconciled: false,
+        message: `Session ${sessionId} not found.`,
+        error: "Session not found",
+      };
+    }
+
+    if (session.status !== "CAPTURE_PENDING_RECONCILIATION") {
+      return {
+        success: true,
+        sessionId,
+        status: session.status,
+        reconciled: true,
+        captureId: session.paypalCaptureId,
+        message: `Session is not pending reconciliation (current status: ${session.status}).`,
+      };
+    }
+
+    if (!session.paypalOrderId) {
+      return {
+        success: false,
+        sessionId,
+        status: session.status,
+        reconciled: false,
+        message: "No PayPal Order ID associated with session to reconcile.",
+        error: "Missing order ID",
+      };
+    }
+
+    try {
+      const orderDetails = await this.paypalClient.getOrder(session.paypalOrderId);
+      const existingCaptures = orderDetails.purchase_units?.[0]?.payments?.captures;
+      const completedCapture = existingCaptures?.find((c) => c.status === "COMPLETED");
+
+      if (completedCapture) {
+        // Remote capture was successful! Reconcile session state
+        session.paypalCaptureId = completedCapture.id;
+        session.status = "PAYPAL_CAPTURED";
+        session.updatedAt = new Date().toISOString();
+        sessionStore.saveSession(session);
+
+        return {
+          success: true,
+          sessionId,
+          status: "PAYPAL_CAPTURED",
+          reconciled: true,
+          captureId: completedCapture.id,
+          message: `Authoritative reconciliation confirmed remote capture ${completedCapture.id} completed on PayPal.`,
+        };
+      }
+
+      // Check if order is completed
+      if (orderDetails.status === "COMPLETED") {
+        session.status = "PAYPAL_CAPTURED";
+        session.updatedAt = new Date().toISOString();
+        sessionStore.saveSession(session);
+        return {
+          success: true,
+          sessionId,
+          status: "PAYPAL_CAPTURED",
+          reconciled: true,
+          message: "Authoritative reconciliation confirmed PayPal order completed.",
+        };
+      }
+
+      // If still authorized without capture, reset to PAYPAL_AUTHORIZED so capture can be retried safely
+      session.status = "PAYPAL_AUTHORIZED";
+      session.updatedAt = new Date().toISOString();
+      sessionStore.saveSession(session);
+
+      return {
+        success: true,
+        sessionId,
+        status: "PAYPAL_AUTHORIZED",
+        reconciled: true,
+        message: "Reconciliation verified no capture occurred remotely. Status reset to PAYPAL_AUTHORIZED.",
+      };
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      return {
+        success: false,
+        sessionId,
+        status: "CAPTURE_PENDING_RECONCILIATION",
+        reconciled: false,
+        message: `Reconciliation query failed: ${errMsg}. Session remains in CAPTURE_PENDING_RECONCILIATION.`,
+        error: errMsg,
+      };
+    }
   }
 
   private buildFailedCertificate(sessionId: string, reason: string): AuditCertificate {

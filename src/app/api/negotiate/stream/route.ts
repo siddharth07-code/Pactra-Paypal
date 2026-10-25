@@ -76,11 +76,26 @@ export async function POST(req: NextRequest) {
         if (
           existingSession.status === "PAYPAL_CAPTURED" ||
           existingSession.status === "SETTLED" ||
-          existingSession.status === "CANCELLED"
+          existingSession.status === "CANCELLED" ||
+          existingSession.status === "DISPUTED" ||
+          existingSession.status === "CAPTURE_PENDING_RECONCILIATION"
         ) {
           return new Response(
             JSON.stringify({
-              error: `Session ${sessionId} has already reached terminal status (${existingSession.status}) and cannot re-enter negotiation.`,
+              error: `Session ${sessionId} has already reached terminal or locked status (${existingSession.status}) and cannot re-enter negotiation.`,
+            }),
+            { status: 409, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (
+          existingSession.agreementRecord &&
+          (existingSession.status === "AUDIT_PASSED" ||
+            existingSession.status === "PAYPAL_AUTHORIZED" ||
+            existingSession.status === "AWAITING_PAYPAL_APPROVAL")
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: `Session ${sessionId} already has an active finalized agreement. Revise the mandate to restart negotiation.`,
             }),
             { status: 409, headers: { "Content-Type": "application/json" } }
           );
