@@ -48,6 +48,8 @@ export class AcworldAuditor {
       skuReason = "Audit failed: No authoritative vendor quote was selected.";
     } else if (!finalOffer) {
       skuReason = "Audit failed: No agreed final offer is recorded.";
+    } else if (session.agreementRecord && session.agreementRecord.sessionId && session.agreementRecord.sessionId !== session.id) {
+      skuReason = `Agreement session mismatch: recorded agreement session ${session.agreementRecord.sessionId} does not match active session ${session.id}.`;
     } else if (session.agreementRecord && session.agreementRecord.mandateVersion !== (mandate.version ?? 1)) {
       skuReason = `Stale agreement rejected: agreement is from mandate version ${session.agreementRecord.mandateVersion}, current mandate is version ${mandate.version ?? 1}.`;
     } else if (session.agreementRecord && session.agreementRecord.vendorId !== selectedQuote.vendorId) {
@@ -217,6 +219,12 @@ export class AcworldAuditor {
       if (!expectedOrderCustomId.includes(expectedPrefix)) {
         lineagePassed = false;
         lineageReason = `Cryptographic lineage mismatch: PayPal order custom_id (${expectedOrderCustomId}) does not match verified root (${verifiedRoot}).`;
+      } else if (
+        expectedOrderCustomId.includes(";SESSION:") &&
+        !expectedOrderCustomId.includes(`;SESSION:${session.id}`)
+      ) {
+        lineagePassed = false;
+        lineageReason = `Cryptographic lineage mismatch: PayPal order custom_id is bound to a different session (${expectedOrderCustomId}). Expected session ${session.id}.`;
       }
     }
 

@@ -76,41 +76,51 @@ export class SettlementService {
   public async initiateCheckout(request: InitiateCheckoutRequest): Promise<InitiateCheckoutResponse> {
     const { sessionId, origin } = request;
 
-    const session = sessionStore.getSession(sessionId);
-    if (!session) {
+    if (!sessionStore.acquireLock(sessionId)) {
       return {
         success: false,
         sessionId,
-        error: `Session ${sessionId} not found in authoritative store.`,
-      };
-    }
-
-    if (session.status === "PAYPAL_CAPTURED" || session.status === "SETTLED") {
-      return {
-        success: false,
-        sessionId,
-        error: `Session ${sessionId} has already been settled and captured.`,
+        error: `A payment or checkout operation is already executing for session ${sessionId}.`,
         blockedAtGate: true,
       };
     }
 
-    if (session.status === "CAPTURE_PENDING_RECONCILIATION") {
-      return {
-        success: false,
-        sessionId,
-        error: `Session ${sessionId} is in CAPTURE_PENDING_RECONCILIATION state. Authoritative reconciliation is required before initiating a new checkout.`,
-        blockedAtGate: true,
-      };
-    }
+    try {
+      const session = sessionStore.getSession(sessionId);
+      if (!session) {
+        return {
+          success: false,
+          sessionId,
+          error: `Session ${sessionId} not found in authoritative store.`,
+        };
+      }
 
-    if (session.status === "CANCELLED" || session.status === "AUDIT_FAILED") {
-      return {
-        success: false,
-        sessionId,
-        error: `Session ${sessionId} has status '${session.status}' and cannot proceed to settlement checkout.`,
-        blockedAtGate: true,
-      };
-    }
+      if (session.status === "PAYPAL_CAPTURED" || session.status === "SETTLED") {
+        return {
+          success: false,
+          sessionId,
+          error: `Session ${sessionId} has already been settled and captured.`,
+          blockedAtGate: true,
+        };
+      }
+
+      if (session.status === "CAPTURE_PENDING_RECONCILIATION") {
+        return {
+          success: false,
+          sessionId,
+          error: `Session ${sessionId} is in CAPTURE_PENDING_RECONCILIATION state. Authoritative reconciliation is required before initiating a new checkout.`,
+          blockedAtGate: true,
+        };
+      }
+
+      if (session.status === "CANCELLED" || session.status === "AUDIT_FAILED") {
+        return {
+          success: false,
+          sessionId,
+          error: `Session ${sessionId} has status '${session.status}' and cannot proceed to settlement checkout.`,
+          blockedAtGate: true,
+        };
+      }
 
     if (!session.finalOffer || !session.selectedQuote) {
       return {
@@ -204,8 +214,7 @@ export class SettlementService {
 
     const preSettlementRoot = session.preSettlementRoot ?? session.merkleRoot ?? "";
 
-    try {
-      const orderResult = await this.paypalClient.createAuthorizedOrder({
+    const orderResult = await this.paypalClient.createAuthorizedOrder({
         sessionId,
         merkleRoot: preSettlementRoot,
         currency: session.mandate.currency,
@@ -264,6 +273,8 @@ export class SettlementService {
         sessionId,
         error: err instanceof Error ? err.message : "Failed to initiate PayPal checkout.",
       };
+    } finally {
+      sessionStore.releaseLock(sessionId);
     }
   }
 
@@ -292,7 +303,7 @@ export class SettlementService {
     }
 
     // Concurrency check
-    if (this.activeCaptureLocks.has(sessionId)) {
+    if (!sessionStore.acquireLock(sessionId)) {
       return {
         success: false,
         sessionId,
@@ -302,95 +313,92 @@ export class SettlementService {
       };
     }
 
-    if (session.status === "PAYPAL_CAPTURED" || session.status === "SETTLED") {
-      return {
-        success: false,
-        sessionId,
-        auditCertificate: session.auditCertificate ?? this.buildFailedCertificate(sessionId, "Already captured."),
-        orderId: session.paypalOrderId,
-        captureId: session.paypalCaptureId,
-        invoiceId: session.paypalInvoiceId,
-        error: `Session ${sessionId} has already been settled and captured.`,
-        blockedAtGate: true,
-      };
-    }
-
-    if (session.status === "CAPTURE_PENDING_RECONCILIATION") {
-      return {
-        success: false,
-        sessionId,
-        auditCertificate: session.auditCertificate ?? this.buildFailedCertificate(sessionId, "Capture outcome uncertain: reconciliation required before re-attempting capture."),
-        orderId: session.paypalOrderId,
-        error: `Session ${sessionId} is in CAPTURE_PENDING_RECONCILIATION state. Blind capture retry is blocked. Authoritative reconciliation is required.`,
-        blockedAtGate: true,
-        uncertain: true,
-      };
-    }
-
-    if (session.status === "CANCELLED") {
-      return {
-        success: false,
-        sessionId,
-        auditCertificate: this.buildFailedCertificate(sessionId, "Session is cancelled."),
-        error: `Session ${sessionId} is cancelled and cannot be captured.`,
-        blockedAtGate: true,
-      };
-    }
-
-    // Verify orderId binding to avoid arbitrary client injection
-    if (session.paypalOrderId && session.paypalOrderId !== orderId) {
-      return {
-        success: false,
-        sessionId,
-        auditCertificate: this.buildFailedCertificate(sessionId, "Order ID does not match authoritative session."),
-        error: `Provided Order ID ${orderId} does not match authoritative session order ${session.paypalOrderId}. Client order injection rejected.`,
-        blockedAtGate: true,
-      };
-    }
-
-    if (!session.finalOffer || !session.selectedQuote) {
-      return {
-        success: false,
-        sessionId,
-        auditCertificate: this.buildFailedCertificate(sessionId, "No final agreed offer."),
-        error: `Session ${sessionId} has no final agreed offer or selected quote.`,
-        blockedAtGate: true,
-      };
-    }
-
-    if (session.agreementRecord) {
-      if (session.agreementRecord.sessionId && session.agreementRecord.sessionId !== sessionId) {
-        return {
-          success: false,
-          sessionId,
-          auditCertificate: this.buildFailedCertificate(sessionId, "Agreement session mismatch."),
-          error: `Agreement session mismatch: recorded agreement session ${session.agreementRecord.sessionId} does not match active session ${sessionId}.`,
-          blockedAtGate: true,
-        };
-      }
-      if (session.agreementRecord.mandateVersion !== (session.mandate.version ?? 1)) {
-        return {
-          success: false,
-          sessionId,
-          auditCertificate: this.buildFailedCertificate(sessionId, "Stale agreement from older mandate version."),
-          error: `Stale agreement rejected: agreement is from mandate version ${session.agreementRecord.mandateVersion}, current mandate is version ${session.mandate.version ?? 1}.`,
-          blockedAtGate: true,
-        };
-      }
-      if (session.agreementRecord.vendorId !== session.selectedQuote.vendorId) {
-        return {
-          success: false,
-          sessionId,
-          auditCertificate: this.buildFailedCertificate(sessionId, "Agreement vendor mismatch."),
-          error: `Agreement vendor mismatch: recorded agreement vendor ${session.agreementRecord.vendorId} does not match selected vendor ${session.selectedQuote.vendorId}.`,
-          blockedAtGate: true,
-        };
-      }
-    }
-
-    this.activeCaptureLocks.add(sessionId);
-
     try {
+      if (session.status === "PAYPAL_CAPTURED" || session.status === "SETTLED") {
+        return {
+          success: false,
+          sessionId,
+          auditCertificate: session.auditCertificate ?? this.buildFailedCertificate(sessionId, "Already captured."),
+          orderId: session.paypalOrderId,
+          captureId: session.paypalCaptureId,
+          invoiceId: session.paypalInvoiceId,
+          error: `Session ${sessionId} has already been settled and captured.`,
+          blockedAtGate: true,
+        };
+      }
+
+      if (session.status === "CAPTURE_PENDING_RECONCILIATION") {
+        return {
+          success: false,
+          sessionId,
+          auditCertificate: session.auditCertificate ?? this.buildFailedCertificate(sessionId, "Capture outcome uncertain: reconciliation required before re-attempting capture."),
+          orderId: session.paypalOrderId,
+          error: `Session ${sessionId} is in CAPTURE_PENDING_RECONCILIATION state. Blind capture retry is blocked. Authoritative reconciliation is required.`,
+          blockedAtGate: true,
+          uncertain: true,
+        };
+      }
+
+      if (session.status === "CANCELLED") {
+        return {
+          success: false,
+          sessionId,
+          auditCertificate: this.buildFailedCertificate(sessionId, "Session is cancelled."),
+          error: `Session ${sessionId} is cancelled and cannot be captured.`,
+          blockedAtGate: true,
+        };
+      }
+
+      // Verify orderId binding to avoid arbitrary client injection
+      if (session.paypalOrderId && session.paypalOrderId !== orderId) {
+        return {
+          success: false,
+          sessionId,
+          auditCertificate: this.buildFailedCertificate(sessionId, "Order ID does not match authoritative session."),
+          error: `Provided Order ID ${orderId} does not match authoritative session order ${session.paypalOrderId}. Client order injection rejected.`,
+          blockedAtGate: true,
+        };
+      }
+
+      if (!session.finalOffer || !session.selectedQuote) {
+        return {
+          success: false,
+          sessionId,
+          auditCertificate: this.buildFailedCertificate(sessionId, "No final agreed offer."),
+          error: `Session ${sessionId} has no final agreed offer or selected quote.`,
+          blockedAtGate: true,
+        };
+      }
+
+      if (session.agreementRecord) {
+        if (session.agreementRecord.sessionId && session.agreementRecord.sessionId !== sessionId) {
+          return {
+            success: false,
+            sessionId,
+            auditCertificate: this.buildFailedCertificate(sessionId, "Agreement session mismatch."),
+            error: `Agreement session mismatch: recorded agreement session ${session.agreementRecord.sessionId} does not match active session ${sessionId}.`,
+            blockedAtGate: true,
+          };
+        }
+        if (session.agreementRecord.mandateVersion !== (session.mandate.version ?? 1)) {
+          return {
+            success: false,
+            sessionId,
+            auditCertificate: this.buildFailedCertificate(sessionId, "Stale agreement from older mandate version."),
+            error: `Stale agreement rejected: agreement is from mandate version ${session.agreementRecord.mandateVersion}, current mandate is version ${session.mandate.version ?? 1}.`,
+            blockedAtGate: true,
+          };
+        }
+        if (session.agreementRecord.vendorId !== session.selectedQuote.vendorId) {
+          return {
+            success: false,
+            sessionId,
+            auditCertificate: this.buildFailedCertificate(sessionId, "Agreement vendor mismatch."),
+            error: `Agreement vendor mismatch: recorded agreement vendor ${session.agreementRecord.vendorId} does not match selected vendor ${session.selectedQuote.vendorId}.`,
+            blockedAtGate: true,
+          };
+        }
+      }
       const finalOffer = session.finalOffer;
       const totalAmount = finalOffer.unitPrice * finalOffer.quantity + finalOffer.shippingCost;
       const preSettlementRoot = session.preSettlementRoot ?? session.merkleRoot ?? "";
@@ -639,7 +647,7 @@ export class SettlementService {
         blockedAtGate: false,
       };
     } finally {
-      this.activeCaptureLocks.delete(sessionId);
+      sessionStore.releaseLock(sessionId);
     }
   }
 
@@ -801,46 +809,124 @@ export class SettlementService {
     error?: string;
   }> {
     const { sessionId } = request;
-    const session = sessionStore.getSession(sessionId);
-    if (!session) {
+
+    if (!sessionStore.acquireLock(sessionId)) {
+      const current = sessionStore.getSession(sessionId);
       return {
         success: false,
         sessionId,
-        status: "CANCELLED",
+        status: current ? current.status : "CAPTURE_PENDING_RECONCILIATION",
         reconciled: false,
-        message: `Session ${sessionId} not found.`,
-        error: "Session not found",
-      };
-    }
-
-    if (session.status !== "CAPTURE_PENDING_RECONCILIATION") {
-      return {
-        success: true,
-        sessionId,
-        status: session.status,
-        reconciled: true,
-        captureId: session.paypalCaptureId,
-        message: `Session is not pending reconciliation (current status: ${session.status}).`,
-      };
-    }
-
-    if (!session.paypalOrderId) {
-      return {
-        success: false,
-        sessionId,
-        status: session.status,
-        reconciled: false,
-        message: "No PayPal Order ID associated with session to reconcile.",
-        error: "Missing order ID",
+        message: `Settlement reconciliation is already in progress for session ${sessionId}.`,
+        error: "Lock contention",
       };
     }
 
     try {
+      const session = sessionStore.getSession(sessionId);
+      if (!session) {
+        return {
+          success: false,
+          sessionId,
+          status: "CANCELLED",
+          reconciled: false,
+          message: `Session ${sessionId} not found.`,
+          error: "Session not found",
+        };
+      }
+
+      if (session.status !== "CAPTURE_PENDING_RECONCILIATION") {
+        return {
+          success: true,
+          sessionId,
+          status: session.status,
+          reconciled: true,
+          captureId: session.paypalCaptureId,
+          message: `Session is not pending reconciliation (current status: ${session.status}).`,
+        };
+      }
+
+      if (!session.paypalOrderId) {
+        return {
+          success: false,
+          sessionId,
+          status: session.status,
+          reconciled: false,
+          message: "No PayPal Order ID associated with session to reconcile.",
+          error: "Missing order ID",
+        };
+      }
+
+      const finalOffer = session.finalOffer;
+      const expectedTotal = finalOffer
+        ? finalOffer.unitPrice * finalOffer.quantity + finalOffer.shippingCost
+        : 0;
+      const preSettlementRoot = session.preSettlementRoot ?? session.merkleRoot ?? "";
+      const expectedCustomId = `VERIPAY_ROOT:${preSettlementRoot};SESSION:${sessionId}`;
+
       const orderDetails = await this.paypalClient.getOrder(session.paypalOrderId);
+
+      // Verify remote order currency
+      const remoteCurrency = orderDetails.purchase_units?.[0]?.amount?.currency_code;
+      if (remoteCurrency && remoteCurrency !== session.mandate.currency) {
+        return {
+          success: false,
+          sessionId,
+          status: session.status,
+          reconciled: false,
+          message: `Reconciliation currency mismatch: remote order has currency '${remoteCurrency}', expected '${session.mandate.currency}'.`,
+          error: "Currency mismatch",
+        };
+      }
+
+      // Verify remote order amount
+      const remoteAmountStr = orderDetails.purchase_units?.[0]?.amount?.value;
+      if (remoteAmountStr && expectedTotal > 0) {
+        const remoteAmount = parseFloat(remoteAmountStr);
+        if (Math.abs(remoteAmount - expectedTotal) > 0.01) {
+          return {
+            success: false,
+            sessionId,
+            status: session.status,
+            reconciled: false,
+            message: `Reconciliation amount mismatch: remote order amount ($${remoteAmount}) does not match agreed total ($${expectedTotal}).`,
+            error: "Amount mismatch",
+          };
+        }
+      }
+
+      // Verify remote custom_id binding
+      const actualCustomId = orderDetails.purchase_units?.[0]?.custom_id;
+      if (actualCustomId && actualCustomId !== expectedCustomId) {
+        return {
+          success: false,
+          sessionId,
+          status: session.status,
+          reconciled: false,
+          message: `Reconciliation custom_id mismatch: expected '${expectedCustomId}', got '${actualCustomId}'. Remote order belongs to different session/root.`,
+          error: "Lineage mismatch",
+        };
+      }
+
       const existingCaptures = orderDetails.purchase_units?.[0]?.payments?.captures;
       const completedCapture = existingCaptures?.find((c) => c.status === "COMPLETED");
 
       if (completedCapture) {
+        // Verify completed capture amount and currency
+        if (
+          completedCapture.amount &&
+          completedCapture.amount.currency_code !== session.mandate.currency
+        ) {
+          return {
+            success: false,
+            sessionId,
+            status: session.status,
+            reconciled: false,
+            message: `Reconciliation capture currency mismatch: capture currency '${completedCapture.amount.currency_code}' != '${session.mandate.currency}'.`,
+            error: "Capture currency mismatch",
+          };
+        }
+
         // Remote capture was successful! Reconcile session state
         session.paypalCaptureId = completedCapture.id;
         session.status = "PAYPAL_CAPTURED";
@@ -893,6 +979,8 @@ export class SettlementService {
         message: `Reconciliation query failed: ${errMsg}. Session remains in CAPTURE_PENDING_RECONCILIATION.`,
         error: errMsg,
       };
+    } finally {
+      sessionStore.releaseLock(sessionId);
     }
   }
 

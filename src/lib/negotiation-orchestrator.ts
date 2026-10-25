@@ -95,6 +95,8 @@ export function calculateVendorCounteroffer(
  * Negotiation Orchestrator
  */
 export class NegotiationOrchestrator {
+  public static activeNegotiationLocks = new Set<string>();
+
   private geminiClient: GeminiNegotiationClient;
   private maxRounds: number;
   private guardrailConfig: GuardrailConfig;
@@ -124,18 +126,26 @@ export class NegotiationOrchestrator {
     quoteEvaluations?: Record<string, QuoteEvaluation>
   ): Promise<OrchestrationResult> {
     const sessionId = existingSessionId || `session_${crypto.randomBytes(8).toString("hex")}`;
-    const merkleTree = new VeriPayMerkleTree();
 
-    // 1. Commit MANDATE_LOCKED event
-    merkleTree.addEvent("MANDATE_LOCKED", {
-      mandateId: mandate.id,
-      quantity: mandate.quantity,
-      maxBudget: mandate.maxTotalBudget,
-      maxDeliveryDays: mandate.maxDeliveryDays,
-      minReturnDays: mandate.minReturnDays,
-      currency: mandate.currency,
-      timestamp: new Date().toISOString(),
-    });
+    // Concurrency guard: reject concurrent negotiation loops executing on the same session
+    if (NegotiationOrchestrator.activeNegotiationLocks.has(sessionId)) {
+      throw new Error(`Negotiation is already actively running for session ${sessionId}. Duplicate concurrent negotiation blocked.`);
+    }
+    NegotiationOrchestrator.activeNegotiationLocks.add(sessionId);
+
+    try {
+      const merkleTree = new VeriPayMerkleTree();
+
+      // 1. Commit MANDATE_LOCKED event
+      merkleTree.addEvent("MANDATE_LOCKED", {
+        mandateId: mandate.id,
+        quantity: mandate.quantity,
+        maxBudget: mandate.maxTotalBudget,
+        maxDeliveryDays: mandate.maxDeliveryDays,
+        minReturnDays: mandate.minReturnDays,
+        currency: mandate.currency,
+        timestamp: new Date().toISOString(),
+      });
 
     // 2. Commit CHANNEL3_CATALOG_SNAPSHOT event
     merkleTree.addEvent("CHANNEL3_CATALOG_SNAPSHOT", {
@@ -159,6 +169,43 @@ export class NegotiationOrchestrator {
 
     // Persist session in authoritative store right at initialization
     const existing = existingSessionId ? sessionStore.getSession(existingSessionId) : undefined;
+    if (existing) {
+      if ((existing.mandate.version ?? 1) !== (mandate.version ?? 1)) {
+        await this.emit({
+          type: "NEGOTIATION_ABORTED",
+          payload: {
+            sessionId,
+            reason: `Mandate version mismatch: existing session mandate is version ${existing.mandate.version}, negotiation invoked with version ${mandate.version}. Stale negotiation rejected.`,
+          },
+        });
+        return {
+          session: existing,
+          merkleTree,
+          completed: false,
+        };
+      }
+
+      if (
+        existing.status === "CANCELLED" ||
+        existing.status === "SETTLED" ||
+        existing.status === "PAYPAL_CAPTURED" ||
+        existing.status === "DISPUTED"
+      ) {
+        await this.emit({
+          type: "NEGOTIATION_ABORTED",
+          payload: {
+            sessionId,
+            reason: `Session reached terminal status '${existing.status}'. Agreement commitment blocked.`,
+          },
+        });
+        return {
+          session: existing,
+          merkleTree,
+          completed: false,
+        };
+      }
+    }
+
     const initialSession: ProcurementSession = {
       ...(existing || {}),
       id: sessionId,
@@ -732,134 +779,177 @@ export class NegotiationOrchestrator {
       })
       .filter((c): c is NonNullable<typeof c> => c !== null);
 
-    // If NO offer is acceptable/feasible, orchestrator produces an explicit no-deal outcome
-    if (evaluatedCandidates.length === 0) {
+      // Check authoritative store state before committing agreement:
+      // Prevent committing stale agreements if mandate was revised or session became terminal during negotiation
+      const latestBeforeCommit = sessionStore.getSession(sessionId);
+      if (latestBeforeCommit) {
+        if ((latestBeforeCommit.mandate.version ?? 1) !== (mandate.version ?? 1)) {
+          await this.emit({
+            type: "NEGOTIATION_ABORTED",
+            payload: {
+              sessionId,
+              reason: `Mandate was revised during negotiation (active mandate version ${latestBeforeCommit.mandate.version} vs negotiation version ${mandate.version}). Stale agreement commitment blocked.`,
+            },
+          });
+          return {
+            session: latestBeforeCommit,
+            merkleTree,
+            completed: false,
+          };
+        }
+
+        if (
+          latestBeforeCommit.status === "CANCELLED" ||
+          latestBeforeCommit.status === "SETTLED" ||
+          latestBeforeCommit.status === "PAYPAL_CAPTURED" ||
+          latestBeforeCommit.status === "DISPUTED"
+        ) {
+          await this.emit({
+            type: "NEGOTIATION_ABORTED",
+            payload: {
+              sessionId,
+              reason: `Session reached terminal status '${latestBeforeCommit.status}' during negotiation. Agreement commitment blocked.`,
+            },
+          });
+          return {
+            session: latestBeforeCommit,
+            merkleTree,
+            completed: false,
+          };
+        }
+      }
+
+      // If NO offer is acceptable/feasible, orchestrator produces an explicit no-deal outcome
+      if (evaluatedCandidates.length === 0) {
+        const session: ProcurementSession = {
+          id: sessionId,
+          mandate,
+          quotes: activeQuotes,
+          turns,
+          selectedQuote: undefined,
+          finalOffer: undefined,
+          agreementRecord: undefined,
+          status: "AUDIT_FAILED",
+          merkleRoot: merkleTree.getRootHash(),
+          preSettlementRoot: merkleTree.getRootHash(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        sessionStore.saveSession(session);
+
+        await this.emit({
+          type: "NEGOTIATION_COMPLETED",
+          payload: {
+            sessionId,
+            selectedVendor: undefined,
+            totalCost: undefined,
+            savings: 0,
+            outcome: "NO_DEAL",
+            reason: "No vendor counteroffer satisfied mandatory budget and SLA constraints.",
+            merkleRoot: session.merkleRoot,
+            auditPassed: false,
+          },
+        });
+
+        return {
+          session,
+          merkleTree,
+          selectedQuote: undefined,
+          finalOffer: undefined,
+          totalCost: undefined,
+          savingsVsBaseline: 0,
+          completed: false,
+        };
+      }
+
+      // Sort feasible candidates:
+      // 1. Highest multi-attribute utility score
+      // 2. Deterministic tie-breaking by lowest total landed cost (if utility difference < 1e-4)
+      // 3. Deterministic alphabetical tie-breaking by vendorId (if cost difference < $0.01)
+      evaluatedCandidates.sort((a, b) => {
+        const utilityDiff = b.utility - a.utility;
+        if (Math.abs(utilityDiff) > 1e-4) {
+          return utilityDiff;
+        }
+        const costDiff = a.totalCost - b.totalCost;
+        if (Math.abs(costDiff) > 0.01) {
+          return costDiff;
+        }
+        return a.quote.vendorId.localeCompare(b.quote.vendorId);
+      });
+
+      const winner = evaluatedCandidates[0];
+
+      const finalOffer: NegotiationOffer = winner.agreement.agreedOffer;
+
+      // Calculate baseline cost vs negotiated savings
+      const initialBaselineCost =
+        (initialQuotes[0]?.initialUnitAsk ?? 380) * mandate.quantity + (initialQuotes[0]?.shippingCost ?? 150);
+      const savingsVsBaseline = Math.max(0, initialBaselineCost - winner.totalCost);
+
+      // Run independent ACWORLD audit on final negotiated state
+      const auditor = new AcworldAuditor();
+
+      const preAuditSession: ProcurementSession = {
+        id: sessionId,
+        mandate,
+        quotes: activeQuotes,
+        turns,
+        selectedQuote: winner.quote,
+        finalOffer,
+        agreementRecord: winner.agreement,
+        status: "AUDIT_PENDING",
+        merkleRoot: merkleTree.getRootHash(),
+        preSettlementRoot: merkleTree.getRootHash(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const auditCertificate: AuditCertificate = auditor.audit({ session: preAuditSession });
+
       const session: ProcurementSession = {
         id: sessionId,
         mandate,
         quotes: activeQuotes,
         turns,
-        selectedQuote: undefined,
-        finalOffer: undefined,
-        agreementRecord: undefined,
-        status: "AUDIT_FAILED",
+        selectedQuote: winner.quote,
+        finalOffer,
+        agreementRecord: winner.agreement,
+        status: auditCertificate.passed ? "AUDIT_PASSED" : "AUDIT_FAILED",
+        auditCertificate,
         merkleRoot: merkleTree.getRootHash(),
         preSettlementRoot: merkleTree.getRootHash(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
+      // Persist final session state to authoritative store
       sessionStore.saveSession(session);
 
       await this.emit({
         type: "NEGOTIATION_COMPLETED",
         payload: {
           sessionId,
-          selectedVendor: undefined,
-          totalCost: undefined,
-          savings: 0,
-          outcome: "NO_DEAL",
-          reason: "No vendor counteroffer satisfied mandatory budget and SLA constraints.",
+          selectedVendor: winner.quote.vendorName,
+          totalCost: winner.totalCost,
+          savings: savingsVsBaseline,
           merkleRoot: session.merkleRoot,
-          auditPassed: false,
+          auditPassed: auditCertificate.passed,
         },
       });
 
       return {
         session,
         merkleTree,
-        selectedQuote: undefined,
-        finalOffer: undefined,
-        totalCost: undefined,
-        savingsVsBaseline: 0,
-        completed: false,
-      };
-    }
-
-    // Sort feasible candidates:
-    // 1. Highest multi-attribute utility score
-    // 2. Deterministic tie-breaking by lowest total landed cost (if utility difference < 1e-4)
-    // 3. Deterministic alphabetical tie-breaking by vendorId (if cost difference < $0.01)
-    evaluatedCandidates.sort((a, b) => {
-      const utilityDiff = b.utility - a.utility;
-      if (Math.abs(utilityDiff) > 1e-4) {
-        return utilityDiff;
-      }
-      const costDiff = a.totalCost - b.totalCost;
-      if (Math.abs(costDiff) > 0.01) {
-        return costDiff;
-      }
-      return a.quote.vendorId.localeCompare(b.quote.vendorId);
-    });
-
-    const winner = evaluatedCandidates[0];
-
-    const finalOffer: NegotiationOffer = winner.agreement.agreedOffer;
-
-    // Calculate baseline cost vs negotiated savings
-    const initialBaselineCost =
-      (initialQuotes[0]?.initialUnitAsk ?? 380) * mandate.quantity + (initialQuotes[0]?.shippingCost ?? 150);
-    const savingsVsBaseline = Math.max(0, initialBaselineCost - winner.totalCost);
-
-    // Run independent ACWORLD audit on final negotiated state
-    const auditor = new AcworldAuditor();
-
-    const preAuditSession: ProcurementSession = {
-      id: sessionId,
-      mandate,
-      quotes: activeQuotes,
-      turns,
-      selectedQuote: winner.quote,
-      finalOffer,
-      agreementRecord: winner.agreement,
-      status: "AUDIT_PENDING",
-      merkleRoot: merkleTree.getRootHash(),
-      preSettlementRoot: merkleTree.getRootHash(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    const auditCertificate: AuditCertificate = auditor.audit({ session: preAuditSession });
-
-    const session: ProcurementSession = {
-      id: sessionId,
-      mandate,
-      quotes: activeQuotes,
-      turns,
-      selectedQuote: winner.quote,
-      finalOffer,
-      agreementRecord: winner.agreement,
-      status: auditCertificate.passed ? "AUDIT_PASSED" : "AUDIT_FAILED",
-      auditCertificate,
-      merkleRoot: merkleTree.getRootHash(),
-      preSettlementRoot: merkleTree.getRootHash(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    // Persist final session state to authoritative store
-    sessionStore.saveSession(session);
-
-    await this.emit({
-      type: "NEGOTIATION_COMPLETED",
-      payload: {
-        sessionId,
-        selectedVendor: winner.quote.vendorName,
+        selectedQuote: winner.quote,
+        finalOffer,
         totalCost: winner.totalCost,
-        savings: savingsVsBaseline,
-        merkleRoot: session.merkleRoot,
-        auditPassed: auditCertificate.passed,
-      },
-    });
-
-    return {
-      session,
-      merkleTree,
-      selectedQuote: winner.quote,
-      finalOffer,
-      totalCost: winner.totalCost,
-      savingsVsBaseline,
-      completed: true,
-    };
+        savingsVsBaseline,
+        completed: true,
+      };
+    } finally {
+      NegotiationOrchestrator.activeNegotiationLocks.delete(sessionId);
+    }
   }
 
   private async emit(event: { type: string; payload: Record<string, unknown> }): Promise<void> {

@@ -10,16 +10,99 @@ import fs from "fs";
 import path from "path";
 import type {
   ProcurementSession,
+  ProcurementSessionStatus,
   ProcurementMandate,
   VendorQuote,
 } from "../types/pactum";
 
+export const ALLOWED_SESSION_TRANSITIONS: Record<
+  ProcurementSessionStatus,
+  ProcurementSessionStatus[]
+> = {
+  MANDATE_PENDING: ["MANDATE_PENDING", "SOURCING", "NEGOTIATING", "CANCELLED"],
+  SOURCING: ["SOURCING", "NEGOTIATING", "MANDATE_PENDING", "CANCELLED"],
+  NEGOTIATING: [
+    "NEGOTIATING",
+    "AUDIT_PENDING",
+    "AUDIT_PASSED",
+    "AUDIT_FAILED",
+    "MANDATE_PENDING",
+    "CANCELLED",
+  ],
+  AUDIT_PENDING: [
+    "AUDIT_PENDING",
+    "AUDIT_PASSED",
+    "AUDIT_FAILED",
+    "MANDATE_PENDING",
+    "CANCELLED",
+  ],
+  AUDIT_FAILED: [
+    "AUDIT_FAILED",
+    "AUDIT_PENDING",
+    "NEGOTIATING",
+    "MANDATE_PENDING",
+    "CANCELLED",
+  ],
+  AUDIT_PASSED: [
+    "AUDIT_PASSED",
+    "AWAITING_PAYPAL_APPROVAL",
+    "PAYPAL_AUTHORIZED",
+    "MANDATE_PENDING",
+    "CANCELLED",
+  ],
+  AWAITING_PAYPAL_APPROVAL: [
+    "AWAITING_PAYPAL_APPROVAL",
+    "PAYPAL_AUTHORIZED",
+    "PAYPAL_CAPTURED",
+    "CANCELLED",
+    "MANDATE_PENDING",
+  ],
+  PAYPAL_AUTHORIZED: [
+    "PAYPAL_AUTHORIZED",
+    "PAYPAL_CAPTURED",
+    "CAPTURE_PENDING_RECONCILIATION",
+    "CANCELLED",
+  ],
+  CAPTURE_PENDING_RECONCILIATION: [
+    "CAPTURE_PENDING_RECONCILIATION",
+    "PAYPAL_CAPTURED",
+    "PAYPAL_AUTHORIZED",
+  ],
+  PAYPAL_CAPTURED: ["PAYPAL_CAPTURED", "SETTLED", "DISPUTED"],
+  SETTLED: ["SETTLED", "DISPUTED"],
+  DISPUTED: ["DISPUTED"],
+  CANCELLED: ["CANCELLED", "MANDATE_PENDING"],
+};
+
 class AuthoritativeSessionStore {
   private sessions = new Map<string, ProcurementSession>();
   private mandateHistory = new Map<string, ProcurementMandate[]>();
+  private sessionLocks = new Set<string>();
 
   constructor() {
     this.loadFromDisk();
+  }
+
+  /**
+   * Acquire a local in-memory lock for a session ID.
+   * Multi-instance note: In single-process deployments (local, dev, single container),
+   * this provides atomic serialization. Multi-instance cluster deployments require
+   * distributed Redis locks (e.g. Redlock).
+   */
+  public acquireLock(sessionId: string): boolean {
+    if (this.sessionLocks.has(sessionId)) {
+      return false;
+    }
+    this.sessionLocks.add(sessionId);
+    return true;
+  }
+
+  public releaseLock(sessionId: string): void {
+    this.sessionLocks.delete(sessionId);
+  }
+
+  public isLocked(sessionId: string): boolean {
+    return this.sessionLocks.has(sessionId);
   }
 
   private getCacheFilePath(): string | null {
@@ -62,7 +145,7 @@ class AuthoritativeSessionStore {
     }
   }
 
-  private saveToDisk(): void {
+  public saveToDisk(): void {
     const filePath = this.getCacheFilePath();
     if (!filePath) return;
     try {
@@ -73,8 +156,10 @@ class AuthoritativeSessionStore {
       const tempPath = `${filePath}.tmp.${Date.now()}.${Math.random().toString(36).substring(2, 8)}`;
       fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), "utf-8");
       fs.renameSync(tempPath, filePath);
-    } catch {
-      // Ignore disk write error
+    } catch (err) {
+      if (process.env.STRICT_PERSISTENCE === "true") {
+        throw err;
+      }
     }
   }
 
@@ -123,9 +208,44 @@ class AuthoritativeSessionStore {
   }
 
   /**
-   * Saves or updates an authoritative session.
+   * Saves or updates an authoritative session with state transition validation.
    */
   public saveSession(session: ProcurementSession): void {
+    const existing = this.sessions.get(session.id);
+    if (existing) {
+      // Validate critical terminal invariants to prevent illegal status downgrades
+      if (existing.status === "SETTLED" && session.status !== "SETTLED" && session.status !== "DISPUTED") {
+        throw new Error(
+          `Invalid state transition: Cannot downgrade SETTLED session ${session.id} to '${session.status}'.`
+        );
+      }
+      if (
+        existing.status === "PAYPAL_CAPTURED" &&
+        session.status !== "PAYPAL_CAPTURED" &&
+        session.status !== "SETTLED" &&
+        session.status !== "DISPUTED"
+      ) {
+        throw new Error(
+          `Invalid state transition: Cannot revert PAYPAL_CAPTURED session ${session.id} to '${session.status}'.`
+        );
+      }
+      if (existing.status === "DISPUTED" && session.status !== "DISPUTED") {
+        throw new Error(
+          `Invalid state transition: Cannot silently revert DISPUTED session ${session.id} to '${session.status}'.`
+        );
+      }
+      if (
+        existing.status === "CAPTURE_PENDING_RECONCILIATION" &&
+        session.status !== "CAPTURE_PENDING_RECONCILIATION" &&
+        session.status !== "PAYPAL_CAPTURED" &&
+        session.status !== "PAYPAL_AUTHORIZED"
+      ) {
+        throw new Error(
+          `Invalid state transition: CAPTURE_PENDING_RECONCILIATION session ${session.id} must be reconciled before transitioning to '${session.status}'.`
+        );
+      }
+    }
+
     const updated = {
       ...session,
       updatedAt: session.updatedAt ?? new Date().toISOString(),
@@ -151,23 +271,31 @@ class AuthoritativeSessionStore {
   }
 
   /**
-   * Explicitly updates/revises a mandate.
-   * If the mandate was locked, creates a new version, invalidates stale offers/audit certificates,
-   * and resets negotiation status.
+   * Explicitly updates/revises a mandate using an atomic clone-and-swap pattern.
+   * If validation fails or persistence fails, in-memory state remains completely unmodified.
+   * Invalidates stale quotes, offers, agreements, audit certificates, Merkle roots, and settlement references.
    */
   public reviseMandate(sessionId: string, newParams: Partial<ProcurementMandate>): ProcurementSession {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
+    const current = this.sessions.get(sessionId);
+    if (!current) {
       throw new Error(`Session ${sessionId} not found.`);
     }
 
-    if (session.status === "PAYPAL_CAPTURED" || session.status === "SETTLED") {
+    // Prohibit revision if transaction is already in captured, settled, disputed, or active payment states
+    if (
+      current.status === "PAYPAL_CAPTURED" ||
+      current.status === "SETTLED" ||
+      current.status === "CAPTURE_PENDING_RECONCILIATION" ||
+      current.status === "AWAITING_PAYPAL_APPROVAL" ||
+      current.status === "PAYPAL_AUTHORIZED" ||
+      current.status === "DISPUTED"
+    ) {
       throw new Error(
-        `Cannot revise mandate for session ${sessionId}: transaction is already captured and settled.`
+        `Cannot revise mandate for session ${sessionId}: transaction is currently in status '${current.status}'. Settled or open payment operations strictly prohibit mandate revision (transaction is already captured and settled or in payment).`
       );
     }
 
-    // Validate proposed revision parameters
+    // Validate proposed revision parameters BEFORE modifying any state
     if (newParams.maxTotalBudget !== undefined) {
       if (!Number.isFinite(newParams.maxTotalBudget) || newParams.maxTotalBudget <= 0) {
         throw new Error(`Invalid budget revision: ${newParams.maxTotalBudget}. Budget must be positive and finite.`);
@@ -192,50 +320,66 @@ class AuthoritativeSessionStore {
       }
     }
 
-    if (newParams.currency !== undefined && session.mandate.currency !== newParams.currency) {
-      // Currency changes require full invalidation
-      session.mandate.currency = newParams.currency;
-    }
+    // Transactional clone-and-swap: work on deep copies so failed mutations leave zero dirty state
+    const sessionClone: ProcurementSession = JSON.parse(JSON.stringify(current));
+    const historyClone: ProcurementMandate[] = JSON.parse(
+      JSON.stringify(this.mandateHistory.get(sessionId) ?? [])
+    );
 
-    const currentVersion = session.mandate.version ?? 1;
+    const currentVersion = sessionClone.mandate.version ?? 1;
     const newVersion = currentVersion + 1;
 
     const revisedMandate: ProcurementMandate = {
-      ...session.mandate,
+      ...sessionClone.mandate,
       ...newParams,
       version: newVersion,
       isLocked: false, // unlocked until negotiation re-locks it
     };
 
-    session.mandate = revisedMandate;
-    // Strictly invalidate all stale offers, agreements, certificates, roots, orders, and turns
-    session.selectedQuote = undefined;
-    session.finalOffer = undefined;
-    session.agreementRecord = undefined;
-    session.auditCertificate = undefined;
-    session.merkleRoot = undefined;
-    session.preSettlementRoot = undefined;
-    session.postAuditRoot = undefined;
-    session.paypalOrderId = undefined;
-    session.paypalAuthorizationId = undefined;
-    session.paypalApprovalUrl = undefined;
-    session.paypalCaptureId = undefined;
-    session.paypalInvoiceId = undefined;
-    session.captureAmount = undefined;
-    session.invoiceStatus = undefined;
-    session.quoteEvaluations = undefined;
-    session.sourcingSummary = undefined;
-    session.turns = [];
-    session.flightRecord = undefined;
-    session.status = "MANDATE_PENDING";
-    session.updatedAt = new Date().toISOString();
+    const revisedSession: ProcurementSession = {
+      ...sessionClone,
+      mandate: revisedMandate,
+      // Strictly invalidate all stale offers, agreements, certificates, roots, orders, and turns
+      selectedQuote: undefined,
+      finalOffer: undefined,
+      agreementRecord: undefined,
+      auditCertificate: undefined,
+      merkleRoot: undefined,
+      preSettlementRoot: undefined,
+      postAuditRoot: undefined,
+      paypalOrderId: undefined,
+      paypalAuthorizationId: undefined,
+      paypalApprovalUrl: undefined,
+      paypalCaptureId: undefined,
+      paypalInvoiceId: undefined,
+      captureAmount: undefined,
+      invoiceStatus: undefined,
+      quoteEvaluations: undefined,
+      sourcingSummary: undefined,
+      turns: [],
+      flightRecord: undefined,
+      status: "MANDATE_PENDING",
+      updatedAt: new Date().toISOString(),
+    };
 
-    const history = this.mandateHistory.get(sessionId) ?? [];
-    history.push({ ...revisedMandate });
-    this.mandateHistory.set(sessionId, history);
+    historyClone.push({ ...revisedMandate });
 
-    this.saveToDisk();
-    return JSON.parse(JSON.stringify(session));
+    // Commit to in-memory state
+    this.sessions.set(sessionId, revisedSession);
+    this.mandateHistory.set(sessionId, historyClone);
+
+    try {
+      this.saveToDisk();
+    } catch (diskErr) {
+      // Rollback to original unmodified session and history on disk failure
+      this.sessions.set(sessionId, current);
+      this.mandateHistory.set(sessionId, this.mandateHistory.get(sessionId) ?? []);
+      throw new Error(
+        `Mandate revision failed during disk persistence: ${diskErr instanceof Error ? diskErr.message : String(diskErr)}`
+      );
+    }
+
+    return JSON.parse(JSON.stringify(revisedSession));
   }
 
   /**

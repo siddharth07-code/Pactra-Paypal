@@ -67,22 +67,107 @@ export async function POST(req: NextRequest) {
     const sessionId = sessionMatch ? sessionMatch[1] : undefined;
 
     if (sessionId) {
-      const session = sessionStore.getSession(sessionId);
-      if (session) {
-        if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
-          // Note: Webhook cannot bypass audit gate for initial capture, but safely updates state if already authorized/audited
-          if (session.status === "AUDIT_PASSED" || session.status === "PAYPAL_AUTHORIZED") {
-            session.status = "PAYPAL_CAPTURED";
-            session.paypalCaptureId = (event.resource.id as string) ?? session.paypalCaptureId;
-            sessionStore.saveSession(session);
+      // Concurrency lock: serialize webhook state updates against active captures and reconciliations
+      let lockAcquired = sessionStore.acquireLock(sessionId);
+      if (!lockAcquired) {
+        // Retry shortly in case an active local capture or reconcile is just finishing
+        for (let attempt = 0; attempt < 3; attempt++) {
+          await new Promise((r) => setTimeout(r, 50));
+          if (sessionStore.acquireLock(sessionId)) {
+            lockAcquired = true;
+            break;
           }
-        } else if (event.event_type === "INVOICING.INVOICE.PAID") {
-          session.invoiceStatus = "PAID";
-          session.status = "SETTLED";
-          sessionStore.saveSession(session);
-        } else if (event.event_type === "CUSTOMER.DISPUTE.CREATED") {
-          session.status = "DISPUTED";
-          sessionStore.saveSession(session);
+        }
+      }
+
+      if (lockAcquired) {
+        try {
+          const session = sessionStore.getSession(sessionId);
+          if (session) {
+            if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
+              // Remote amount and currency verification
+              const amountObj = event.resource.amount as
+                | { value?: string; currency_code?: string }
+                | undefined;
+              const expectedTotal = session.finalOffer
+                ? session.finalOffer.unitPrice * session.finalOffer.quantity +
+                  session.finalOffer.shippingCost
+                : 0;
+
+              if (amountObj) {
+                if (
+                  amountObj.currency_code &&
+                  amountObj.currency_code !== session.mandate.currency
+                ) {
+                  return new Response(
+                    JSON.stringify({
+                      error: `Webhook capture currency mismatch: expected ${session.mandate.currency}, got ${amountObj.currency_code}.`,
+                    }),
+                    { status: 422, headers: { "Content-Type": "application/json" } }
+                  );
+                }
+                if (amountObj.value && expectedTotal > 0) {
+                  const capturedVal = parseFloat(amountObj.value);
+                  if (Math.abs(capturedVal - expectedTotal) > 0.01) {
+                    return new Response(
+                      JSON.stringify({
+                        error: `Webhook capture amount mismatch: expected ${expectedTotal}, got ${capturedVal}.`,
+                      }),
+                      { status: 422, headers: { "Content-Type": "application/json" } }
+                    );
+                  }
+                }
+              }
+
+              // Never downgrade a session that is already SETTLED or PAYPAL_CAPTURED
+              if (session.status === "SETTLED" || session.status === "PAYPAL_CAPTURED") {
+                if (!session.paypalCaptureId && event.resource.id) {
+                  session.paypalCaptureId = event.resource.id as string;
+                  sessionStore.saveSession(session);
+                }
+              } else if (
+                session.status === "AUDIT_PASSED" ||
+                session.status === "PAYPAL_AUTHORIZED" ||
+                session.status === "CAPTURE_PENDING_RECONCILIATION"
+              ) {
+                session.status = "PAYPAL_CAPTURED";
+                session.paypalCaptureId =
+                  (event.resource.id as string) ?? session.paypalCaptureId;
+                sessionStore.saveSession(session);
+              }
+            } else if (event.event_type === "INVOICING.INVOICE.PAID") {
+              session.invoiceStatus = "PAID";
+              // A dispute must never silently revert to an ordinary settled state!
+              if (session.status !== "DISPUTED") {
+                session.status = "SETTLED";
+              }
+              sessionStore.saveSession(session);
+            } else if (event.event_type === "CUSTOMER.DISPUTE.CREATED") {
+              // Only captured or settled transactions can be disputed
+              if (
+                session.status === "SETTLED" ||
+                session.status === "PAYPAL_CAPTURED"
+              ) {
+                session.status = "DISPUTED";
+                sessionStore.saveSession(session);
+              }
+            } else if (
+              event.event_type === "PAYMENT.CAPTURE.DENIED" ||
+              event.event_type === "PAYMENT.CAPTURE.DECLINED"
+            ) {
+              // Stale decline cannot downgrade already captured or settled session
+              if (
+                session.status !== "SETTLED" &&
+                session.status !== "PAYPAL_CAPTURED" &&
+                session.status !== "DISPUTED"
+              ) {
+                session.status = "AUDIT_FAILED";
+                sessionStore.saveSession(session);
+              }
+            }
+          }
+        } finally {
+          sessionStore.releaseLock(sessionId);
         }
       }
     }
