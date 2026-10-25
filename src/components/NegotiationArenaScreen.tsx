@@ -210,7 +210,7 @@ export function NegotiationArenaScreen({
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className="text-[11px] text-[#6e6e78] dark:text-[#8e8a83] uppercase tracking-wider font-mono-token">
+                      <div className="text-[11px] text-[#6e6e78] dark:text-[#8e8a83] uppercase tracking-wider font-sans font-medium">
                         Landed Total
                       </div>
                       <div className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums tracking-tight">
@@ -227,7 +227,7 @@ export function NegotiationArenaScreen({
                   <div className="grid grid-cols-3 gap-2 pt-3 mt-3 border-t border-smoke/70 dark:border-[#232328] text-[12px]">
                     <div>
                       <span className="text-[#6e6e78] dark:text-[#8e8a83] block text-[11px]">Current Ask</span>
-                      <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                      <span className="font-sans font-medium text-obsidian dark:text-[#f6f4f0] tabular-nums">
                         ${quote.currentUnitBid}
                       </span>
                     </div>
@@ -300,10 +300,10 @@ export function NegotiationArenaScreen({
                   return (
                     <div
                       key={ev.id}
-                      className="py-1.5 flex items-center gap-3 text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83] select-none"
+                      className="py-1.5 flex items-center gap-3 text-[11.5px] font-sans text-[#6e6e78] dark:text-[#8e8a83] select-none"
                     >
                       <span className="h-px bg-smoke/80 dark:bg-[#282830] flex-1" />
-                      <span className="uppercase tracking-wider font-medium text-architect-violet dark:text-[#a78bfa]">
+                      <span className="uppercase tracking-wider font-semibold text-architect-violet dark:text-[#a78bfa]">
                         Round {String(p.round)} of {String(p.maxRounds || 4)}
                       </span>
                       <span className="h-px bg-smoke/80 dark:bg-[#282830] flex-1" />
@@ -327,7 +327,7 @@ export function NegotiationArenaScreen({
                             (Round {String(p.round)})
                           </span>
                         </div>
-                        <span className="text-[11.5px] font-mono-token text-architect-violet dark:text-[#a78bfa]">
+                        <span className="text-[12px] font-sans tabular-nums font-medium text-architect-violet dark:text-[#a78bfa]">
                           Utility: {typeof p.utilityScore === "number" ? p.utilityScore.toFixed(3) : "—"}
                         </span>
                       </div>
@@ -337,7 +337,7 @@ export function NegotiationArenaScreen({
                       </p>
 
                       {Boolean(p.proposedOffer && typeof p.proposedOffer === "object") && (
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1.5 border-t border-smoke/50 dark:border-[#222226] text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1.5 border-t border-smoke/50 dark:border-[#222226] text-[12px] font-sans tabular-nums text-[#6e6e78] dark:text-[#8e8a83]">
                           <span>Unit Bid: ${(p.proposedOffer as { unitPrice?: number }).unitPrice}</span>
                           <span>Delivery: {(p.proposedOffer as { deliveryDays?: number }).deliveryDays}d</span>
                           <span>Return: {(p.proposedOffer as { returnDays?: number }).returnDays}d</span>
@@ -398,7 +398,7 @@ export function NegotiationArenaScreen({
                         <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
                           {String(p.vendorName || p.vendorId)} Counteroffer
                         </span>
-                        <span className="font-mono-token font-semibold text-[#006840] dark:text-[#4ade80] tabular-nums">
+                        <span className="font-sans font-semibold text-[#006840] dark:text-[#4ade80] tabular-nums">
                           New Ask: ${String(p.newUnitAsk)}
                         </span>
                       </div>

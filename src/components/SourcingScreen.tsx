@@ -396,7 +396,7 @@ export function SourcingScreen({
 
       {/* Benchmark Presets */}
       <div className="flex flex-wrap items-center gap-2 pt-1">
-        <span className="text-[12px] font-mono-token uppercase text-[#6e6e78] dark:text-[#8e8a83] mr-1">
+        <span className="text-[12px] font-sans font-semibold text-[#6e6e78] dark:text-[#8e8a83] mr-1">
           Preset Scenarios:
         </span>
         <button
@@ -725,12 +725,12 @@ export function SourcingScreen({
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-left text-[13px] border-collapse">
                     <thead>
-                      <tr className="border-b border-smoke dark:border-[#28282e] text-[11px] font-mono-token uppercase tracking-wider text-[#6e6e78] dark:text-[#8e8a83]">
-                        <th scope="col" className="pb-3 font-medium">Supplier &amp; SKU</th>
-                        <th scope="col" className="pb-3 px-3 font-medium">SLAs &amp; Specs</th>
-                        <th scope="col" className="pb-3 px-3 font-medium text-right">Unit / Ship</th>
-                        <th scope="col" className="pb-3 px-3 font-medium text-right">Landed Cost</th>
-                        <th scope="col" className="pb-3 pl-3 text-right font-medium">Evaluation &amp; Rank</th>
+                      <tr className="border-b border-smoke dark:border-[#28282e] type-table-header text-[#6e6e78] dark:text-[#8e8a83]">
+                        <th scope="col" className="pb-3 font-semibold">Supplier &amp; SKU</th>
+                        <th scope="col" className="pb-3 px-3 font-semibold">SLAs &amp; Specs</th>
+                        <th scope="col" className="pb-3 px-3 font-semibold text-right">Unit / Ship</th>
+                        <th scope="col" className="pb-3 px-3 font-semibold text-right">Landed Cost</th>
+                        <th scope="col" className="pb-3 pl-3 text-right font-semibold">Evaluation &amp; Rank</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-smoke/80 dark:divide-[#242429]">

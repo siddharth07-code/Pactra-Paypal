@@ -159,13 +159,13 @@ export function SectionHeader({
   return (
     <div className={`space-y-1.5 pb-2 ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-[22px] sm:text-[26px] font-semibold tracking-[-0.025em] text-obsidian dark:text-[#f6f4f0] leading-[1.2]">
+        <h2 className="type-section-heading text-obsidian dark:text-[#f6f4f0]">
           {title}
         </h2>
         {badge && <div>{badge}</div>}
       </div>
       {subtitle && (
-        <p className="text-[14px] text-[#4a4a52] dark:text-[#b8b5af] font-normal leading-[1.5] max-w-3xl">
+        <p className="type-body text-[#4a4a52] dark:text-[#b8b5af] max-w-3xl">
           {subtitle}
         </p>
       )}
@@ -206,14 +206,14 @@ export function FormInput({
     <div className={`space-y-1.5 ${className}`}>
       <label
         htmlFor={id}
-        className="block text-[13px] font-medium text-obsidian dark:text-[#f6f4f0] tracking-[-0.01em]"
+        className="block type-form-label text-obsidian dark:text-[#f6f4f0]"
       >
         {label}
       </label>
       <div className="relative">
         {prefix && (
           <span
-            className="absolute left-3.5 top-2.5 text-[14px] text-[#6e6e78] dark:text-[#8e8a83] font-medium select-none pointer-events-none"
+            className="absolute left-3.5 top-2.5 type-body text-[#6e6e78] dark:text-[#8e8a83] font-medium select-none pointer-events-none"
             aria-hidden="true"
           >
             {prefix}
@@ -229,7 +229,7 @@ export function FormInput({
           disabled={disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`w-full h-10 bg-paper-white dark:bg-[#18181b] rounded-[8px] py-2 text-[14px] text-obsidian dark:text-[#f6f4f0] border transition-colors disabled:opacity-50 placeholder:text-[#8e8a83] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange ${
+          className={`w-full h-10 bg-paper-white dark:bg-[#18181b] rounded-[8px] py-2 type-body text-obsidian dark:text-[#f6f4f0] border transition-colors disabled:opacity-50 placeholder:text-[#8e8a83] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange ${
             prefix ? "pl-8 pr-3.5" : "px-3.5"
           } ${
             error
@@ -239,7 +239,7 @@ export function FormInput({
         />
       </div>
       {error && (
-        <p id={`${id}-error`} role="alert" className="text-[12px] text-[#dc2626] dark:text-[#f87171] font-normal">
+        <p id={`${id}-error`} role="alert" className="type-secondary-meta text-[#dc2626] dark:text-[#f87171]">
           {error}
         </p>
       )}
@@ -373,13 +373,13 @@ export function CurrencyDisplay({
   const sizeStyles = {
     sm: "text-[13px] font-medium tracking-tight",
     md: "text-[15px] font-medium tracking-tight",
-    lg: "text-[20px] font-medium tracking-tight",
-    xl: "text-[28px] sm:text-[32px] font-semibold tracking-tight",
+    lg: "text-[20px] font-semibold tracking-tight",
+    xl: "text-[28px] sm:text-[30px] font-bold tracking-tight",
   };
 
   return (
     <span
-      className={`text-obsidian dark:text-[#f6f4f0] tabular-nums ${sizeStyles[size]} ${className}`}
+      className={`type-financial text-obsidian dark:text-[#f6f4f0] ${sizeStyles[size]} ${className}`}
     >
       {formatter.format(amount)}
     </span>
@@ -404,15 +404,15 @@ export function EmptyState({
   return (
     <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-10 text-center flex flex-col items-center justify-center max-w-md mx-auto my-6 border border-smoke dark:border-[#2b2b32] shadow-2xs">
       <div
-        className="w-10 h-10 rounded-full bg-warm-cream dark:bg-[#222227] border border-smoke dark:border-[#2e2e34] flex items-center justify-center mb-3 text-architect-violet dark:text-[#a78bfa] text-base font-mono"
+        className="w-10 h-10 rounded-full bg-warm-cream dark:bg-[#222227] border border-smoke dark:border-[#2e2e34] flex items-center justify-center mb-3 text-architect-violet dark:text-[#a78bfa] text-base font-sans font-medium"
         aria-hidden="true"
       >
         ∅
       </div>
-      <h3 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] mb-1.5 tracking-tight">
+      <h3 className="type-card-heading text-obsidian dark:text-[#f6f4f0] mb-1.5">
         {title}
       </h3>
-      <p className="text-[13.5px] text-[#4a4a52] dark:text-[#b8b5af] mb-5 max-w-sm leading-relaxed">
+      <p className="type-body text-[#4a4a52] dark:text-[#b8b5af] mb-5 max-w-sm">
         {description}
       </p>
       {actionLabel && onAction && (

@@ -113,7 +113,7 @@ export function AppShell({
 
             {/* VERIPAY Secondary Product Identifier */}
             <div
-              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[5px] bg-architect-violet/[0.08] dark:bg-architect-violet/15 border border-architect-violet/20 dark:border-architect-violet/30 text-architect-violet dark:text-[#b490f5] text-[11px] font-mono-token font-medium tracking-[0.06em] uppercase select-none shrink-0"
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[5px] bg-architect-violet/[0.08] dark:bg-architect-violet/15 border border-architect-violet/20 dark:border-architect-violet/30 text-architect-violet dark:text-[#b490f5] text-[11px] font-sans font-semibold tracking-[0.06em] uppercase select-none shrink-0"
               title="VeriPay Cryptographic Verification Engine"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-architect-violet dark:bg-[#b490f5]" aria-hidden="true" />

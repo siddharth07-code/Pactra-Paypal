@@ -92,16 +92,16 @@ export function OverviewScreen({
       <section className="bg-paper-white dark:bg-[#18181b] border-b border-smoke dark:border-[#27272a] py-8 sm:py-12 px-4 sm:px-6 lg:px-8 transition-colors">
         <div className="max-w-[1280px] mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[5px] bg-architect-violet/[0.08] dark:bg-architect-violet/15 border border-architect-violet/20 dark:border-architect-violet/30 text-[11.5px] font-mono-token font-medium text-architect-violet dark:text-[#b490f5] uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[5px] bg-architect-violet/[0.08] dark:bg-architect-violet/15 border border-architect-violet/20 dark:border-architect-violet/30 text-[11.5px] font-sans font-semibold text-architect-violet dark:text-[#b490f5] uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
               <span>Autonomous Procurement &amp; Cryptographic Settlement</span>
             </div>
 
-            <h1 className="text-[28px] sm:text-[36px] font-semibold leading-[1.12] tracking-[-0.03em] text-obsidian dark:text-[#f5f3ef]">
+            <h1 className="type-page-title text-obsidian dark:text-[#f5f3ef]">
               Procurement Command Center
             </h1>
 
-            <p className="text-[14px] sm:text-[15px] text-secondary font-normal leading-relaxed">
+            <p className="type-body text-secondary max-w-2xl">
               Define natural-language mandates, compete wholesale catalogs, enforce mathematical Boulware guardrails, and settle verifiably through PayPal.
             </p>
           </div>
@@ -357,7 +357,7 @@ export function OverviewScreen({
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11.5px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider">
+                  <span className="text-[11.5px] font-sans font-semibold text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider">
                     Authoritative Session State
                   </span>
                   <StatusBadge
@@ -422,7 +422,7 @@ export function OverviewScreen({
             <div className="lg:col-span-5 bg-paper-white dark:bg-[#18181b] rounded-[8px] p-6 border border-smoke dark:border-[#232328] flex flex-col justify-between shadow-2xs transition-colors">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11.5px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider">
+                  <span className="text-[11.5px] font-sans font-semibold text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider">
                     Flight Recorder
                   </span>
                   <span className="text-[11px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83] bg-smoke/40 dark:bg-[#202024] px-2 py-0.5 rounded border border-smoke/70 dark:border-[#282830]">
@@ -474,7 +474,7 @@ export function OverviewScreen({
                   Authoritative transaction logs and Merkle root references
                 </p>
               </div>
-              <span className="text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83] bg-smoke/30 dark:bg-[#202025] px-2.5 py-1 rounded-[4px] border border-smoke dark:border-[#2b2b32]">
+              <span className="text-[11.5px] font-sans font-medium text-[#6e6e78] dark:text-[#8e8a83] bg-smoke/30 dark:bg-[#202025] px-2.5 py-1 rounded-[4px] border border-smoke dark:border-[#2b2b32]">
                 {sessions.length} recorded
               </span>
             </div>
@@ -483,12 +483,12 @@ export function OverviewScreen({
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left text-[13px] border-collapse">
                 <thead>
-                  <tr className="border-b border-smoke dark:border-[#28282e] bg-warm-cream/30 dark:bg-[#151518] text-[11px] font-mono-token uppercase tracking-wider text-[#6e6e78] dark:text-[#8e8a83]">
-                    <th scope="col" className="py-3 pl-6 pr-4 font-medium">Session ID &amp; Spec</th>
-                    <th scope="col" className="py-3 px-4 font-medium text-right">Quantity</th>
-                    <th scope="col" className="py-3 px-4 font-medium text-right">Ceiling Budget</th>
-                    <th scope="col" className="py-3 px-4 font-medium text-center">Lifecycle State</th>
-                    <th scope="col" className="py-3 pl-4 pr-6 text-right font-medium">Action</th>
+                  <tr className="border-b border-smoke dark:border-[#28282e] bg-warm-cream/30 dark:bg-[#151518] type-table-header text-[#6e6e78] dark:text-[#8e8a83]">
+                    <th scope="col" className="py-3 pl-6 pr-4 font-semibold">Session ID &amp; Spec</th>
+                    <th scope="col" className="py-3 px-4 font-semibold text-right">Quantity</th>
+                    <th scope="col" className="py-3 px-4 font-semibold text-right">Ceiling Budget</th>
+                    <th scope="col" className="py-3 px-4 font-semibold text-center">Lifecycle State</th>
+                    <th scope="col" className="py-3 pl-4 pr-6 text-right font-semibold">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-smoke/80 dark:divide-[#242429]">

@@ -268,7 +268,7 @@ export function SettlementCenterScreen({
           subtitle="Zero-trust ACWORLD audit verification and cryptographically bound PayPal Orders v2 settlement."
         />
         <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
-          <span className="text-[11.5px] font-mono-token font-medium px-2.5 py-1 rounded-[4px] bg-smoke/30 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2b2b32]">
+          <span className="text-[11.5px] font-sans font-medium px-2.5 py-1 rounded-[4px] bg-smoke/30 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2b2b32]">
             PayPal Sandbox
           </span>
           <StatusBadge status={badgeConfig.status} label={badgeConfig.label} />
@@ -389,20 +389,20 @@ export function SettlementCenterScreen({
                   <div className="pt-3.5 border-t border-smoke/80 dark:border-[#2b2b32] space-y-2">
                     <div className="flex justify-between items-center text-[13px]">
                       <span className="text-[#6e6e78] dark:text-[#8e8a83]">Mandate Budget Ceiling:</span>
-                      <span className="font-mono-token text-obsidian dark:text-[#f6f4f0] font-medium">
+                      <span className="type-financial text-obsidian dark:text-[#f6f4f0] font-medium">
                         ${mandateBudget.toLocaleString()} {mandate?.currency}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-[13px]">
                       <span className="text-[#6e6e78] dark:text-[#8e8a83]">Agreed Landed Cost:</span>
-                      <span className="font-mono-token text-ember-orange font-semibold text-[15px]">
+                      <span className="type-financial text-ember-orange font-semibold text-[15px]">
                         ${totalAmount.toLocaleString()} {mandate?.currency}
                       </span>
                     </div>
                     {mandateBudget > 0 && (
                       <div className="flex justify-between items-center text-[13px] pt-1">
                         <span className="text-[#6e6e78] dark:text-[#8e8a83]">Procurement Savings:</span>
-                        <span className="font-mono-token text-[#006840] dark:text-lichen-green font-semibold">
+                        <span className="type-financial text-[#006840] dark:text-lichen-green font-semibold">
                           +${netSavings.toLocaleString()} ({savingsPct.toFixed(1)}%)
                         </span>
                       </div>
@@ -536,7 +536,7 @@ export function SettlementCenterScreen({
               {/* PayPal Transaction Artifacts Card */}
               <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-5 border border-smoke dark:border-[#2b2b32] space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between pb-2.5 border-b border-smoke/80 dark:border-[#2b2b32]">
-                  <h3 className="text-[12px] font-mono-token uppercase tracking-wider text-architect-violet dark:text-[#a78bfa] font-medium">
+                  <h3 className="text-[12px] font-sans uppercase tracking-wider text-architect-violet dark:text-[#a78bfa] font-semibold">
                     PayPal Transaction Artifacts
                   </h3>
                   <span className="text-[11px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
@@ -577,7 +577,7 @@ export function SettlementCenterScreen({
                       <FileText className="w-3.5 h-3.5" aria-hidden="true" />
                       Invoice Generated in Sandbox
                     </span>
-                    <span className="font-mono-token text-[11px] text-[#6e6e78] dark:text-[#8e8a83]">STATUS: SENT</span>
+                    <span className="font-sans text-[11px] font-medium uppercase tracking-wider text-[#6e6e78] dark:text-[#8e8a83]">STATUS: SENT</span>
                   </div>
                 )}
               </div>
@@ -596,7 +596,7 @@ export function SettlementCenterScreen({
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83] bg-smoke/30 dark:bg-[#202025] px-2.5 py-1 rounded-[4px] border border-smoke dark:border-[#2b2b32]">
+                    <span className="text-[11.5px] font-sans font-medium text-[#6e6e78] dark:text-[#8e8a83] bg-smoke/30 dark:bg-[#202025] px-2.5 py-1 rounded-[4px] border border-smoke dark:border-[#2b2b32]">
                       Zero-Trust Gate
                     </span>
                     <button

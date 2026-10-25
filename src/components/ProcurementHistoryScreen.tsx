@@ -94,18 +94,18 @@ export function ProcurementHistoryScreen({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-smoke/80 dark:border-[#27272a]">
         <div>
-          <span className="text-[11.5px] font-mono uppercase tracking-[0.08em] text-architect-violet dark:text-[#b490f5] font-medium block mb-1">
+          <span className="text-[11.5px] font-sans font-semibold uppercase tracking-[0.06em] text-architect-violet dark:text-[#b490f5] block mb-1">
             Authoritative Audit Trail
           </span>
-          <h1 className="text-[26px] sm:text-[30px] font-semibold tracking-tight text-obsidian dark:text-[#f6f4f0]">
+          <h1 className="type-page-title text-obsidian dark:text-[#f6f4f0]">
             Procurement History
           </h1>
-          <p className="text-[14px] text-secondary mt-1 max-w-2xl leading-relaxed">
+          <p className="type-body text-secondary mt-1 max-w-2xl">
             Immutable transaction records of procurement mandates, negotiated supplier terms, Merkle roots, and cryptographic audit proofs.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="text-[11.5px] font-mono-token text-secondary bg-smoke/40 dark:bg-[#1f1f23] px-3 py-1 rounded-[6px] border border-smoke dark:border-[#27272a]">
+          <span className="text-[11.5px] font-sans font-medium text-secondary bg-smoke/40 dark:bg-[#1f1f23] px-3 py-1 rounded-[6px] border border-smoke dark:border-[#27272a]">
             Authoritative In-Memory Store
           </span>
         </div>
@@ -185,15 +185,15 @@ export function ProcurementHistoryScreen({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[13.5px] border-collapse">
               <thead>
-                <tr className="border-b border-smoke dark:border-[#28282e] bg-warm-cream/50 dark:bg-[#141416] text-[11.5px] font-mono uppercase tracking-[0.06em] text-[#666666] dark:text-[#8e8e96]">
-                  <th scope="col" className="py-3.5 pl-6 pr-4 font-medium">Session ID</th>
-                  <th scope="col" className="py-3.5 px-4 font-medium">Item Specification</th>
-                  <th scope="col" className="py-3.5 px-4 font-medium">Supplier</th>
-                  <th scope="col" className="py-3.5 px-4 font-medium text-right">Qty</th>
-                  <th scope="col" className="py-3.5 px-4 font-medium text-right">Ceiling Budget</th>
-                  <th scope="col" className="py-3.5 px-4 font-medium text-center">Audit Status</th>
-                  <th scope="col" className="py-3.5 px-4 font-medium text-center">Lifecycle State</th>
-                  <th scope="col" className="py-3.5 pl-4 pr-6 font-medium text-right">Actions</th>
+                <tr className="border-b border-smoke dark:border-[#28282e] bg-warm-cream/50 dark:bg-[#141416] type-table-header text-[#666666] dark:text-[#8e8e96]">
+                  <th scope="col" className="py-3.5 pl-6 pr-4 font-semibold">Session ID</th>
+                  <th scope="col" className="py-3.5 px-4 font-semibold">Item Specification</th>
+                  <th scope="col" className="py-3.5 px-4 font-semibold">Supplier</th>
+                  <th scope="col" className="py-3.5 px-4 font-semibold text-right">Qty</th>
+                  <th scope="col" className="py-3.5 px-4 font-semibold text-right">Ceiling Budget</th>
+                  <th scope="col" className="py-3.5 px-4 font-semibold text-center">Audit Status</th>
+                  <th scope="col" className="py-3.5 px-4 font-semibold text-center">Lifecycle State</th>
+                  <th scope="col" className="py-3.5 pl-4 pr-6 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-smoke/80 dark:divide-[#242429]">
@@ -212,7 +212,7 @@ export function ProcurementHistoryScreen({
                     >
                       {/* Session ID */}
                       <td className="py-4 pl-6 pr-4 whitespace-nowrap">
-                        <span className="font-mono text-[12.5px] font-medium text-obsidian dark:text-[#f5f3ef]">
+                        <span className="font-mono-token text-[12px] font-medium text-obsidian dark:text-[#f5f3ef]">
                           {s.id}
                         </span>
                       </td>
@@ -332,8 +332,8 @@ export function ProcurementHistoryScreen({
                     label={inspectedSession.status.replace(/_/g, " ")}
                   />
                 </div>
-                <div className="text-[12px] font-mono text-[#666666] dark:text-[#a5a19b] mt-1">
-                  Session ID: {inspectedSession.id}
+                <div className="text-[12px] text-[#666666] dark:text-[#a5a19b] mt-1">
+                  Session ID: <span className="font-mono-token">{inspectedSession.id}</span>
                 </div>
               </div>
               <button
@@ -348,7 +348,7 @@ export function ProcurementHistoryScreen({
 
             {/* 1. Mandate Constraints */}
             <div className="space-y-2.5">
-              <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-architect-violet dark:text-[#b490f5] font-medium block">
+              <span className="text-[11.5px] font-sans font-semibold uppercase tracking-[0.05em] text-architect-violet dark:text-[#b490f5] block">
                 Authoritative Mandate Constraints
               </span>
               <div className="bg-warm-cream/40 dark:bg-[#141416] p-4 rounded-[8px] border border-smoke dark:border-[#28282e] space-y-2 text-[13.5px]">

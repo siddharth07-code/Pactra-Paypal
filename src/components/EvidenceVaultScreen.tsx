@@ -105,11 +105,11 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] shadow-2xs space-y-3.5 transition-colors">
           <div className="flex items-center justify-between pb-2 border-b border-smoke/70 dark:border-[#242429]">
-            <span className="text-[12px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider flex items-center gap-1.5">
+            <span className="text-[12px] font-sans font-semibold text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5" aria-hidden="true" />
               Pre-Settlement Merkle Root
             </span>
-            <span className="text-[11px] font-mono-token font-medium px-2 py-0.5 rounded-[4px] bg-smoke/40 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2e2e34]">
+            <span className="text-[11px] font-sans font-medium px-2 py-0.5 rounded-[4px] bg-smoke/40 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2e2e34]">
               PayPal custom_id bound
             </span>
           </div>
@@ -132,11 +132,11 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
 
         <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-6 border border-smoke dark:border-[#2b2b32] shadow-2xs space-y-3.5 transition-colors">
           <div className="flex items-center justify-between pb-2 border-b border-smoke/70 dark:border-[#242429]">
-            <span className="text-[12px] font-mono-token font-medium text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider flex items-center gap-1.5">
+            <span className="text-[12px] font-sans font-semibold text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
               Post-Audit Settlement Root
             </span>
-            <span className="text-[11px] font-mono-token font-medium px-2 py-0.5 rounded-[4px] bg-smoke/40 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2e2e34]">
+            <span className="text-[11px] font-sans font-medium px-2 py-0.5 rounded-[4px] bg-smoke/40 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2e2e34]">
               ACWORLD Certified
             </span>
           </div>
@@ -191,11 +191,11 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left text-[13px] border-collapse">
             <thead>
-              <tr className="border-b border-smoke dark:border-[#28282e] bg-warm-cream/30 dark:bg-[#151518] text-[11px] font-mono-token uppercase tracking-wider text-[#6e6e78] dark:text-[#8e8a83]">
-                <th scope="col" className="py-3 pl-6 pr-4 font-medium">Invariant</th>
-                <th scope="col" className="py-3 px-4 font-medium">Evaluation Rule</th>
-                <th scope="col" className="py-3 px-4 font-medium">Authoritative Evaluated Value</th>
-                <th scope="col" className="py-3 pl-4 pr-6 text-right font-medium">Result</th>
+              <tr className="border-b border-smoke dark:border-[#28282e] bg-warm-cream/30 dark:bg-[#151518] type-table-header text-[#6e6e78] dark:text-[#8e8a83]">
+                <th scope="col" className="py-3 pl-6 pr-4 font-semibold">Invariant</th>
+                <th scope="col" className="py-3 px-4 font-semibold">Evaluation Rule</th>
+                <th scope="col" className="py-3 px-4 font-semibold">Authoritative Evaluated Value</th>
+                <th scope="col" className="py-3 pl-4 pr-6 text-right font-semibold">Result</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-smoke/80 dark:divide-[#242429]">
