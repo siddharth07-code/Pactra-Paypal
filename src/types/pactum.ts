@@ -445,17 +445,53 @@ export interface GuardrailResult {
 /**
  * ACWORLD Audit Invariant verification report
  */
+export type InvariantStatus = "VALID" | "INVALID" | "INCOMPLETE" | "UNVERIFIABLE";
+export type AuditCertificateStatus = "VALID" | "INVALID" | "INCOMPLETE" | "UNVERIFIABLE";
+export type AuditType = "PRE_SETTLEMENT" | "POST_SETTLEMENT";
+
+export type FlightRecorderErrorCode =
+  | "GENESIS_HASH_MISMATCH"
+  | "SEQUENCE_DISCONTINUITY"
+  | "SEQUENCE_GAP"
+  | "DUPLICATE_SEQUENCE"
+  | "CROSS_SESSION_INJECTION"
+  | "HASH_CHAIN_BROKEN"
+  | "PAYLOAD_HASH_MISMATCH"
+  | "LEAF_HASH_MISMATCH"
+  | "MERKLE_ROOT_MISMATCH"
+  | "EXPECTED_ROOT_MISMATCH"
+  | "MALFORMED_EVENT";
+
+export interface FlightRecorderIntegrityResult {
+  valid: boolean;
+  sessionId: string;
+  verifiedEvents: number;
+  rootHash: string;
+  firstFailingIndex?: number;
+  firstFailingEventId?: string;
+  errorCode?: FlightRecorderErrorCode;
+  error?: string;
+}
+
 export interface InvariantResult {
   name: "SKU_INTEGRITY" | "PRICE_CEILING" | "RETURN_POLICY" | "DELIVERY_SLA" | "CRYPTOGRAPHIC_LINEAGE";
   passed: boolean;
+  status?: InvariantStatus;
+  code?: string;
   reason?: string;
   details?: Record<string, unknown>;
+  evidenceReferences?: string[];
+  isSupplierAttestation?: boolean;
 }
 
 export interface AuditCertificate {
   certificateId: string;
   sessionId: string;
+  mandateVersion?: number;
+  agreementId?: string;
   passed: boolean;
+  status?: AuditCertificateStatus;
+  auditType?: AuditType;
   invariants: InvariantResult[];
   verifiedRoot: string;
   timestamp: string;

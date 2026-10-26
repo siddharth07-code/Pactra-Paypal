@@ -50,7 +50,7 @@ export interface InitiateCheckoutResponse {
 
 export interface CompleteSettlementRequest {
   sessionId: string;
-  orderId: string;
+  orderId?: string;
   createInvoice?: boolean;
 }
 
@@ -350,7 +350,7 @@ export class SettlementService {
       }
 
       // Verify orderId binding to avoid arbitrary client injection
-      if (session.paypalOrderId && session.paypalOrderId !== orderId) {
+      if (session.paypalOrderId && orderId && session.paypalOrderId !== orderId) {
         return {
           success: false,
           sessionId,
@@ -399,20 +399,31 @@ export class SettlementService {
           };
         }
       }
+
+      const effectiveOrderId = orderId || session.paypalOrderId;
+      if (!effectiveOrderId) {
+        return {
+          success: false,
+          sessionId,
+          auditCertificate: this.buildFailedCertificate(sessionId, "Missing PayPal order ID."),
+          error: `Session ${sessionId} has no associated PayPal order ID.`,
+          blockedAtGate: true,
+        };
+      }
       const finalOffer = session.finalOffer;
       const totalAmount = finalOffer.unitPrice * finalOffer.quantity + finalOffer.shippingCost;
       const preSettlementRoot = session.preSettlementRoot ?? session.merkleRoot ?? "";
       const expectedCustomId = `VERIPAY_ROOT:${preSettlementRoot};SESSION:${sessionId}`;
 
       // 1. Authoritative verification with PayPal API
-      const orderDetails = await this.paypalClient.getOrder(orderId);
+      const orderDetails = await this.paypalClient.getOrder(effectiveOrderId);
 
       // Verify buyer approval status
       if (orderDetails.status === "PAYER_ACTION_REQUIRED" || orderDetails.status === "CREATED") {
         return {
           success: false,
           sessionId,
-          orderId,
+          orderId: effectiveOrderId,
           auditCertificate: this.buildFailedCertificate(sessionId, "Order awaiting buyer approval on PayPal Sandbox."),
           error: "Order has not yet been approved by buyer on PayPal Sandbox.",
           blockedAtGate: true,
@@ -424,7 +435,7 @@ export class SettlementService {
         return {
           success: false,
           sessionId,
-          orderId,
+          orderId: effectiveOrderId,
           auditCertificate: this.buildFailedCertificate(sessionId, `Order intent mismatch: ${orderDetails.intent}`),
           error: `PayPal order intent is '${orderDetails.intent}'. PACTUM requires intent 'AUTHORIZE'.`,
           blockedAtGate: true,
@@ -439,7 +450,7 @@ export class SettlementService {
           return {
             success: false,
             sessionId,
-            orderId,
+            orderId: effectiveOrderId,
             auditCertificate: this.buildFailedCertificate(sessionId, `Order amount mismatch: PayPal ${orderAmount} vs Session ${totalAmount}`),
             error: `PayPal order amount ($${orderAmount}) does not match session agreed amount ($${totalAmount}).`,
             blockedAtGate: true,
@@ -453,7 +464,7 @@ export class SettlementService {
         return {
           success: false,
           sessionId,
-          orderId,
+          orderId: effectiveOrderId,
           auditCertificate: this.buildFailedCertificate(sessionId, "Order custom_id does not match Merkle root binding."),
           error: `PayPal custom_id mismatch: expected '${expectedCustomId}', got '${actualCustomId}'.`,
           blockedAtGate: true,
@@ -463,14 +474,14 @@ export class SettlementService {
       // 2. Authorize order (if in APPROVED status)
       let authorizationId = session.paypalAuthorizationId;
       if (!authorizationId && orderDetails.status === "APPROVED") {
-        const authRes = await this.paypalClient.authorizeOrder(orderId);
+        const authRes = await this.paypalClient.authorizeOrder(effectiveOrderId);
         authorizationId = authRes.authorizationId;
         session.paypalAuthorizationId = authorizationId;
         session.status = "PAYPAL_AUTHORIZED";
         sessionStore.saveSession(session);
       } else if (!authorizationId) {
         authorizationId =
-          orderDetails.purchase_units?.[0]?.payments?.authorizations?.[0]?.id || orderId;
+          orderDetails.purchase_units?.[0]?.payments?.authorizations?.[0]?.id || effectiveOrderId;
         session.paypalAuthorizationId = authorizationId;
       }
 
@@ -496,7 +507,7 @@ export class SettlementService {
           success: false,
           sessionId,
           auditCertificate,
-          orderId,
+          orderId: effectiveOrderId,
           authorizationId,
           error: `ACWORLD Audit Gate Failed: ${failedInvariants}`,
           blockedAtGate: true,
@@ -515,7 +526,7 @@ export class SettlementService {
       if (completedCapture) {
         captureId = completedCapture.id;
       } else {
-        const captureTarget = authorizationId || orderId;
+        const captureTarget = authorizationId || effectiveOrderId;
         try {
           const captureResult = await this.paypalClient.capturePayment(captureTarget, {
             currency: session.mandate.currency,
@@ -527,7 +538,7 @@ export class SettlementService {
               success: false,
               sessionId,
               auditCertificate,
-              orderId,
+              orderId: effectiveOrderId,
               authorizationId,
               error: `PayPal capture returned non-completed status: ${captureResult.status}`,
               blockedAtGate: false,
@@ -988,11 +999,16 @@ export class SettlementService {
     return {
       certificateId: `audit_cert_failed_${Date.now()}`,
       sessionId,
+      mandateVersion: 1,
       passed: false,
+      status: "INVALID",
+      auditType: "PRE_SETTLEMENT",
       invariants: [
         {
           name: "SKU_INTEGRITY",
           passed: false,
+          status: "INVALID",
+          code: "AUDIT_GATE_FAILED",
           reason,
         },
       ],

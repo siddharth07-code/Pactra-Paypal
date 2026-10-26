@@ -23,11 +23,15 @@ import {
 import type {
   FlightRecorderEvent,
   FlightRecorderEventType,
+  FlightRecorderErrorCode,
+  FlightRecorderIntegrityResult,
   MerkleAuditNode,
   MerkleInclusionProof,
   SerializedFlightRecord,
   ProcurementSession,
 } from "../types/pactum";
+
+export type { FlightRecorderIntegrityResult, FlightRecorderErrorCode };
 
 export const FLIGHT_RECORDER_SCHEMA_VERSION = 1;
 export const GENESIS_PREVIOUS_HASH = "0".repeat(64);
@@ -37,13 +41,6 @@ export interface RecordEventOptions {
   agreementId?: string;
   offerReference?: string;
   timestamp?: string;
-}
-
-export interface FlightRecorderIntegrityResult {
-  valid: boolean;
-  error?: string;
-  verifiedEvents: number;
-  rootHash: string;
 }
 
 /**
@@ -267,13 +264,16 @@ export class CryptographicFlightRecorder {
       if (expectedRoot && expectedRoot !== rootHash) {
         return {
           valid: false,
+          sessionId: this.sessionId,
           error: `Empty flight recorder root mismatch with expected root: expected ${expectedRoot}, found ${rootHash}.`,
           verifiedEvents: 0,
           rootHash,
+          errorCode: "EXPECTED_ROOT_MISMATCH",
         };
       }
       return {
         valid: emptyValid,
+        sessionId: this.sessionId,
         error: emptyValid ? undefined : "Empty flight recorder root mismatch.",
         verifiedEvents: 0,
         rootHash,
@@ -286,59 +286,124 @@ export class CryptographicFlightRecorder {
     for (let i = 0; i < this.events.length; i++) {
       const event = this.events[i];
 
-      // 0. Session binding check
+      // 0. Malformed event record check
+      if (
+        !event ||
+        typeof event !== "object" ||
+        !event.eventId ||
+        typeof event.eventId !== "string" ||
+        !event.eventType ||
+        !event.timestamp ||
+        event.publicPayload === undefined
+      ) {
+        return {
+          valid: false,
+          sessionId: this.sessionId,
+          error: `Malformed event record at index ${i}.`,
+          verifiedEvents: i,
+          rootHash,
+          firstFailingIndex: i,
+          firstFailingEventId: event?.eventId,
+          errorCode: "MALFORMED_EVENT",
+        };
+      }
+
+      // 1. Session binding check
       if (event.sessionId !== this.sessionId) {
         return {
           valid: false,
+          sessionId: this.sessionId,
           error: `Cross-session event injection detected at index ${i}: event belongs to session ${event.sessionId}, expected ${this.sessionId}.`,
           verifiedEvents: i,
           rootHash,
+          firstFailingIndex: i,
+          firstFailingEventId: event.eventId,
+          errorCode: "CROSS_SESSION_INJECTION",
         };
       }
 
-      // 1. Sequence number check
+      // 2. Sequence number check
       if (event.sequenceNumber !== i) {
+        const isDuplicate = i > 0 && event.sequenceNumber === this.events[i - 1]?.sequenceNumber;
+        const errorCode: FlightRecorderErrorCode = isDuplicate
+          ? "DUPLICATE_SEQUENCE"
+          : "SEQUENCE_GAP";
         return {
           valid: false,
+          sessionId: this.sessionId,
           error: `Sequence discontinuity at index ${i}: expected sequenceNumber ${i}, found ${event.sequenceNumber}.`,
           verifiedEvents: i,
           rootHash,
+          firstFailingIndex: i,
+          firstFailingEventId: event.eventId,
+          errorCode,
         };
       }
 
-      // 2. Hash chain check
+      // 3. Hash chain check
       if (event.previousEventHash !== expectedPrevHash) {
+        const errorCode: FlightRecorderErrorCode =
+          i === 0 ? "GENESIS_HASH_MISMATCH" : "HASH_CHAIN_BROKEN";
         return {
           valid: false,
-          error: `Hash chain broken at event ${event.eventId} (index ${i}): previousEventHash mismatch.`,
+          sessionId: this.sessionId,
+          error:
+            i === 0
+              ? `Invalid genesis previousEventHash at index 0: expected ${GENESIS_PREVIOUS_HASH}, found ${event.previousEventHash}.`
+              : `Hash chain broken at event ${event.eventId} (index ${i}): previousEventHash mismatch.`,
           verifiedEvents: i,
           rootHash,
+          firstFailingIndex: i,
+          firstFailingEventId: event.eventId,
+          errorCode,
         };
       }
 
-      // 3. Payload hash check
-      const recomputedPayloadHash = crypto
-        .createHash("sha256")
-        .update(Buffer.from(canonicalJson(event.publicPayload), "utf-8"))
-        .digest("hex");
+      // 4. Payload hash check
+      let recomputedPayloadHash: string;
+      try {
+        recomputedPayloadHash = crypto
+          .createHash("sha256")
+          .update(Buffer.from(canonicalJson(event.publicPayload), "utf-8"))
+          .digest("hex");
+      } catch (err) {
+        return {
+          valid: false,
+          sessionId: this.sessionId,
+          error: `Payload serialization error at event ${event.eventId} (index ${i}): ${err instanceof Error ? err.message : String(err)}`,
+          verifiedEvents: i,
+          rootHash,
+          firstFailingIndex: i,
+          firstFailingEventId: event.eventId,
+          errorCode: "PAYLOAD_HASH_MISMATCH",
+        };
+      }
 
       if (event.payloadHash !== recomputedPayloadHash) {
         return {
           valid: false,
+          sessionId: this.sessionId,
           error: `Payload hash mismatch at event ${event.eventId} (index ${i}).`,
           verifiedEvents: i,
           rootHash,
+          firstFailingIndex: i,
+          firstFailingEventId: event.eventId,
+          errorCode: "PAYLOAD_HASH_MISMATCH",
         };
       }
 
-      // 4. Leaf hash check
+      // 5. Leaf hash check
       const recomputedLeaf = computeEventLeafHash(event).toString("hex");
       if (event.leafHash !== recomputedLeaf) {
         return {
           valid: false,
+          sessionId: this.sessionId,
           error: `Leaf hash mismatch at event ${event.eventId} (index ${i}).`,
           verifiedEvents: i,
           rootHash,
+          firstFailingIndex: i,
+          firstFailingEventId: event.eventId,
+          errorCode: "LEAF_HASH_MISMATCH",
         };
       }
 
@@ -353,29 +418,34 @@ export class CryptographicFlightRecorder {
         .digest("hex");
     }
 
-    // 5. Merkle Root equality check
+    // 6. Merkle Root equality check
     const independentRoot = independentTree.getRootHash();
     if (independentRoot !== rootHash) {
       return {
         valid: false,
+        sessionId: this.sessionId,
         error: `Merkle root mismatch: recorder root is ${rootHash}, independent recomputation produced ${independentRoot}.`,
         verifiedEvents: this.events.length,
         rootHash,
+        errorCode: "MERKLE_ROOT_MISMATCH",
       };
     }
 
-    // 6. Expected root commitment verification against external trust anchor
+    // 7. Expected root commitment verification against external trust anchor
     if (expectedRoot && expectedRoot !== rootHash) {
       return {
         valid: false,
+        sessionId: this.sessionId,
         error: `Expected root commitment mismatch: expected ${expectedRoot}, but flight recorder root is ${rootHash}. Potential unauthorized root replacement attack.`,
         verifiedEvents: this.events.length,
         rootHash,
+        errorCode: "EXPECTED_ROOT_MISMATCH",
       };
     }
 
     return {
       valid: true,
+      sessionId: this.sessionId,
       verifiedEvents: this.events.length,
       rootHash,
     };
@@ -609,4 +679,29 @@ export class CryptographicFlightRecorder {
 
     return recorder;
   }
+}
+
+/**
+ * Standalone verifier for an arbitrary sequence of events.
+ * Does not trust any state outside the provided records.
+ */
+export function verifyFlightRecorderChain(
+  events: FlightRecorderEvent[],
+  expectedSessionId: string,
+  expectedRoot?: string
+): FlightRecorderIntegrityResult {
+  const recorder = new CryptographicFlightRecorder(expectedSessionId);
+  for (const event of events) {
+    if (event && typeof event === "object") {
+      try {
+        // @ts-expect-error accessing private merkleTree for verification construction
+        recorder.merkleTree.addEvent(event.eventType, getEventForMerkleTree(event), event.timestamp);
+      } catch {
+        // Malformed events will be caught during verifyIntegrity
+      }
+    }
+    // @ts-expect-error accessing private events for verification construction
+    recorder.events.push(event);
+  }
+  return recorder.verifyIntegrity(expectedRoot);
 }

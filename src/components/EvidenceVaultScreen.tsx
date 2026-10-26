@@ -25,6 +25,12 @@ interface EvidenceInspectionData {
   leaves: string[];
   auditNodes?: MerkleAuditNode[];
   levels: string[][];
+  integrity?: {
+    valid: boolean;
+    errorCode?: string;
+    error?: string;
+    verifiedEvents: number;
+  };
   isRootMatching: boolean;
 }
 
@@ -71,7 +77,11 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
     return {
       tested: Boolean(inv),
       passed: Boolean(inv?.passed),
+      status: inv?.status,
+      code: inv?.code,
       reason: inv?.reason,
+      isSupplierAttestation: inv?.isSupplierAttestation,
+      evidenceReferences: inv?.evidenceReferences,
     };
   };
 
@@ -87,6 +97,23 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       ? evidenceData.auditNodes
       : [];
 
+  const renderInvariantBadge = (inv: ReturnType<typeof getInvariantStatus>) => {
+    if (!inv.tested) {
+      return <StatusBadge status="neutral" label="PENDING" />;
+    }
+    switch (inv.status) {
+      case "VALID":
+        return <StatusBadge status="verified" label="VALID" />;
+      case "INCOMPLETE":
+        return <StatusBadge status="warning" label="INCOMPLETE" />;
+      case "UNVERIFIABLE":
+        return <StatusBadge status="failure" label="UNVERIFIABLE" />;
+      case "INVALID":
+      default:
+        return <StatusBadge status="failure" label={inv.passed ? "VALID" : "INVALID"} />;
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
       {/* Header */}
@@ -95,8 +122,20 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
         subtitle="SHA-256 Merkle flight recorder committing procurement records and verifiable audit proofs."
         badge={
           <StatusBadge
-            status={preRoot ? "verified" : "neutral"}
-            label={preRoot ? "Flight Recorder Locked" : "Awaiting Negotiation"}
+            status={
+              evidenceData?.integrity && !evidenceData.integrity.valid
+                ? "failure"
+                : preRoot
+                ? "verified"
+                : "neutral"
+            }
+            label={
+              evidenceData?.integrity && !evidenceData.integrity.valid
+                ? `Chain Compromised [${evidenceData.integrity.errorCode ?? "TAMPERED"}]`
+                : preRoot
+                ? "Flight Recorder Locked"
+                : "Awaiting Negotiation"
+            }
           />
         }
       />
@@ -158,6 +197,35 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
         </div>
       </div>
 
+      {/* Audit Context Metadata Bar */}
+      {session?.auditCertificate && (
+        <div className="bg-warm-cream/30 dark:bg-[#1a1a1e] rounded-cards p-4 border border-smoke dark:border-[#28282e] flex flex-wrap items-center justify-between gap-3 text-[12px]">
+          <div className="flex items-center gap-3">
+            <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
+              Certificate: <span className="font-mono-token font-normal">{session.auditCertificate.certificateId}</span>
+            </span>
+            <span className="text-[#6e6e78] dark:text-[#8e8a83]">•</span>
+            <span className="text-[#6e6e78] dark:text-[#8e8a83]">
+              Mandate Rev: <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">v{session.auditCertificate.mandateVersion}</span>
+            </span>
+            {session.auditCertificate.agreementId && (
+              <>
+                <span className="text-[#6e6e78] dark:text-[#8e8a83]">•</span>
+                <span className="text-[#6e6e78] dark:text-[#8e8a83]">
+                  Agreement: <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">{session.auditCertificate.agreementId}</span>
+                </span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[#6e6e78] dark:text-[#8e8a83]">Audit Stage:</span>
+            <span className="font-medium text-obsidian dark:text-[#f6f4f0]">
+              {session.auditCertificate.auditType === "POST_SETTLEMENT" ? "Post-Settlement Record" : "Pre-Settlement Gate"}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* 5 ACWORLD Invariants Structured Verification Checklist */}
       <div className="bg-paper-white dark:bg-[#18181b] rounded-cards border border-smoke dark:border-[#2b2b32] shadow-2xs overflow-hidden transition-colors">
         <div className="p-5 sm:p-6 border-b border-smoke/80 dark:border-[#28282e] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -181,7 +249,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
               session?.auditCertificate?.passed === true
                 ? "Audit Passed (5/5)"
                 : session?.auditCertificate?.passed === false
-                ? "Audit Blocked"
+                ? `Audit Blocked [${session.auditCertificate.status ?? "FAILED"}]`
                 : "Pending Audit"
             }
           />
@@ -217,7 +285,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                 {
                   name: "3. Return Window",
                   inv: returnInvariant,
-                  rule: "Agreed Return SLA >= Mandate Min Return Days",
+                  rule: "Agreed Return SLA >= Mandate Min Return Days (Supplier Attestation)",
                   evaluated: session?.finalOffer && session?.mandate
                     ? `${session.finalOffer.returnDays}d >= ${session.mandate.minReturnDays}d`
                     : "—",
@@ -239,12 +307,24 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
               ].map((item, idx) => (
                 <tr key={idx} className="hover:bg-warm-cream/30 dark:hover:bg-[#1f1f23] transition-colors">
                   <td className="py-3.5 pl-6 pr-4 whitespace-nowrap font-semibold text-obsidian dark:text-[#f6f4f0]">
-                    {item.name}
+                    <div className="flex items-center gap-2">
+                      <span>{item.name}</span>
+                      {item.inv.isSupplierAttestation && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-medium">
+                          Supplier Claim
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3.5 px-4 text-[#6e6e78] dark:text-[#8e8a83] max-w-xs">
                     {item.rule}
                   </td>
                   <td className="py-3.5 px-4 font-mono-token text-[12px] text-obsidian dark:text-[#f6f4f0]">
+                    {item.inv.code && (
+                      <span className="text-[11px] font-sans font-medium text-architect-violet dark:text-[#a78bfa] mr-1.5">
+                        [{item.inv.code}]
+                      </span>
+                    )}
                     {item.inv.reason ? (
                       <span className={item.inv.passed ? "text-obsidian dark:text-[#f6f4f0]" : "text-[#dc2626] dark:text-[#f87171]"}>
                         {item.inv.reason}
@@ -254,15 +334,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                     )}
                   </td>
                   <td className="py-3.5 pl-4 pr-6 text-right whitespace-nowrap">
-                    {item.inv.tested ? (
-                      item.inv.passed ? (
-                        <StatusBadge status="verified" label="PASSED" />
-                      ) : (
-                        <StatusBadge status="failure" label="FAILED" />
-                      )
-                    ) : (
-                      <StatusBadge status="neutral" label="PENDING" />
-                    )}
+                    {renderInvariantBadge(item.inv)}
                   </td>
                 </tr>
               ))}
@@ -304,15 +376,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                 <span className="font-semibold text-[13.5px] text-obsidian dark:text-[#f6f4f0]">
                   {item.name}
                 </span>
-                {item.inv.tested ? (
-                  item.inv.passed ? (
-                    <StatusBadge status="verified" label="PASSED" />
-                  ) : (
-                    <StatusBadge status="failure" label="FAILED" />
-                  )
-                ) : (
-                  <StatusBadge status="neutral" label="PENDING" />
-                )}
+                {renderInvariantBadge(item.inv)}
               </div>
               <p className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
                 {item.inv.reason || item.rule}

@@ -25,16 +25,35 @@ import type {
  * Recursively sorts all object keys.
  * Handles arrays, primitives, booleans, numbers, and null.
  */
-export function canonicalJson(data: unknown): string {
+export function canonicalJson(data: unknown, seen = new WeakSet()): string {
   if (data === undefined) {
     return "";
   }
-  if (data === null || typeof data !== "object") {
+  if (data === null) {
+    return "null";
+  }
+  if (typeof data === "number") {
+    if (!Number.isFinite(data)) {
+      throw new Error(`Non-finite number cannot be serialized in canonicalJson: ${data}`);
+    }
     return JSON.stringify(data);
+  }
+  if (typeof data === "boolean" || typeof data === "string") {
+    return JSON.stringify(data);
+  }
+  if (typeof data === "bigint" || typeof data === "function" || typeof data === "symbol") {
+    throw new Error(`Unsupported data type in canonicalJson: ${typeof data}`);
+  }
+
+  if (typeof data === "object") {
+    if (seen.has(data)) {
+      throw new Error("Circular reference detected in canonicalJson");
+    }
+    seen.add(data);
   }
 
   if (Array.isArray(data)) {
-    return "[" + data.map((item) => canonicalJson(item)).join(",") + "]";
+    return "[" + data.map((item) => canonicalJson(item, seen)).join(",") + "]";
   }
 
   const obj = data as Record<string, unknown>;
@@ -42,7 +61,7 @@ export function canonicalJson(data: unknown): string {
     .filter((key) => obj[key] !== undefined)
     .sort();
   const pairs = sortedKeys.map((key) => {
-    return JSON.stringify(key) + ":" + canonicalJson(obj[key]);
+    return JSON.stringify(key) + ":" + canonicalJson(obj[key], seen);
   });
 
   return "{" + pairs.join(",") + "}";
@@ -178,7 +197,10 @@ export class VeriPayMerkleTree {
    * Generates a cryptographic inclusion proof for a given leaf index.
    */
   public generateInclusionProof(leafIndex: number): MerkleInclusionProof {
-    if (leafIndex < 0 || leafIndex >= this.leafBuffers.length) {
+    if (this.leafBuffers.length === 0) {
+      throw new Error("Cannot generate inclusion proof for an empty Merkle tree.");
+    }
+    if (typeof leafIndex !== "number" || !Number.isInteger(leafIndex) || leafIndex < 0 || leafIndex >= this.leafBuffers.length) {
       throw new Error(`Invalid leaf index: ${leafIndex}. Tree has ${this.leafBuffers.length} leaves.`);
     }
 
@@ -255,7 +277,13 @@ export class VeriPayMerkleTree {
     let current: Buffer = Buffer.from(leafHash, "hex");
 
     for (const step of proof) {
-      if (!hexRegex.test(step.hash)) {
+      if (!step || typeof step !== "object") {
+        return false;
+      }
+      if (step.position !== "left" && step.position !== "right") {
+        return false;
+      }
+      if (!step.hash || typeof step.hash !== "string" || !hexRegex.test(step.hash)) {
         return false;
       }
       const sibling = Buffer.from(step.hash, "hex");
@@ -282,4 +310,21 @@ export function verifyProof(
   rootHash: string
 ): boolean {
   return VeriPayMerkleTree.verifyProof(leafHash, proof, rootHash);
+}
+
+/**
+ * Validates a complete MerkleInclusionProof object against an optional expected root
+ */
+export function verifyInclusionProof(
+  proof: MerkleInclusionProof,
+  expectedRoot?: string
+): boolean {
+  if (!proof || typeof proof !== "object" || !Array.isArray(proof.proof)) {
+    return false;
+  }
+  const targetRoot = expectedRoot ?? proof.rootHash;
+  if (!targetRoot || proof.rootHash.toLowerCase() !== targetRoot.toLowerCase()) {
+    return false;
+  }
+  return verifyProof(proof.leafHash, proof.proof, targetRoot);
 }

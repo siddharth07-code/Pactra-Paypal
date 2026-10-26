@@ -74,7 +74,7 @@ describe("Gemini Request Deadline & Fallback Reliability Hotfix", () => {
     });
 
     it("passes clamped provider deadline (>= 10,000ms) in httpOptions to Gemini SDK", async () => {
-      let capturedConfig: { httpOptions?: { timeout?: number } } | null = null;
+      let capturedConfig: unknown = null;
       const mockAi = {
         models: {
           generateContent: vi.fn().mockImplementation((args: { config?: { httpOptions?: { timeout?: number } } }) => {
@@ -108,8 +108,9 @@ describe("Gemini Request Deadline & Fallback Reliability Hotfix", () => {
 
       expect(mockAi.models.generateContent).toHaveBeenCalledTimes(1);
       expect(capturedConfig).toBeDefined();
-      expect(capturedConfig?.httpOptions?.timeout).toBeGreaterThanOrEqual(10000);
-      expect(capturedConfig?.httpOptions?.timeout).not.toBe(8000);
+      const typedConfig = capturedConfig as { httpOptions?: { timeout?: number } } | null;
+      expect(typedConfig?.httpOptions?.timeout).toBeGreaterThanOrEqual(10000);
+      expect(typedConfig?.httpOptions?.timeout).not.toBe(8000);
     });
   });
 
