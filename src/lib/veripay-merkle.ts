@@ -25,7 +25,7 @@ import type {
  * Recursively sorts all object keys.
  * Handles arrays, primitives, booleans, numbers, and null.
  */
-export function canonicalJson(data: unknown, seen = new WeakSet()): string {
+export function canonicalJson(data: unknown, activeStack = new Set<object>()): string {
   if (data === undefined) {
     return "";
   }
@@ -36,35 +36,42 @@ export function canonicalJson(data: unknown, seen = new WeakSet()): string {
     if (!Number.isFinite(data)) {
       throw new Error(`Non-finite number cannot be serialized in canonicalJson: ${data}`);
     }
+    return Object.is(data, -0) ? "0" : JSON.stringify(data);
+  }
+  if (typeof data === "boolean") {
     return JSON.stringify(data);
   }
-  if (typeof data === "boolean" || typeof data === "string") {
-    return JSON.stringify(data);
+  if (typeof data === "string") {
+    return JSON.stringify(data.normalize("NFC"));
   }
   if (typeof data === "bigint" || typeof data === "function" || typeof data === "symbol") {
     throw new Error(`Unsupported data type in canonicalJson: ${typeof data}`);
   }
 
-  if (typeof data === "object") {
-    if (seen.has(data)) {
-      throw new Error("Circular reference detected in canonicalJson");
+  const obj = data as object;
+  if (activeStack.has(obj)) {
+    throw new Error("Circular reference detected in canonicalJson");
+  }
+  activeStack.add(obj);
+
+  try {
+    if (Array.isArray(data)) {
+      return "[" + data.map((item) => canonicalJson(item, activeStack)).join(",") + "]";
     }
-    seen.add(data);
+
+    const record = data as Record<string, unknown>;
+    const sortedKeys = Object.keys(record)
+      .filter((key) => record[key] !== undefined)
+      .sort();
+    const pairs = sortedKeys.map((key) => {
+      const canonicalKey = JSON.stringify(key.normalize("NFC"));
+      return canonicalKey + ":" + canonicalJson(record[key], activeStack);
+    });
+
+    return "{" + pairs.join(",") + "}";
+  } finally {
+    activeStack.delete(obj);
   }
-
-  if (Array.isArray(data)) {
-    return "[" + data.map((item) => canonicalJson(item, seen)).join(",") + "]";
-  }
-
-  const obj = data as Record<string, unknown>;
-  const sortedKeys = Object.keys(obj)
-    .filter((key) => obj[key] !== undefined)
-    .sort();
-  const pairs = sortedKeys.map((key) => {
-    return JSON.stringify(key) + ":" + canonicalJson(obj[key], seen);
-  });
-
-  return "{" + pairs.join(",") + "}";
 }
 
 /**
@@ -268,6 +275,11 @@ export class VeriPayMerkleTree {
       return false;
     }
 
+    // Empty-tree zero root or zero leaf hash can never be part of a valid inclusion proof
+    if (rootHash === "0".repeat(64) || leafHash === "0".repeat(64)) {
+      return false;
+    }
+
     // Validate 64-char hex strings
     const hexRegex = /^[0-9a-fA-F]{64}$/;
     if (!hexRegex.test(leafHash) || !hexRegex.test(rootHash)) {
@@ -324,6 +336,9 @@ export function verifyInclusionProof(
   }
   const targetRoot = expectedRoot ?? proof.rootHash;
   if (!targetRoot || proof.rootHash.toLowerCase() !== targetRoot.toLowerCase()) {
+    return false;
+  }
+  if (targetRoot === "0".repeat(64)) {
     return false;
   }
   return verifyProof(proof.leafHash, proof.proof, targetRoot);

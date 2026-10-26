@@ -393,7 +393,22 @@ export class CryptographicFlightRecorder {
       }
 
       // 5. Leaf hash check
-      const recomputedLeaf = computeEventLeafHash(event).toString("hex");
+      let recomputedLeaf: string;
+      try {
+        recomputedLeaf = computeEventLeafHash(event).toString("hex");
+      } catch (err) {
+        return {
+          valid: false,
+          sessionId: this.sessionId,
+          error: `Leaf hash computation error at event ${event.eventId} (index ${i}): ${err instanceof Error ? err.message : String(err)}`,
+          verifiedEvents: i,
+          rootHash,
+          firstFailingIndex: i,
+          firstFailingEventId: event.eventId,
+          errorCode: "MALFORMED_EVENT",
+        };
+      }
+
       if (event.leafHash !== recomputedLeaf) {
         return {
           valid: false,
@@ -408,10 +423,38 @@ export class CryptographicFlightRecorder {
       }
 
       // Add to independent verification tree
-      independentTree.addEvent(event.eventType, getEventForMerkleTree(event), event.timestamp);
+      try {
+        independentTree.addEvent(event.eventType, getEventForMerkleTree(event), event.timestamp);
+      } catch (err) {
+        return {
+          valid: false,
+          sessionId: this.sessionId,
+          error: `Tree commitment error at event ${event.eventId} (index ${i}): ${err instanceof Error ? err.message : String(err)}`,
+          verifiedEvents: i,
+          rootHash,
+          firstFailingIndex: i,
+          firstFailingEventId: event.eventId,
+          errorCode: "MALFORMED_EVENT",
+        };
+      }
 
       // Advance hash chain
-      const canonical = canonicalJson(event);
+      let canonical: string;
+      try {
+        canonical = canonicalJson(event);
+      } catch (err) {
+        return {
+          valid: false,
+          sessionId: this.sessionId,
+          error: `Event canonicalization error at event ${event.eventId} (index ${i}): ${err instanceof Error ? err.message : String(err)}`,
+          verifiedEvents: i,
+          rootHash,
+          firstFailingIndex: i,
+          firstFailingEventId: event.eventId,
+          errorCode: "MALFORMED_EVENT",
+        };
+      }
+
       expectedPrevHash = crypto
         .createHash("sha256")
         .update(Buffer.from(canonical, "utf-8"))
@@ -494,6 +537,12 @@ export class CryptographicFlightRecorder {
     const integrity = recorder.verifyIntegrity(record.rootHash);
     if (!integrity.valid) {
       throw new Error(`Flight record integrity verification failed upon reconstitution: ${integrity.error}`);
+    }
+
+    if (record.lastEventHash && record.lastEventHash !== expectedPrevHash) {
+      throw new Error(
+        `Flight record lastEventHash mismatch: recorded ${record.lastEventHash}, recomputed ${expectedPrevHash}`
+      );
     }
 
     return recorder;

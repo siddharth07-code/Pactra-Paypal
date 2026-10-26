@@ -982,4 +982,397 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
       expect(chainIntegrity.valid).toBe(true);
     });
   });
+
+  // =========================================================================
+  // 5. PHASE 4.1 ADVERSARIAL GAP CLOSURE & SECURITY VERIFICATION
+  // =========================================================================
+  describe("5. Phase 4.1 Adversarial Gap Closure & Security Verification", () => {
+    it("canonicalJson correctly serializes DAGs without false circular reference errors", () => {
+      const sharedNode = { id: "item_shared", price: 100 };
+      const dagPayload = {
+        primaryQuote: sharedNode,
+        secondaryQuote: sharedNode,
+        history: [sharedNode, sharedNode],
+      };
+
+      // Must not throw circular reference error for a DAG
+      expect(() => canonicalJson(dagPayload)).not.toThrow();
+      const serialized = canonicalJson(dagPayload);
+      expect(serialized).toContain('"id":"item_shared"');
+      expect(serialized).toContain('"price":100');
+    });
+
+    it("canonicalJson normalizes negative zero to 0", () => {
+      const normalZero = canonicalJson({ price: 0 });
+      const negativeZero = canonicalJson({ price: -0 });
+      expect(negativeZero).toBe('{"price":0}');
+      expect(negativeZero).toBe(normalZero);
+    });
+
+    it("canonicalJson normalizes Unicode NFC strings consistently", () => {
+      // "café" in NFC (precomposed \u00E9) vs NFD (e + combining acute accent \u0301)
+      const nfc = "caf\u00e9";
+      const nfd = "cafe\u0301";
+      expect(nfc).not.toBe(nfd); // In raw JS string comparison, they are distinct
+      expect(canonicalJson({ text: nfc })).toBe(canonicalJson({ text: nfd }));
+    });
+
+    it("VeriPay Merkle Tree: inclusion proofs for 8-leaf trees and full verification for sizes 1, 2, 3, 5, 8", () => {
+      const sizes = [1, 2, 3, 5, 8];
+
+      for (const size of sizes) {
+        const tree = new VeriPayMerkleTree();
+        for (let i = 0; i < size; i++) {
+          tree.addEvent("MANDATE_CREATED", { leafIndex: i, testVal: `leaf_${i}` });
+        }
+
+        const root = tree.getRootHash();
+        expect(root.length).toBe(64);
+
+        // Every leaf must have a verifiable inclusion proof
+        for (let i = 0; i < size; i++) {
+          const proof = tree.generateInclusionProof(i);
+          expect(proof.leafIndex).toBe(i);
+          expect(verifyInclusionProof(proof, root)).toBe(true);
+
+          // Mutating leaf hash must fail
+          const badLeafProof = { ...proof, leafHash: "f".repeat(64) };
+          expect(verifyInclusionProof(badLeafProof, root)).toBe(false);
+
+          // Mutating root must fail
+          expect(verifyInclusionProof(proof, "e".repeat(64))).toBe(false);
+        }
+      }
+    });
+
+    it("verifyProof strictly rejects empty-tree zero root identifier", () => {
+      const zeroRoot = "0".repeat(64);
+      // Attempting to prove inclusion against the canonical empty tree identifier must fail
+      expect(verifyProof(zeroRoot, [], zeroRoot)).toBe(false);
+      expect(
+        verifyInclusionProof({
+          leafIndex: 0,
+          leafHash: zeroRoot,
+          proof: [],
+          rootHash: zeroRoot,
+        })
+      ).toBe(false);
+    });
+
+    it("verifyFlightRecorderChain handles malformed payloads gracefully without uncaught exceptions", () => {
+      const events: FlightRecorderEvent[] = [
+        {
+          eventId: "evt_1",
+          sessionId: "sess_malformed_test",
+          eventType: "MANDATE_CREATED",
+          schemaVersion: 1,
+          sequenceNumber: 0,
+          timestamp: "2026-01-01T00:00:00Z",
+          mandateVersion: 1,
+          previousEventHash: "0".repeat(64),
+          payloadHash: "a".repeat(64),
+          leafHash: "b".repeat(64),
+          publicPayload: {
+            // Non-finite number directly in publicPayload will throw in canonicalJson
+            invalidVal: NaN as unknown as number,
+          },
+        },
+      ];
+
+      const result = verifyFlightRecorderChain(events, "sess_malformed_test");
+      expect(result.valid).toBe(false);
+      expect(result.errorCode).toBe("PAYLOAD_HASH_MISMATCH");
+    });
+
+    it("fromSerialized detects and rejects tampered lastEventHash", () => {
+      const recorder = new CryptographicFlightRecorder("sess_last_hash_check");
+      recorder.recordEvent("MANDATE_CREATED", { v: 1 });
+      const exported = recorder.exportFlightRecord();
+
+      // Tamper with serialized lastEventHash without changing events
+      exported.lastEventHash = "deadbeef".repeat(8);
+
+      expect(() => {
+        CryptographicFlightRecorder.fromSerialized(exported);
+      }).toThrow(/Flight record lastEventHash mismatch/i);
+    });
+
+    it("ACWORLD Invariant 1 rejects agreement whose agreedOffer terms contradict finalOffer", () => {
+      const auditor = new AcworldAuditor();
+      const session: ProcurementSession = {
+        id: "sess_agreed_offer_mismatch",
+        mandate: {
+          id: "m_1",
+          rawPrompt: "25 monitors under 8500",
+          itemQuery: "monitors",
+          quantity: 25,
+          maxTotalBudget: 8500,
+          maxDeliveryDays: 5,
+          minReturnDays: 30,
+          requiredSpecs: [],
+          currency: "USD",
+          createdAt: new Date().toISOString(),
+          version: 1,
+        },
+        quotes: [],
+        turns: [],
+        selectedQuote: {
+          vendorId: "v_1",
+          vendorName: "Vendor 1",
+          sku: "SKU-1",
+          productTitle: "Monitor",
+          initialUnitAsk: 340,
+          currentUnitBid: 320,
+          shippingCost: 100,
+          deliveryDays: 4,
+          returnDays: 30,
+          condition: "NEW",
+          status: "ACCEPTED",
+          dataSource: "CHANNEL3",
+        },
+        finalOffer: {
+          unitPrice: 320,
+          quantity: 25,
+          deliveryDays: 4,
+          returnDays: 30,
+          shippingCost: 100,
+        },
+        agreementRecord: {
+          agreementId: "agr_mismatch_terms",
+          sessionId: "sess_agreed_offer_mismatch",
+          vendorId: "v_1",
+          vendorName: "Vendor 1",
+          sku: "SKU-1",
+          agreedPrice: 320,
+          agreedOffer: {
+            unitPrice: 320,
+            quantity: 10, // Contradicts finalOffer.quantity (25)
+            deliveryDays: 4,
+            returnDays: 30,
+            shippingCost: 100,
+          },
+          totalCost: 320 * 25 + 100,
+          agreedBy: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+          acceptingParty: "BUYER",
+          acceptanceMechanism: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+          round: 2,
+          acceptedAt: new Date().toISOString(),
+          mandateVersion: 1,
+        },
+        preSettlementRoot: "b".repeat(64),
+        status: "AUDIT_PENDING",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const cert = auditor.audit({ session });
+      expect(cert.passed).toBe(false);
+      const inv1 = cert.invariants.find((i) => i.name === "SKU_INTEGRITY")!;
+      expect(inv1.passed).toBe(false);
+      expect(inv1.code).toBe("AGREEMENT_OFFER_MISMATCH");
+    });
+
+    it("ACWORLD Invariant 2 rejects invalid currency code and non-positive budget ceiling", () => {
+      const auditor = new AcworldAuditor();
+      const baseSession: ProcurementSession = {
+        id: "sess_invalid_currency_budget",
+        mandate: {
+          id: "m_1",
+          rawPrompt: "25 monitors",
+          itemQuery: "monitors",
+          quantity: 25,
+          maxTotalBudget: 8500,
+          maxDeliveryDays: 5,
+          minReturnDays: 30,
+          requiredSpecs: [],
+          currency: "INVALID", // Not 3-letter currency code
+          createdAt: new Date().toISOString(),
+          version: 1,
+        },
+        quotes: [],
+        turns: [],
+        selectedQuote: {
+          vendorId: "v_1",
+          vendorName: "Vendor 1",
+          sku: "SKU-1",
+          productTitle: "Monitor",
+          initialUnitAsk: 340,
+          currentUnitBid: 320,
+          shippingCost: 100,
+          deliveryDays: 4,
+          returnDays: 30,
+          condition: "NEW",
+          status: "ACCEPTED",
+          dataSource: "CHANNEL3",
+        },
+        finalOffer: {
+          unitPrice: 320,
+          quantity: 25,
+          deliveryDays: 4,
+          returnDays: 30,
+          shippingCost: 100,
+        },
+        preSettlementRoot: "c".repeat(64),
+        status: "AUDIT_PENDING",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const certCurrency = auditor.audit({ session: baseSession });
+      expect(certCurrency.passed).toBe(false);
+      const inv2Currency = certCurrency.invariants.find((i) => i.name === "PRICE_CEILING")!;
+      expect(inv2Currency.passed).toBe(false);
+      expect(inv2Currency.code).toBe("INVALID_CURRENCY");
+
+      // Now test non-positive budget
+      baseSession.mandate.currency = "USD";
+      baseSession.mandate.maxTotalBudget = -100;
+      const certBudget = auditor.audit({ session: baseSession });
+      expect(certBudget.passed).toBe(false);
+      const inv2Budget = certBudget.invariants.find((i) => i.name === "PRICE_CEILING")!;
+      expect(inv2Budget.passed).toBe(false);
+      expect(inv2Budget.code).toBe("INVALID_BUDGET");
+    });
+
+    it("ACWORLD Invariant 3 rejects malformed merchant attestation structure", () => {
+      const auditor = new AcworldAuditor();
+      const session: ProcurementSession = {
+        id: "sess_malformed_attestation",
+        mandate: {
+          id: "m_1",
+          rawPrompt: "25 monitors",
+          itemQuery: "monitors",
+          quantity: 25,
+          maxTotalBudget: 8500,
+          maxDeliveryDays: 5,
+          minReturnDays: 30,
+          requiredSpecs: [],
+          currency: "USD",
+          createdAt: new Date().toISOString(),
+          version: 1,
+        },
+        quotes: [],
+        turns: [],
+        selectedQuote: {
+          vendorId: "v_1",
+          vendorName: "Vendor 1",
+          sku: "SKU-1",
+          productTitle: "Monitor",
+          initialUnitAsk: 340,
+          currentUnitBid: 320,
+          shippingCost: 100,
+          deliveryDays: 4,
+          returnDays: 30,
+          condition: "NEW",
+          status: "ACCEPTED",
+          dataSource: "CHANNEL3",
+        },
+        finalOffer: {
+          unitPrice: 320,
+          quantity: 25,
+          deliveryDays: 4,
+          returnDays: 30,
+          shippingCost: 100,
+        },
+        merchantAttestation: {
+          merchantUrl: "javascript:alert(1)", // Invalid non-http URL
+          domSnapshotHash: "invalid_hash_not_64_chars",
+          returnPolicyText: "   ", // Empty whitespace text
+          timestamp: new Date().toISOString(),
+        },
+        preSettlementRoot: "d".repeat(64),
+        status: "AUDIT_PENDING",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const cert = auditor.audit({ session });
+      expect(cert.passed).toBe(false);
+      const inv3 = cert.invariants.find((i) => i.name === "RETURN_POLICY")!;
+      expect(inv3.passed).toBe(false);
+      expect(inv3.code).toBe("MALFORMED_ATTESTATION");
+    });
+
+    it("ACWORLD Invariant 5 strictly rejects flight recorder with agreement event for a different agreementId", () => {
+      const auditor = new AcworldAuditor();
+      const session: ProcurementSession = {
+        id: "sess_cross_agreement_lineage",
+        mandate: {
+          id: "m_1",
+          rawPrompt: "25 monitors",
+          itemQuery: "monitors",
+          quantity: 25,
+          maxTotalBudget: 8500,
+          maxDeliveryDays: 5,
+          minReturnDays: 30,
+          requiredSpecs: [],
+          currency: "USD",
+          createdAt: new Date().toISOString(),
+          version: 1,
+        },
+        quotes: [],
+        turns: [],
+        selectedQuote: {
+          vendorId: "v_1",
+          vendorName: "Vendor 1",
+          sku: "SKU-1",
+          productTitle: "Monitor",
+          initialUnitAsk: 340,
+          currentUnitBid: 320,
+          shippingCost: 100,
+          deliveryDays: 4,
+          returnDays: 30,
+          condition: "NEW",
+          status: "ACCEPTED",
+          dataSource: "MOCK_CATALOG",
+        },
+        finalOffer: {
+          unitPrice: 320,
+          quantity: 25,
+          deliveryDays: 4,
+          returnDays: 30,
+          shippingCost: 100,
+        },
+        agreementRecord: {
+          agreementId: "agr_active_target",
+          sessionId: "sess_cross_agreement_lineage",
+          vendorId: "v_1",
+          vendorName: "Vendor 1",
+          sku: "SKU-1",
+          agreedPrice: 320,
+          agreedOffer: {
+            unitPrice: 320,
+            quantity: 25,
+            deliveryDays: 4,
+            returnDays: 30,
+            shippingCost: 100,
+          },
+          totalCost: 320 * 25 + 100,
+          agreedBy: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+          acceptingParty: "BUYER",
+          acceptanceMechanism: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+          round: 2,
+          acceptedAt: new Date().toISOString(),
+          mandateVersion: 1,
+        },
+        status: "AUDIT_PENDING",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Construct a flight recorder that contains an AGREEMENT_CREATED event for a DIFFERENT agreement
+      const recorder = new CryptographicFlightRecorder(session.id);
+      recorder.recordEvent("MANDATE_CREATED", { mandateId: "m_1" });
+      recorder.recordEvent("AGREEMENT_CREATED", { agreementId: "agr_FOREIGN_OLD" }, { agreementId: "agr_FOREIGN_OLD" });
+
+      session.flightRecord = recorder.exportFlightRecord();
+      session.preSettlementRoot = recorder.getRootHash();
+
+      const cert = auditor.audit({ session });
+      expect(cert.passed).toBe(false);
+      const inv5 = cert.invariants.find((i) => i.name === "CRYPTOGRAPHIC_LINEAGE")!;
+      expect(inv5.passed).toBe(false);
+      expect(inv5.code).toBe("MISSING_AGREEMENT_EVENT");
+    });
+  });
 });

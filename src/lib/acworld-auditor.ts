@@ -80,6 +80,18 @@ export class AcworldAuditor {
       skuStatus = "INVALID";
       skuCode = "SKU_MISMATCH";
       skuReason = `Agreement SKU mismatch: recorded agreement SKU ${session.agreementRecord.sku} does not match selected vendor SKU ${selectedQuote.sku}.`;
+    } else if (
+      session.agreementRecord &&
+      session.agreementRecord.agreedOffer &&
+      (session.agreementRecord.agreedOffer.quantity !== finalOffer.quantity ||
+        session.agreementRecord.agreedOffer.deliveryDays !== finalOffer.deliveryDays ||
+        session.agreementRecord.agreedOffer.returnDays !== finalOffer.returnDays ||
+        Math.abs(session.agreementRecord.agreedOffer.shippingCost - finalOffer.shippingCost) > 0.01 ||
+        Math.abs(session.agreementRecord.agreedOffer.unitPrice - finalOffer.unitPrice) > 0.01)
+    ) {
+      skuStatus = "INVALID";
+      skuCode = "AGREEMENT_OFFER_MISMATCH";
+      skuReason = `Agreement agreedOffer terms do not match authoritative finalOffer: quantity (${session.agreementRecord.agreedOffer.quantity} vs ${finalOffer.quantity}), delivery (${session.agreementRecord.agreedOffer.deliveryDays} vs ${finalOffer.deliveryDays}), returns (${session.agreementRecord.agreedOffer.returnDays} vs ${finalOffer.returnDays}).`;
     } else {
       if (selectedQuote.sku) {
         skuEvidenceRefs.push(`sku:${selectedQuote.sku}`);
@@ -132,7 +144,15 @@ export class AcworldAuditor {
 
       priceEvidenceRefs.push(`budget:${mandate.maxTotalBudget}`, `total:${computedTotal}`);
 
-      if (!Number.isFinite(finalOffer.unitPrice) || finalOffer.unitPrice <= 0) {
+      if (!mandate.currency || typeof mandate.currency !== "string" || mandate.currency.length !== 3) {
+        priceStatus = "INVALID";
+        priceCode = "INVALID_CURRENCY";
+        priceReason = `Invalid mandate currency code: ${mandate.currency}. Must be a 3-letter currency code (e.g. USD).`;
+      } else if (!Number.isFinite(mandate.maxTotalBudget) || mandate.maxTotalBudget <= 0) {
+        priceStatus = "INVALID";
+        priceCode = "INVALID_BUDGET";
+        priceReason = `Invalid mandate budget ceiling: ${mandate.maxTotalBudget}. Budget must be a positive finite amount.`;
+      } else if (!Number.isFinite(finalOffer.unitPrice) || finalOffer.unitPrice <= 0) {
         priceStatus = "INVALID";
         priceCode = "INVALID_UNIT_PRICE";
         priceReason = `Invalid unit price: ${finalOffer.unitPrice}.`;
@@ -199,6 +219,30 @@ export class AcworldAuditor {
       } else {
         // Verify evidence backing
         const attestation = session.merchantAttestation;
+        let attestationValid = true;
+        let attestationError: string | undefined;
+
+        if (attestation) {
+          if (
+            !attestation.merchantUrl ||
+            typeof attestation.merchantUrl !== "string" ||
+            !/^https?:\/\//i.test(attestation.merchantUrl)
+          ) {
+            attestationValid = false;
+            attestationError = `Invalid merchant URL in attestation: ${attestation.merchantUrl}`;
+          } else if (
+            !attestation.returnPolicyText ||
+            typeof attestation.returnPolicyText !== "string" ||
+            attestation.returnPolicyText.trim().length === 0
+          ) {
+            attestationValid = false;
+            attestationError = "Merchant attestation has empty or missing returnPolicyText.";
+          } else if (attestation.domSnapshotHash && !/^[0-9a-fA-F]{64}$/.test(attestation.domSnapshotHash)) {
+            attestationValid = false;
+            attestationError = `Malformed domSnapshotHash in merchant attestation: ${attestation.domSnapshotHash}`;
+          }
+        }
+
         if (attestation?.merchantUrl) {
           returnEvidenceRefs.push(`merchant_url:${attestation.merchantUrl}`);
         }
@@ -210,6 +254,10 @@ export class AcworldAuditor {
           returnStatus = "INVALID";
           returnCode = "MISSING_ATTESTATION";
           returnReason = "Merchant DOM attestation evidence missing for live Channel3 product.";
+        } else if (attestation && !attestationValid) {
+          returnStatus = "INVALID";
+          returnCode = "MALFORMED_ATTESTATION";
+          returnReason = `Merchant attestation validation failed: ${attestationError}`;
         } else {
           returnPassed = true;
           returnStatus = "VALID";
@@ -301,14 +349,17 @@ export class AcworldAuditor {
             lineageReason = `Cryptographic flight recorder integrity failed: ${integrity.error}`;
           } else if (session.agreementRecord) {
             const events = recorder.getEvents();
-            const hasAgreementEvent = events.some(
-              (e) =>
+            const hasAgreementEvent = events.some((e) => {
+              const payloadAgrId = (e.publicPayload as Record<string, unknown> | undefined)?.agreementId;
+              const matchesId =
                 e.agreementId === session.agreementRecord?.agreementId ||
-                (e.publicPayload as Record<string, unknown> | undefined)?.agreementId === session.agreementRecord?.agreementId ||
+                payloadAgrId === session.agreementRecord?.agreementId;
+              const isAcceptanceType =
                 e.eventType === "AGREEMENT_CREATED" ||
                 e.eventType === "VENDOR_ACCEPTANCE" ||
-                e.eventType === "BUYER_ACCEPTANCE"
-            );
+                e.eventType === "BUYER_ACCEPTANCE";
+              return matchesId && isAcceptanceType;
+            });
             if (!hasAgreementEvent) {
               lineageStatus = "INVALID";
               lineageCode = "MISSING_AGREEMENT_EVENT";
