@@ -22,8 +22,9 @@ import {
   canonicalJson,
   verifyProof,
   verifyInclusionProof,
+  EMPTY_TREE_ROOT,
 } from "../lib/veripay-merkle";
-import { AcworldAuditor } from "../lib/acworld-auditor";
+import { AcworldAuditor, computeCertificateHash } from "../lib/acworld-auditor";
 import { SettlementService } from "../lib/settlement-service";
 import { sessionStore } from "../lib/session-store";
 import type { PayPalClient } from "../lib/paypal-client";
@@ -31,6 +32,7 @@ import type {
   ProcurementSession,
   FlightRecorderEvent,
   FlightRecorderEventType,
+  AuditCertificate,
 } from "../types/pactum";
 
 describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
@@ -1375,4 +1377,706 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
       expect(inv5.code).toBe("MISSING_AGREEMENT_EVENT");
     });
   });
+
+  // =========================================================================
+  // 5. PHASE 4.2: MERKLE EMPTY-TREE AND STRUCTURAL PROOF SOUNDNESS
+  // =========================================================================
+  describe("5. Phase 4.2: Merkle Empty-Tree and Structural Proof Soundness", () => {
+    it("rejects authentication of any leaf against EMPTY_TREE_ROOT", () => {
+      const arbitraryLeaf = crypto.randomBytes(32).toString("hex");
+      // Empty proof path against EMPTY_TREE_ROOT
+      expect(verifyProof(arbitraryLeaf, [], EMPTY_TREE_ROOT)).toBe(false);
+      expect(
+        verifyInclusionProof({
+          leafIndex: 0,
+          leafHash: arbitraryLeaf,
+          proof: [],
+          rootHash: EMPTY_TREE_ROOT,
+          treeSize: 0,
+        })
+      ).toBe(false);
+    });
+
+    it("enforces that an empty proof path is ONLY valid for index 0 in a 1-leaf tree", () => {
+      const singleLeaf = crypto.randomBytes(32).toString("hex");
+      // Valid 1-leaf proof: index 0, treeSize 1, leafHash === rootHash
+      expect(
+        verifyProof(singleLeaf, [], singleLeaf, { leafIndex: 0, treeSize: 1 })
+      ).toBe(true);
+
+      // Invalid: empty proof with leafIndex 1
+      expect(
+        verifyProof(singleLeaf, [], singleLeaf, { leafIndex: 1, treeSize: 1 })
+      ).toBe(false);
+
+      // Invalid: empty proof for tree with 2 leaves
+      expect(
+        verifyProof(singleLeaf, [], singleLeaf, { leafIndex: 0, treeSize: 2 })
+      ).toBe(false);
+
+      // Invalid: empty proof against empty tree sentinel root
+      expect(
+        verifyProof(EMPTY_TREE_ROOT, [], EMPTY_TREE_ROOT, { leafIndex: 0, treeSize: 1 })
+      ).toBe(false);
+    });
+
+    it("verifies sound inclusion proofs for trees of size 1, 2, 3, 5, and 8 leaves", () => {
+      const leafCounts = [1, 2, 3, 5, 8];
+
+      for (const count of leafCounts) {
+        const tree = new VeriPayMerkleTree();
+        for (let i = 0; i < count; i++) {
+          tree.addEvent("BUYER_PROPOSAL", { index: i, nonce: `nonce_${count}_${i}` }, `2026-10-27T00:00:0${i}Z`);
+        }
+
+        const root = tree.getRootHash();
+        expect(root).toMatch(/^[0-9a-fA-F]{64}$/);
+        expect(root).not.toBe(EMPTY_TREE_ROOT);
+
+        for (let i = 0; i < count; i++) {
+          const proof = tree.generateInclusionProof(i);
+          expect(proof.leafIndex).toBe(i);
+          expect(proof.treeSize).toBe(count);
+
+          // Authentic proof verifies
+          expect(verifyInclusionProof(proof)).toBe(true);
+          expect(
+            verifyProof(proof.leafHash, proof.proof, root, {
+              leafIndex: i,
+              treeSize: count,
+            })
+          ).toBe(true);
+
+          // Altered leaf hash fails
+          const alteredLeaf = crypto.randomBytes(32).toString("hex");
+          expect(
+            verifyProof(alteredLeaf, proof.proof, root, {
+              leafIndex: i,
+              treeSize: count,
+            })
+          ).toBe(false);
+
+          // Altered root fails
+          const alteredRoot = crypto.randomBytes(32).toString("hex");
+          expect(
+            verifyProof(proof.leafHash, proof.proof, alteredRoot, {
+              leafIndex: i,
+              treeSize: count,
+            })
+          ).toBe(false);
+
+          // If multi-step proof, corrupted step or direction fails
+          if (proof.proof.length > 0) {
+            const tamperedSteps = JSON.parse(JSON.stringify(proof.proof));
+            tamperedSteps[0].position = tamperedSteps[0].position === "left" ? "right" : "left";
+            expect(
+              verifyProof(proof.leafHash, tamperedSteps, root, {
+                leafIndex: i,
+                treeSize: count,
+              })
+            ).toBe(false);
+          }
+        }
+      }
+    });
+  });
+
+  // =========================================================================
+  // 6. PHASE 4.2: FLIGHT RECORDER EVENT-CHAIN & PAYLOAD BOUNDARY HARDENING
+  // =========================================================================
+  describe("6. Phase 4.2: Flight Recorder Boundary & Payload Hardening", () => {
+    it("rejects non-finite numbers (NaN, Infinity) and circular payloads without corrupting chain", () => {
+      const recorder = new CryptographicFlightRecorder("sess_boundary_test");
+
+      expect(() =>
+        recorder.recordEvent("MANDATE_CREATED", { item: "Monitors", budget: NaN })
+      ).toThrow(/Invalid non-finite number/);
+
+      expect(() =>
+        recorder.recordEvent("MANDATE_CREATED", { item: "Monitors", budget: Infinity })
+      ).toThrow(/Invalid non-finite number/);
+
+      expect(() =>
+        recorder.recordEvent("MANDATE_CREATED", { item: "Monitors", budget: -Infinity })
+      ).toThrow(/Invalid non-finite number/);
+
+      const circular: Record<string, unknown> = { key: "value" };
+      circular.loop = circular;
+      expect(() =>
+        recorder.recordEvent("MANDATE_CREATED", circular)
+      ).toThrow();
+
+      // Ensure no corrupt events were committed
+      expect(recorder.getEvents().length).toBe(0);
+      expect(recorder.getRootHash()).toBe(EMPTY_TREE_ROOT);
+    });
+
+    it("returns structured failure MALFORMED_EVENT when malformed events are verified", () => {
+      const malformedEvents = [
+        null as unknown as FlightRecorderEvent,
+        { eventId: "", eventType: "MANDATE_CREATED" } as unknown as FlightRecorderEvent,
+        {
+          eventId: "ev_1",
+          eventType: "MANDATE_CREATED",
+          sessionId: "sess_malformed",
+          sequenceNumber: 0,
+          timestamp: "2026-10-27T00:00:00Z",
+          previousEventHash: "0".repeat(64),
+          // Missing publicPayload
+        } as unknown as FlightRecorderEvent,
+      ];
+
+      const result = verifyFlightRecorderChain(malformedEvents, "sess_malformed");
+      expect(result.valid).toBe(false);
+      expect(result.errorCode).toBe("MALFORMED_EVENT");
+    });
+
+    it("rejects deserialization in fromSerialized if lastEventHash or rootHash is tampered", () => {
+      const recorder = new CryptographicFlightRecorder("sess_deser_test");
+      recorder.recordEvent("MANDATE_CREATED", { mandateId: "m1" });
+      recorder.recordEvent("SOURCING_COMPLETED", { quoteCount: 1 });
+
+      const exported = recorder.exportFlightRecord();
+
+      // Tampered lastEventHash
+      const tamperedRecord1 = { ...exported, lastEventHash: "f".repeat(64) };
+      expect(() => CryptographicFlightRecorder.fromSerialized(tamperedRecord1)).toThrow(
+        /lastEventHash mismatch/
+      );
+
+      // Tampered rootHash
+      const tamperedRecord2 = { ...exported, rootHash: "e".repeat(64) };
+      expect(() => CryptographicFlightRecorder.fromSerialized(tamperedRecord2)).toThrow(
+        /integrity verification failed/
+      );
+    });
+  });
+
+  // =========================================================================
+  // 7. PHASE 4.2: ACWORLD AGREEMENT BINDING & VENDOR INVARIANTS
+  // =========================================================================
+  describe("7. Phase 4.2: ACWORLD Agreement Binding & Vendor Invariants", () => {
+    const auditor = new AcworldAuditor();
+
+    function createValidBaseSession(): ProcurementSession {
+      return {
+        id: "sess_agreement_binding_test",
+        quotes: [],
+        turns: [],
+        mandate: {
+          id: "m_1",
+          rawPrompt: "25 4K monitors",
+          itemQuery: "4K USB-C Monitor",
+          quantity: 25,
+          maxTotalBudget: 8500,
+          maxDeliveryDays: 5,
+          minReturnDays: 30,
+          currency: "USD",
+          requiredSpecs: [],
+          version: 1,
+          createdAt: new Date().toISOString(),
+        },
+        selectedQuote: {
+          vendorId: "v_tech",
+          vendorName: "TechWholesale Direct",
+          sku: "DELL-U2723QE-4K",
+          productTitle: "Dell UltraSharp 27 4K",
+          initialUnitAsk: 340,
+          currentUnitBid: 320,
+          shippingCost: 100,
+          deliveryDays: 4,
+          returnDays: 30,
+          condition: "NEW",
+          status: "ACCEPTED",
+          dataSource: "MOCK_CATALOG",
+        },
+        finalOffer: {
+          unitPrice: 320,
+          quantity: 25,
+          deliveryDays: 4,
+          returnDays: 30,
+          shippingCost: 100,
+        },
+        agreementRecord: {
+          agreementId: "agr_test_binding_1",
+          sessionId: "sess_agreement_binding_test",
+          vendorId: "v_tech",
+          vendorName: "TechWholesale Direct",
+          sku: "DELL-U2723QE-4K",
+          agreedPrice: 320,
+          agreedOffer: {
+            unitPrice: 320,
+            quantity: 25,
+            deliveryDays: 4,
+            returnDays: 30,
+            shippingCost: 100,
+          },
+          totalCost: 320 * 25 + 100,
+          agreedBy: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+          acceptingParty: "BUYER",
+          acceptanceMechanism: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+          round: 2,
+          acceptedAt: new Date().toISOString(),
+          mandateVersion: 1,
+        },
+        preSettlementRoot: "a".repeat(64),
+        status: "AUDIT_PENDING",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    it("rejects agreement if vendorName does not match selectedQuote.vendorName", () => {
+      const session = createValidBaseSession();
+      session.agreementRecord!.vendorName = "Impostor Hardware Supplier LLC";
+
+      const cert = auditor.audit({ session });
+      expect(cert.passed).toBe(false);
+      const inv1 = cert.invariants.find((i) => i.name === "SKU_INTEGRITY")!;
+      expect(inv1.passed).toBe(false);
+      expect(inv1.code).toBe("VENDOR_MISMATCH");
+      expect(inv1.reason).toContain("vendor name mismatch");
+    });
+
+    it("rejects agreement if agreedOffer shipping cost diverges from finalOffer", () => {
+      const session = createValidBaseSession();
+      session.agreementRecord!.agreedOffer.shippingCost = 450; // Divergence
+
+      const cert = auditor.audit({ session });
+      expect(cert.passed).toBe(false);
+      const inv1 = cert.invariants.find((i) => i.name === "SKU_INTEGRITY")!;
+      expect(inv1.passed).toBe(false);
+      expect(inv1.code).toBe("AGREEMENT_OFFER_MISMATCH");
+    });
+
+    it("strictly prevents client-supplied passing certificate from bypassing server-side audit in SettlementService", async () => {
+      const session = createValidBaseSession();
+      // Mandate budget violated
+      session.mandate.maxTotalBudget = 5000; // Final offer total is 8100, which exceeds 5000
+      // Attacker attempts to inject passing certificate into session state
+      session.auditCertificate = {
+        certificateId: "cert_forged_bypass",
+        sessionId: session.id,
+        passed: true,
+        invariants: [],
+        verifiedRoot: session.preSettlementRoot!,
+        timestamp: new Date().toISOString(),
+      };
+      session.paypalOrderId = "ORDER_MOCK_TEST_GATE";
+
+      sessionStore.saveSession(session);
+
+      const mockPayPalClient = {
+        getOrder: vi.fn().mockResolvedValue({
+          id: "ORDER_MOCK_TEST_GATE",
+          status: "APPROVED",
+          intent: "AUTHORIZE",
+          purchase_units: [
+            {
+              amount: { value: "8100.00", currency_code: "USD" },
+              custom_id: `VERIPAY_ROOT:${session.preSettlementRoot};SESSION:${session.id}`,
+            },
+          ],
+        }),
+        authorizeOrder: vi.fn().mockResolvedValue({ authorizationId: "AUTH_MOCK_123" }),
+        capturePayment: vi.fn(),
+      } as unknown as PayPalClient;
+
+      const settlement = new SettlementService({ paypalClient: mockPayPalClient });
+      const result = await settlement.completeSettlement({ sessionId: session.id });
+
+      expect(result.success).toBe(false);
+      expect(result.blockedAtGate).toBe(true);
+      expect(result.error).toContain("ACWORLD Audit Gate Failed");
+      expect(result.auditCertificate.passed).toBe(false);
+      // Capture must never have been called!
+      expect(vi.mocked(mockPayPalClient.capturePayment)).not.toHaveBeenCalled();
+
+      const saved = sessionStore.getSession(session.id);
+      expect(saved?.status).toBe("AUDIT_FAILED");
+    });
+  });
+
+  // =========================================================================
+  // 8. PHASE 4.2: AUDITCERTIFICATE CRYPTOGRAPHIC FRESHNESS & AUTHENTICITY
+  // =========================================================================
+  describe("8. Phase 4.2: AuditCertificate Cryptographic Freshness & Authenticity", () => {
+    const auditor = new AcworldAuditor();
+
+    function createValidAuditedSession(): { session: ProcurementSession; cert: AuditCertificate } {
+      const session: ProcurementSession = {
+        id: "sess_cert_freshness_test",
+        quotes: [],
+        turns: [],
+        mandate: {
+          id: "m_fresh",
+          rawPrompt: "25 4K monitors",
+          itemQuery: "4K USB-C Monitor",
+          quantity: 25,
+          maxTotalBudget: 8500,
+          maxDeliveryDays: 5,
+          minReturnDays: 30,
+          currency: "USD",
+          requiredSpecs: [],
+          version: 1,
+          createdAt: new Date().toISOString(),
+        },
+        selectedQuote: {
+          vendorId: "v_1",
+          vendorName: "Vendor 1",
+          sku: "SKU-MON-1",
+          productTitle: "4K Monitor",
+          initialUnitAsk: 340,
+          currentUnitBid: 320,
+          shippingCost: 100,
+          deliveryDays: 4,
+          returnDays: 30,
+          condition: "NEW",
+          status: "ACCEPTED",
+          dataSource: "MOCK_CATALOG",
+        },
+        finalOffer: {
+          unitPrice: 320,
+          quantity: 25,
+          deliveryDays: 4,
+          returnDays: 30,
+          shippingCost: 100,
+        },
+        agreementRecord: {
+          agreementId: "agr_fresh_1",
+          sessionId: "sess_cert_freshness_test",
+          vendorId: "v_1",
+          vendorName: "Vendor 1",
+          sku: "SKU-MON-1",
+          agreedPrice: 320,
+          agreedOffer: {
+            unitPrice: 320,
+            quantity: 25,
+            deliveryDays: 4,
+            returnDays: 30,
+            shippingCost: 100,
+          },
+          totalCost: 8100,
+          agreedBy: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+          acceptingParty: "BUYER",
+          acceptanceMechanism: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+          round: 1,
+          acceptedAt: new Date().toISOString(),
+          mandateVersion: 1,
+        },
+        preSettlementRoot: "b".repeat(64),
+        status: "AUDIT_PENDING",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const cert = auditor.audit({ session });
+      return { session, cert };
+    }
+
+    it("verifies authentic certificate with matching certificateHash", () => {
+      const { session, cert } = createValidAuditedSession();
+      expect(cert.passed).toBe(true);
+      expect(cert.certificateHash).toBeDefined();
+      expect(cert.certificateHash).toBe(computeCertificateHash(cert));
+
+      const verification = AcworldAuditor.verifyCertificateFreshness(
+        cert,
+        session,
+        session.preSettlementRoot
+      );
+      expect(verification.valid).toBe(true);
+      expect(verification.reason).toBeUndefined();
+    });
+
+    it("rejects certificate if any field is tampered (certificateHash mismatch)", () => {
+      const { session, cert } = createValidAuditedSession();
+
+      // Tamper with orderReference
+      const tamperedCert: AuditCertificate = {
+        ...cert,
+        orderReference: "ORDER_INJECTED_FORGERY",
+      };
+
+      const verification = AcworldAuditor.verifyCertificateFreshness(
+        tamperedCert,
+        session,
+        session.preSettlementRoot
+      );
+      expect(verification.valid).toBe(false);
+      expect(verification.errorCode).toBe("CERTIFICATE_HASH_MISMATCH");
+    });
+
+    it("rejects cross-session certificate injection", () => {
+      const { session, cert } = createValidAuditedSession();
+      const foreignSession: ProcurementSession = { ...session, id: "sess_OTHER_DIFFERENT" };
+
+      const verification = AcworldAuditor.verifyCertificateFreshness(cert, foreignSession);
+      expect(verification.valid).toBe(false);
+      expect(verification.errorCode).toBe("SESSION_MISMATCH");
+    });
+
+    it("rejects certificate from an older mandate revision", () => {
+      const { session, cert } = createValidAuditedSession();
+      // Mandate has been revised to version 2
+      session.mandate.version = 2;
+
+      const verification = AcworldAuditor.verifyCertificateFreshness(cert, session);
+      expect(verification.valid).toBe(false);
+      expect(verification.errorCode).toBe("STALE_MANDATE_VERSION");
+    });
+
+    it("rejects certificate bound to a different evidence root", () => {
+      const { session, cert } = createValidAuditedSession();
+      const expectedNewRoot = "c".repeat(64);
+
+      const verification = AcworldAuditor.verifyCertificateFreshness(cert, session, expectedNewRoot);
+      expect(verification.valid).toBe(false);
+      expect(verification.errorCode).toBe("ROOT_MISMATCH");
+    });
+  });
+
+  // =========================================================================
+  // 9. PHASE 4.2: PAYPAL CAPTURE GATE CONCURRENCY & UNCERTAIN OUTCOMES
+  // =========================================================================
+  describe("9. Phase 4.2: PayPal Capture Gate Concurrency & Reconciliation", () => {
+    function setupReadySession(sessionId = "sess_gate_concurrency"): ProcurementSession {
+      const session: ProcurementSession = {
+        id: sessionId,
+        quotes: [],
+        turns: [],
+        mandate: {
+          id: "m_ready",
+          rawPrompt: "25 4K monitors",
+          itemQuery: "4K USB-C Monitor",
+          quantity: 25,
+          maxTotalBudget: 8500,
+          maxDeliveryDays: 5,
+          minReturnDays: 30,
+          currency: "USD",
+          requiredSpecs: [],
+          version: 1,
+          createdAt: new Date().toISOString(),
+        },
+        selectedQuote: {
+          vendorId: "v_1",
+          vendorName: "Vendor 1",
+          sku: "SKU-MON-1",
+          productTitle: "4K Monitor",
+          initialUnitAsk: 340,
+          currentUnitBid: 320,
+          shippingCost: 100,
+          deliveryDays: 4,
+          returnDays: 30,
+          condition: "NEW",
+          status: "ACCEPTED",
+          dataSource: "MOCK_CATALOG",
+        },
+        finalOffer: {
+          unitPrice: 320,
+          quantity: 25,
+          deliveryDays: 4,
+          returnDays: 30,
+          shippingCost: 100,
+        },
+        agreementRecord: {
+          agreementId: "agr_ready_1",
+          sessionId,
+          vendorId: "v_1",
+          vendorName: "Vendor 1",
+          sku: "SKU-MON-1",
+          agreedPrice: 320,
+          agreedOffer: {
+            unitPrice: 320,
+            quantity: 25,
+            deliveryDays: 4,
+            returnDays: 30,
+            shippingCost: 100,
+          },
+          totalCost: 8100,
+          agreedBy: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+          acceptingParty: "BUYER",
+          acceptanceMechanism: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
+          round: 1,
+          acceptedAt: new Date().toISOString(),
+          mandateVersion: 1,
+        },
+        preSettlementRoot: "d".repeat(64),
+        paypalOrderId: `ORDER_${sessionId}`,
+        status: "PAYPAL_AUTHORIZED",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      sessionStore.saveSession(session);
+      return session;
+    }
+
+    it("blocks concurrent capture requests via sessionStore locking", async () => {
+      const session = setupReadySession("sess_concurrent_race");
+
+      const mockPayPalClient = {
+        getOrder: vi.fn().mockImplementation(async () => {
+          // Delay to simulate network flight time
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return {
+            id: session.paypalOrderId,
+            status: "APPROVED",
+            intent: "AUTHORIZE",
+            purchase_units: [
+              {
+                amount: { value: "8100.00", currency_code: "USD" },
+                custom_id: `VERIPAY_ROOT:${session.preSettlementRoot};SESSION:${session.id}`,
+              },
+            ],
+          };
+        }),
+        authorizeOrder: vi.fn().mockResolvedValue({ authorizationId: "AUTH_MOCK_CONCURRENCY" }),
+        capturePayment: vi.fn().mockResolvedValue({ id: "CAPTURE_CONCURRENCY_1", status: "COMPLETED" }),
+        createNegotiatedInvoice: vi.fn().mockResolvedValue({ invoiceId: "INV_123", status: "SENT" }),
+        createDraftInvoice: vi.fn().mockResolvedValue({ invoiceId: "INV_123" }),
+        sendInvoice: vi.fn().mockResolvedValue({ success: true }),
+      } as unknown as PayPalClient;
+
+      const service = new SettlementService({ paypalClient: mockPayPalClient });
+
+      // Run two settlement calls simultaneously
+      const [res1, res2] = await Promise.all([
+        service.completeSettlement({ sessionId: session.id }),
+        service.completeSettlement({ sessionId: session.id }),
+      ]);
+
+      // Exactly one succeeds and one is blocked at the gate by the concurrency lock
+      const succeeded = [res1, res2].filter((r) => r.success);
+      const blocked = [res1, res2].filter((r) => r.blockedAtGate);
+
+      expect(succeeded.length).toBe(1);
+      expect(blocked.length).toBe(1);
+      expect(blocked[0].error).toContain("Settlement capture is already executing");
+      // PayPal capture was called only once
+      expect(vi.mocked(mockPayPalClient.capturePayment)).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects unauthorized client orderId substitution attempt", async () => {
+      const session = setupReadySession("sess_order_injection");
+
+      const service = new SettlementService();
+      const result = await service.completeSettlement({
+        sessionId: session.id,
+        orderId: "ORDER_INJECTED_ATTACK", // Does not match session.paypalOrderId
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.blockedAtGate).toBe(true);
+      expect(result.error).toContain("Client order injection rejected");
+    });
+
+    it("transitions to CAPTURE_PENDING_RECONCILIATION on timeout, blocks blind retries, and reconciles via PayPal API", async () => {
+      const session = setupReadySession("sess_timeout_reconcile");
+
+      const mockPayPalClient = {
+        getOrder: vi.fn().mockResolvedValue({
+          id: session.paypalOrderId,
+          status: "APPROVED",
+          intent: "AUTHORIZE",
+          purchase_units: [
+            {
+              amount: { value: "8100.00", currency_code: "USD" },
+              custom_id: `VERIPAY_ROOT:${session.preSettlementRoot};SESSION:${session.id}`,
+            },
+          ],
+        }),
+        authorizeOrder: vi.fn().mockResolvedValue({ authorizationId: "AUTH_TIMEOUT_1" }),
+        capturePayment: vi.fn().mockRejectedValue(new Error("ETIMEDOUT: Connection timeout during capture")),
+      } as unknown as PayPalClient;
+
+      const service = new SettlementService({ paypalClient: mockPayPalClient });
+
+      // 1. Initial attempt times out
+      const timeoutRes = await service.completeSettlement({ sessionId: session.id });
+      expect(timeoutRes.success).toBe(false);
+      expect(timeoutRes.uncertain).toBe(true);
+
+      const saved = sessionStore.getSession(session.id)!;
+      expect(saved.status).toBe("CAPTURE_PENDING_RECONCILIATION");
+
+      // 2. Blind capture retry is immediately blocked
+      const retryRes = await service.completeSettlement({ sessionId: session.id });
+      expect(retryRes.success).toBe(false);
+      expect(retryRes.blockedAtGate).toBe(true);
+      expect(retryRes.error).toContain("Blind capture retry is blocked");
+
+      // 3. Authoritative reconciliation queries remote PayPal API
+      mockPayPalClient.getOrder = vi.fn().mockResolvedValue({
+        id: session.paypalOrderId,
+        status: "COMPLETED",
+        intent: "AUTHORIZE",
+        purchase_units: [
+          {
+            amount: { value: "8100.00", currency_code: "USD" },
+            custom_id: `VERIPAY_ROOT:${session.preSettlementRoot};SESSION:${session.id}`,
+            payments: {
+              captures: [{ id: "REMOTE_CONFIRMED_CAP_1", status: "COMPLETED" }],
+            },
+          },
+        ],
+      });
+
+      const reconcileRes = await service.reconcileSettlement({ sessionId: session.id });
+      expect(reconcileRes.success).toBe(true);
+      expect(reconcileRes.reconciled).toBe(true);
+      expect(reconcileRes.status).toBe("PAYPAL_CAPTURED");
+      expect(reconcileRes.captureId).toBe("REMOTE_CONFIRMED_CAP_1");
+    });
+  });
+
+  // =========================================================================
+  // 10. PHASE 4.2: PRE-SETTLEMENT VS POST-SETTLEMENT LINEAGE RECOMPUTATION
+  // =========================================================================
+  describe("10. Phase 4.2: Pre-Settlement vs Post-Settlement Lineage Recomputation", () => {
+    it("independently recomputes pre-settlement root and verifies post-settlement events extend history without altering pre-settlement commitment", () => {
+      const sessionId = "sess_pre_post_root_lineage";
+      const recorder = new CryptographicFlightRecorder(sessionId);
+
+      // Pre-settlement events
+      recorder.recordEvent("MANDATE_CREATED", { mandateId: "m1", quantity: 25, budget: 8500 });
+      recorder.recordEvent("SOURCING_COMPLETED", { quoteCount: 3 });
+      recorder.recordEvent("KERNEL_DOM_ATTESTATION", { merchantUrl: "https://vendor.com", domHash: "1".repeat(64) });
+      recorder.recordEvent("BUYER_PROPOSAL", { unitPrice: 320, quantity: 25 });
+      recorder.recordEvent("AGREEMENT_CREATED", { agreementId: "agr_lineage_1", price: 320, total: 8100 });
+
+      // Compute and capture pre-settlement commitment
+      const preSettlementRoot = recorder.getRootHash();
+      expect(preSettlementRoot).toMatch(/^[0-9a-fA-F]{64}$/);
+
+      // Independent recomputation from the sliced pre-settlement events
+      const independentPreTree = new VeriPayMerkleTree();
+      for (const ev of recorder.getEvents()) {
+        const evData: Record<string, unknown> = { ...ev };
+        delete evData.leafHash;
+        independentPreTree.addEvent(ev.eventType, evData, ev.timestamp);
+      }
+      expect(independentPreTree.getRootHash()).toBe(preSettlementRoot);
+
+      // Post-settlement events appended
+      recorder.recordEvent("ACWORLD_AUDIT_PASSED", { certificateId: "cert_lineage_1", passed: true });
+      recorder.recordEvent("SETTLEMENT_COMPLETED", { captureId: "cap_lineage_1", status: "SETTLED" });
+
+      const postSettlementRoot = recorder.getRootHash();
+      expect(postSettlementRoot).toMatch(/^[0-9a-fA-F]{64}$/);
+      expect(postSettlementRoot).not.toBe(preSettlementRoot);
+
+      // Pre-settlement commitment remains valid and immutable
+      expect(independentPreTree.getRootHash()).toBe(preSettlementRoot);
+
+      // Slicing the full chain verifies integrity of both segments
+      const fullIntegrity = recorder.verifyIntegrity(postSettlementRoot);
+      expect(fullIntegrity.valid).toBe(true);
+
+      // Passing postSettlementRoot where preSettlementRoot is expected is strictly detected
+      const badRootIntegrity = recorder.verifyIntegrity(preSettlementRoot);
+      expect(badRootIntegrity.valid).toBe(false);
+      expect(badRootIntegrity.errorCode).toBe("EXPECTED_ROOT_MISMATCH");
+    });
+  });
 });
+

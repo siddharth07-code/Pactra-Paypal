@@ -420,6 +420,7 @@ export interface MerkleInclusionProof {
   leafHash: string;
   proof: MerkleInclusionProofStep[];
   rootHash: string;
+  treeSize?: number;
 }
 
 /**
@@ -496,6 +497,7 @@ export interface AuditCertificate {
   verifiedRoot: string;
   timestamp: string;
   orderReference?: string;
+  certificateHash?: string;
 }
 
 export type ProcurementSessionStatus =

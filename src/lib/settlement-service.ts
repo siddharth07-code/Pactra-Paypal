@@ -156,6 +156,18 @@ export class SettlementService {
           blockedAtGate: true,
         };
       }
+      if (
+        session.agreementRecord.vendorName &&
+        session.selectedQuote.vendorName &&
+        session.agreementRecord.vendorName !== session.selectedQuote.vendorName
+      ) {
+        return {
+          success: false,
+          sessionId,
+          error: `Agreement vendor name mismatch: recorded agreement vendor name ${session.agreementRecord.vendorName} does not match selected vendor name ${session.selectedQuote.vendorName}.`,
+          blockedAtGate: true,
+        };
+      }
     }
 
     const finalOffer = session.finalOffer;
@@ -395,6 +407,19 @@ export class SettlementService {
             sessionId,
             auditCertificate: this.buildFailedCertificate(sessionId, "Agreement vendor mismatch."),
             error: `Agreement vendor mismatch: recorded agreement vendor ${session.agreementRecord.vendorId} does not match selected vendor ${session.selectedQuote.vendorId}.`,
+            blockedAtGate: true,
+          };
+        }
+        if (
+          session.agreementRecord.vendorName &&
+          session.selectedQuote.vendorName &&
+          session.agreementRecord.vendorName !== session.selectedQuote.vendorName
+        ) {
+          return {
+            success: false,
+            sessionId,
+            auditCertificate: this.buildFailedCertificate(sessionId, "Agreement vendor name mismatch."),
+            error: `Agreement vendor name mismatch: recorded agreement vendor name ${session.agreementRecord.vendorName} does not match selected vendor name ${session.selectedQuote.vendorName}.`,
             blockedAtGate: true,
           };
         }

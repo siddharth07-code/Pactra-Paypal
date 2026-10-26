@@ -20,6 +20,8 @@ import type {
   MerkleInclusionProofStep,
 } from "../types/pactum";
 
+export const EMPTY_TREE_ROOT = "0".repeat(64);
+
 /**
  * Deterministic Canonical JSON serialization.
  * Recursively sorts all object keys.
@@ -214,6 +216,7 @@ export class VeriPayMerkleTree {
     const proof: MerkleInclusionProofStep[] = [];
     const rootHash = this.getRootHash();
     const leafHash = this.leafBuffers[leafIndex].toString("hex");
+    const treeSize = this.leafBuffers.length;
 
     if (this.leafBuffers.length === 1) {
       return {
@@ -221,6 +224,7 @@ export class VeriPayMerkleTree {
         leafHash,
         proof: [],
         rootHash,
+        treeSize: 1,
       };
     }
 
@@ -259,30 +263,65 @@ export class VeriPayMerkleTree {
       leafHash,
       proof,
       rootHash,
+      treeSize,
     };
   }
 
   /**
    * Verifies an inclusion proof against a designated root hash.
    * Can be invoked statically or as a standalone function.
+   * Evaluates explicit tree-size and leaf-index structural rules:
+   * - Tree size 0 (empty tree) cannot contain any leaves.
+   * - An empty proof path (proof.length === 0) is only structurally sound for leaf index 0 in a single-leaf tree.
+   * - Multi-leaf trees (treeSize >= 2) require proof.length >= 1.
    */
   public static verifyProof(
     leafHash: string,
     proof: MerkleInclusionProofStep[],
-    rootHash: string
+    rootHash: string,
+    options?: { leafIndex?: number; treeSize?: number }
   ): boolean {
     if (!leafHash || !rootHash || !Array.isArray(proof)) {
-      return false;
-    }
-
-    // Empty-tree zero root or zero leaf hash can never be part of a valid inclusion proof
-    if (rootHash === "0".repeat(64) || leafHash === "0".repeat(64)) {
       return false;
     }
 
     // Validate 64-char hex strings
     const hexRegex = /^[0-9a-fA-F]{64}$/;
     if (!hexRegex.test(leafHash) || !hexRegex.test(rootHash)) {
+      return false;
+    }
+
+    // Structural rule 1: If treeSize is specified and <= 0, no inclusion proof can exist
+    if (options?.treeSize !== undefined && options.treeSize <= 0) {
+      return false;
+    }
+
+    // Structural rule 2: An empty proof path is ONLY valid for a 1-leaf tree at index 0
+    if (proof.length === 0) {
+      // Empty tree sentinel check: an empty tree has 0 leaves and cannot authenticate any leaf
+      if (rootHash.toLowerCase() === EMPTY_TREE_ROOT.toLowerCase()) {
+        return false;
+      }
+      if (options?.treeSize !== undefined && options.treeSize !== 1) {
+        return false;
+      }
+      if (options?.leafIndex !== undefined && options.leafIndex !== 0) {
+        return false;
+      }
+      return leafHash.toLowerCase() === rootHash.toLowerCase();
+    }
+
+    // Structural rule 3: Multi-step proof requires treeSize >= 2 if treeSize is specified
+    if (options?.treeSize !== undefined && options.treeSize < 2) {
+      return false;
+    }
+
+    // Structural rule 4: leafIndex must be within [0, treeSize - 1]
+    if (
+      options?.treeSize !== undefined &&
+      options?.leafIndex !== undefined &&
+      (options.leafIndex < 0 || options.leafIndex >= options.treeSize)
+    ) {
       return false;
     }
 
@@ -319,27 +358,48 @@ export class VeriPayMerkleTree {
 export function verifyProof(
   leafHash: string,
   proof: MerkleInclusionProofStep[],
-  rootHash: string
+  rootHash: string,
+  options?: { leafIndex?: number; treeSize?: number }
 ): boolean {
-  return VeriPayMerkleTree.verifyProof(leafHash, proof, rootHash);
+  return VeriPayMerkleTree.verifyProof(leafHash, proof, rootHash, options);
 }
 
 /**
  * Validates a complete MerkleInclusionProof object against an optional expected root
+ * and sound tree-size / leaf-index structural bounds.
  */
 export function verifyInclusionProof(
   proof: MerkleInclusionProof,
-  expectedRoot?: string
+  expectedRoot?: string,
+  options?: { treeSize?: number }
 ): boolean {
   if (!proof || typeof proof !== "object" || !Array.isArray(proof.proof)) {
     return false;
   }
+  if (typeof proof.leafIndex !== "number" || !Number.isInteger(proof.leafIndex) || proof.leafIndex < 0) {
+    return false;
+  }
+
+  const effectiveTreeSize = options?.treeSize ?? proof.treeSize;
+  if (effectiveTreeSize !== undefined) {
+    if (typeof effectiveTreeSize !== "number" || !Number.isInteger(effectiveTreeSize) || effectiveTreeSize < 1) {
+      return false;
+    }
+    if (proof.leafIndex >= effectiveTreeSize) {
+      return false;
+    }
+  }
+
   const targetRoot = expectedRoot ?? proof.rootHash;
   if (!targetRoot || proof.rootHash.toLowerCase() !== targetRoot.toLowerCase()) {
     return false;
   }
-  if (targetRoot === "0".repeat(64)) {
+  if (targetRoot.toLowerCase() === EMPTY_TREE_ROOT.toLowerCase()) {
     return false;
   }
-  return verifyProof(proof.leafHash, proof.proof, targetRoot);
+
+  return verifyProof(proof.leafHash, proof.proof, targetRoot, {
+    leafIndex: proof.leafIndex,
+    treeSize: effectiveTreeSize,
+  });
 }

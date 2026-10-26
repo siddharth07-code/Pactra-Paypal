@@ -26,10 +26,24 @@ import type {
 } from "../types/pactum";
 import { toCents, fromCents } from "./mechanism-guardrail";
 import { CryptographicFlightRecorder } from "./flight-recorder";
+import { canonicalJson } from "./veripay-merkle";
 
 export interface AuditRequest {
   session: ProcurementSession;
   expectedOrderCustomId?: string; // Optional PayPal custom_id to verify lineage
+}
+
+/**
+ * Computes a SHA-256 cryptographic digest over the canonical JSON representation
+ * of an AuditCertificate (excluding certificateHash itself).
+ */
+export function computeCertificateHash(certificate: Omit<AuditCertificate, "certificateHash">): string {
+  const certCopy: Record<string, unknown> = { ...certificate };
+  delete certCopy.certificateHash;
+  return crypto
+    .createHash("sha256")
+    .update(Buffer.from(canonicalJson(certCopy), "utf-8"))
+    .digest("hex");
 }
 
 export class AcworldAuditor {
@@ -72,6 +86,15 @@ export class AcworldAuditor {
       skuStatus = "INVALID";
       skuCode = "VENDOR_MISMATCH";
       skuReason = `Agreement vendor mismatch: recorded agreement vendor ${session.agreementRecord.vendorId} does not match selected vendor ${selectedQuote.vendorId}.`;
+    } else if (
+      session.agreementRecord &&
+      session.agreementRecord.vendorName &&
+      selectedQuote.vendorName &&
+      session.agreementRecord.vendorName !== selectedQuote.vendorName
+    ) {
+      skuStatus = "INVALID";
+      skuCode = "VENDOR_MISMATCH";
+      skuReason = `Agreement vendor name mismatch: recorded agreement vendor name ${session.agreementRecord.vendorName} does not match selected vendor name ${selectedQuote.vendorName}.`;
     } else if (session.agreementRecord && Math.abs(session.agreementRecord.agreedPrice - finalOffer.unitPrice) > 0.01) {
       skuStatus = "INVALID";
       skuCode = "AGREEMENT_PRICE_MISMATCH";
@@ -430,7 +453,7 @@ export class AcworldAuditor {
       : "INVALID";
     const auditType: AuditType = session.paypalCaptureId ? "POST_SETTLEMENT" : "PRE_SETTLEMENT";
 
-    return {
+    const certificatePayload: Omit<AuditCertificate, "certificateHash"> = {
       certificateId,
       sessionId: session.id,
       mandateVersion,
@@ -443,5 +466,113 @@ export class AcworldAuditor {
       timestamp: new Date().toISOString(),
       orderReference: session.paypalOrderId,
     };
+
+    const certificateHash = computeCertificateHash(certificatePayload);
+
+    return {
+      ...certificatePayload,
+      certificateHash,
+    };
+  }
+
+  /**
+   * Independently verifies the authenticity, cryptographic integrity, and freshness of an AuditCertificate
+   * against authoritative session state and evidence commitments.
+   *
+   * Rejects:
+   * 1. Structurally malformed or null certificate objects.
+   * 2. Fabricated certificates with missing, tampered, or mismatched certificateHash.
+   * 3. Cross-session certificate injection (certificate.sessionId !== session.id).
+   * 4. Stale certificates from older mandate revisions (certificate.mandateVersion !== session.mandate.version).
+   * 5. Agreement mismatch (certificate.agreementId !== session.agreementRecord?.agreementId).
+   * 6. Commitment mismatch (certificate.verifiedRoot !== expectedEvidenceRoot).
+   * 7. Certificates with failed overall audit status or failing invariants.
+   */
+  public static verifyCertificateFreshness(
+    certificate: AuditCertificate,
+    session: ProcurementSession,
+    expectedEvidenceRoot?: string
+  ): { valid: boolean; reason?: string; errorCode?: string } {
+    if (!certificate || typeof certificate !== "object") {
+      return { valid: false, reason: "Malformed or null certificate object.", errorCode: "MALFORMED_CERTIFICATE" };
+    }
+
+    if (!certificate.certificateId || !certificate.sessionId || !certificate.verifiedRoot || !Array.isArray(certificate.invariants)) {
+      return { valid: false, reason: "Certificate missing mandatory fields.", errorCode: "MALFORMED_CERTIFICATE" };
+    }
+
+    // 1. Cryptographic integrity check: verify certificateHash commitment
+    if (!certificate.certificateHash) {
+      return { valid: false, reason: "Certificate is missing cryptographic certificateHash.", errorCode: "MISSING_CERTIFICATE_HASH" };
+    }
+
+    const recomputedHash = computeCertificateHash(certificate);
+    if (certificate.certificateHash.toLowerCase() !== recomputedHash.toLowerCase()) {
+      return {
+        valid: false,
+        reason: `Cryptographic certificateHash mismatch: recorded ${certificate.certificateHash}, recomputed ${recomputedHash}. Potential certificate forgery.`,
+        errorCode: "CERTIFICATE_HASH_MISMATCH",
+      };
+    }
+
+    // 2. Session binding check
+    if (certificate.sessionId !== session.id) {
+      return {
+        valid: false,
+        reason: `Certificate session mismatch: certificate belongs to session ${certificate.sessionId}, active session is ${session.id}.`,
+        errorCode: "SESSION_MISMATCH",
+      };
+    }
+
+    // 3. Mandate revision freshness check
+    const currentMandateVersion = session.mandate.version ?? 1;
+    if (certificate.mandateVersion !== undefined && certificate.mandateVersion !== currentMandateVersion) {
+      return {
+        valid: false,
+        reason: `Stale certificate: certificate issued for mandate version ${certificate.mandateVersion}, current mandate is version ${currentMandateVersion}.`,
+        errorCode: "STALE_MANDATE_VERSION",
+      };
+    }
+
+    // 4. Agreement binding check
+    if (session.agreementRecord?.agreementId) {
+      if (certificate.agreementId && certificate.agreementId !== session.agreementRecord.agreementId) {
+        return {
+          valid: false,
+          reason: `Certificate agreement mismatch: certificate bound to agreement ${certificate.agreementId}, active session agreement is ${session.agreementRecord.agreementId}.`,
+          errorCode: "AGREEMENT_MISMATCH",
+        };
+      }
+    }
+
+    // 5. Evidence root commitment check
+    const targetRoot = expectedEvidenceRoot ?? session.preSettlementRoot ?? session.merkleRoot;
+    if (targetRoot && certificate.verifiedRoot.toLowerCase() !== targetRoot.toLowerCase()) {
+      return {
+        valid: false,
+        reason: `Certificate evidence root mismatch: certificate verified root ${certificate.verifiedRoot} does not match expected session root ${targetRoot}.`,
+        errorCode: "ROOT_MISMATCH",
+      };
+    }
+
+    // 6. Invariant passed status check
+    if (!certificate.passed || certificate.status === "INVALID" || certificate.status === "INCOMPLETE") {
+      return {
+        valid: false,
+        reason: "Certificate indicates failed or incomplete audit.",
+        errorCode: "AUDIT_FAILED",
+      };
+    }
+
+    const failingInvariants = certificate.invariants.filter((inv) => !inv.passed);
+    if (failingInvariants.length > 0) {
+      return {
+        valid: false,
+        reason: `Certificate contains failing invariants: ${failingInvariants.map((i) => i.name).join(", ")}.`,
+        errorCode: "INVARIANT_FAILED",
+      };
+    }
+
+    return { valid: true };
   }
 }
