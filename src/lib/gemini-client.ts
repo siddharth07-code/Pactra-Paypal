@@ -53,10 +53,16 @@ export interface GeminiBuyerProposal {
   error?: string;
 }
 
+export const MIN_GEMINI_PROVIDER_DEADLINE_MS = 10000;
+export const DEFAULT_GEMINI_PROVIDER_DEADLINE_MS = 12000;
+export const DEFAULT_GEMINI_INTERNAL_TIMEOUT_MS = 14000;
+
 export interface GeminiClientOptions {
   apiKey?: string;
   modelName?: string;
   timeoutMs?: number;
+  providerDeadlineMs?: number;
+  internalTimeoutMs?: number;
   quotaCoordinator?: GeminiQuotaCoordinator;
   aiClient?: {
     models: {
@@ -73,6 +79,7 @@ export type GeminiErrorCode =
   | "MODEL_NOT_FOUND"
   | "INVALID_SCHEMA_RESPONSE"
   | "INVALID_BOUNDS_PROPOSAL"
+  | "INVALID_ARGUMENT"
   | "API_REQUEST_FAILED";
 
 export class GeminiRequestError extends Error {
@@ -125,6 +132,8 @@ export const BUYER_PROPOSAL_SCHEMA: Schema = {
 export class GeminiNegotiationClient {
   private ai: GoogleGenAI | null = null;
   private modelName: string;
+  private providerDeadlineMs: number;
+  private internalTimeoutMs: number;
   private timeoutMs: number;
   private quotaCoordinator: GeminiQuotaCoordinator;
 
@@ -139,7 +148,30 @@ export class GeminiNegotiationClient {
     }
     // Verified configurable model identifier; defaults to env var or verified gemini-2.5-flash
     this.modelName = options?.modelName ?? process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
-    this.timeoutMs = options?.timeoutMs ?? 12000;
+
+    // Resolve provider deadline (Google GenAI requires minimum 10,000ms / 10s)
+    const configuredDeadline =
+      options?.providerDeadlineMs ??
+      options?.timeoutMs ??
+      (Number(process.env.GEMINI_PROVIDER_DEADLINE_MS) ||
+       Number(process.env.GEMINI_TIMEOUT_MS) ||
+       DEFAULT_GEMINI_PROVIDER_DEADLINE_MS);
+
+    this.providerDeadlineMs = Math.max(MIN_GEMINI_PROVIDER_DEADLINE_MS, configuredDeadline);
+
+    // Internal abort timeout: ensure it does not routinely cancel requests before provider deadline can take effect
+    if (options?.internalTimeoutMs !== undefined) {
+      this.internalTimeoutMs = options.internalTimeoutMs;
+    } else if (options?.timeoutMs !== undefined && options.timeoutMs < this.providerDeadlineMs) {
+      this.internalTimeoutMs = options.timeoutMs;
+    } else {
+      this.internalTimeoutMs = Math.max(
+        this.providerDeadlineMs + 2000,
+        Number(process.env.GEMINI_INTERNAL_TIMEOUT_MS) || DEFAULT_GEMINI_INTERNAL_TIMEOUT_MS
+      );
+    }
+    this.timeoutMs = this.internalTimeoutMs;
+
     if (options?.quotaCoordinator) {
       this.quotaCoordinator = options.quotaCoordinator;
     } else if (options?.aiClient) {
@@ -158,6 +190,14 @@ export class GeminiNegotiationClient {
 
   public getModelName(): string {
     return this.modelName;
+  }
+
+  public getProviderDeadlineMs(): number {
+    return this.providerDeadlineMs;
+  }
+
+  public getInternalTimeoutMs(): number {
+    return this.internalTimeoutMs;
   }
 
   public getTimeoutMs(): number {
@@ -190,7 +230,8 @@ export class GeminiNegotiationClient {
 
     // If Gemini client is configured, attempt schema-validated live API call through Quota Coordinator
     if (this.ai) {
-      const effectiveTimeout = this.timeoutMs;
+      const providerDeadline = this.providerDeadlineMs;
+      const internalTimeout = this.internalTimeoutMs;
 
       try {
         const validatedProposal = await this.quotaCoordinator.execute(
@@ -205,10 +246,10 @@ export class GeminiNegotiationClient {
                 reject(
                   new GeminiRequestError(
                     "REQUEST_TIMEOUT",
-                    `Gemini API request timed out after ${effectiveTimeout}ms.`
+                    `Gemini API request timed out after ${internalTimeout}ms.`
                   )
                 );
-              }, effectiveTimeout);
+              }, internalTimeout);
             });
 
             if (quotaSignal) {
@@ -225,7 +266,7 @@ export class GeminiNegotiationClient {
                 config: {
                   systemInstruction,
                   abortSignal: controller.signal,
-                  httpOptions: { timeout: Math.max(10000, effectiveTimeout) },
+                  httpOptions: { timeout: providerDeadline },
                   responseMimeType: "application/json",
                   responseSchema: BUYER_PROPOSAL_SCHEMA,
                   temperature: 0.2, // Low temperature for consistent rational negotiation
@@ -643,6 +684,18 @@ INSTRUCTIONS:
     const status =
       (err as { status?: number; statusCode?: number })?.status ||
       (err as { status?: number; statusCode?: number })?.statusCode;
+
+    // Permanent request configuration error (e.g. invalid deadline or bad request parameters)
+    if (
+      status === 400 ||
+      /invalid[ _-]?argument|deadline.*too short/i.test(message)
+    ) {
+      return new GeminiRequestError(
+        "INVALID_ARGUMENT",
+        `Permanent request configuration error: ${message}`,
+        status || 400
+      );
+    }
 
     if (
       (err instanceof Error && err.name === "AbortError") ||

@@ -70,7 +70,7 @@ export class GeminiQuotaCoordinator {
       maxRequestsPerMinute: Number(process.env.GEMINI_MAX_REQUESTS_PER_MINUTE) || 10,
       maxConcurrentRequests: Number(process.env.GEMINI_MAX_CONCURRENT_REQUESTS) || 2,
       maxAttempts: Number(process.env.GEMINI_MAX_ATTEMPTS) || 2,
-      providerTimeoutMs: Number(process.env.GEMINI_PROVIDER_TIMEOUT_MS) || 5000,
+      providerTimeoutMs: Number(process.env.GEMINI_PROVIDER_TIMEOUT_MS) || 15000,
       circuitBreakerThreshold: Number(process.env.GEMINI_CIRCUIT_BREAKER_THRESHOLD) || 3,
       circuitBreakerCooldownMs: Number(process.env.GEMINI_CIRCUIT_BREAKER_COOLDOWN_MS) || 60000,
       ...customConfig,
@@ -275,13 +275,14 @@ export class GeminiQuotaCoordinator {
         return result;
       } catch (err: unknown) {
         lastError = err;
+        const isPermanentConfig = this.isPermanentConfigurationError(err);
         const isQuotaFailure = this.isRateLimitOrQuotaError(err);
-        const isTransientServerFailure = this.isTransientServerError(err);
+        const isTransientServerFailure = !isPermanentConfig && this.isTransientServerError(err);
 
         this.recordFailure(err, isProbe, isQuotaFailure);
 
-        // Decide whether retry is permitted
-        if (attempt < maxAttempts && isTransientServerFailure && !isQuotaFailure) {
+        // Decide whether retry is permitted: permanent configuration errors and quota exhaustion NEVER retry
+        if (!isPermanentConfig && attempt < maxAttempts && isTransientServerFailure && !isQuotaFailure) {
           // Bounded jittered backoff for eligible transient 5xx
           await new Promise((r) => setTimeout(r, 200 * attempt));
           continue;
@@ -367,8 +368,47 @@ export class GeminiQuotaCoordinator {
     }
   }
 
-  private isRateLimitOrQuotaError(err: unknown): boolean {
+  public isPermanentConfigurationError(err: unknown): boolean {
     if (!err) return false;
+    const status =
+      typeof (err as { status?: number }).status === "number"
+        ? (err as { status?: number }).status
+        : typeof (err as { statusCode?: number }).statusCode === "number"
+        ? (err as { statusCode?: number }).statusCode
+        : undefined;
+
+    if (status === 400 || status === 401 || status === 403 || status === 404) {
+      return true;
+    }
+
+    if (typeof (err as { code?: string }).code === "string") {
+      const code = (err as { code?: string }).code;
+      if (
+        code === "INVALID_ARGUMENT" ||
+        code === "AUTHENTICATION_ERROR" ||
+        code === "MODEL_NOT_FOUND" ||
+        code === "INVALID_SCHEMA_RESPONSE"
+      ) {
+        return true;
+      }
+    }
+
+    const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+    return (
+      msg.includes("invalid_argument") ||
+      msg.includes("invalid argument") ||
+      (msg.includes("deadline") && msg.includes("too short")) ||
+      (msg.includes("400") && (msg.includes("invalid") || msg.includes("deadline") || msg.includes("bad request"))) ||
+      msg.includes("bad request") ||
+      msg.includes("unauthenticated") ||
+      msg.includes("permission_denied") ||
+      msg.includes("not_found")
+    );
+  }
+
+  public isRateLimitOrQuotaError(err: unknown): boolean {
+    if (!err) return false;
+    if (this.isPermanentConfigurationError(err)) return false;
     const msg = String(err).toLowerCase();
     return (
       msg.includes("429") ||
@@ -379,8 +419,9 @@ export class GeminiQuotaCoordinator {
     );
   }
 
-  private isTransientServerError(err: unknown): boolean {
+  public isTransientServerError(err: unknown): boolean {
     if (!err) return false;
+    if (this.isPermanentConfigurationError(err)) return false;
     const msg = String(err).toLowerCase();
     return (
       msg.includes("503") ||

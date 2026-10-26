@@ -21,8 +21,20 @@ import type {
   ProductCondition,
   RequiredSpecification,
 } from "../types/pactum";
-import { GeminiRequestError, type GeminiClientOptions } from "./gemini-client";
+import {
+  GeminiRequestError,
+  type GeminiClientOptions,
+  MIN_GEMINI_PROVIDER_DEADLINE_MS,
+  DEFAULT_GEMINI_PROVIDER_DEADLINE_MS,
+  DEFAULT_GEMINI_INTERNAL_TIMEOUT_MS,
+} from "./gemini-client";
 import { parseProcurementMandate } from "./mandate-parser";
+
+export {
+  MIN_GEMINI_PROVIDER_DEADLINE_MS,
+  DEFAULT_GEMINI_PROVIDER_DEADLINE_MS,
+  DEFAULT_GEMINI_INTERNAL_TIMEOUT_MS,
+};
 
 /**
  * Formal response schema for structured Gemini procurement mandate extraction.
@@ -133,6 +145,8 @@ export interface MandateExtractionInput {
 export class MandateIntelligenceService {
   private ai: GoogleGenAI | null = null;
   private modelName: string;
+  private providerDeadlineMs: number;
+  private internalTimeoutMs: number;
   private timeoutMs: number;
   private quotaCoordinator: GeminiQuotaCoordinator;
 
@@ -146,7 +160,30 @@ export class MandateIntelligenceService {
       }
     }
     this.modelName = options?.modelName ?? process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
-    this.timeoutMs = options?.timeoutMs ?? 8000;
+
+    // Resolve provider deadline (Google GenAI requires minimum 10,000ms / 10s)
+    const configuredDeadline =
+      options?.providerDeadlineMs ??
+      options?.timeoutMs ??
+      (Number(process.env.GEMINI_PROVIDER_DEADLINE_MS) ||
+       Number(process.env.GEMINI_TIMEOUT_MS) ||
+       DEFAULT_GEMINI_PROVIDER_DEADLINE_MS);
+
+    this.providerDeadlineMs = Math.max(MIN_GEMINI_PROVIDER_DEADLINE_MS, configuredDeadline);
+
+    // Internal abort timeout: ensure it does not routinely cancel requests before provider deadline can take effect
+    if (options?.internalTimeoutMs !== undefined) {
+      this.internalTimeoutMs = options.internalTimeoutMs;
+    } else if (options?.timeoutMs !== undefined && options.timeoutMs < this.providerDeadlineMs) {
+      this.internalTimeoutMs = options.timeoutMs;
+    } else {
+      this.internalTimeoutMs = Math.max(
+        this.providerDeadlineMs + 2000,
+        Number(process.env.GEMINI_INTERNAL_TIMEOUT_MS) || DEFAULT_GEMINI_INTERNAL_TIMEOUT_MS
+      );
+    }
+    this.timeoutMs = this.internalTimeoutMs;
+
     if (options?.quotaCoordinator) {
       this.quotaCoordinator = options.quotaCoordinator;
     } else if (options?.aiClient) {
@@ -165,6 +202,18 @@ export class MandateIntelligenceService {
 
   public getModelName(): string {
     return this.modelName;
+  }
+
+  public getProviderDeadlineMs(): number {
+    return this.providerDeadlineMs;
+  }
+
+  public getInternalTimeoutMs(): number {
+    return this.internalTimeoutMs;
+  }
+
+  public getTimeoutMs(): number {
+    return this.timeoutMs;
   }
 
   public hasLiveClient(): boolean {
@@ -195,7 +244,8 @@ export class MandateIntelligenceService {
 
     // Attempt schema-validated Gemini extraction if client is configured
     if (this.ai) {
-      const effectiveTimeout = this.timeoutMs;
+      const providerDeadline = this.providerDeadlineMs;
+      const internalTimeout = this.internalTimeoutMs;
 
       try {
         const validatedResult = await this.quotaCoordinator.execute(
@@ -210,10 +260,10 @@ export class MandateIntelligenceService {
                 reject(
                   new GeminiRequestError(
                     "REQUEST_TIMEOUT",
-                    `Gemini Mandate extraction timed out after ${effectiveTimeout}ms.`
+                    `Gemini Mandate extraction timed out after ${internalTimeout}ms.`
                   )
                 );
-              }, effectiveTimeout);
+              }, internalTimeout);
             });
 
             if (quotaSignal) {
@@ -235,7 +285,7 @@ Extract the structured procurement mandate according to the required schema.`;
                 config: {
                   systemInstruction: MANDATE_SYSTEM_INSTRUCTION,
                   abortSignal: controller.signal,
-                  httpOptions: { timeout: effectiveTimeout },
+                  httpOptions: { timeout: providerDeadline },
                   responseMimeType: "application/json",
                   responseSchema: BUYER_MANDATE_SCHEMA,
                   temperature: 0.1, // Low temperature for factual constraint extraction
@@ -359,6 +409,21 @@ Extract the structured procurement mandate according to the required schema.`;
     const status = typeof (err as { status?: number }).status === "number"
       ? (err as { status?: number }).status
       : undefined;
+
+    // Permanent request configuration error (e.g. invalid deadline or bad request parameters)
+    if (
+      status === 400 ||
+      message.includes("INVALID_ARGUMENT") ||
+      message.toLowerCase().includes("invalid_argument") ||
+      message.toLowerCase().includes("invalid argument") ||
+      (message.toLowerCase().includes("deadline") && message.toLowerCase().includes("too short"))
+    ) {
+      return new GeminiRequestError(
+        "INVALID_ARGUMENT",
+        `Permanent request configuration error: ${message}`,
+        status || 400
+      );
+    }
 
     if (message.includes("aborted") || message.includes("timeout") || (err as { name?: string }).name === "AbortError") {
       return new GeminiRequestError("REQUEST_TIMEOUT", `Request timed out or was aborted: ${message}`);
