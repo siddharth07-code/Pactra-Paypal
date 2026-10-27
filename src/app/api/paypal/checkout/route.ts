@@ -9,6 +9,11 @@
 import { NextRequest } from "next/server";
 import { SettlementService } from "@/lib/settlement-service";
 import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
+import {
+  defaultIdempotencyStore,
+  ConcurrentOperationInProgressError,
+  IdempotencyPayloadMismatchError,
+} from "@/lib/idempotency";
 
 export async function POST(req: NextRequest) {
   const rateLimit = await defaultRateLimiter.checkLimit(req, "PAYPAL_SETTLEMENT");
@@ -41,36 +46,83 @@ export async function POST(req: NextRequest) {
       req.headers.get("origin") ||
       (req.headers.get("host") ? `http://${req.headers.get("host")}` : undefined);
 
-    const service = new SettlementService();
-    const result = await service.initiateCheckout({ sessionId, origin });
+    const idempotencyKey =
+      req.headers.get("idempotency-key") || req.headers.get("x-idempotency-key");
 
-    if (!result.success) {
-      let statusCode = 422;
-      if (result.blockedAtGate) {
-        statusCode = 403;
-      } else if (result.error?.includes("not found in authoritative store")) {
-        statusCode = 404;
+    const executeOperation = async (): Promise<{
+      status: number;
+      body: Record<string, unknown>;
+    }> => {
+      const service = new SettlementService();
+      const result = await service.initiateCheckout({ sessionId, origin });
+
+      if (!result.success) {
+        let statusCode = 422;
+        if (result.blockedAtGate) {
+          statusCode = 403;
+        } else if (result.error?.includes("not found in authoritative store")) {
+          statusCode = 404;
+        }
+
+        return {
+          status: statusCode,
+          body: {
+            success: false,
+            error: result.error,
+            blockedAtGate: result.blockedAtGate,
+          },
+        };
       }
 
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: result.error,
-          blockedAtGate: result.blockedAtGate,
-        }),
-        { status: statusCode, headers: { "Content-Type": "application/json" } }
-      );
+      return {
+        status: 200,
+        body: {
+          success: true,
+          sessionId: result.sessionId,
+          orderId: result.orderId,
+          approvalUrl: result.approvalUrl,
+        },
+      };
+    };
+
+    if (idempotencyKey) {
+      try {
+        const { status, body: resBody, isReplay } = await defaultIdempotencyStore.executeIdempotent({
+          scope: "PAYPAL_CHECKOUT",
+          key: idempotencyKey,
+          payload: body,
+          execute: executeOperation,
+        });
+
+        return new Response(JSON.stringify(resBody), {
+          status,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Idempotent-Replay": isReplay ? "true" : "false",
+          },
+        });
+      } catch (err) {
+        if (err instanceof ConcurrentOperationInProgressError) {
+          return new Response(
+            JSON.stringify({ error: err.message, code: "CONCURRENT_OPERATION_IN_PROGRESS" }),
+            { status: 409, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (err instanceof IdempotencyPayloadMismatchError) {
+          return new Response(
+            JSON.stringify({ error: err.message, code: "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH" }),
+            { status: 422, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        throw err;
+      }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        sessionId: result.sessionId,
-        orderId: result.orderId,
-        approvalUrl: result.approvalUrl,
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    const outcome = await executeOperation();
+    return new Response(JSON.stringify(outcome.body), {
+      status: outcome.status,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch {
     return new Response(
       JSON.stringify({ error: "Internal server error occurred during checkout initiation." }),

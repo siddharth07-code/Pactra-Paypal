@@ -16,6 +16,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronSecret, defaultCronCoordinator } from "@/lib/cron-coordinator";
 import { defaultRateLimiter } from "@/lib/rate-limiter";
+import { sessionStore } from "@/lib/session-store";
+import { settlementLogger } from "@/lib/settlement-logger";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +39,20 @@ async function handleHealthCheck(req: NextRequest) {
 
   // 3. Compile safe operational report without external AI calls
   const report = defaultCronCoordinator.getHealthReport();
-  return NextResponse.json({ success: true, health: report, ...report }, { status: 200 });
+  const persistenceAdapter = sessionStore.getAdapter().constructor.name;
+  const settlementMetrics = settlementLogger.getMetricsSnapshot();
+  return NextResponse.json(
+    {
+      success: true,
+      health: report,
+      persistence: {
+        adapter: persistenceAdapter,
+      },
+      settlementMetrics,
+      ...report,
+    },
+    { status: 200 }
+  );
 }
 
 export async function GET(req: NextRequest) {

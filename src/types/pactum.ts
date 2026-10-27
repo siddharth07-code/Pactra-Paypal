@@ -365,6 +365,8 @@ export type FlightRecorderEventType =
   | "SETTLEMENT_COMPLETED"
   | "SETTLEMENT_FAILED"
   | "CHECKOUT_CANCELLED"
+  | "CAPTURE_INTENT_CREATED"
+  | "SETTLEMENT_RECONCILED"
   | "DISPUTE_OPENED"
   | "DISPUTE_EVIDENCE_VERIFIED"
   | "DISPUTE_RESOLVED";
@@ -547,9 +549,59 @@ export interface ProcurementSession {
     timestamp: string;
   };
   flightRecord?: SerializedFlightRecord;
+  captureIntent?: CaptureIntentRecord;
   disputes?: DisputeRecord[];
+  version?: number; // Monotonic revision number for optimistic concurrency control
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Phase 5: Durable Capture Intent
+ * Records pre-capture commitment to prevent blind retries and allow authoritative reconciliation.
+ */
+export type CaptureIntentStatus =
+  | "PENDING_CAPTURE"
+  | "CAPTURE_SUBMITTED"
+  | "CAPTURED"
+  | "FAILED"
+  | "UNCERTAIN";
+
+export interface CaptureIntentRecord {
+  intentId: string;
+  sessionId: string;
+  orderId: string;
+  authorizationId?: string;
+  amount: number;
+  currency: string;
+  mandateVersion: number;
+  agreementId?: string;
+  preSettlementRoot: string;
+  status: CaptureIntentStatus;
+  paypalCaptureId?: string;
+  error?: string;
+  lastError?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Phase 5: Durable Idempotency
+ * Enforces exactly-once execution for financial operations and webhooks across retries.
+ */
+export type IdempotencyStatus = "IN_PROGRESS" | "COMPLETED" | "FAILED";
+
+export interface IdempotencyRecord<T = unknown> {
+  key: string;
+  scope: string;
+  requestFingerprint: string;
+  status: IdempotencyStatus;
+  responseStatus?: number;
+  responseBody?: T;
+  error?: string;
+  createdAt: string;
+  completedAt?: string;
+  expiresAt: string;
 }
 
 export type DisputeCategory =

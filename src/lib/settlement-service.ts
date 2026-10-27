@@ -5,13 +5,16 @@
  * Follows GEMINI.md Section 8, 9 and SECURITY.md Section 3, 7.
  */
 
+import crypto from "crypto";
 import { AcworldAuditor } from "./acworld-auditor";
 import { PayPalClient } from "./paypal-client";
 import { sessionStore } from "./session-store";
 import { VeriPayMerkleTree } from "./veripay-merkle";
 import { CryptographicFlightRecorder } from "./flight-recorder";
+import { settlementLogger } from "./settlement-logger";
 import type {
   AuditCertificate,
+  CaptureIntentRecord,
   ProcurementSession,
   ProcurementSessionStatus,
 } from "../types/pactum";
@@ -547,18 +550,72 @@ export class SettlementService {
       const existingCaptures = orderDetails.purchase_units?.[0]?.payments?.captures;
       const completedCapture = existingCaptures?.find((c) => c.status === "COMPLETED");
 
+      const captureIntentId = session.captureIntent?.intentId ?? `cintent_${crypto.randomBytes(8).toString("hex")}`;
+      const captureIntent: CaptureIntentRecord = {
+        intentId: captureIntentId,
+        sessionId,
+        orderId: effectiveOrderId,
+        authorizationId,
+        amount: totalAmount,
+        currency: session.mandate.currency,
+        preSettlementRoot,
+        mandateVersion: session.mandate.version ?? 1,
+        status: completedCapture ? "CAPTURED" : "PENDING_CAPTURE",
+        paypalCaptureId: completedCapture ? completedCapture.id : undefined,
+        createdAt: session.captureIntent?.createdAt ?? new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      session.captureIntent = captureIntent;
+      sessionStore.saveSession(session);
+
+      settlementLogger.info("CAPTURE_INTENT_CREATED", "Capture intent record persisted", {
+        correlationId: sessionId,
+        sessionId,
+        orderId: effectiveOrderId,
+        metadata: {
+          intentId: captureIntentId,
+          status: captureIntent.status,
+          amount: totalAmount,
+          currency: session.mandate.currency,
+        },
+      });
+
       let captureId: string;
       if (completedCapture) {
         captureId = completedCapture.id;
       } else {
         const captureTarget = authorizationId || effectiveOrderId;
         try {
+          captureIntent.status = "CAPTURE_SUBMITTED";
+          captureIntent.updatedAt = new Date().toISOString();
+          session.captureIntent = captureIntent;
+          sessionStore.saveSession(session);
+
+          settlementLogger.info("CAPTURE_SUBMITTED", "PayPal capture requested", {
+            correlationId: sessionId,
+            sessionId,
+            orderId: effectiveOrderId,
+            metadata: { captureTarget, amount: totalAmount },
+          });
+
           const captureResult = await this.paypalClient.capturePayment(captureTarget, {
             currency: session.mandate.currency,
             value: totalAmount,
           });
 
           if (captureResult.status !== "COMPLETED") {
+            captureIntent.status = "FAILED";
+            captureIntent.lastError = `PayPal capture returned non-completed status: ${captureResult.status}`;
+            captureIntent.updatedAt = new Date().toISOString();
+            session.captureIntent = captureIntent;
+            sessionStore.saveSession(session);
+
+            settlementLogger.error("CAPTURE_FAILED", `PayPal capture returned non-completed status: ${captureResult.status}`, {
+              correlationId: sessionId,
+              sessionId,
+              orderId: effectiveOrderId,
+            });
+
             return {
               success: false,
               sessionId,
@@ -570,12 +627,28 @@ export class SettlementService {
             };
           }
           captureId = captureResult.id;
+          captureIntent.status = "CAPTURED";
+          captureIntent.paypalCaptureId = captureId;
+          captureIntent.updatedAt = new Date().toISOString();
+          session.captureIntent = captureIntent;
         } catch (captureErr: unknown) {
           const errMsg = captureErr instanceof Error ? captureErr.message : String(captureErr);
           const isTimeout = /timeout|abort|econnreset|etimedout/i.test(errMsg);
           if (isTimeout) {
+            captureIntent.status = "UNCERTAIN";
+            captureIntent.lastError = errMsg;
+            captureIntent.updatedAt = new Date().toISOString();
+            session.captureIntent = captureIntent;
             session.status = "CAPTURE_PENDING_RECONCILIATION";
             sessionStore.saveSession(session);
+
+            settlementLogger.error("CAPTURE_TIMEOUT_UNCERTAIN", `Capture timed out: ${errMsg}`, {
+              correlationId: sessionId,
+              sessionId,
+              orderId: effectiveOrderId,
+              metadata: { intentId: captureIntentId },
+            });
+
             return {
               success: false,
               sessionId,
@@ -587,6 +660,11 @@ export class SettlementService {
               blockedAtGate: false,
             };
           }
+          captureIntent.status = "FAILED";
+          captureIntent.lastError = errMsg;
+          captureIntent.updatedAt = new Date().toISOString();
+          session.captureIntent = captureIntent;
+          sessionStore.saveSession(session);
           throw captureErr;
         }
       }
@@ -965,9 +1043,20 @@ export class SettlementService {
 
         // Remote capture was successful! Reconcile session state
         session.paypalCaptureId = completedCapture.id;
+        if (session.captureIntent) {
+          session.captureIntent.status = "CAPTURED";
+          session.captureIntent.paypalCaptureId = completedCapture.id;
+          session.captureIntent.updatedAt = new Date().toISOString();
+        }
         session.status = "PAYPAL_CAPTURED";
         session.updatedAt = new Date().toISOString();
         sessionStore.saveSession(session);
+
+        settlementLogger.info("RECONCILIATION_RESOLVED", `Authoritative reconciliation confirmed remote capture ${completedCapture.id} completed on PayPal.`, {
+          correlationId: sessionId,
+          sessionId,
+          metadata: { outcome: "CAPTURED", captureId: completedCapture.id },
+        });
 
         return {
           success: true,
@@ -982,6 +1071,10 @@ export class SettlementService {
       // Check if order is completed
       if (orderDetails.status === "COMPLETED") {
         session.status = "PAYPAL_CAPTURED";
+        if (session.captureIntent) {
+          session.captureIntent.status = "CAPTURED";
+          session.captureIntent.updatedAt = new Date().toISOString();
+        }
         session.updatedAt = new Date().toISOString();
         sessionStore.saveSession(session);
         return {
@@ -995,8 +1088,18 @@ export class SettlementService {
 
       // If still authorized without capture, reset to PAYPAL_AUTHORIZED so capture can be retried safely
       session.status = "PAYPAL_AUTHORIZED";
+      if (session.captureIntent) {
+        session.captureIntent.status = "PENDING_CAPTURE";
+        session.captureIntent.updatedAt = new Date().toISOString();
+      }
       session.updatedAt = new Date().toISOString();
       sessionStore.saveSession(session);
+
+      settlementLogger.info("RECONCILIATION_RESOLVED", "Reconciliation verified no capture occurred remotely. Status reset to PAYPAL_AUTHORIZED.", {
+        correlationId: sessionId,
+        sessionId,
+        metadata: { message: "No remote capture found. Reset to PAYPAL_AUTHORIZED." },
+      });
 
       return {
         success: true,

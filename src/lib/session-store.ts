@@ -5,15 +5,22 @@
  * Follows GEMINI.md Section 3, 11 and SECURITY.md Section 2, 3, 10.
  */
 
-import crypto from "crypto";
 import fs from "fs";
-import path from "path";
+import crypto from "crypto";
+import {
+  SessionPersistenceAdapter,
+  DurableFilePersistenceAdapter,
+  MemorySessionPersistenceAdapter,
+  CorruptPersistenceError,
+} from "./persistence/session-persistence";
 import type {
   ProcurementSession,
   ProcurementSessionStatus,
   ProcurementMandate,
   VendorQuote,
 } from "../types/pactum";
+
+export { CorruptPersistenceError };
 
 export const ALLOWED_SESSION_TRANSITIONS: Record<
   ProcurementSessionStatus,
@@ -74,13 +81,30 @@ export const ALLOWED_SESSION_TRANSITIONS: Record<
   CANCELLED: ["CANCELLED", "MANDATE_PENDING"],
 };
 
-class AuthoritativeSessionStore {
+export class AuthoritativeSessionStore {
   private sessions = new Map<string, ProcurementSession>();
   private mandateHistory = new Map<string, ProcurementMandate[]>();
   private sessionLocks = new Set<string>();
+  private adapter: SessionPersistenceAdapter;
 
-  constructor() {
-    this.loadFromDisk();
+  constructor(adapter?: SessionPersistenceAdapter) {
+    if (adapter) {
+      this.adapter = adapter;
+    } else if (process.env.NODE_ENV === "test" && !process.env.TEST_PERSISTENCE) {
+      this.adapter = new MemorySessionPersistenceAdapter();
+    } else {
+      this.adapter = new DurableFilePersistenceAdapter();
+    }
+    this.rehydrateFromPersistence();
+  }
+
+  public setAdapter(adapter: SessionPersistenceAdapter): void {
+    this.adapter = adapter;
+    this.rehydrateFromPersistence();
+  }
+
+  public getAdapter(): SessionPersistenceAdapter {
+    return this.adapter;
   }
 
   /**
@@ -105,62 +129,43 @@ class AuthoritativeSessionStore {
     return this.sessionLocks.has(sessionId);
   }
 
-  private getCacheFilePath(): string | null {
-    if (process.env.NODE_ENV === "test") {
-      return null;
-    }
-    try {
-      return path.join(process.cwd(), ".pactum-sessions.json");
-    } catch {
-      return null;
-    }
+  public getCacheFilePath(): string | null {
+    return this.adapter.getFilePath ? this.adapter.getFilePath() : null;
   }
 
-  private loadFromDisk(): void {
-    const filePath = this.getCacheFilePath();
-    if (!filePath) return;
+  public rehydrateFromPersistence(): void {
+    this.sessions.clear();
+    this.mandateHistory.clear();
     try {
-      if (fs.existsSync(filePath)) {
-        const raw = fs.readFileSync(filePath, "utf-8");
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") {
-          if (Array.isArray(parsed.sessions)) {
-            for (const s of parsed.sessions) {
-              if (s && s.id) {
-                this.sessions.set(s.id, s);
-              }
+      const loaded = this.adapter.load();
+      if (loaded && typeof loaded === "object") {
+        if (Array.isArray(loaded.sessions)) {
+          for (const s of loaded.sessions) {
+            if (s && s.id) {
+              this.sessions.set(s.id, s);
             }
           }
-          if (parsed.mandateHistory && typeof parsed.mandateHistory === "object") {
-            for (const [id, history] of Object.entries(parsed.mandateHistory)) {
-              if (Array.isArray(history)) {
-                this.mandateHistory.set(id, history as ProcurementMandate[]);
-              }
+        }
+        if (loaded.mandateHistory && typeof loaded.mandateHistory === "object") {
+          for (const [id, history] of Object.entries(loaded.mandateHistory)) {
+            if (Array.isArray(history)) {
+              this.mandateHistory.set(id, history as ProcurementMandate[]);
             }
           }
         }
       }
-    } catch {
-      // Ignore disk read error, proceed with in-memory store
+    } catch (err) {
+      if (process.env.STRICT_PERSISTENCE === "true" || err instanceof CorruptPersistenceError) {
+        throw err;
+      }
     }
   }
 
   public saveToDisk(): void {
-    const filePath = this.getCacheFilePath();
-    if (!filePath) return;
-    try {
-      const data = {
-        sessions: Array.from(this.sessions.values()),
-        mandateHistory: Object.fromEntries(this.mandateHistory.entries()),
-      };
-      const tempPath = `${filePath}.tmp.${Date.now()}.${Math.random().toString(36).substring(2, 8)}`;
-      fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), "utf-8");
-      fs.renameSync(tempPath, filePath);
-    } catch (err) {
-      if (process.env.STRICT_PERSISTENCE === "true") {
-        throw err;
-      }
-    }
+    this.adapter.save({
+      sessions: Array.from(this.sessions.values()),
+      mandateHistory: Object.fromEntries(this.mandateHistory.entries()),
+    });
   }
 
   /**
@@ -180,6 +185,7 @@ class AuthoritativeSessionStore {
       quotes: quotes.map((q) => ({ ...q })),
       turns: [],
       status: "MANDATE_PENDING",
+      version: 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -213,6 +219,17 @@ class AuthoritativeSessionStore {
   public saveSession(session: ProcurementSession): void {
     const existing = this.sessions.get(session.id);
     if (existing) {
+      // Optimistic Concurrency Control (OCC) check: prevent lost updates from concurrent writers
+      if (
+        session.version !== undefined &&
+        existing.version !== undefined &&
+        session.version < existing.version
+      ) {
+        throw new Error(
+          `Optimistic concurrency conflict on session ${session.id}: incoming version ${session.version} is older than current version ${existing.version}.`
+        );
+      }
+
       // Validate critical terminal invariants to prevent illegal status downgrades
       if (existing.status === "SETTLED" && session.status !== "SETTLED" && session.status !== "DISPUTED") {
         throw new Error(
@@ -246,8 +263,11 @@ class AuthoritativeSessionStore {
       }
     }
 
-    const updated = {
+    const nextVersion = existing?.version !== undefined ? existing.version + 1 : (session.version ?? 1);
+    session.version = nextVersion;
+    const updated: ProcurementSession = {
       ...session,
+      version: nextVersion,
       updatedAt: session.updatedAt ?? new Date().toISOString(),
     };
     this.sessions.set(session.id, JSON.parse(JSON.stringify(updated)));
@@ -353,6 +373,7 @@ class AuthoritativeSessionStore {
       paypalCaptureId: undefined,
       paypalInvoiceId: undefined,
       captureAmount: undefined,
+      captureIntent: undefined,
       invoiceStatus: undefined,
       quoteEvaluations: undefined,
       sourcingSummary: undefined,
@@ -408,6 +429,7 @@ class AuthoritativeSessionStore {
   public clear(): void {
     this.sessions.clear();
     this.mandateHistory.clear();
+    this.adapter.clear();
     const filePath = this.getCacheFilePath();
     if (filePath) {
       try {

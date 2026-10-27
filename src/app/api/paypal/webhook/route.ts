@@ -9,6 +9,8 @@ import { NextRequest } from "next/server";
 import { PayPalClient } from "@/lib/paypal-client";
 import { sessionStore } from "@/lib/session-store";
 import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
+import { defaultWebhookLedger } from "@/lib/webhook-deduplication";
+import { settlementLogger } from "@/lib/settlement-logger";
 
 export async function POST(req: NextRequest) {
   const rateLimit = await defaultRateLimiter.checkLimit(req, "PAYPAL_SETTLEMENT");
@@ -40,6 +42,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Deduplication check: protect against duplicate replays of previously processed events
+    if (event.id) {
+      if (defaultWebhookLedger.isProcessed(event.id)) {
+        settlementLogger.info("WEBHOOK_DEDUPLICATED", `Duplicate webhook event ${event.id} ignored`, {
+          metadata: { eventId: event.id, eventType: event.event_type },
+        });
+        return new Response(
+          JSON.stringify({ received: true, deduplicated: true, eventId: event.id }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const paypalClient = new PayPalClient();
     const webhookId = process.env.PAYPAL_WEBHOOK_ID ?? "MOCK_WEBHOOK_ID";
 
@@ -59,6 +74,10 @@ export async function POST(req: NextRequest) {
         status: 401,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    if (event.id) {
+      defaultWebhookLedger.recordProcessing(event.id, event.event_type);
     }
 
     // Process supported events and safely update session state
@@ -170,6 +189,10 @@ export async function POST(req: NextRequest) {
           sessionStore.releaseLock(sessionId);
         }
       }
+    }
+
+    if (event.id) {
+      defaultWebhookLedger.recordProcessed(event.id);
     }
 
     return new Response(JSON.stringify({ received: true, eventType: event.event_type }), {

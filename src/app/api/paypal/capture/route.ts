@@ -9,6 +9,11 @@
 import { NextRequest } from "next/server";
 import { SettlementService } from "@/lib/settlement-service";
 import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
+import {
+  defaultIdempotencyStore,
+  ConcurrentOperationInProgressError,
+  IdempotencyPayloadMismatchError,
+} from "@/lib/idempotency";
 
 export async function POST(req: NextRequest) {
   const rateLimit = await defaultRateLimiter.checkLimit(req, "PAYPAL_SETTLEMENT");
@@ -43,35 +48,82 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const service = new SettlementService();
-    const result = await service.completeSettlement({ sessionId, orderId, createInvoice });
+    const idempotencyKey =
+      req.headers.get("idempotency-key") || req.headers.get("x-idempotency-key");
 
-    if (!result.success) {
-      const statusCode = result.blockedAtGate ? 403 : 422;
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: result.error,
-          auditCertificate: result.auditCertificate,
-          blockedAtGate: result.blockedAtGate,
+    const executeOperation = async (): Promise<{
+      status: number;
+      body: Record<string, unknown>;
+    }> => {
+      const service = new SettlementService();
+      const result = await service.completeSettlement({ sessionId, orderId, createInvoice });
+
+      if (!result.success) {
+        const statusCode = result.blockedAtGate ? 403 : 422;
+        return {
+          status: statusCode,
+          body: {
+            success: false,
+            error: result.error,
+            auditCertificate: result.auditCertificate,
+            blockedAtGate: result.blockedAtGate,
+            orderId: result.orderId,
+          },
+        };
+      }
+
+      return {
+        status: 200,
+        body: {
+          success: true,
+          sessionId: result.sessionId,
           orderId: result.orderId,
-        }),
-        { status: statusCode, headers: { "Content-Type": "application/json" } }
-      );
+          authorizationId: result.authorizationId,
+          captureId: result.captureId,
+          invoiceId: result.invoiceId,
+          auditCertificate: result.auditCertificate,
+        },
+      };
+    };
+
+    if (idempotencyKey) {
+      try {
+        const { status, body: resBody, isReplay } = await defaultIdempotencyStore.executeIdempotent({
+          scope: "PAYPAL_CAPTURE",
+          key: idempotencyKey,
+          payload: body,
+          execute: executeOperation,
+        });
+
+        return new Response(JSON.stringify(resBody), {
+          status,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Idempotent-Replay": isReplay ? "true" : "false",
+          },
+        });
+      } catch (err) {
+        if (err instanceof ConcurrentOperationInProgressError) {
+          return new Response(
+            JSON.stringify({ error: err.message, code: "CONCURRENT_OPERATION_IN_PROGRESS" }),
+            { status: 409, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (err instanceof IdempotencyPayloadMismatchError) {
+          return new Response(
+            JSON.stringify({ error: err.message, code: "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH" }),
+            { status: 422, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        throw err;
+      }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        sessionId: result.sessionId,
-        orderId: result.orderId,
-        authorizationId: result.authorizationId,
-        captureId: result.captureId,
-        invoiceId: result.invoiceId,
-        auditCertificate: result.auditCertificate,
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    const outcome = await executeOperation();
+    return new Response(JSON.stringify(outcome.body), {
+      status: outcome.status,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch {
     return new Response(
       JSON.stringify({ error: "Internal server error occurred during audited capture processing." }),
