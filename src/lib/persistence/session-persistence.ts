@@ -63,6 +63,7 @@ export class DurableFilePersistenceAdapter implements SessionPersistenceAdapter 
   constructor(options?: { filePath?: string; strictMode?: boolean }) {
     this.filePath = options?.filePath || path.join(process.cwd(), ".pactum-sessions.json");
     this.strictMode = options?.strictMode ?? true;
+    this.cleanOrphanedTempFiles();
   }
 
   public getFilePath(): string | null {
@@ -119,6 +120,16 @@ export class DurableFilePersistenceAdapter implements SessionPersistenceAdapter 
     // Check if envelope format (with checksum)
     const envelope = parsed as Partial<PersistenceEnvelope<SessionPersistenceData>>;
     if (envelope.checksum && envelope.data) {
+      if (envelope.schemaVersion !== undefined && envelope.schemaVersion !== 1) {
+        const quarantinePath = this.quarantineCorruptFile("unsupported_schema_version");
+        const err = new CorruptPersistenceError(
+          `Unsupported schema version ${envelope.schemaVersion} in persistence file. Quarantined to ${quarantinePath}.`,
+          quarantinePath
+        );
+        if (this.strictMode) throw err;
+        return { sessions: [], mandateHistory: {} };
+      }
+
       const expectedChecksum = computePersistenceChecksum(envelope.data);
       if (envelope.checksum !== expectedChecksum) {
         const quarantinePath = this.quarantineCorruptFile("checksum_mismatch");
@@ -161,9 +172,11 @@ export class DurableFilePersistenceAdapter implements SessionPersistenceAdapter 
 
     const serialized = JSON.stringify(envelope, null, 2);
     const tempPath = `${this.filePath}.tmp.${Date.now()}.${Math.random().toString(36).substring(2, 8)}`;
+    let fd: number | null = null;
 
     try {
-      const fd = fs.openSync(tempPath, "w");
+      // Restrict file permissions to owner read/write (0o600) to protect financial data
+      fd = fs.openSync(tempPath, "w", 0o600);
       fs.writeSync(fd, serialized, 0, "utf-8");
       // Flush kernel buffers to ensure durable physical write before rename
       try {
@@ -172,10 +185,18 @@ export class DurableFilePersistenceAdapter implements SessionPersistenceAdapter 
         // Some virtualized or test filesystems may not support fsync
       }
       fs.closeSync(fd);
+      fd = null;
 
       // Atomic rename replaces target atomically
       fs.renameSync(tempPath, this.filePath);
     } catch (writeErr) {
+      if (fd !== null) {
+        try {
+          fs.closeSync(fd);
+        } catch {
+          // Ignore close error during exception handling
+        }
+      }
       // Clean up temporary file on failure
       try {
         if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
@@ -186,6 +207,39 @@ export class DurableFilePersistenceAdapter implements SessionPersistenceAdapter 
         throw new Error(`Failed to write durable session state to ${this.filePath}: ${writeErr instanceof Error ? writeErr.message : String(writeErr)}`);
       }
     }
+  }
+
+  /**
+   * Cleans orphaned temporary files left by abruptly terminated processes.
+   */
+  public cleanOrphanedTempFiles(maxAgeMs: number = 5 * 60 * 1000): number {
+    const dir = path.dirname(this.filePath);
+    if (!fs.existsSync(dir)) return 0;
+    const baseName = path.basename(this.filePath);
+    const prefix = `${baseName}.tmp.`;
+    const now = Date.now();
+    let cleaned = 0;
+
+    try {
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        if (file.startsWith(prefix)) {
+          const fullPath = path.join(dir, file);
+          try {
+            const stat = fs.statSync(fullPath);
+            if (now - stat.mtimeMs > maxAgeMs) {
+              fs.unlinkSync(fullPath);
+              cleaned++;
+            }
+          } catch {
+            // Ignore stat/unlink race
+          }
+        }
+      }
+    } catch {
+      // Ignore directory read error
+    }
+    return cleaned;
   }
 
   public clear(): void {

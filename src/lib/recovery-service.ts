@@ -314,18 +314,21 @@ export class RecoveryService {
       results.push(res);
     }
 
+    // Recover stale in-progress idempotency records from interrupted/crashed processes
+    const staleIdempotencyRecovered = defaultIdempotencyStore.recoverStaleInProgress();
     // Prune expired idempotency records
     const prunedIdempotencyRecords = defaultIdempotencyStore.pruneExpired();
 
     const recoveredCount = results.filter((r) => r.recovered).length;
     const unresolvedCount = results.filter((r) => !r.recovered).length;
 
-    settlementLogger.info("STATE_RECOVERY_COMPLETED", `Recovery sweep finished: ${recoveredCount} recovered, ${unresolvedCount} unresolved, ${prunedIdempotencyRecords} expired idempotency keys pruned.`, {
+    settlementLogger.info("STATE_RECOVERY_COMPLETED", `Recovery sweep finished: ${recoveredCount} recovered, ${unresolvedCount} unresolved, ${staleIdempotencyRecovered} stale idempotency keys recovered, ${prunedIdempotencyRecords} expired idempotency keys pruned.`, {
       metadata: {
         totalScanned: sessionStore.getAllSessions().length,
         interruptedCount: interrupted.length,
         recoveredCount,
         unresolvedCount,
+        staleIdempotencyRecovered,
         prunedIdempotencyRecords,
       },
     });

@@ -11,6 +11,7 @@
  */
 
 import crypto from "crypto";
+import { assertValidConfiguration } from "./env-validator";
 
 export interface PayPalConfig {
   clientId?: string;
@@ -139,6 +140,10 @@ export class PayPalClient {
   private tokenCache: CachedToken | null = null;
 
   constructor(config?: PayPalConfig) {
+    if (process.env.NODE_ENV === "production") {
+      assertValidConfiguration();
+    }
+
     this.clientId = config?.clientId ?? process.env.PAYPAL_CLIENT_ID ?? "";
     this.clientSecret = config?.clientSecret ?? process.env.PAYPAL_CLIENT_SECRET ?? "";
     this.baseUrl = config?.baseUrl ?? process.env.PAYPAL_BASE_URL ?? "https://api-m.sandbox.paypal.com";
@@ -146,6 +151,11 @@ export class PayPalClient {
     // Security check: Ensure baseUrl is not accidentally targeting live paypal if sandbox is expected
     if (!this.baseUrl.includes("sandbox") && process.env.NODE_ENV !== "production") {
       this.baseUrl = "https://api-m.sandbox.paypal.com";
+    }
+
+    // Prohibit pointing to sandbox URL when live mode is explicitly declared
+    if (this.baseUrl.includes("sandbox") && (process.env.PAYPAL_MODE === "live" || process.env.PAYPAL_ENVIRONMENT === "live")) {
+      throw new Error("Misconfiguration: PAYPAL_MODE is 'live' but PAYPAL_BASE_URL points to sandbox endpoint.");
     }
   }
 

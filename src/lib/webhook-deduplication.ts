@@ -29,8 +29,10 @@ export interface WebhookLedgerEnvelope {
 export class WebhookDeduplicationLedger {
   private entries = new Map<string, WebhookLedgerEntry>();
   private filePath: string | null;
+  public readonly processingTimeoutMs: number;
 
-  constructor(options?: { filePath?: string | null }) {
+  constructor(options?: { filePath?: string | null; processingTimeoutMs?: number }) {
+    this.processingTimeoutMs = options?.processingTimeoutMs ?? 30_000;
     if (options?.filePath !== undefined) {
       this.filePath = options.filePath;
     } else if (process.env.NODE_ENV === "test") {
@@ -41,6 +43,11 @@ export class WebhookDeduplicationLedger {
     this.loadFromDisk();
   }
 
+  public getEntry(eventId: string): WebhookLedgerEntry | undefined {
+    const entry = this.entries.get(eventId);
+    return entry ? JSON.parse(JSON.stringify(entry)) : undefined;
+  }
+
   public isProcessed(eventId: string): boolean {
     const entry = this.entries.get(eventId);
     return entry !== undefined && entry.status === "PROCESSED";
@@ -48,7 +55,9 @@ export class WebhookDeduplicationLedger {
 
   public isProcessing(eventId: string): boolean {
     const entry = this.entries.get(eventId);
-    return entry !== undefined && entry.status === "PROCESSING";
+    if (!entry || entry.status !== "PROCESSING") return false;
+    const age = Date.now() - new Date(entry.receivedAt).getTime();
+    return age <= this.processingTimeoutMs;
   }
 
   public isInProgress(eventId: string): boolean {
@@ -58,6 +67,9 @@ export class WebhookDeduplicationLedger {
   public recordProcessing(eventId: string, eventType: string, resourceId?: string): boolean {
     if (this.isProcessed(eventId)) {
       return false; // Already processed
+    }
+    if (this.isProcessing(eventId)) {
+      return false; // Currently active concurrent processing
     }
 
     this.entries.set(eventId, {

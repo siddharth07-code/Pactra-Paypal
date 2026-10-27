@@ -54,8 +54,10 @@ export interface IdempotentExecuteOptions<TReq, TRes> {
 export class DurableIdempotencyStore {
   private records = new Map<string, IdempotencyRecord>();
   private filePath: string | null;
+  public readonly inProgressTimeoutMs: number;
 
-  constructor(options?: { filePath?: string | null }) {
+  constructor(options?: { filePath?: string | null; inProgressTimeoutMs?: number }) {
+    this.inProgressTimeoutMs = options?.inProgressTimeoutMs ?? 60_000;
     if (options?.filePath !== undefined) {
       this.filePath = options.filePath;
     } else if (process.env.NODE_ENV === "test") {
@@ -108,9 +110,19 @@ export class DurableIdempotencyStore {
       }
 
       if (existing.status === "IN_PROGRESS") {
-        throw new ConcurrentOperationInProgressError(
-          `An operation for idempotency key '${key}' in scope '${scope}' is currently in progress.`
-        );
+        const age = Date.now() - new Date(existing.createdAt).getTime();
+        if (age > this.inProgressTimeoutMs) {
+          // Stale / abandoned operation from crashed or dead process
+          existing.status = "FAILED";
+          existing.error = "Previous execution timed out or process terminated while in progress.";
+          existing.completedAt = new Date().toISOString();
+          this.saveToDisk();
+          // Fall through to allow fresh execution
+        } else {
+          throw new ConcurrentOperationInProgressError(
+            `An operation for idempotency key '${key}' in scope '${scope}' is currently in progress.`
+          );
+        }
       }
 
       if (existing.status === "COMPLETED") {
@@ -238,11 +250,32 @@ export class DurableIdempotencyStore {
               this.records.set(compKey, record);
             }
           }
+          this.recoverStaleInProgress();
         }
       }
     } catch {
       // Corrupt file will be replaced on subsequent write
     }
+  }
+
+  public recoverStaleInProgress(maxAgeMs: number = this.inProgressTimeoutMs): number {
+    const now = Date.now();
+    let recovered = 0;
+    for (const record of this.records.values()) {
+      if (record.status === "IN_PROGRESS") {
+        const age = now - new Date(record.createdAt).getTime();
+        if (age >= maxAgeMs) {
+          record.status = "FAILED";
+          record.error = "Operation abandoned due to process restart or timeout.";
+          record.completedAt = new Date().toISOString();
+          recovered++;
+        }
+      }
+    }
+    if (recovered > 0) {
+      this.saveToDisk();
+    }
+    return recovered;
   }
 
   private saveToDisk(): void {

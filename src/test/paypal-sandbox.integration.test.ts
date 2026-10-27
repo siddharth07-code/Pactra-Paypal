@@ -58,7 +58,7 @@ describe("Live PayPal Sandbox Integration Tests", () => {
       expect(fetchedOrder.id).toBe(order.id);
       expect(fetchedOrder.intent).toBe("AUTHORIZE");
     },
-    15000
+    30000
   );
 
   it.runIf(hasCredentials)(
@@ -131,6 +131,6 @@ describe("Live PayPal Sandbox Integration Tests", () => {
       expect(updated.status).toBe("AWAITING_PAYPAL_APPROVAL");
       expect(updated.paypalOrderId).toBe(res.orderId);
     },
-    15000
+    30000
   );
 });

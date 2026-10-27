@@ -111,3 +111,19 @@ export function validateConfiguration(
     },
   };
 }
+
+/**
+ * Enforces valid configuration at runtime, throwing if running in production with invalid credentials.
+ */
+export function assertValidConfiguration(
+  envOverrides?: Record<string, string | undefined>
+): ConfigValidationResult {
+  const result = validateConfiguration(envOverrides);
+  if (!result.valid) {
+    throw new Error(
+      `Production Configuration Enforcement Failed: ${result.errors.join("; ")}`
+    );
+  }
+  return result;
+}
+

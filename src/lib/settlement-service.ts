@@ -1086,7 +1086,64 @@ export class SettlementService {
         };
       }
 
-      // If still authorized without capture, reset to PAYPAL_AUTHORIZED so capture can be retried safely
+      // Inspect if order was cancelled or voided remotely
+      if (orderDetails.status === "VOIDED") {
+        session.status = "CANCELLED";
+        if (session.captureIntent) {
+          session.captureIntent.status = "FAILED";
+          session.captureIntent.error = "Remote PayPal order was VOIDED.";
+          session.captureIntent.updatedAt = new Date().toISOString();
+        }
+        session.updatedAt = new Date().toISOString();
+        sessionStore.saveSession(session);
+
+        return {
+          success: true,
+          sessionId,
+          status: "CANCELLED",
+          reconciled: true,
+          message: "Remote PayPal order was VOIDED; session marked CANCELLED.",
+        };
+      }
+
+      // If capture was previously submitted and is UNCERTAIN, do NOT blindly reset to PAYPAL_AUTHORIZED!
+      // An in-flight capture request may still be processing remotely on PayPal's queue.
+      // Resetting to PAYPAL_AUTHORIZED would enable a second capture request, risking double-charging.
+      if (
+        session.captureIntent &&
+        (session.captureIntent.status === "UNCERTAIN" ||
+          session.captureIntent.status === "CAPTURE_SUBMITTED")
+      ) {
+        session.status = "CAPTURE_PENDING_RECONCILIATION";
+        session.captureIntent.status = "UNCERTAIN";
+        session.captureIntent.updatedAt = new Date().toISOString();
+        session.updatedAt = new Date().toISOString();
+        sessionStore.saveSession(session);
+
+        settlementLogger.warn(
+          "RECONCILIATION_STILL_PENDING",
+          "Remote order has no completed capture, but capture was previously submitted. Retaining CAPTURE_PENDING_RECONCILIATION to prevent blind double-capture.",
+          {
+            correlationId: sessionId,
+            sessionId,
+            metadata: {
+              remoteStatus: orderDetails.status,
+              intentId: session.captureIntent.intentId,
+            },
+          }
+        );
+
+        return {
+          success: false,
+          sessionId,
+          status: "CAPTURE_PENDING_RECONCILIATION",
+          reconciled: false,
+          message: `Remote order is in status '${orderDetails.status}' with no completed captures. In-flight capture remains uncertain; blind capture retry is strictly blocked until remote capture completes or order is cancelled.`,
+        };
+      }
+
+      // If capture was never submitted to PayPal (e.g. unconfirmed initial state without capture intent),
+      // reset to PAYPAL_AUTHORIZED so capture can proceed.
       session.status = "PAYPAL_AUTHORIZED";
       if (session.captureIntent) {
         session.captureIntent.status = "PENDING_CAPTURE";
@@ -1095,10 +1152,10 @@ export class SettlementService {
       session.updatedAt = new Date().toISOString();
       sessionStore.saveSession(session);
 
-      settlementLogger.info("RECONCILIATION_RESOLVED", "Reconciliation verified no capture occurred remotely. Status reset to PAYPAL_AUTHORIZED.", {
+      settlementLogger.info("RECONCILIATION_RESOLVED", "Reconciliation verified no capture was ever submitted. Status reset to PAYPAL_AUTHORIZED.", {
         correlationId: sessionId,
         sessionId,
-        metadata: { message: "No remote capture found. Reset to PAYPAL_AUTHORIZED." },
+        metadata: { message: "No remote capture submitted. Reset to PAYPAL_AUTHORIZED." },
       });
 
       return {
@@ -1106,7 +1163,7 @@ export class SettlementService {
         sessionId,
         status: "PAYPAL_AUTHORIZED",
         reconciled: true,
-        message: "Reconciliation verified no capture occurred remotely. Status reset to PAYPAL_AUTHORIZED.",
+        message: "Reconciliation verified no capture was ever submitted. Status reset to PAYPAL_AUTHORIZED.",
       };
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);

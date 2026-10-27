@@ -22,6 +22,22 @@ import type {
 
 export { CorruptPersistenceError };
 
+export class OptimisticConcurrencyError extends Error {
+  public readonly sessionId: string;
+  public readonly expectedVersion?: number;
+  public readonly actualVersion?: number;
+
+  constructor(sessionId: string, expectedVersion?: number, actualVersion?: number) {
+    super(
+      `Optimistic concurrency conflict on session ${sessionId}: expected version ${expectedVersion}, but current version is ${actualVersion}. Stale snapshot cannot overwrite newer state.`
+    );
+    this.name = "OptimisticConcurrencyError";
+    this.sessionId = sessionId;
+    this.expectedVersion = expectedVersion;
+    this.actualVersion = actualVersion;
+  }
+}
+
 export const ALLOWED_SESSION_TRANSITIONS: Record<
   ProcurementSessionStatus,
   ProcurementSessionStatus[]
@@ -190,7 +206,7 @@ export class AuthoritativeSessionStore {
       updatedAt: new Date().toISOString(),
     };
 
-    this.sessions.set(sessionId, session);
+    this.sessions.set(sessionId, JSON.parse(JSON.stringify(session)));
     this.mandateHistory.set(sessionId, [{ ...initialMandate }]);
     this.saveToDisk();
     return { ...session };
@@ -214,20 +230,24 @@ export class AuthoritativeSessionStore {
   }
 
   /**
-   * Saves or updates an authoritative session with state transition validation.
+   * Saves or updates an authoritative session with state transition validation
+   * and strict Optimistic Concurrency Control (OCC).
+   * If expectedVersion is provided or session.version differs from existing.version,
+   * conflicting updates are rejected.
+   * If persistence fails, in-memory state is atomically rolled back.
    */
-  public saveSession(session: ProcurementSession): void {
+  public saveSession(session: ProcurementSession, expectedVersion?: number): void {
     const existing = this.sessions.get(session.id);
     if (existing) {
-      // Optimistic Concurrency Control (OCC) check: prevent lost updates from concurrent writers
-      if (
-        session.version !== undefined &&
-        existing.version !== undefined &&
-        session.version < existing.version
-      ) {
-        throw new Error(
-          `Optimistic concurrency conflict on session ${session.id}: incoming version ${session.version} is older than current version ${existing.version}.`
-        );
+      // Strict Optimistic Concurrency Control (OCC) check
+      if (expectedVersion !== undefined) {
+        if (existing.version !== undefined && existing.version !== expectedVersion) {
+          throw new OptimisticConcurrencyError(session.id, expectedVersion, existing.version);
+        }
+      } else if (existing.version !== undefined) {
+        if (session.version !== undefined && session.version !== existing.version) {
+          throw new OptimisticConcurrencyError(session.id, session.version, existing.version);
+        }
       }
 
       // Validate critical terminal invariants to prevent illegal status downgrades
@@ -255,7 +275,8 @@ export class AuthoritativeSessionStore {
         existing.status === "CAPTURE_PENDING_RECONCILIATION" &&
         session.status !== "CAPTURE_PENDING_RECONCILIATION" &&
         session.status !== "PAYPAL_CAPTURED" &&
-        session.status !== "PAYPAL_AUTHORIZED"
+        session.status !== "PAYPAL_AUTHORIZED" &&
+        session.status !== "CANCELLED"
       ) {
         throw new Error(
           `Invalid state transition: CAPTURE_PENDING_RECONCILIATION session ${session.id} must be reconciled before transitioning to '${session.status}'.`
@@ -263,15 +284,27 @@ export class AuthoritativeSessionStore {
       }
     }
 
+    const priorSnapshot = existing ? JSON.parse(JSON.stringify(existing)) : undefined;
     const nextVersion = existing?.version !== undefined ? existing.version + 1 : (session.version ?? 1);
-    session.version = nextVersion;
     const updated: ProcurementSession = {
-      ...session,
+      ...JSON.parse(JSON.stringify(session)),
       version: nextVersion,
       updatedAt: session.updatedAt ?? new Date().toISOString(),
     };
-    this.sessions.set(session.id, JSON.parse(JSON.stringify(updated)));
-    this.saveToDisk();
+
+    this.sessions.set(session.id, updated);
+    try {
+      this.saveToDisk();
+      session.version = nextVersion;
+    } catch (persistErr) {
+      // Atomic rollback: restore prior in-memory snapshot if disk persistence fails
+      if (priorSnapshot) {
+        this.sessions.set(session.id, priorSnapshot);
+      } else {
+        this.sessions.delete(session.id);
+      }
+      throw persistErr;
+    }
   }
 
   /**

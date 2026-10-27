@@ -24,6 +24,7 @@ export type SettlementEventCode =
   | "IDEMPOTENCY_CONFLICT"
   | "WEBHOOK_RECEIVED"
   | "WEBHOOK_DEDUPLICATED"
+  | "WEBHOOK_CONCURRENT_PROCESSING"
   | "WEBHOOK_PROCESSED"
   | "STATE_RECOVERY_STARTED"
   | "STATE_RECOVERY_COMPLETED";
@@ -53,7 +54,7 @@ export interface OperationalMetrics {
 
 const SENSITIVE_KEY_REGEX = /access_token|authorization|client_secret|secret|password|card|cvv|token/i;
 
-function redactSensitiveData(obj: unknown, depth = 0): unknown {
+export function redactSensitiveData(obj: unknown, depth = 0): unknown {
   if (depth > 10) return "[MAX_DEPTH]";
   if (obj === null || obj === undefined) return obj;
   if (typeof obj !== "object") return obj;

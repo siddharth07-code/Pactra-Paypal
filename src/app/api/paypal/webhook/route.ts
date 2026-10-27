@@ -53,6 +53,15 @@ export async function POST(req: NextRequest) {
           { status: 200, headers: { "Content-Type": "application/json" } }
         );
       }
+      if (defaultWebhookLedger.isProcessing(event.id)) {
+        settlementLogger.warn("WEBHOOK_CONCURRENT_PROCESSING", `Concurrent webhook delivery for event ${event.id} is already in progress`, {
+          metadata: { eventId: event.id, eventType: event.event_type },
+        });
+        return new Response(
+          JSON.stringify({ error: "Concurrent webhook processing in progress.", eventId: event.id }),
+          { status: 409, headers: { "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const paypalClient = new PayPalClient();
@@ -118,20 +127,24 @@ export async function POST(req: NextRequest) {
                   amountObj.currency_code &&
                   amountObj.currency_code !== session.mandate.currency
                 ) {
+                  const errMsg = `Webhook capture currency mismatch: expected ${session.mandate.currency}, got ${amountObj.currency_code}.`;
+                  if (event.id) {
+                    defaultWebhookLedger.recordFailed(event.id, errMsg);
+                  }
                   return new Response(
-                    JSON.stringify({
-                      error: `Webhook capture currency mismatch: expected ${session.mandate.currency}, got ${amountObj.currency_code}.`,
-                    }),
+                    JSON.stringify({ error: errMsg }),
                     { status: 422, headers: { "Content-Type": "application/json" } }
                   );
                 }
                 if (amountObj.value && expectedTotal > 0) {
                   const capturedVal = parseFloat(amountObj.value);
                   if (Math.abs(capturedVal - expectedTotal) > 0.01) {
+                    const errMsg = `Webhook capture amount mismatch: expected ${expectedTotal}, got ${capturedVal}.`;
+                    if (event.id) {
+                      defaultWebhookLedger.recordFailed(event.id, errMsg);
+                    }
                     return new Response(
-                      JSON.stringify({
-                        error: `Webhook capture amount mismatch: expected ${expectedTotal}, got ${capturedVal}.`,
-                      }),
+                      JSON.stringify({ error: errMsg }),
                       { status: 422, headers: { "Content-Type": "application/json" } }
                     );
                   }
@@ -199,8 +212,9 @@ export async function POST(req: NextRequest) {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch {
-    return new Response(JSON.stringify({ error: "Internal webhook processing error." }), {
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: "Internal webhook processing error.", detail: errMsg }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
