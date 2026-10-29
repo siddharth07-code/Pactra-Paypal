@@ -602,6 +602,7 @@ export interface IdempotencyRecord<T = unknown> {
   createdAt: string;
   completedAt?: string;
   expiresAt: string;
+  executionId?: string;
 }
 
 export type DisputeCategory =

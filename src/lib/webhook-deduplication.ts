@@ -158,6 +158,16 @@ export class WebhookDeduplicationLedger {
       const tempPath = `${this.filePath}.tmp.${Date.now()}.${Math.random().toString(36).substring(2, 8)}`;
       fs.writeFileSync(tempPath, JSON.stringify(envelope, null, 2), "utf-8");
       fs.renameSync(tempPath, this.filePath);
+      try {
+        const dirFd = fs.openSync(dir, "r");
+        try {
+          fs.fsyncSync(dirFd);
+        } finally {
+          fs.closeSync(dirFd);
+        }
+      } catch {
+        // Ignored on filesystems or OS that restrict directory fsync
+      }
     } catch {
       // Background write failure ignored
     }

@@ -18,6 +18,8 @@ export async function POST(req: NextRequest) {
     return createRateLimitResponse(rateLimit);
   }
 
+  let webhookEvent: { id?: string; event_type?: string; resource?: Record<string, unknown> } | undefined;
+
   try {
     const authAlgo = req.headers.get("paypal-auth-algo") ?? "";
     const certUrl = req.headers.get("paypal-cert-url") ?? "";
@@ -25,9 +27,8 @@ export async function POST(req: NextRequest) {
     const transmissionSig = req.headers.get("paypal-transmission-sig") ?? "";
     const transmissionTime = req.headers.get("paypal-transmission-time") ?? "";
 
-    let event: { id?: string; event_type?: string; resource?: Record<string, unknown> };
     try {
-      event = await req.json();
+      webhookEvent = await req.json();
     } catch {
       return new Response(JSON.stringify({ error: "Malformed JSON payload." }), {
         status: 400,
@@ -35,12 +36,23 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!event.event_type || !event.resource) {
+    if (
+      !webhookEvent ||
+      typeof webhookEvent.event_type !== "string" ||
+      !webhookEvent.resource ||
+      typeof webhookEvent.resource !== "object"
+    ) {
       return new Response(JSON.stringify({ error: "Invalid webhook payload structure." }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    const event = {
+      id: webhookEvent.id,
+      event_type: webhookEvent.event_type,
+      resource: webhookEvent.resource,
+    };
 
     // Deduplication check: protect against duplicate replays of previously processed events
     if (event.id) {
@@ -214,6 +226,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
+    if (webhookEvent?.id) {
+      defaultWebhookLedger.recordFailed(webhookEvent.id, errMsg);
+    }
     return new Response(JSON.stringify({ error: "Internal webhook processing error.", detail: errMsg }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

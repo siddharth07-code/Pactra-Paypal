@@ -97,7 +97,7 @@ export class DurableIdempotencyStore {
     key: string,
     payload: unknown,
     ttlMs: number = 24 * 60 * 60 * 1000
-  ): { status: "NEW" } | { status: "REPLAY"; record: IdempotencyRecord } {
+  ): { status: "NEW"; executionId: string } | { status: "REPLAY"; record: IdempotencyRecord } {
     const compKey = this.compositeKey(scope, key);
     const fingerprint = this.computeFingerprint(payload);
     const existing = this.getRecord(scope, key);
@@ -132,6 +132,7 @@ export class DurableIdempotencyStore {
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
+    const executionId = `exec_${crypto.randomBytes(8).toString("hex")}`;
 
     const record: IdempotencyRecord = {
       key,
@@ -140,22 +141,33 @@ export class DurableIdempotencyStore {
       status: "IN_PROGRESS",
       createdAt: now.toISOString(),
       expiresAt,
+      executionId,
     };
 
     this.records.set(compKey, record);
     this.saveToDisk();
-    return { status: "NEW" };
+    return { status: "NEW", executionId };
   }
 
   public recordCompleted<T>(
     scope: string,
     key: string,
     responseStatus: number,
-    responseBody: T
-  ): void {
+    responseBody: T,
+    executionId?: string
+  ): boolean {
     const compKey = this.compositeKey(scope, key);
     const record = this.records.get(compKey);
-    if (!record) return;
+    if (!record) return false;
+
+    // Fencing token check: do not let a stale worker overwrite a newer worker's in-progress execution
+    if (executionId && record.executionId && record.executionId !== executionId) {
+      return false;
+    }
+    // If the record was already marked FAILED (due to timeout) or completed, reject stale completion
+    if (record.status !== "IN_PROGRESS") {
+      return false;
+    }
 
     record.status = "COMPLETED";
     record.responseStatus = responseStatus;
@@ -163,18 +175,28 @@ export class DurableIdempotencyStore {
     record.completedAt = new Date().toISOString();
 
     this.saveToDisk();
+    return true;
   }
 
-  public recordFailed(scope: string, key: string, error: string): void {
+  public recordFailed(scope: string, key: string, error: string, executionId?: string): boolean {
     const compKey = this.compositeKey(scope, key);
     const record = this.records.get(compKey);
-    if (!record) return;
+    if (!record) return false;
+
+    // Fencing token check: do not let a stale worker overwrite a newer worker's in-progress execution
+    if (executionId && record.executionId && record.executionId !== executionId) {
+      return false;
+    }
+    if (record.status !== "IN_PROGRESS") {
+      return false;
+    }
 
     record.status = "FAILED";
     record.error = error;
     record.completedAt = new Date().toISOString();
 
     this.saveToDisk();
+    return true;
   }
 
   /**
@@ -194,9 +216,11 @@ export class DurableIdempotencyStore {
       };
     }
 
+    const { executionId } = progress;
+
     try {
       const outcome = await execute();
-      this.recordCompleted(scope, key, outcome.status, outcome.body);
+      this.recordCompleted(scope, key, outcome.status, outcome.body, executionId);
       return {
         status: outcome.status,
         body: outcome.body,
@@ -204,7 +228,7 @@ export class DurableIdempotencyStore {
       };
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      this.recordFailed(scope, key, errMsg);
+      this.recordFailed(scope, key, errMsg, executionId);
       throw err;
     }
   }
@@ -300,6 +324,16 @@ export class DurableIdempotencyStore {
       const tempPath = `${this.filePath}.tmp.${Date.now()}.${Math.random().toString(36).substring(2, 8)}`;
       fs.writeFileSync(tempPath, JSON.stringify(envelope, null, 2), "utf-8");
       fs.renameSync(tempPath, this.filePath);
+      try {
+        const dirFd = fs.openSync(dir, "r");
+        try {
+          fs.fsyncSync(dirFd);
+        } finally {
+          fs.closeSync(dirFd);
+        }
+      } catch {
+        // Ignored on filesystems or OS that restrict directory fsync
+      }
     } catch {
       // Silently continue if background disk write fails
     }

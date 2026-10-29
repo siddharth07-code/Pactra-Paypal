@@ -189,6 +189,18 @@ export class DurableFilePersistenceAdapter implements SessionPersistenceAdapter 
 
       // Atomic rename replaces target atomically
       fs.renameSync(tempPath, this.filePath);
+
+      // Flush directory metadata to disk to guarantee persistence across OS crash / power failure
+      try {
+        const dirFd = fs.openSync(dir, "r");
+        try {
+          fs.fsyncSync(dirFd);
+        } finally {
+          fs.closeSync(dirFd);
+        }
+      } catch {
+        // Ignored on filesystems or OS that restrict directory fsync
+      }
     } catch (writeErr) {
       if (fd !== null) {
         try {
