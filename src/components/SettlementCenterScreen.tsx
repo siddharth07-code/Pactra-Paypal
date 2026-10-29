@@ -411,6 +411,14 @@ export function SettlementCenterScreen({
                     <span className="text-[#6e6e78] dark:text-[#8e8a83]">Return Policy Window:</span>
                     <span className="text-obsidian dark:text-[#f6f4f0]">{finalOffer?.returnDays ?? "—"} Days (Min {mandate?.minReturnDays}d)</span>
                   </div>
+                  {session.agreementRecord && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-[#6e6e78] dark:text-[#8e8a83]">Agreement Record:</span>
+                      <span className="font-mono-token text-[11px] text-architect-violet dark:text-[#a78bfa] bg-warm-cream dark:bg-[#1f1f25] px-2 py-0.5 rounded border border-architect-violet/20 font-medium" title={session.agreementRecord.agreementId}>
+                        {session.agreementRecord.agreementId.slice(0, 18)}... (R{session.agreementRecord.round})
+                      </span>
+                    </div>
+                  )}
 
                   {/* Financial Comparison: Budget Ceiling vs Negotiated Landed Total */}
                   <div className="pt-3.5 border-t border-smoke/80 dark:border-[#2b2b32] space-y-2">

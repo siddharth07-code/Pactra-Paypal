@@ -9,6 +9,7 @@ import {
 import {
   ShieldCheck,
   Lock,
+  Info,
 } from "lucide-react";
 import type { ProcurementSession, MerkleAuditNode } from "@/types/pactum";
 
@@ -225,6 +226,55 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
           </div>
         </div>
       )}
+
+      {/* Evaluator Architecture & Verification Guide */}
+      <details className="group bg-paper-white dark:bg-[#18181b] rounded-cards border border-smoke dark:border-[#2b2b32] p-5 shadow-2xs transition-colors">
+        <summary className="flex items-center justify-between cursor-pointer list-none select-none">
+          <div className="flex items-center gap-2.5">
+            <Info className="w-4 h-4 text-architect-violet dark:text-[#a78bfa] shrink-0" aria-hidden="true" />
+            <span className="text-[13.5px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+              Evaluator Guide: Understanding VeriPay Evidence &amp; ACWORLD Audit
+            </span>
+          </div>
+          <span className="text-[12px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83] group-open:rotate-180 transition-transform">
+            ▼
+          </span>
+        </summary>
+        <div className="pt-4 mt-3 border-t border-smoke/70 dark:border-[#242429] grid grid-cols-1 md:grid-cols-2 gap-4 text-[12.5px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
+          <div className="space-y-1.5 p-3 rounded-[6px] bg-smoke/20 dark:bg-[#151518] border border-smoke/50 dark:border-[#202024]">
+            <div className="font-semibold text-obsidian dark:text-[#f6f4f0] text-[13px]">
+              1. Mandate Commitment &amp; Acceptance
+            </div>
+            <p>
+              The procurement officer locks budget and SLA bounds. The buyer agent negotiates with competing vendors. A winning agreement is explicitly accepted only when it satisfies all constraints.
+            </p>
+          </div>
+          <div className="space-y-1.5 p-3 rounded-[6px] bg-smoke/20 dark:bg-[#151518] border border-smoke/50 dark:border-[#202024]">
+            <div className="font-semibold text-obsidian dark:text-[#f6f4f0] text-[13px]">
+              2. Independent 5-Invariant Audit
+            </div>
+            <p>
+              Before PayPal capture, the server independently recalculates landed cost arithmetic, validates SKU &amp; condition, verifies return window attestation, checks delivery SLA, and confirms cryptographic lineage. Any invariant failure immediately blocks payment capture.
+            </p>
+          </div>
+          <div className="space-y-1.5 p-3 rounded-[6px] bg-smoke/20 dark:bg-[#151518] border border-smoke/50 dark:border-[#202024]">
+            <div className="font-semibold text-obsidian dark:text-[#f6f4f0] text-[13px]">
+              3. SHA-256 Merkle Flight Recorder
+            </div>
+            <p>
+              Every turn and attestation is canonicalized and committed into a binary Merkle tree. The Merkle root proves record immutability and sequence integrity; physical supplier fulfillment remains subject to real-world performance.
+            </p>
+          </div>
+          <div className="space-y-1.5 p-3 rounded-[6px] bg-smoke/20 dark:bg-[#151518] border border-smoke/50 dark:border-[#202024]">
+            <div className="font-semibold text-obsidian dark:text-[#f6f4f0] text-[13px]">
+              4. PayPal Sandbox Integration
+            </div>
+            <p>
+              Orders v2 authorization binds the pre-settlement root to <code className="font-mono-token text-architect-violet dark:text-[#a78bfa]">custom_id</code>. Audited capture releases funds and creates an itemized B2B invoice strictly behind the server-side audit gate.
+            </p>
+          </div>
+        </div>
+      </details>
 
       {/* 5 ACWORLD Invariants Structured Verification Checklist */}
       <div className="bg-paper-white dark:bg-[#18181b] rounded-cards border border-smoke dark:border-[#2b2b32] shadow-2xs overflow-hidden transition-colors">

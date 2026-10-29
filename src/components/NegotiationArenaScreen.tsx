@@ -490,6 +490,11 @@ export function NegotiationArenaScreen({
                         </span>
                       </div>
 
+                      <div className="text-[12.5px] text-[#006840] dark:text-[#4ade80] flex items-center gap-1.5 font-medium">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        <span>Agreement Accepted: Mutual agreement recorded and committed to pre-settlement Merkle tree.</span>
+                      </div>
+
                       {onProceedToSettlement && (
                         <div className="pt-1">
                           <button
