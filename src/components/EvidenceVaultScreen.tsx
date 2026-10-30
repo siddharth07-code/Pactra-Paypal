@@ -14,7 +14,7 @@ import {
 import type { ProcurementSession, MerkleAuditNode } from "@/types/pactum";
 
 interface EvidenceVaultScreenProps {
-  session?: ProcurementSession
+  session?: ProcurementSession;
 }
 
 interface EvidenceInspectionData {
@@ -445,8 +445,8 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
               type="button"
               onClick={() => setActiveTab("timeline")}
               className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${activeTab === "timeline"
-                  ? "bg-paper-white dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] shadow-2xs border border-smoke dark:border-[#2e2e34]"
-                  : "text-[#6e6e78] dark:text-[#8e8a83] hover:text-obsidian dark:hover:text-[#f6f4f0]"
+                ? "bg-paper-white dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] shadow-2xs border border-smoke dark:border-[#2e2e34]"
+                : "text-[#6e6e78] dark:text-[#8e8a83] hover:text-obsidian dark:hover:text-[#f6f4f0]"
                 }`}
             >
               Committed Event Ledger ({committedNodes.length || evidenceData?.leaves?.length || 0})
@@ -455,8 +455,8 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
               type="button"
               onClick={() => setActiveTab("tree")}
               className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${activeTab === "tree"
-                  ? "bg-paper-white dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] shadow-2xs border border-smoke dark:border-[#2e2e34]"
-                  : "text-[#6e6e78] dark:text-[#8e8a83] hover:text-obsidian dark:hover:text-[#f6f4f0]"
+                ? "bg-paper-white dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] shadow-2xs border border-smoke dark:border-[#2e2e34]"
+                : "text-[#6e6e78] dark:text-[#8e8a83] hover:text-obsidian dark:hover:text-[#f6f4f0]"
                 }`}
             >
               Merkle Tree Levels ({evidenceData?.levels?.length || 0})
