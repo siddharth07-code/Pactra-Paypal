@@ -313,6 +313,9 @@ export function NegotiationArenaScreen({
 
                 // 2. BUYER PROPOSAL
                 if (ev.type === "BUYER_PROPOSAL") {
+                  const proposedOffer = p.proposedOffer as { unitPrice?: number; deliveryDays?: number; returnDays?: number } | undefined;
+                  const thresholdVal = typeof p.threshold === "number" ? p.threshold : undefined;
+
                   return (
                     <div
                       key={ev.id}
@@ -321,34 +324,60 @@ export function NegotiationArenaScreen({
                       <div className="flex items-center justify-between text-[12px]">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
-                            Buyer Agent → {String(p.vendorName || p.vendorId)}
+                            Buyer Agent (Gemini) → {String(p.vendorName || p.vendorId)}
                           </span>
                           <span className="text-[#737373] dark:text-[#a3a3a3]">
                             (Round {String(p.round)})
                           </span>
                         </div>
-                        <span className="text-[12px] font-sans tabular-nums font-medium text-architect-violet dark:text-[#a78bfa]">
-                          Utility: {typeof p.utilityScore === "number" ? p.utilityScore.toFixed(3) : "—"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[12px] font-sans tabular-nums font-medium text-architect-violet dark:text-[#a78bfa]">
+                            Utility: {typeof p.utilityScore === "number" ? p.utilityScore.toFixed(3) : "—"}
+                            {thresholdVal !== undefined && (
+                              <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3] font-normal ml-1">
+                                (τ: {thresholdVal.toFixed(3)})
+                              </span>
+                            )}
+                          </span>
+                        </div>
                       </div>
 
                       <p className="text-[13px] text-[#4a4a52] dark:text-[#c4c0ba] leading-relaxed italic">
                         &ldquo;{String(p.message)}&rdquo;
                       </p>
 
-                      {Boolean(p.proposedOffer && typeof p.proposedOffer === "object") && (
+                      {Boolean(proposedOffer) && (
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1.5 border-t border-smoke/70 dark:border-[#27272a] text-[12px] font-sans tabular-nums text-[#737373] dark:text-[#a3a3a3]">
-                          <span>Unit Bid: ${(p.proposedOffer as { unitPrice?: number }).unitPrice}</span>
-                          <span>Delivery: {(p.proposedOffer as { deliveryDays?: number }).deliveryDays}d</span>
-                          <span>Return: {(p.proposedOffer as { returnDays?: number }).returnDays}d</span>
+                          <span>Unit Bid: <strong className="text-obsidian dark:text-[#f6f4f0] font-semibold">${proposedOffer?.unitPrice}</strong></span>
+                          <span>Delivery SLA: <strong className="text-obsidian dark:text-[#f6f4f0] font-semibold">{proposedOffer?.deliveryDays}d</strong></span>
+                          <span>Return Window: <strong className="text-obsidian dark:text-[#f6f4f0] font-semibold">{proposedOffer?.returnDays}d</strong></span>
+                          <span className="ml-auto text-[11px] text-[#006840] dark:text-[#4ade80] font-mono-token">
+                            Guardrail Passed
+                          </span>
                         </div>
                       )}
                     </div>
                   );
                 }
 
-                // 3. GUARDRAIL INTERVENTION / BLOCKED (Clean, restrained, non-shouting presentation)
+                // 3. GUARDRAIL INTERVENTION / BLOCKED (Mathematically explicit, clean presentation)
                 if (ev.type === "GUARDRAIL_INTERVENTION" || ev.type === "GUARDRAIL_BLOCKED") {
+                  const reasonStr = String(p.reason || p.detail || "Predicate constraint violation");
+                  let predicateName = "Mechanism-Design Guardrail";
+                  if (/budget|exceed|shipping|feasibility/i.test(reasonStr)) {
+                    predicateName = "Predicate A — Feasibility & Budget Limit";
+                  } else if (/leakage|reservation|disclose/i.test(reasonStr)) {
+                    predicateName = "Predicate B — Reservation-Price Leakage";
+                  } else if (/utility|normaliz/i.test(reasonStr)) {
+                    predicateName = "Predicate C — Multi-Attribute Utility";
+                  } else if (/boulware|threshold|decay/i.test(reasonStr)) {
+                    predicateName = "Predicate D — Boulware Utility Threshold";
+                  } else if (/anti-thrashing|monotonic|previous buyer/i.test(reasonStr)) {
+                    predicateName = "Predicate E — Anti-Thrashing Monotonicity";
+                  }
+
+                  const rejectedOffer = p.rejectedOffer as { unitPrice?: number; deliveryDays?: number; returnDays?: number } | undefined;
+
                   return (
                     <div
                       key={ev.id}
@@ -357,19 +386,25 @@ export function NegotiationArenaScreen({
                       <div className="flex items-center justify-between text-[12px]">
                         <div className="flex items-center gap-1.5 text-ember-orange font-semibold">
                           <ShieldAlert className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          <span>Proposal blocked by guardrail</span>
+                          <span>{predicateName} Intervened</span>
                         </div>
                         <span className="text-[10.5px] font-mono-token font-medium px-1.5 py-0.5 rounded bg-ember-orange/15 text-ember-orange border border-ember-orange/25 uppercase">
-                          Intercepted
+                          Purged from Queue
                         </span>
                       </div>
 
                       <div className="text-[12.5px] text-obsidian dark:text-[#f6f4f0] leading-snug">
-                        <span className="text-[#737373] dark:text-[#a3a3a3]">Evaluated Reason:</span>{" "}
+                        <span className="text-[#737373] dark:text-[#a3a3a3]">Mathematical Violation:</span>{" "}
                         <span className="font-medium text-ember-orange">
-                          {String(p.reason || p.detail || "Predicate constraint violation")}
+                          {reasonStr}
                         </span>
                       </div>
+
+                      {rejectedOffer && (
+                        <div className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3] font-mono-token pt-0.5">
+                          Blocked Offer: ${rejectedOffer.unitPrice}/unit • {rejectedOffer.deliveryDays}d delivery • {rejectedOffer.returnDays}d return
+                        </div>
+                      )}
 
                       {/* Accessible Technical Disclosure Control */}
                       <details className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3] pt-1 group">
@@ -380,7 +415,7 @@ export function NegotiationArenaScreen({
                         <div className="mt-1.5 p-2 rounded bg-smoke/40 dark:bg-[#121214] font-mono-token text-[11px] space-y-1 border border-smoke/70 dark:border-[#27272a]">
                           <div>Target Vendor: {String(p.vendorName || p.vendorId)}</div>
                           <div>Status: {String(p.status || "GUARDRAIL_BLOCKED")}</div>
-                          <div>Transmission: Purged from outbound queue. Regeneration triggered.</div>
+                          <div>Action: Outgoing message purged. AI prompt regenerated under tighter mathematical constraints.</div>
                         </div>
                       </details>
                     </div>
@@ -389,6 +424,11 @@ export function NegotiationArenaScreen({
 
                 // 4. VENDOR COUNTEROFFER
                 if (ev.type === "VENDOR_COUNTEROFFER") {
+                  const quote = quotes.find((q) => q.vendorId === p.vendorId);
+                  const initialAsk = quote?.initialUnitAsk;
+                  const newAsk = Number(p.newUnitAsk);
+                  const concession = initialAsk && !isNaN(newAsk) && initialAsk > newAsk ? initialAsk - newAsk : null;
+
                   return (
                     <div
                       key={ev.id}
@@ -398,9 +438,16 @@ export function NegotiationArenaScreen({
                         <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
                           {String(p.vendorName || p.vendorId)} Counteroffer
                         </span>
-                        <span className="font-sans font-semibold text-[#006840] dark:text-[#4ade80] tabular-nums">
-                          New Ask: ${String(p.newUnitAsk)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {concession !== null && (
+                            <span className="text-[11px] font-mono-token text-[#006840] dark:text-[#4ade80]">
+                              (-${concession.toFixed(2)} concession)
+                            </span>
+                          )}
+                          <span className="font-sans font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                            New Ask: ${String(p.newUnitAsk)}
+                          </span>
+                        </div>
                       </div>
 
                       {Boolean(p.turn && typeof p.turn === "object") && (

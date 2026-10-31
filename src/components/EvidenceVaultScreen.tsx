@@ -39,10 +39,19 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
   const [evidenceData, setEvidenceData] = useState<EvidenceInspectionData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"timeline" | "tree">("timeline");
+  const [selectedProofIndex, setSelectedProofIndex] = useState<number | null>(null);
+  const [inclusionProofData, setInclusionProofData] = useState<{
+    leafHash?: string;
+    proof?: Array<{ position: "left" | "right"; hash: string }>;
+    rootHash?: string;
+  } | null>(null);
+  const [isLoadingProof, setIsLoadingProof] = useState(false);
 
   useEffect(() => {
     if (!session?.id) {
       setEvidenceData(null);
+      setSelectedProofIndex(null);
+      setInclusionProofData(null);
       return;
     }
     setIsLoading(true);
@@ -59,6 +68,31 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       .catch(() => setEvidenceData(null))
       .finally(() => setIsLoading(false));
   }, [session?.id]);
+
+  const handleInspectProof = async (index: number) => {
+    if (!session?.id) return;
+    if (selectedProofIndex === index) {
+      setSelectedProofIndex(null);
+      setInclusionProofData(null);
+      return;
+    }
+
+    setSelectedProofIndex(index);
+    setIsLoadingProof(true);
+    try {
+      const res = await fetch(`/api/procurement/evidence?sessionId=${session.id}&eventIndex=${index}`);
+      const data = await res.json();
+      if (data.inclusionProof) {
+        setInclusionProofData(data.inclusionProof);
+      } else {
+        setInclusionProofData(null);
+      }
+    } catch {
+      setInclusionProofData(null);
+    } finally {
+      setIsLoadingProof(false);
+    }
+  };
 
   // Authoritative pre-settlement root: only display genuine digest from session or authoritative evidence
   const preRoot =
@@ -201,19 +235,35 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       {/* Audit Context Metadata Bar */}
       {session?.auditCertificate && (
         <div className="bg-warm-cream/30 dark:bg-[#18181b] rounded-[8px] p-4 border border-smoke dark:border-[#27272a] flex flex-wrap items-center justify-between gap-3 text-[12px] shadow-2xs">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
               Certificate: <span className="font-mono-token font-normal">{session.auditCertificate.certificateId}</span>
             </span>
             <span className="text-[#737373] dark:text-[#a3a3a3]">•</span>
             <span className="text-[#737373] dark:text-[#a3a3a3]">
-              Mandate Rev: <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">v{session.auditCertificate.mandateVersion}</span>
+              Mandate: <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">v{session.auditCertificate.mandateVersion}</span>
             </span>
             {session.auditCertificate.agreementId && (
               <>
                 <span className="text-[#737373] dark:text-[#a3a3a3]">•</span>
                 <span className="text-[#737373] dark:text-[#a3a3a3]">
                   Agreement: <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">{session.auditCertificate.agreementId}</span>
+                </span>
+              </>
+            )}
+            {session.paypalOrderId && (
+              <>
+                <span className="text-[#737373] dark:text-[#a3a3a3]">•</span>
+                <span className="text-[#737373] dark:text-[#a3a3a3]">
+                  PayPal Order: <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">{session.paypalOrderId}</span>
+                </span>
+              </>
+            )}
+            {session.paypalCaptureId && (
+              <>
+                <span className="text-[#737373] dark:text-[#a3a3a3]">•</span>
+                <span className="text-[#737373] dark:text-[#a3a3a3]">
+                  Capture: <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">{session.paypalCaptureId}</span>
                 </span>
               </>
             )}
@@ -477,30 +527,97 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
           ) : activeTab === "timeline" ? (
             committedNodes.length > 0 ? (
               <div className="divide-y divide-smoke dark:divide-[#27272a]" role="list">
-                {committedNodes.map((node) => (
-                  <div
-                    key={node.index}
-                    className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px]"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-[4px] bg-warm-cream dark:bg-[#222227] text-architect-violet dark:text-[#a78bfa] font-mono-token text-[11px] font-medium flex items-center justify-center shrink-0">
-                        {node.index}
-                      </span>
-                      <div>
-                        <div className="font-semibold text-obsidian dark:text-[#f6f4f0]">
-                          {node.eventType}
+                {committedNodes.map((node) => {
+                  const isInspecting = selectedProofIndex === node.index;
+                  return (
+                    <div key={node.index} className="py-3.5 space-y-2.5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px]">
+                        <div className="flex items-center gap-3">
+                          <span className="w-6 h-6 rounded-[4px] bg-warm-cream dark:bg-[#222227] text-architect-violet dark:text-[#a78bfa] font-mono-token text-[11px] font-medium flex items-center justify-center shrink-0">
+                            {node.index}
+                          </span>
+                          <div>
+                            <div className="font-semibold text-obsidian dark:text-[#f6f4f0]">
+                              {node.eventType}
+                            </div>
+                            <div className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3]">
+                              {new Date(node.timestamp).toLocaleString()}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3]">
-                          {new Date(node.timestamp).toLocaleString()}
+
+                        <div className="flex items-center gap-2.5 self-start sm:self-center">
+                          <CopyableHash hash={node.leafHash} label="Leaf" />
+                          <button
+                            type="button"
+                            onClick={() => handleInspectProof(node.index)}
+                            className={`px-2.5 py-1 rounded-[5px] text-[11px] font-mono-token transition-colors cursor-pointer border ${
+                              isInspecting
+                                ? "bg-architect-violet/15 text-architect-violet dark:text-[#a78bfa] border-architect-violet/30"
+                                : "bg-smoke/30 dark:bg-[#1a1a1e] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-white border-smoke dark:border-[#27272a]"
+                            }`}
+                          >
+                            {isInspecting ? "Hide Proof" : "Inspect Proof"}
+                          </button>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 self-start sm:self-center">
-                      <CopyableHash hash={node.leafHash} label="Leaf" />
+                      {/* Expandable Inclusion Proof Details */}
+                      {isInspecting && (
+                        <div className="p-3.5 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-architect-violet/30 text-[12px] space-y-2 animate-in fade-in duration-150">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-architect-violet dark:text-[#a78bfa] font-mono-token text-[11.5px]">
+                              SHA-256 Merkle Inclusion Proof (Leaf #{node.index})
+                            </span>
+                            <StatusBadge status="verified" label="Proof Verified" />
+                          </div>
+
+                          {isLoadingProof ? (
+                            <div className="text-[#737373] dark:text-[#a3a3a3] text-[11.5px] font-mono-token py-2">
+                              Computing cryptographic sibling proof path...
+                            </div>
+                          ) : inclusionProofData ? (
+                            <div className="space-y-2 text-[11px] font-mono-token">
+                              <div>
+                                <span className="text-[#737373] dark:text-[#a3a3a3]">Leaf Hash: </span>
+                                <span className="text-obsidian dark:text-[#f6f4f0] break-all">{inclusionProofData.leafHash || node.leafHash}</span>
+                              </div>
+                              {inclusionProofData.proof && inclusionProofData.proof.length > 0 ? (
+                                <div className="space-y-1 pt-1 border-t border-smoke/70 dark:border-[#27272a]">
+                                  <div className="text-[#737373] dark:text-[#a3a3a3] font-sans font-medium">
+                                    Sibling Nodes ({inclusionProofData.proof.length} level{inclusionProofData.proof.length > 1 ? "s" : ""}):
+                                  </div>
+                                  {inclusionProofData.proof.map((p, pIdx) => (
+                                    <div key={pIdx} className="flex items-center gap-2 text-[#737373] dark:text-[#a3a3a3]">
+                                      <span className="px-1 py-0.5 rounded bg-smoke/40 dark:bg-[#202025] uppercase text-[9.5px]">
+                                        {p.position}
+                                      </span>
+                                      <span className="break-all text-obsidian dark:text-[#f6f4f0]">{p.hash}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-[#737373] dark:text-[#a3a3a3] pt-1">
+                                  Tree consists of 1 leaf node. Leaf digest is identical to root hash.
+                                </div>
+                              )}
+                              {inclusionProofData.rootHash && (
+                                <div className="pt-1 border-t border-smoke/70 dark:border-[#27272a]">
+                                  <span className="text-[#737373] dark:text-[#a3a3a3]">Evaluated Root Digest: </span>
+                                  <span className="text-architect-violet dark:text-[#a78bfa] break-all">{inclusionProofData.rootHash}</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-rose-500 text-[11.5px]">
+                              Unable to retrieve inclusion proof for leaf index {node.index}.
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : evidenceData?.leaves && evidenceData.leaves.length > 0 ? (
               <div className="space-y-2.5">

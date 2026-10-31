@@ -29,6 +29,97 @@ interface OverviewScreenProps {
   onNavigateHistory?: () => void;
 }
 
+export const getSessionLifecycleConfig = (session: ProcurementSession) => {
+  const hasAgr = Boolean(session.agreementRecord || session.finalOffer);
+  switch (session.status) {
+    case "SETTLED":
+      return {
+        status: "verified" as const,
+        label: "Settlement Completed",
+        nextAction: "Funds captured & B2B invoice generated in PayPal Sandbox.",
+      };
+    case "PAYPAL_CAPTURED":
+      return {
+        status: "verified" as const,
+        label: "Captured",
+        nextAction: "Payment captured: View B2B invoice in Settlement Center.",
+      };
+    case "PAYPAL_AUTHORIZED":
+      return {
+        status: "info" as const,
+        label: "Authorized by Buyer",
+        nextAction: "Buyer approved: Execute audited capture in Settlement Center.",
+      };
+    case "AWAITING_PAYPAL_APPROVAL":
+      return {
+        status: "warning" as const,
+        label: "Awaiting PayPal Approval",
+        nextAction: "Order created: Complete buyer approval in PayPal Sandbox.",
+      };
+    case "CAPTURE_PENDING_RECONCILIATION":
+      return {
+        status: "warning" as const,
+        label: "Awaiting Reconciliation",
+        nextAction: "Payment outcome uncertain: Reconcile status in Settlement Center.",
+      };
+    case "AUDIT_PASSED":
+      return {
+        status: "verified" as const,
+        label: "Audit Passed",
+        nextAction: "5/5 invariants verified: Continue to PayPal checkout.",
+      };
+    case "AUDIT_FAILED":
+      return {
+        status: "failure" as const,
+        label: "Audit Blocked",
+        nextAction: "Invariants failed: Adjust constraints or restart negotiation.",
+      };
+    case "AUDIT_PENDING":
+      return hasAgr
+        ? {
+            status: "warning" as const,
+            label: "Awaiting Audit",
+            nextAction: "Terms agreed: Run independent ACWORLD audit before payment.",
+          }
+        : {
+            status: "neutral" as const,
+            label: "Awaiting Agreement",
+            nextAction: "Enter Negotiation Arena to reach consensus with a supplier.",
+          };
+    case "NEGOTIATING":
+      return {
+        status: "info" as const,
+        label: "Negotiation In Progress",
+        nextAction: "Active multi-agent arena: Monitor rounds and Boulware concessions.",
+      };
+    case "SOURCING":
+    case "MANDATE_PENDING":
+      return {
+        status: "neutral" as const,
+        label: "Awaiting Vendor Selection",
+        nextAction: "Review competing wholesale catalog quotes & launch arena.",
+      };
+    case "CANCELLED":
+      return {
+        status: "failure" as const,
+        label: "Cancelled",
+        nextAction: "Checkout cancelled: Restart negotiation or revise mandate.",
+      };
+    case "DISPUTED":
+      return {
+        status: "warning" as const,
+        label: "Disputed",
+        nextAction: "Dispute evidence submitted to PayPal: Awaiting resolution.",
+      };
+    default:
+      return {
+        status: "neutral" as const,
+        label: "Awaiting Settlement",
+        nextAction: "Review procurement terms and session progress.",
+      };
+  }
+};
+
 export function OverviewScreen({
   sessions,
   onStartNew,
@@ -36,6 +127,7 @@ export function OverviewScreen({
   onNavigateHistory,
 }: OverviewScreenProps) {
   const activeSession = sessions[0]; // Authoritative current session
+  const activeLifecycle = activeSession ? getSessionLifecycleConfig(activeSession) : null;
 
   // Group sessions by currency to prevent invalid mixed-currency summation
   const currencies = Array.from(new Set(sessions.map((s) => s.mandate.currency || "USD")));
@@ -361,14 +453,8 @@ export function OverviewScreen({
                     Authoritative Session State
                   </span>
                   <StatusBadge
-                    status={
-                      activeSession.status === "SETTLED" || activeSession.status === "PAYPAL_CAPTURED"
-                        ? "verified"
-                        : activeSession.status === "AUDIT_FAILED"
-                          ? "failure"
-                          : "info"
-                    }
-                    label={activeSession.status.replace(/_/g, " ")}
+                    status={activeLifecycle?.status || "neutral"}
+                    label={activeLifecycle?.label || "Awaiting Procurement"}
                   />
                 </div>
 
@@ -405,6 +491,21 @@ export function OverviewScreen({
                     </div>
                   </div>
                 </div>
+
+                {/* Authoritative Lifecycle Next Action Callout */}
+                {activeLifecycle?.nextAction && (
+                  <div className="pt-3 border-t border-smoke dark:border-[#27272a]">
+                    <div className="p-3 rounded-[6px] bg-smoke/30 dark:bg-[#202025] border border-smoke dark:border-[#27272a] text-[12.5px] flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <span className="font-semibold text-obsidian dark:text-[#f6f4f0] shrink-0">Next Step:</span>
+                        <span className="text-[#4a4a52] dark:text-[#c4c0ba] truncate">{activeLifecycle.nextAction}</span>
+                      </div>
+                      <span className="text-ember-orange font-medium text-[12px] shrink-0 flex items-center gap-0.5">
+                        Open &rarr;
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 mt-5 border-t border-smoke dark:border-[#27272a] flex items-center justify-between">
@@ -517,16 +618,10 @@ export function OverviewScreen({
                         />
                       </td>
                       <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        <StatusBadge
-                          status={
-                            s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED"
-                              ? "verified"
-                              : s.status === "AUDIT_FAILED"
-                              ? "failure"
-                              : "info"
-                          }
-                          label={s.status.replace(/_/g, " ")}
-                        />
+                        {(() => {
+                          const l = getSessionLifecycleConfig(s);
+                          return <StatusBadge status={l.status} label={l.label} />;
+                        })()}
                       </td>
                       <td className="py-3.5 pl-4 pr-6 text-right whitespace-nowrap">
                         <span className="inline-flex items-center gap-1 text-[12px] font-medium text-[#737373] dark:text-[#a3a3a3] group-hover:text-ember-orange transition-colors">
@@ -542,43 +637,37 @@ export function OverviewScreen({
 
             {/* Mobile View */}
             <div className="sm:hidden divide-y divide-smoke dark:divide-[#27272a]">
-              {sessions.slice(0, 5).map((s) => (
-                <div
-                  key={s.id}
-                  onClick={() => onOpenSession(s)}
-                  className="p-4 space-y-2 hover:bg-smoke/20 dark:hover:bg-[#1a1a1f] cursor-pointer"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
-                      {s.mandate.itemQuery}
-                    </span>
-                    <StatusBadge
-                      status={
-                        s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED"
-                          ? "verified"
-                          : s.status === "AUDIT_FAILED"
-                          ? "failure"
-                          : "info"
-                      }
-                      label={s.status.replace(/_/g, " ")}
-                    />
+              {sessions.slice(0, 5).map((s) => {
+                const l = getSessionLifecycleConfig(s);
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => onOpenSession(s)}
+                    className="p-4 space-y-2 hover:bg-smoke/20 dark:hover:bg-[#1a1a1f] cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
+                        {s.mandate.itemQuery}
+                      </span>
+                      <StatusBadge status={l.status} label={l.label} />
+                    </div>
+                    <div className="flex items-center justify-between text-[12px] text-[#737373] dark:text-[#a3a3a3]">
+                      <span className="font-mono-token">{s.id}</span>
+                      <span>{s.mandate.quantity} units</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <CurrencyDisplay
+                        amount={s.mandate.maxTotalBudget}
+                        currency={s.mandate.currency}
+                        size="sm"
+                      />
+                      <span className="text-[12px] font-medium text-ember-orange flex items-center gap-1">
+                        Open <ChevronRight className="w-3 h-3" />
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-[12px] text-[#737373] dark:text-[#a3a3a3]">
-                    <span className="font-mono-token">{s.id}</span>
-                    <span>{s.mandate.quantity} units</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-1">
-                    <CurrencyDisplay
-                      amount={s.mandate.maxTotalBudget}
-                      currency={s.mandate.currency}
-                      size="sm"
-                    />
-                    <span className="text-[12px] font-medium text-ember-orange flex items-center gap-1">
-                      Open <ChevronRight className="w-3 h-3" />
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {sessions.length > 5 && onNavigateHistory && (

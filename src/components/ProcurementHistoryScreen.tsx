@@ -7,6 +7,7 @@ import {
   EmptyState,
   CopyableHash,
 } from "./SharedUI";
+import { getSessionLifecycleConfig } from "./OverviewScreen";
 import {
   Search,
   Filter,
@@ -198,11 +199,6 @@ export function ProcurementHistoryScreen({
               </thead>
               <tbody className="divide-y divide-smoke dark:divide-[#27272a]">
                 {filteredSessions.map((s) => {
-                  let badgeStatus: "verified" | "warning" | "failure" | "info" | "neutral" = "info";
-                  if (s.status === "SETTLED" || s.status === "PAYPAL_CAPTURED") badgeStatus = "verified";
-                  else if (s.status === "AUDIT_FAILED") badgeStatus = "failure";
-                  else if (s.status === "NEGOTIATING") badgeStatus = "warning";
-
                   const isAuditPassed = s.auditCertificate?.passed === true;
 
                   return (
@@ -262,10 +258,10 @@ export function ProcurementHistoryScreen({
 
                       {/* Lifecycle State */}
                       <td className="py-4 px-4 text-center whitespace-nowrap">
-                        <StatusBadge
-                          status={badgeStatus}
-                          label={s.status.replace(/_/g, " ")}
-                        />
+                        {(() => {
+                          const l = getSessionLifecycleConfig(s);
+                          return <StatusBadge status={l.status} label={l.label} />;
+                        })()}
                       </td>
 
                       {/* Actions */}
@@ -321,16 +317,10 @@ export function ProcurementHistoryScreen({
                   <h3 id="session-inspector-title" className="text-[20px] font-semibold text-obsidian dark:text-[#f5f3ef] tracking-tight">
                     Session Audit Inspection
                   </h3>
-                  <StatusBadge
-                    status={
-                      inspectedSession.status === "SETTLED" || inspectedSession.status === "PAYPAL_CAPTURED"
-                        ? "verified"
-                        : inspectedSession.status === "AUDIT_FAILED"
-                        ? "failure"
-                        : "info"
-                    }
-                    label={inspectedSession.status.replace(/_/g, " ")}
-                  />
+                  {(() => {
+                    const l = getSessionLifecycleConfig(inspectedSession);
+                    return <StatusBadge status={l.status} label={l.label} />;
+                  })()}
                 </div>
                 <div className="text-[12px] text-[#737373] dark:text-[#a3a3a3] mt-1">
                   Session ID: <span className="font-mono-token">{inspectedSession.id}</span>

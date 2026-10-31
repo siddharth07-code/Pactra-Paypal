@@ -689,7 +689,9 @@ export function SourcingScreen({
             <div className="pb-3.5 border-b border-smoke dark:border-[#27272a] flex items-center justify-between">
               <div>
                 <h2 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-                  Channel3 Wholesale Catalog
+                  {sourcedQuotes && sourcedQuotes.length > 0 && sourcedQuotes[0]?.dataSource === "MOCK_CATALOG"
+                    ? "Wholesale Catalog (Deterministic Fixtures)"
+                    : "Channel3 Wholesale Catalog"}
                 </h2>
                 <p className="text-[13px] text-[#737373] dark:text-[#a3a3a3] mt-0.5">
                   Multi-vendor competing baselines loaded for game-theoretic negotiation
@@ -737,7 +739,10 @@ export function SourcingScreen({
                     <thead>
                       <tr className="border-b border-smoke dark:border-[#27272a] type-table-header text-[#737373] dark:text-[#a3a3a3]">
                         <th scope="col" className="pb-3 font-semibold">Supplier &amp; SKU</th>
-                        <th scope="col" className="pb-3 px-3 font-semibold">SLAs &amp; Specs</th>
+                        <th scope="col" className="pb-3 px-3 font-semibold">
+                          <span>Supplier Claimed SLAs</span>
+                          <span className="block text-[10.5px] font-normal text-[#8e8a83]">(Unverified Baseline)</span>
+                        </th>
                         <th scope="col" className="pb-3 px-3 font-semibold text-right">Unit / Ship</th>
                         <th scope="col" className="pb-3 px-3 font-semibold text-right">Landed Cost</th>
                         <th scope="col" className="pb-3 pl-3 text-right font-semibold">Evaluation &amp; Rank</th>
@@ -832,7 +837,7 @@ export function SourcingScreen({
                               <div className="text-obsidian dark:text-[#f6f4f0] flex items-center gap-1">
                                 <Truck className="w-3.5 h-3.5 text-[#6e6e78] dark:text-[#8e8a83]" aria-hidden="true" />
                                 <span>
-                                  {quote.deliveryDays}d delivery{" "}
+                                  Claimed: {quote.deliveryDays}d delivery{" "}
                                   {evalResult && !evalResult.sla.deliveryCompliant && (
                                     <span className="text-rose-500 font-medium text-[11px]">(&gt;{maxDelivery}d)</span>
                                   )}
@@ -841,7 +846,7 @@ export function SourcingScreen({
                               <div className="text-[#6e6e78] dark:text-[#8e8a83] text-[12px] flex items-center gap-1 mt-0.5">
                                 <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
                                 <span>
-                                  {quote.returnDays}d return{" "}
+                                  Claimed: {quote.returnDays}d return{" "}
                                   {evalResult && !evalResult.sla.returnCompliant && (
                                     <span className="text-rose-500 font-medium text-[11px]">(&lt;{minReturn}d)</span>
                                   )}
@@ -944,13 +949,13 @@ export function SourcingScreen({
                           {quote.productTitle}
                         </div>
                         <div className="flex items-center justify-between text-[12px] text-[#737373] dark:text-[#a3a3a3]">
-                          <span>{quote.deliveryDays}d Delivery • {quote.returnDays}d Return</span>
+                          <span>Claimed: {quote.deliveryDays}d Delivery • {quote.returnDays}d Return</span>
                           <div className="flex items-center gap-1.5">
                             <span className="font-mono-token text-[11px] text-architect-violet dark:text-[#a78bfa]">
                               {quote.sku}
                             </span>
                             <span className="text-[9.5px] font-mono-token px-1 py-0.5 rounded bg-smoke/30 dark:bg-[#1a1a1e] text-[#737373] dark:text-[#a3a3a3] border border-smoke/60 dark:border-[#27272a]">
-                              {quote.dataSource === "MOCK_CATALOG" ? "Simulated" : "Live API"}
+                              {quote.dataSource === "MOCK_CATALOG" ? "Simulated Fixture" : "Live Channel3"}
                             </span>
                           </div>
                         </div>
@@ -1005,12 +1010,14 @@ export function SourcingScreen({
           <div className="pt-3.5 mt-5 border-t border-smoke dark:border-[#27272a] text-[12px] text-[#737373] dark:text-[#a3a3a3] flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5" aria-hidden="true" />
-              Wholesale Feed: Channel3 API
+              {sourcedQuotes && sourcedQuotes[0]?.dataSource === "MOCK_CATALOG"
+                ? "Catalog Feed: Deterministic Wholesale Fixtures"
+                : "Catalog Feed: Live Channel3 Wholesale API"}
             </span>
             <span className="text-[#737373] dark:text-[#a3a3a3] font-mono-token text-[11px]">
               {sourcedQuotes && sourcedQuotes[0]?.dataSource === "MOCK_CATALOG"
-                ? "Deterministic Simulation Catalog"
-                : "Live Channel3 Wholesale"}
+                ? "Simulated Baseline"
+                : "Live API Baseline"}
             </span>
           </div>
         </div>
