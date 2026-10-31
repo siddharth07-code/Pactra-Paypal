@@ -91,7 +91,7 @@ export function NegotiationArenaScreen({
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
       {/* 1. EDITORIAL PAGE HEADER */}
-      <div className="pb-5 border-b border-smoke/80 dark:border-[#232328] flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="pb-5 border-b border-smoke dark:border-[#27272a] flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-[26px] sm:text-[30px] font-semibold tracking-tight text-obsidian dark:text-[#f6f4f0] leading-none">
@@ -112,7 +112,7 @@ export function NegotiationArenaScreen({
           </div>
 
           {/* Clean metadata strip with aligned labels and values */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-[#6e6e78] dark:text-[#8e8a83]">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-[#737373] dark:text-[#a3a3a3]">
             <div className="flex items-center gap-1.5">
               <span>Session:</span>
               <span className="font-mono-token text-obsidian dark:text-[#f6f4f0] text-[12px]">
@@ -150,22 +150,22 @@ export function NegotiationArenaScreen({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Structured Supplier Comparison Area */}
         <section aria-label="Competing Supplier Terms" className="lg:col-span-5 space-y-3.5">
-          <div className="flex items-center justify-between pb-1 border-b border-smoke/70 dark:border-[#242429]">
+          <div className="flex items-center justify-between pb-1 border-b border-smoke dark:border-[#27272a]">
             <div>
               <h2 className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                 Competing Supplier Terms
               </h2>
-              <p className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
+              <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3]">
                 Wholesale baseline quotes &amp; live counter-bids
               </p>
             </div>
-            <span className="text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
+            <span className="text-[11.5px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
               {quotes.length} suppliers
             </span>
           </div>
 
           {/* Compact Supplier Comparison Table / List */}
-          <div className="divide-y divide-smoke/80 dark:divide-[#232328] border border-smoke/80 dark:border-[#232328] rounded-[8px] bg-paper-white dark:bg-[#18181b] overflow-hidden">
+          <div className="divide-y divide-smoke dark:divide-[#27272a] border border-smoke dark:border-[#27272a] rounded-[8px] bg-paper-white dark:bg-[#18181b] overflow-hidden shadow-2xs">
             {quotes.map((quote) => {
               const landedCost =
                 quote.currentUnitBid * (mandate?.quantity || 25) + quote.shippingCost;
@@ -204,13 +204,13 @@ export function NegotiationArenaScreen({
                           <StatusBadge status="verified" label="Winning Offer" />
                         )}
                       </div>
-                      <div className="text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
+                      <div className="text-[11.5px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
                         {quote.sku}
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className="text-[11px] text-[#6e6e78] dark:text-[#8e8a83] uppercase tracking-wider font-sans font-medium">
+                      <div className="text-[11px] text-[#737373] dark:text-[#a3a3a3] uppercase tracking-wider font-sans font-medium">
                         Landed Total
                       </div>
                       <div className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums tracking-tight">
@@ -224,26 +224,26 @@ export function NegotiationArenaScreen({
                   </div>
 
                   {/* Aligned Financial & Logistics Metrics Row */}
-                  <div className="grid grid-cols-3 gap-2 pt-3 mt-3 border-t border-smoke/70 dark:border-[#232328] text-[12px]">
+                  <div className="grid grid-cols-3 gap-2 pt-3 mt-3 border-t border-smoke dark:border-[#27272a] text-[12px]">
                     <div>
-                      <span className="text-[#6e6e78] dark:text-[#8e8a83] block text-[11px]">Current Ask</span>
+                      <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Current Ask</span>
                       <span className="font-sans font-medium text-obsidian dark:text-[#f6f4f0] tabular-nums">
                         ${quote.currentUnitBid}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[#6e6e78] dark:text-[#8e8a83] block text-[11px]">Delivery SLA</span>
+                      <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Delivery SLA</span>
                       <span className="text-obsidian dark:text-[#f6f4f0]">{quote.deliveryDays} days</span>
                     </div>
                     <div>
-                      <span className="text-[#6e6e78] dark:text-[#8e8a83] block text-[11px]">Return Window</span>
+                      <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Return Window</span>
                       <span className="text-obsidian dark:text-[#f6f4f0]">{quote.returnDays} days</span>
                     </div>
                   </div>
 
                   {/* Feasibility Indicator */}
                   <div className="pt-2.5 flex items-center justify-between text-[11.5px]">
-                    <span className="text-[#6e6e78] dark:text-[#8e8a83]">
+                    <span className="text-[#737373] dark:text-[#a3a3a3]">
                       Shipping: ${quote.shippingCost}
                     </span>
                     <StatusBadge
@@ -259,16 +259,16 @@ export function NegotiationArenaScreen({
 
         {/* Right Column: Negotiation Execution Feed */}
         <section aria-label="Negotiation Execution Feed" className="lg:col-span-7 space-y-3.5">
-          <div className="flex items-center justify-between pb-1 border-b border-smoke/70 dark:border-[#242429]">
+          <div className="flex items-center justify-between pb-1 border-b border-smoke dark:border-[#27272a]">
             <div>
               <h2 className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                 Negotiation Execution Feed
               </h2>
-              <p className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
+              <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3]">
                 Chronological transcript with deterministic guardrail evaluations
               </p>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] font-mono-token text-[#006840] dark:text-[#4ade80] bg-smoke/40 dark:bg-[#18181c] px-2 py-0.5 rounded border border-smoke/80 dark:border-[#27272c] shrink-0">
+            <div className="flex items-center gap-1.5 text-[11px] font-mono-token text-[#006840] dark:text-[#4ade80] bg-smoke/40 dark:bg-[#18181c] px-2 py-0.5 rounded border border-smoke dark:border-[#27272a] shrink-0">
               <Lock className="w-3 h-3" aria-hidden="true" />
               <span>Predicates A–E Active</span>
             </div>
@@ -277,12 +277,12 @@ export function NegotiationArenaScreen({
           {/* Chronological Stream Container */}
           <div
             ref={feedContainerRef}
-            className="border border-smoke/80 dark:border-[#232328] rounded-[8px] bg-paper-white dark:bg-[#18181b] p-4 sm:p-5 h-[620px] overflow-y-auto space-y-3.5 text-[13.5px]"
+            className="border border-smoke dark:border-[#27272a] rounded-[8px] bg-paper-white dark:bg-[#18181b] p-4 sm:p-5 h-[620px] overflow-y-auto space-y-3.5 text-[13.5px] shadow-2xs"
             tabIndex={0}
             aria-label="Negotiation timeline log"
           >
             {events.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-2 text-[#6e6e78] dark:text-[#8e8a83]">
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-2 text-[#737373] dark:text-[#a3a3a3]">
                 <Building2 className="w-8 h-8 text-ash-gray opacity-50 mb-1" aria-hidden="true" />
                 <p className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0]">
                   Arena Ready
@@ -300,13 +300,13 @@ export function NegotiationArenaScreen({
                   return (
                     <div
                       key={ev.id}
-                      className="py-1.5 flex items-center gap-3 text-[11.5px] font-sans text-[#6e6e78] dark:text-[#8e8a83] select-none"
+                      className="py-1.5 flex items-center gap-3 text-[11.5px] font-sans text-[#737373] dark:text-[#a3a3a3] select-none"
                     >
-                      <span className="h-px bg-smoke/80 dark:bg-[#282830] flex-1" />
+                      <span className="h-px bg-smoke dark:bg-[#27272a] flex-1" />
                       <span className="uppercase tracking-wider font-semibold text-architect-violet dark:text-[#a78bfa]">
                         Round {String(p.round)} of {String(p.maxRounds || 4)}
                       </span>
-                      <span className="h-px bg-smoke/80 dark:bg-[#282830] flex-1" />
+                      <span className="h-px bg-smoke dark:bg-[#27272a] flex-1" />
                     </div>
                   );
                 }
@@ -316,14 +316,14 @@ export function NegotiationArenaScreen({
                   return (
                     <div
                       key={ev.id}
-                      className="py-3 px-3.5 rounded-[6px] bg-smoke/20 dark:bg-[#151518] border-l-2 border-l-architect-violet/70 border-y border-r border-smoke/60 dark:border-[#25252a] space-y-2 transition-colors"
+                      className="py-3 px-3.5 rounded-[6px] bg-smoke/20 dark:bg-[#141416] border-l-2 border-l-architect-violet/70 border-y border-r border-smoke dark:border-[#27272a] space-y-2 transition-colors"
                     >
                       <div className="flex items-center justify-between text-[12px]">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
                             Buyer Agent → {String(p.vendorName || p.vendorId)}
                           </span>
-                          <span className="text-[#6e6e78] dark:text-[#8e8a83]">
+                          <span className="text-[#737373] dark:text-[#a3a3a3]">
                             (Round {String(p.round)})
                           </span>
                         </div>
@@ -337,7 +337,7 @@ export function NegotiationArenaScreen({
                       </p>
 
                       {Boolean(p.proposedOffer && typeof p.proposedOffer === "object") && (
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1.5 border-t border-smoke/50 dark:border-[#222226] text-[12px] font-sans tabular-nums text-[#6e6e78] dark:text-[#8e8a83]">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1.5 border-t border-smoke/70 dark:border-[#27272a] text-[12px] font-sans tabular-nums text-[#737373] dark:text-[#a3a3a3]">
                           <span>Unit Bid: ${(p.proposedOffer as { unitPrice?: number }).unitPrice}</span>
                           <span>Delivery: {(p.proposedOffer as { deliveryDays?: number }).deliveryDays}d</span>
                           <span>Return: {(p.proposedOffer as { returnDays?: number }).returnDays}d</span>
@@ -352,32 +352,32 @@ export function NegotiationArenaScreen({
                   return (
                     <div
                       key={ev.id}
-                      className="py-3 px-3.5 rounded-[6px] bg-smoke/30 dark:bg-[#1a1818] border-l-2 border-l-ember-orange border-y border-r border-smoke/60 dark:border-[#2b2220] space-y-2 transition-colors"
+                      className="py-3 px-3.5 rounded-[6px] bg-amber-500/[0.04] dark:bg-[#1a1614] border-l-2 border-l-ember-orange border-y border-r border-amber-500/20 dark:border-[#38261e] space-y-2 transition-colors"
                     >
                       <div className="flex items-center justify-between text-[12px]">
                         <div className="flex items-center gap-1.5 text-ember-orange font-semibold">
                           <ShieldAlert className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                           <span>Proposal blocked by guardrail</span>
                         </div>
-                        <span className="text-[10.5px] font-mono-token font-medium px-1.5 py-0.2 rounded bg-ember-orange/15 text-ember-orange border border-ember-orange/25 uppercase">
+                        <span className="text-[10.5px] font-mono-token font-medium px-1.5 py-0.5 rounded bg-ember-orange/15 text-ember-orange border border-ember-orange/25 uppercase">
                           Intercepted
                         </span>
                       </div>
 
                       <div className="text-[12.5px] text-obsidian dark:text-[#f6f4f0] leading-snug">
-                        <span className="text-[#6e6e78] dark:text-[#8e8a83]">Evaluated Reason:</span>{" "}
+                        <span className="text-[#737373] dark:text-[#a3a3a3]">Evaluated Reason:</span>{" "}
                         <span className="font-medium text-ember-orange">
                           {String(p.reason || p.detail || "Predicate constraint violation")}
                         </span>
                       </div>
 
                       {/* Accessible Technical Disclosure Control */}
-                      <details className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83] pt-1 group">
+                      <details className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3] pt-1 group">
                         <summary className="cursor-pointer hover:text-obsidian dark:hover:text-white select-none inline-flex items-center gap-1 font-mono-token">
                           <span>Verification details</span>
                           <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
                         </summary>
-                        <div className="mt-1.5 p-2 rounded bg-smoke/40 dark:bg-[#121214] font-mono-token text-[11px] space-y-1">
+                        <div className="mt-1.5 p-2 rounded bg-smoke/40 dark:bg-[#121214] font-mono-token text-[11px] space-y-1 border border-smoke/70 dark:border-[#27272a]">
                           <div>Target Vendor: {String(p.vendorName || p.vendorId)}</div>
                           <div>Status: {String(p.status || "GUARDRAIL_BLOCKED")}</div>
                           <div>Transmission: Purged from outbound queue. Regeneration triggered.</div>
@@ -392,7 +392,7 @@ export function NegotiationArenaScreen({
                   return (
                     <div
                       key={ev.id}
-                      className="py-3 px-3.5 rounded-[6px] bg-smoke/15 dark:bg-[#151518] border border-smoke/60 dark:border-[#222226] space-y-2 transition-colors"
+                      className="py-3 px-3.5 rounded-[6px] bg-smoke/15 dark:bg-[#141416] border border-smoke dark:border-[#27272a] space-y-2 transition-colors"
                     >
                       <div className="flex items-center justify-between text-[12px]">
                         <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
@@ -417,7 +417,7 @@ export function NegotiationArenaScreen({
                   return (
                     <div
                       key={ev.id}
-                      className="py-1.5 px-3 rounded-[4px] bg-smoke/25 dark:bg-[#141416] text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83] flex items-center justify-between font-mono-token border border-smoke/40 dark:border-[#202024]"
+                      className="py-1.5 px-3 rounded-[4px] bg-smoke/25 dark:bg-[#141416] text-[11.5px] text-[#737373] dark:text-[#a3a3a3] flex items-center justify-between font-mono-token border border-smoke dark:border-[#27272a]"
                     >
                       <span>Round {String(p.round)} committed to Merkle tree</span>
                       <span className="text-architect-violet dark:text-[#a78bfa]">
@@ -451,7 +451,7 @@ export function NegotiationArenaScreen({
                               "No competing vendor counteroffer satisfied mandatory budget and SLA constraints."
                           )}
                         </p>
-                        <div className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] pt-0.5">
+                        <div className="text-[12px] text-[#737373] dark:text-[#a3a3a3] pt-0.5">
                           Settlement gate is closed for this session. Revise mandate constraints or source alternative wholesale catalogs.
                         </div>
                       </div>
@@ -465,7 +465,7 @@ export function NegotiationArenaScreen({
                   return (
                     <div
                       key={ev.id}
-                      className="py-3.5 px-4 rounded-[6px] bg-smoke/25 dark:bg-[#141a16] border-l-2 border-l-lichen-green border-y border-r border-smoke/60 dark:border-[#1e2a22] space-y-2.5 transition-colors"
+                      className="py-3.5 px-4 rounded-[6px] bg-emerald-500/[0.05] dark:bg-[#141a16] border-l-2 border-l-lichen-green border-y border-r border-emerald-500/20 dark:border-[#1e2a22] space-y-2.5 transition-colors"
                     >
                       <div className="flex items-center gap-2 text-[#006840] dark:text-[#4ade80]">
                         <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -515,7 +515,7 @@ export function NegotiationArenaScreen({
                 return (
                   <div
                     key={ev.id}
-                    className="py-1 px-2.5 rounded bg-smoke/20 dark:bg-[#141416] text-[11px] text-[#6e6e78] dark:text-[#8e8a83] flex items-center justify-between font-mono-token"
+                    className="py-1 px-2.5 rounded bg-smoke/20 dark:bg-[#141416] text-[11px] text-[#737373] dark:text-[#a3a3a3] flex items-center justify-between font-mono-token border border-smoke dark:border-[#27272a]"
                   >
                     <span>{ev.type}</span>
                     <span>{new Date(ev.timestamp).toLocaleTimeString()}</span>

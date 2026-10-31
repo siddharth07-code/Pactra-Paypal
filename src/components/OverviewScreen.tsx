@@ -274,64 +274,64 @@ export function OverviewScreen({
 
         {/* 3. PROCUREMENT ARCHITECTURE WORKFLOW (Informative, Linear Process) */}
         <section aria-label="Procurement Architecture Workflow" className="space-y-4">
-          <div className="pb-2 border-b border-smoke/70 dark:border-[#242429]">
+          <div className="pb-2 border-b border-smoke dark:border-[#27272a]">
             <h2 className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
               Procurement &amp; Cryptographic Settlement Workflow
             </h2>
-            <p className="text-[13px] text-[#6e6e78] dark:text-[#8e8a83]">
+            <p className="text-[13px] text-[#737373] dark:text-[#a3a3a3]">
               Deterministic pipeline from mandate definition through audited PayPal capture
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#232328] space-y-2">
-              <div className="flex items-center justify-between text-[12px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
+            <div className="p-4 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between text-[12px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
                 <span>STAGE 01</span>
                 <Cpu className="w-3.5 h-3.5 text-ember-orange" aria-hidden="true" />
               </div>
               <div className="text-[14px] font-semibold text-obsidian dark:text-[#f6f4f0]">
                 Mandate &amp; Sourcing
               </div>
-              <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] leading-relaxed">
+              <p className="text-[12.5px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
                 Parse hard constraints (budget, quantity, delivery SLA, return window) and query competing wholesale catalogs.
               </p>
             </div>
 
-            <div className="p-4 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#232328] space-y-2">
-              <div className="flex items-center justify-between text-[12px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
+            <div className="p-4 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between text-[12px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
                 <span>STAGE 02</span>
                 <Scale className="w-3.5 h-3.5 text-architect-violet dark:text-[#a78bfa]" aria-hidden="true" />
               </div>
               <div className="text-[14px] font-semibold text-obsidian dark:text-[#f6f4f0]">
                 Autonomous Arena
               </div>
-              <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] leading-relaxed">
+              <p className="text-[12.5px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
                 Gemini buyer negotiates over discrete rounds. Outgoing proposals verified against Boulware decay and anti-thrashing rules.
               </p>
             </div>
 
-            <div className="p-4 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#232328] space-y-2">
-              <div className="flex items-center justify-between text-[12px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
+            <div className="p-4 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between text-[12px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
                 <span>STAGE 03</span>
                 <FileCheck2 className="w-3.5 h-3.5 text-lichen-green" aria-hidden="true" />
               </div>
               <div className="text-[14px] font-semibold text-obsidian dark:text-[#f6f4f0]">
                 ACWORLD Audit Gate
               </div>
-              <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] leading-relaxed">
+              <p className="text-[12.5px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
                 Independent verification evaluates 5 invariants (SKU integrity, ceiling arithmetic, returns, SLA, and Merkle root).
               </p>
             </div>
 
-            <div className="p-4 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#232328] space-y-2">
-              <div className="flex items-center justify-between text-[12px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
+            <div className="p-4 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between text-[12px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
                 <span>STAGE 04</span>
                 <CreditCard className="w-3.5 h-3.5 text-obsidian dark:text-white" aria-hidden="true" />
               </div>
               <div className="text-[14px] font-semibold text-obsidian dark:text-[#f6f4f0]">
                 PayPal Settlement
               </div>
-              <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] leading-relaxed">
+              <p className="text-[12.5px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
                 Authorized checkout binds Merkle root to custom_id. Capture is executed only after verified certificate pass.
               </p>
             </div>
@@ -353,7 +353,7 @@ export function OverviewScreen({
                 }
               }}
               aria-label={`Open active session ${activeSession.id} for ${activeSession.mandate.itemQuery}`}
-              className="lg:col-span-7 bg-paper-white dark:bg-[#18181b] rounded-[8px] p-6 border border-smoke dark:border-[#232328] hover:border-smoke-dark dark:hover:border-[#383842] shadow-2xs hover:shadow-sm flex flex-col justify-between cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+              className="lg:col-span-7 bg-paper-white dark:bg-[#18181b] rounded-[8px] p-6 border border-smoke dark:border-[#27272a] hover:border-smoke-dark dark:hover:border-[#383842] shadow-2xs hover:shadow-sm flex flex-col justify-between cursor-pointer select-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -376,21 +376,21 @@ export function OverviewScreen({
                   <h2 className="text-[20px] sm:text-[24px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight leading-snug group-hover:text-ember-orange transition-colors">
                     {activeSession.mandate.itemQuery}
                   </h2>
-                  <p className="text-[13.5px] text-[#6e6e78] dark:text-[#8e8a83] font-normal leading-relaxed mt-1 line-clamp-2">
+                  <p className="text-[13.5px] text-[#737373] dark:text-[#a3a3a3] font-normal leading-relaxed mt-1 line-clamp-2">
                     {activeSession.mandate.rawPrompt}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-smoke/70 dark:border-[#232328]">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-smoke dark:border-[#27272a]">
                   <div>
-                    <div className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] mb-0.5">Target Quantity</div>
+                    <div className="text-[12px] text-[#737373] dark:text-[#a3a3a3] mb-0.5">Target Quantity</div>
                     <div className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
                       {activeSession.mandate.quantity}{" "}
-                      <span className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] font-normal">units</span>
+                      <span className="text-[12px] text-[#737373] dark:text-[#a3a3a3] font-normal">units</span>
                     </div>
                   </div>
                   <div>
-                    <div className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] mb-0.5">Ceiling Budget</div>
+                    <div className="text-[12px] text-[#737373] dark:text-[#a3a3a3] mb-0.5">Ceiling Budget</div>
                     <CurrencyDisplay
                       amount={activeSession.mandate.maxTotalBudget}
                       currency={activeSession.mandate.currency}
@@ -398,17 +398,17 @@ export function OverviewScreen({
                     />
                   </div>
                   <div>
-                    <div className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] mb-0.5">Supplier Quotes</div>
+                    <div className="text-[12px] text-[#737373] dark:text-[#a3a3a3] mb-0.5">Supplier Quotes</div>
                     <div className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight tabular-nums">
                       {activeSession.quotes?.length ?? 0}{" "}
-                      <span className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] font-normal">proposals</span>
+                      <span className="text-[12px] text-[#737373] dark:text-[#a3a3a3] font-normal">proposals</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 mt-5 border-t border-smoke/70 dark:border-[#232328] flex items-center justify-between">
-                <span className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83] font-mono-token">
+              <div className="pt-4 mt-5 border-t border-smoke dark:border-[#27272a] flex items-center justify-between">
+                <span className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3] font-mono-token">
                   {activeSession.id}
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ember-orange group-hover:text-[#e65c00] transition-colors">
@@ -419,13 +419,13 @@ export function OverviewScreen({
             </InteractiveHoverCard>
 
             {/* Cryptographic Flight Recorder Status Panel (Crisp, Restrained Neutral Surface) */}
-            <div className="lg:col-span-5 bg-paper-white dark:bg-[#18181b] rounded-[8px] p-6 border border-smoke dark:border-[#232328] flex flex-col justify-between shadow-2xs transition-colors">
+            <div className="lg:col-span-5 bg-paper-white dark:bg-[#18181b] rounded-[8px] p-6 border border-smoke dark:border-[#27272a] flex flex-col justify-between shadow-2xs transition-colors">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[11.5px] font-sans font-semibold text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider">
                     Flight Recorder
                   </span>
-                  <span className="text-[11px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83] bg-smoke/40 dark:bg-[#202024] px-2 py-0.5 rounded border border-smoke/70 dark:border-[#282830]">
+                  <span className="text-[11px] font-mono-token text-[#737373] dark:text-[#a3a3a3] bg-smoke/40 dark:bg-[#202024] px-2 py-0.5 rounded border border-smoke dark:border-[#27272a]">
                     SHA-256
                   </span>
                 </div>
@@ -434,21 +434,21 @@ export function OverviewScreen({
                   VeriPay Cryptographic Proof
                 </h3>
 
-                <p className="text-[13px] text-[#6e6e78] dark:text-[#8e8a83] leading-relaxed">
+                <p className="text-[13px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
                   Canonical events, supplier quotes, Boulware negotiation turns, and ACWORLD invariant checks are hashed sequentially into an immutable Merkle root.
                 </p>
 
                 <div className="space-y-1 pt-1">
-                  <div className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83] font-medium">
+                  <div className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3] font-medium">
                     Pre-Settlement Merkle Root:
                   </div>
-                  <div className="p-2.5 bg-smoke/30 dark:bg-[#141416] rounded-[6px] border border-smoke/80 dark:border-[#27272d] font-mono-token text-[11px] text-obsidian dark:text-[#f6f4f0] break-all select-all">
+                  <div className="p-2.5 bg-smoke/30 dark:bg-[#141416] rounded-[6px] border border-smoke dark:border-[#27272a] font-mono-token text-[11px] text-obsidian dark:text-[#f6f4f0] break-all select-all">
                     {activeSession.merkleRoot || activeSession.preSettlementRoot || "Pending negotiation rounds..."}
                   </div>
                 </div>
               </div>
 
-              <div className="pt-3.5 mt-5 border-t border-smoke/70 dark:border-[#232328] flex items-center justify-between text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
+              <div className="pt-3.5 mt-5 border-t border-smoke dark:border-[#27272a] flex items-center justify-between text-[12px] text-[#737373] dark:text-[#a3a3a3]">
                 <span className="flex items-center gap-1.5 font-medium text-architect-violet dark:text-[#a78bfa]">
                   <Lock className="w-3.5 h-3.5" aria-hidden="true" />
                   Bound to PayPal custom_id
@@ -462,19 +462,19 @@ export function OverviewScreen({
         {/* 5. RECENT PROCUREMENT SESSIONS: Institutional Table */}
         {sessions.length > 0 && (
           <section
-            className="bg-paper-white dark:bg-[#18181b] rounded-cards border border-smoke dark:border-[#232328] overflow-hidden shadow-2xs transition-colors"
+            className="bg-paper-white dark:bg-[#18181b] rounded-[8px] border border-smoke dark:border-[#27272a] overflow-hidden shadow-2xs transition-colors"
             aria-label="Recent Sessions"
           >
-            <div className="p-5 sm:p-6 border-b border-smoke/70 dark:border-[#232328] flex items-center justify-between">
+            <div className="p-5 sm:p-6 border-b border-smoke dark:border-[#27272a] flex items-center justify-between">
               <div>
                 <h3 className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                   Recent Procurement Sessions
                 </h3>
-                <p className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83] mt-0.5">
+                <p className="text-[12.5px] text-[#737373] dark:text-[#a3a3a3] mt-0.5">
                   Authoritative transaction logs and Merkle root references
                 </p>
               </div>
-              <span className="text-[11.5px] font-sans font-medium text-[#6e6e78] dark:text-[#8e8a83] bg-smoke/30 dark:bg-[#202025] px-2.5 py-1 rounded-[4px] border border-smoke dark:border-[#2b2b32]">
+              <span className="text-[11.5px] font-sans font-medium text-[#737373] dark:text-[#a3a3a3] bg-smoke/30 dark:bg-[#202025] px-2.5 py-1 rounded-[4px] border border-smoke dark:border-[#27272a]">
                 {sessions.length} recorded
               </span>
             </div>
@@ -483,7 +483,7 @@ export function OverviewScreen({
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left text-[13px] border-collapse">
                 <thead>
-                  <tr className="border-b border-smoke dark:border-[#28282e] bg-warm-cream/30 dark:bg-[#151518] type-table-header text-[#6e6e78] dark:text-[#8e8a83]">
+                  <tr className="border-b border-smoke dark:border-[#27272a] bg-warm-cream/30 dark:bg-[#141416] type-table-header text-[#737373] dark:text-[#a3a3a3]">
                     <th scope="col" className="py-3 pl-6 pr-4 font-semibold">Session ID &amp; Spec</th>
                     <th scope="col" className="py-3 px-4 font-semibold text-right">Quantity</th>
                     <th scope="col" className="py-3 px-4 font-semibold text-right">Ceiling Budget</th>
@@ -491,18 +491,18 @@ export function OverviewScreen({
                     <th scope="col" className="py-3 pl-4 pr-6 text-right font-semibold">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-smoke/80 dark:divide-[#242429]">
+                <tbody className="divide-y divide-smoke dark:divide-[#27272a]">
                   {sessions.slice(0, 5).map((s) => (
                     <tr
                       key={s.id}
                       onClick={() => onOpenSession(s)}
-                      className="hover:bg-warm-cream/35 dark:hover:bg-[#1f1f23] transition-colors cursor-pointer group"
+                      className="hover:bg-smoke/30 dark:hover:bg-[#1f1f23] transition-colors cursor-pointer group"
                     >
                       <td className="py-3.5 pl-6 pr-4">
                         <div className="font-semibold text-obsidian dark:text-[#f6f4f0] group-hover:text-ember-orange transition-colors">
                           {s.mandate.itemQuery}
                         </div>
-                        <div className="text-[11.5px] font-mono-token text-[#6e6e78] dark:text-[#8e8a83]">
+                        <div className="text-[11.5px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
                           {s.id}
                         </div>
                       </td>
@@ -529,7 +529,7 @@ export function OverviewScreen({
                         />
                       </td>
                       <td className="py-3.5 pl-4 pr-6 text-right whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1 text-[12px] font-medium text-[#6e6e78] dark:text-[#8e8a83] group-hover:text-ember-orange transition-colors">
+                        <span className="inline-flex items-center gap-1 text-[12px] font-medium text-[#737373] dark:text-[#a3a3a3] group-hover:text-ember-orange transition-colors">
                           <span>Open</span>
                           <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
                         </span>
@@ -541,7 +541,7 @@ export function OverviewScreen({
             </div>
 
             {/* Mobile View */}
-            <div className="sm:hidden divide-y divide-smoke/80 dark:divide-[#242429]">
+            <div className="sm:hidden divide-y divide-smoke dark:divide-[#27272a]">
               {sessions.slice(0, 5).map((s) => (
                 <div
                   key={s.id}
@@ -563,7 +563,7 @@ export function OverviewScreen({
                       label={s.status.replace(/_/g, " ")}
                     />
                   </div>
-                  <div className="flex items-center justify-between text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
+                  <div className="flex items-center justify-between text-[12px] text-[#737373] dark:text-[#a3a3a3]">
                     <span className="font-mono-token">{s.id}</span>
                     <span>{s.mandate.quantity} units</span>
                   </div>
@@ -582,7 +582,7 @@ export function OverviewScreen({
             </div>
 
             {sessions.length > 5 && onNavigateHistory && (
-              <div className="p-3 border-t border-smoke/70 dark:border-[#232328] bg-warm-cream/20 dark:bg-[#141416] text-center">
+              <div className="p-3 border-t border-smoke dark:border-[#27272a] bg-warm-cream/20 dark:bg-[#141416] text-center">
                 <button
                   type="button"
                   onClick={onNavigateHistory}
@@ -598,7 +598,7 @@ export function OverviewScreen({
         {/* Empty state when no sessions exist */}
         {sessions.length === 0 && (
           <section className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-8 sm:p-12 border border-smoke dark:border-[#27272a] shadow-2xs text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-smoke/40 dark:bg-[#202025] border border-smoke dark:border-[#2b2b32] flex items-center justify-center mx-auto text-architect-violet dark:text-[#a78bfa]">
+            <div className="w-12 h-12 rounded-full bg-smoke/40 dark:bg-[#202025] border border-smoke dark:border-[#27272a] flex items-center justify-center mx-auto text-architect-violet dark:text-[#a78bfa]">
               <Cpu className="w-5 h-5" aria-hidden="true" />
             </div>
             <div className="space-y-1.5 max-w-md mx-auto">

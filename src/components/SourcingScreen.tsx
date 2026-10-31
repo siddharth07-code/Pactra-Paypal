@@ -406,16 +406,16 @@ export function SourcingScreen({
 
       {/* Benchmark Presets */}
       <div className="flex flex-wrap items-center gap-2 pt-1">
-        <span className="text-[12px] font-sans font-semibold text-[#6e6e78] dark:text-[#8e8a83] mr-1">
+        <span className="text-[12px] font-sans font-medium text-[#737373] dark:text-[#a3a3a3] mr-1">
           Preset Scenarios:
         </span>
         <button
           type="button"
           onClick={() => applyPreset(25, "4K USB-C monitors", 8500, 5, 30)}
-          className={`px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
+          className={`h-8 px-3 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
             itemQuery === "4K USB-C monitors" && budget === 8500 && quantity === 25
-              ? "bg-smoke/60 dark:bg-[#25252b] border-ember-orange/50 text-obsidian dark:text-white"
-              : "bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0]"
+              ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white"
+              : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
           }`}
         >
           Scenario A ($8.5k / 25 4K Monitors)
@@ -423,10 +423,10 @@ export function SourcingScreen({
         <button
           type="button"
           onClick={() => applyPreset(10, "Ergonomic Standing Desks", 4500, 7, 14)}
-          className={`px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
+          className={`h-8 px-3 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
             itemQuery === "Ergonomic Standing Desks" && budget === 4500 && quantity === 10
-              ? "bg-smoke/60 dark:bg-[#25252b] border-ember-orange/50 text-obsidian dark:text-white"
-              : "bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0]"
+              ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white"
+              : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
           }`}
         >
           Scenario B ($4.5k / 10 Desks)
@@ -434,10 +434,10 @@ export function SourcingScreen({
         <button
           type="button"
           onClick={() => applyPreset(4, "Enterprise Rack Servers", 15000, 5, 30)}
-          className={`px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
+          className={`h-8 px-3 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
             itemQuery === "Enterprise Rack Servers" && budget === 15000 && quantity === 4
-              ? "bg-smoke/60 dark:bg-[#25252b] border-ember-orange/50 text-obsidian dark:text-white"
-              : "bg-paper-white dark:bg-[#1c1c20] hover:bg-smoke/40 dark:hover:bg-[#25252b] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0]"
+              ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white"
+              : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
           }`}
         >
           Scenario C ($15.0k / 4 Servers)
@@ -446,9 +446,9 @@ export function SourcingScreen({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Mandate Configuration Form */}
-        <div className="lg:col-span-5 bg-paper-white dark:bg-[#18181b] rounded-cards p-6 sm:p-7 border border-smoke dark:border-[#2b2b32] shadow-2xs space-y-5 transition-colors">
-          <div className="flex items-center justify-between pb-3.5 border-b border-smoke/80 dark:border-[#2b2b32]">
-            <h2 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+        <div className="lg:col-span-5 bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] shadow-2xs space-y-5 transition-colors">
+          <div className="flex items-center justify-between pb-3.5 border-b border-smoke/80 dark:border-[#27272a]">
+            <h2 className="text-[16px] font-semibold text-obsidian dark:text-[#f5f3ef] tracking-tight">
               Authoritative Mandate
             </h2>
             <StatusBadge
@@ -498,10 +498,10 @@ export function SourcingScreen({
                 setPrompt(e.target.value);
                 setPreviewedSessionId(null);
               }}
-              className="w-full bg-paper-white dark:bg-[#18181b] rounded-[8px] p-3 text-[14px] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2b2b32] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange transition-colors resize-none leading-relaxed"
+              className="w-full bg-paper-white dark:bg-[#18181b] rounded-[8px] p-3 text-[14px] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange transition-colors resize-none leading-relaxed"
               placeholder="Enter procurement prompt..."
             />
-            <p className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83]">
+            <p className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3]">
               Type prompt naturally or update structured inputs below — values synchronize bidirectionally.
             </p>
 
@@ -510,7 +510,7 @@ export function SourcingScreen({
                 type="button"
                 onClick={handleAnalyzePrompt}
                 disabled={isAnalyzing || !prompt.trim()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium bg-smoke/50 dark:bg-[#25252b] hover:bg-smoke dark:hover:bg-[#303038] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium bg-smoke/50 dark:bg-[#25252b] hover:bg-smoke dark:hover:bg-[#303038] border border-smoke dark:border-[#27272a] text-obsidian dark:text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Sparkles className={`w-3.5 h-3.5 text-ember-orange ${isAnalyzing ? "animate-spin" : ""}`} />
                 <span>{isAnalyzing ? "Extracting Mandate..." : "Extract Mandate (AI)"}</span>
@@ -613,7 +613,7 @@ export function SourcingScreen({
                 id={currencySelectId}
                 value={currency}
                 onChange={(e) => handleCurrencyChange(e.target.value as CurrencyCode)}
-                className="w-full h-10 bg-paper-white dark:bg-[#18181b] rounded-[8px] px-3 py-2 text-[14px] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#2b2b32] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange transition-colors cursor-pointer font-medium"
+                className="w-full h-10 bg-paper-white dark:bg-[#18181b] rounded-[8px] px-3 py-2 text-[14px] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange transition-colors cursor-pointer font-medium"
               >
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
@@ -684,14 +684,14 @@ export function SourcingScreen({
         </div>
 
         {/* Right Column: Wholesale Vendor Quotes Comparison */}
-        <div className="lg:col-span-7 bg-paper-white dark:bg-[#18181b] rounded-cards p-6 sm:p-7 border border-smoke dark:border-[#2b2b32] flex flex-col justify-between shadow-2xs transition-colors">
+        <div className="lg:col-span-7 bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] flex flex-col justify-between shadow-2xs transition-colors">
           <div>
-            <div className="pb-3.5 border-b border-smoke/80 dark:border-[#2b2b32] flex items-center justify-between">
+            <div className="pb-3.5 border-b border-smoke dark:border-[#27272a] flex items-center justify-between">
               <div>
                 <h2 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                   Channel3 Wholesale Catalog
                 </h2>
-                <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] mt-0.5">
+                <p className="text-[13px] text-[#737373] dark:text-[#a3a3a3] mt-0.5">
                   Multi-vendor competing baselines loaded for game-theoretic negotiation
                 </p>
               </div>
@@ -735,7 +735,7 @@ export function SourcingScreen({
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-left text-[13px] border-collapse">
                     <thead>
-                      <tr className="border-b border-smoke dark:border-[#28282e] type-table-header text-[#6e6e78] dark:text-[#8e8a83]">
+                      <tr className="border-b border-smoke dark:border-[#27272a] type-table-header text-[#737373] dark:text-[#a3a3a3]">
                         <th scope="col" className="pb-3 font-semibold">Supplier &amp; SKU</th>
                         <th scope="col" className="pb-3 px-3 font-semibold">SLAs &amp; Specs</th>
                         <th scope="col" className="pb-3 px-3 font-semibold text-right">Unit / Ship</th>
@@ -743,7 +743,7 @@ export function SourcingScreen({
                         <th scope="col" className="pb-3 pl-3 text-right font-semibold">Evaluation &amp; Rank</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-smoke/80 dark:divide-[#242429]">
+                    <tbody className="divide-y divide-smoke dark:divide-[#27272a]">
                       {sourcedQuotes.map((quote) => {
                         const evalResult = quoteEvaluations ? quoteEvaluations[quote.vendorId] : undefined;
                         const landedTotal = evalResult ? evalResult.financials.landedCost : quote.initialUnitAsk * quantity + quote.shippingCost;
@@ -791,13 +791,13 @@ export function SourcingScreen({
                                 {quote.productTitle}
                               </div>
                               <div className="flex items-center gap-1.5 pt-1">
-                                <span className="text-[10.5px] font-mono-token text-architect-violet dark:text-[#a78bfa] bg-smoke/40 dark:bg-[#202025] px-1.5 py-0.5 rounded border border-smoke dark:border-[#2b2b32] font-medium">
+                                <span className="text-[10.5px] font-mono-token text-architect-violet dark:text-[#a78bfa] bg-smoke/40 dark:bg-[#202025] px-1.5 py-0.5 rounded border border-smoke dark:border-[#27272a] font-medium">
                                   {quote.sku}
                                 </span>
-                                <span className="text-[11px] text-[#6e6e78] dark:text-[#8e8a83]">
+                                <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3]">
                                   {quote.condition}
                                 </span>
-                                <span className="text-[10px] font-mono-token px-1.5 py-0.5 rounded bg-smoke/30 dark:bg-[#1a1a1e] text-[#6e6e78] dark:text-[#8e8a83] border border-smoke/60 dark:border-[#2a2a30]">
+                                <span className="text-[10px] font-mono-token px-1.5 py-0.5 rounded bg-smoke/30 dark:bg-[#1a1a1e] text-[#737373] dark:text-[#a3a3a3] border border-smoke/60 dark:border-[#27272a]">
                                   {quote.dataSource === "MOCK_CATALOG" ? "Simulated Fixture" : "Channel3 Wholesale"}
                                 </span>
                               </div>
@@ -895,7 +895,7 @@ export function SourcingScreen({
                 </div>
 
                 {/* Mobile Breakdown */}
-                <div className="sm:hidden divide-y divide-smoke/80 dark:divide-[#242429]">
+                <div className="sm:hidden divide-y divide-smoke dark:divide-[#27272a]">
                   {sourcedQuotes.map((quote) => {
                     const evalResult = quoteEvaluations ? quoteEvaluations[quote.vendorId] : undefined;
                     const landedTotal = evalResult ? evalResult.financials.landedCost : quote.initialUnitAsk * quantity + quote.shippingCost;
@@ -940,22 +940,22 @@ export function SourcingScreen({
                             label={badgeLabel}
                           />
                         </div>
-                        <div className="text-[12.5px] text-[#6e6e78] dark:text-[#8e8a83]">
+                        <div className="text-[12.5px] text-[#737373] dark:text-[#a3a3a3]">
                           {quote.productTitle}
                         </div>
-                        <div className="flex items-center justify-between text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
+                        <div className="flex items-center justify-between text-[12px] text-[#737373] dark:text-[#a3a3a3]">
                           <span>{quote.deliveryDays}d Delivery • {quote.returnDays}d Return</span>
                           <div className="flex items-center gap-1.5">
                             <span className="font-mono-token text-[11px] text-architect-violet dark:text-[#a78bfa]">
                               {quote.sku}
                             </span>
-                            <span className="text-[9.5px] font-mono-token px-1 py-0.5 rounded bg-smoke/30 dark:bg-[#1a1a1e] text-[#6e6e78] dark:text-[#8e8a83] border border-smoke/60 dark:border-[#2a2a30]">
+                            <span className="text-[9.5px] font-mono-token px-1 py-0.5 rounded bg-smoke/30 dark:bg-[#1a1a1e] text-[#737373] dark:text-[#a3a3a3] border border-smoke/60 dark:border-[#27272a]">
                               {quote.dataSource === "MOCK_CATALOG" ? "Simulated" : "Live API"}
                             </span>
                           </div>
                         </div>
                         <div className="flex items-center justify-between pt-1">
-                          <span className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83]">
+                          <span className="text-[12px] text-[#737373] dark:text-[#a3a3a3]">
                             {currencyPrefix}{quote.initialUnitAsk}/unit + {currencyPrefix}{quote.shippingCost}
                           </span>
                           <CurrencyDisplay amount={landedTotal} currency={currency} size="sm" />
@@ -987,13 +987,13 @@ export function SourcingScreen({
               </div>
             ) : (
               <div className="py-16 text-center space-y-3">
-                <div className="w-10 h-10 rounded-full bg-smoke/40 dark:bg-[#202025] mx-auto flex items-center justify-center text-[#6e6e78] dark:text-[#8e8a83]">
+                <div className="w-10 h-10 rounded-full bg-smoke/40 dark:bg-[#202025] mx-auto flex items-center justify-center text-[#737373] dark:text-[#a3a3a3]">
                   <Package className="w-5 h-5" aria-hidden="true" />
                 </div>
                 <div className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
                   {sourcedQuotes && sourcedQuotes.length === 0 ? "No Matching Wholesale Quotes" : "Wholesale Catalog Unloaded"}
                 </div>
-                <p className="text-[13px] text-[#6e6e78] dark:text-[#8e8a83] max-w-sm mx-auto leading-relaxed">
+                <p className="text-[13px] text-[#737373] dark:text-[#a3a3a3] max-w-sm mx-auto leading-relaxed">
                   {sourcedQuotes && sourcedQuotes.length === 0
                     ? `No supplier catalog items matched category "${itemQuery}". Supported categories: 4K Monitors, Developer Laptops, Enterprise Rack Servers, Standing Desks, and Managed Switches.`
                     : "Execute \"Preview Wholesale\" to query competing baseline quotes from Channel3 or \"Enter Arena\" to commence autonomous multi-agent negotiation."}
@@ -1002,12 +1002,12 @@ export function SourcingScreen({
             )}
           </div>
 
-          <div className="pt-3.5 mt-5 border-t border-smoke/80 dark:border-[#2b2b32] text-[12px] text-[#6e6e78] dark:text-[#8e8a83] flex items-center justify-between">
+          <div className="pt-3.5 mt-5 border-t border-smoke dark:border-[#27272a] text-[12px] text-[#737373] dark:text-[#a3a3a3] flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5" aria-hidden="true" />
               Wholesale Feed: Channel3 API
             </span>
-            <span className="text-[#6e6e78] dark:text-[#8e8a83] font-mono-token text-[11px]">
+            <span className="text-[#737373] dark:text-[#a3a3a3] font-mono-token text-[11px]">
               {sourcedQuotes && sourcedQuotes[0]?.dataSource === "MOCK_CATALOG"
                 ? "Deterministic Simulation Catalog"
                 : "Live Channel3 Wholesale"}

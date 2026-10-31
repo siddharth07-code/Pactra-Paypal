@@ -28,6 +28,7 @@ export function PrimaryButton({
   className = "",
   type = "button",
   ariaLabel,
+  showArrow = false,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
@@ -35,6 +36,7 @@ export function PrimaryButton({
   className?: string;
   type?: "button" | "submit";
   ariaLabel?: string;
+  showArrow?: boolean;
 }) {
   return (
     <button
@@ -42,10 +44,10 @@ export function PrimaryButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 h-10 rounded-[8px] bg-ember-orange hover:bg-[#e65c00] active:scale-[0.99] text-white font-medium text-[14px] tracking-[-0.01em] transition-colors shadow-2xs cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] select-none ${className}`}
+      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 h-10 rounded-[8px] bg-ember-orange hover:bg-ember-hover active:scale-[0.99] text-white font-medium text-[13.5px] tracking-[-0.01em] transition-colors shadow-2xs cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] select-none ${className}`}
     >
       <span>{children}</span>
-      <ArrowRight className="w-4 h-4 shrink-0 stroke-[2.2]" aria-hidden="true" />
+      {showArrow && <ArrowRight className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" aria-hidden="true" />}
     </button>
   );
 }
@@ -61,6 +63,7 @@ export function GhostButton({
   className = "",
   type = "button",
   ariaLabel,
+  showArrow = false,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
@@ -68,6 +71,7 @@ export function GhostButton({
   className?: string;
   type?: "button" | "submit";
   ariaLabel?: string;
+  showArrow?: boolean;
 }) {
   return (
     <button
@@ -75,10 +79,10 @@ export function GhostButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 h-10 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#2b2b32] hover:bg-smoke/40 dark:hover:bg-[#222227] text-obsidian dark:text-[#f6f4f0] font-medium text-[14px] tracking-[-0.01em] transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] select-none ${className}`}
+      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 h-10 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] hover:bg-smoke/40 dark:hover:bg-[#222227] text-obsidian dark:text-[#f5f3ef] font-medium text-[13.5px] tracking-[-0.01em] transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] select-none ${className}`}
     >
       <span>{children}</span>
-      <ArrowRight className="w-4 h-4 shrink-0 opacity-70" aria-hidden="true" />
+      {showArrow && <ArrowRight className="w-3.5 h-3.5 shrink-0 opacity-70" aria-hidden="true" />}
     </button>
   );
 }
@@ -96,7 +100,7 @@ export function WarmFeatureCard({
 }) {
   return (
     <div
-      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#2b2b32] transition-colors ${className}`}
+      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] transition-colors ${className}`}
     >
       {children}
     </div>
@@ -115,7 +119,7 @@ export function LavenderFeaturePanel({
 }) {
   return (
     <div
-      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#2b2b32] transition-colors ${className}`}
+      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] transition-colors ${className}`}
     >
       {children}
     </div>
@@ -134,7 +138,7 @@ export function MintMetricCallout({
 }) {
   return (
     <div
-      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#2b2b32] transition-colors ${className}`}
+      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] transition-colors ${className}`}
     >
       {children}
     </div>
@@ -234,7 +238,7 @@ export function FormInput({
           } ${
             error
               ? "border-[#ef4444] bg-[#feeef0]/20 dark:bg-[#feeef0]/10"
-              : "border-smoke dark:border-[#2b2b32] hover:border-obsidian/30 dark:hover:border-white/30"
+              : "border-smoke dark:border-[#27272a] hover:border-obsidian/30 dark:hover:border-white/30"
           }`}
         />
       </div>
@@ -278,7 +282,7 @@ export function StatusBadge({
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-[4px] px-2 py-0.5 border border-smoke/80 dark:border-[#2b2b32] bg-smoke/30 dark:bg-[#1f1f23] text-[11.5px] font-medium select-none tracking-[-0.01em]"
+      className="inline-flex items-center gap-1.5 rounded-[4px] px-2 py-0.5 border border-smoke/80 dark:border-[#27272a] bg-smoke/30 dark:bg-[#1f1f23] text-[11.5px] font-medium select-none tracking-[-0.01em]"
     >
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColors[status]}`} aria-hidden="true" />
       <span className={textStyles[status]}>{label}</span>
@@ -303,8 +307,8 @@ export function CopyableHash({
 
   if (!hash) {
     return (
-      <div className="inline-flex items-center gap-2 bg-warm-cream/60 dark:bg-[#1c1c20] px-3 py-1.5 rounded-[6px] border border-smoke dark:border-[#2b2b32] text-[12px] font-mono-token text-ash-gray">
-        {label && <span className="font-sans text-[#6e6e78] dark:text-[#8e8a83] font-medium">{label}:</span>}
+      <div className="inline-flex items-center gap-2 bg-warm-cream/60 dark:bg-[#1c1c20] px-3 py-1.5 rounded-[6px] border border-smoke dark:border-[#27272a] text-[12px] font-mono-token text-ash-gray">
+        {label && <span className="font-sans text-[#737373] dark:text-[#a3a3a3] font-medium">{label}:</span>}
         <span className="italic">Uncommitted</span>
       </div>
     );
@@ -322,9 +326,9 @@ export function CopyableHash({
   };
 
   return (
-    <div className="inline-flex items-center gap-2 bg-paper-white dark:bg-[#18181b] px-3 py-1 rounded-[6px] border border-smoke dark:border-[#2b2b32] text-[12px] font-mono-token shadow-2xs">
+    <div className="inline-flex items-center gap-2 bg-paper-white dark:bg-[#18181b] px-3 py-1 rounded-[6px] border border-smoke dark:border-[#27272a] text-[12px] font-mono-token shadow-2xs">
       {label && (
-        <span className="font-sans text-[#6e6e78] dark:text-[#8e8a83] font-medium">
+        <span className="font-sans text-[#737373] dark:text-[#a3a3a3] font-medium">
           {label}:
         </span>
       )}
@@ -402,9 +406,9 @@ export function EmptyState({
   onAction?: () => void;
 }) {
   return (
-    <div className="bg-paper-white dark:bg-[#18181b] rounded-cards p-10 text-center flex flex-col items-center justify-center max-w-md mx-auto my-6 border border-smoke dark:border-[#2b2b32] shadow-2xs">
+    <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-10 text-center flex flex-col items-center justify-center max-w-md mx-auto my-6 border border-smoke dark:border-[#27272a] shadow-2xs">
       <div
-        className="w-10 h-10 rounded-full bg-warm-cream dark:bg-[#222227] border border-smoke dark:border-[#2e2e34] flex items-center justify-center mb-3 text-architect-violet dark:text-[#a78bfa] text-base font-sans font-medium"
+        className="w-10 h-10 rounded-full bg-warm-cream dark:bg-[#222227] border border-smoke dark:border-[#27272a] flex items-center justify-center mb-3 text-architect-violet dark:text-[#a78bfa] text-base font-sans font-medium"
         aria-hidden="true"
       >
         ∅
@@ -446,7 +450,7 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
       title={label}
       className={`relative w-[50px] h-[32px] rounded-[8px] border transition-colors motion-reduce:transition-none cursor-pointer flex items-center justify-center shrink-0 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111114] ${
         isDark
-          ? "bg-[#18181b] border-[#2b2b32] text-[#dedad4] hover:bg-[#222227] hover:border-[#383842] shadow-2xs"
+          ? "bg-[#18181b] border-[#27272a] text-[#dedad4] hover:bg-[#222227] hover:border-[#383842] shadow-2xs"
           : "bg-warm-cream/90 border-smoke/90 text-obsidian hover:bg-paper-white hover:border-smoke shadow-2xs"
       } ${className}`}
     >
@@ -529,7 +533,7 @@ export function ConfirmationModal({
         onClick={onCancel}
         aria-hidden="true"
       />
-      <div className="relative bg-paper-white dark:bg-[#18181b] rounded-cards p-7 max-w-md w-full border border-smoke dark:border-[#2b2b32] shadow-xl space-y-5 z-10 animate-in fade-in zoom-in-95 duration-150">
+      <div className="relative bg-paper-white dark:bg-[#18181b] rounded-[8px] p-6 sm:p-7 max-w-md w-full border border-smoke dark:border-[#27272a] shadow-xl space-y-5 z-10 animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div
@@ -551,7 +555,7 @@ export function ConfirmationModal({
           <button
             type="button"
             onClick={onCancel}
-            className="p-1 rounded text-[#8e8a83] hover:text-obsidian dark:hover:text-[#f6f4f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer"
+            className="p-1 rounded text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f6f4f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer"
             aria-label="Close dialog"
           >
             <X className="w-4 h-4" aria-hidden="true" />
@@ -569,7 +573,7 @@ export function ConfirmationModal({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 h-9 rounded-[8px] border border-smoke dark:border-[#2b2b32] text-[13px] font-medium text-obsidian dark:text-[#f6f4f0] hover:bg-smoke/40 dark:hover:bg-[#222227] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+            className="px-4 py-2 h-9 rounded-[8px] border border-smoke dark:border-[#27272a] text-[13px] font-medium text-obsidian dark:text-[#f6f4f0] hover:bg-smoke/40 dark:hover:bg-[#222227] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
           >
             {cancelLabel}
           </button>
@@ -621,7 +625,7 @@ export function BackToTopButton() {
       type="button"
       onClick={scrollToTop}
       aria-label="Back to top"
-      className="fixed bottom-6 right-6 z-40 p-2.5 rounded-[8px] bg-paper-white dark:bg-[#1f1f24] border border-smoke dark:border-[#2b2b32] text-obsidian dark:text-[#f6f4f0] shadow-md hover:border-ember-orange hover:text-ember-orange transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange no-print"
+      className="fixed bottom-6 right-6 z-40 p-2.5 rounded-[8px] bg-paper-white dark:bg-[#1f1f24] border border-smoke dark:border-[#27272a] text-obsidian dark:text-[#f6f4f0] shadow-md hover:border-ember-orange hover:text-ember-orange transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange no-print"
     >
       <ArrowUp className="w-4 h-4" aria-hidden="true" />
     </button>
@@ -653,7 +657,7 @@ export interface InteractiveHoverCardProps extends React.HTMLAttributes<HTMLDivE
 export function InteractiveHoverCard({
   children,
   className = "",
-  liftY = -5,
+  liftY = -2,
   durationIn = 0.28,
   durationOut = 0.25,
   disabled = false,
@@ -690,13 +694,13 @@ export interface InteractiveHoverButtonProps
 /**
  * InteractiveHoverButton
  *
- * Clickable card button with the same GSAP-powered hover lift (y = -5px) and
+ * Clickable card button with the same GSAP-powered hover lift (y = -2px) and
  * keyboard accessibility.
  */
 export function InteractiveHoverButton({
   children,
   className = "",
-  liftY = -5,
+  liftY = -2,
   durationIn = 0.28,
   durationOut = 0.25,
   disabled = false,

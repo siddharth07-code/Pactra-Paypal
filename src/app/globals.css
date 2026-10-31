@@ -78,10 +78,10 @@
 
   /* Border Radius */
   --radius-lg: 8px;
-  --radius-2xl: 16px;
-  --radius-3xl: 20px;
+  --radius-2xl: 12px;
+  --radius-3xl: 16px;
   --radius-full: 9999px;
-  --radius-cards: 12px;
+  --radius-cards: 8px;
   --radius-buttons: 8px;
   --radius-smallelements: 6px;
 
@@ -182,7 +182,7 @@
 }
 
 html {
-  scroll-padding-top: 84px;
+  scroll-padding-top: 72px;
 }
 
 html,

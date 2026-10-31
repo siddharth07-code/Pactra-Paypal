@@ -163,7 +163,7 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     expect(toggle).toHaveAttribute("aria-label", "Switch to light mode");
   });
 
-  it("renders a sticky header container spanning full width with 76px height", () => {
+  it("renders a sticky header container spanning full width with 64px height", () => {
     const { container } = renderNavbar("overview");
 
     const header = container.querySelector("header");
@@ -172,7 +172,7 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     expect(header?.className).toContain("z-40");
 
     const headerInner = header?.querySelector("div");
-    expect(headerInner?.className).toContain("h-[76px]");
+    expect(headerInner?.className).toContain("h-[64px]");
   });
 
   it("handles mobile menu open, link selection, and Escape key dismissal", () => {

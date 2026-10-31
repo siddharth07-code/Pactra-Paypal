@@ -82,38 +82,38 @@ export function AppShell({
 
       {/* Top Navigation Bar: Persistent Institutional Fintech Header */}
       <header className="w-full bg-paper-white/95 dark:bg-[#18181b]/95 backdrop-blur-md border-b border-smoke/80 dark:border-[#27272a] sticky top-0 z-40 transition-colors shadow-2xs">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 h-[76px] flex items-center justify-between gap-4">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 h-[64px] flex items-center justify-between gap-4">
           
           {/* ZONE 1 — LEFT: BRAND IDENTITY */}
-          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+          <div className="flex items-center gap-3 sm:gap-3.5 shrink-0">
             <button
               type="button"
               onClick={() => onNavigate("overview")}
-              className="group flex items-center gap-2.5 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] rounded-[8px] p-1"
+              className="group flex items-center gap-2 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] rounded-[6px] p-0.5"
               aria-label="PACTUM Home — Return to Overview"
             >
               {/* Brand Monogram */}
               <div
-                className="w-8 h-8 rounded-[7px] bg-ember-orange text-white font-semibold text-[15px] flex items-center justify-center shadow-xs transition-transform group-hover:scale-105 duration-150 shrink-0 select-none"
+                className="w-7 h-7 rounded-[6px] bg-ember-orange text-white font-semibold text-[14px] flex items-center justify-center shadow-xs transition-transform group-hover:scale-105 duration-150 shrink-0 select-none"
                 aria-hidden="true"
               >
                 P
               </div>
               {/* Brand Wordmark */}
-              <span className="text-[18px] sm:text-[19px] font-semibold tracking-[-0.03em] text-obsidian dark:text-[#f5f3ef] transition-colors group-hover:text-ember-orange select-none">
+              <span className="text-[17px] font-semibold tracking-[-0.03em] text-obsidian dark:text-[#f5f3ef] transition-colors group-hover:text-ember-orange select-none">
                 PACTUM
               </span>
             </button>
 
             {/* Subtle Vertical Divider */}
             <span
-              className="h-4 w-px bg-smoke dark:bg-[#2e2e34] hidden sm:block shrink-0"
+              className="h-3.5 w-px bg-smoke dark:bg-[#2e2e34] hidden sm:block shrink-0"
               aria-hidden="true"
             />
 
             {/* VERIPAY Secondary Product Identifier */}
             <div
-              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[5px] bg-architect-violet/[0.08] dark:bg-architect-violet/15 border border-architect-violet/20 dark:border-architect-violet/30 text-architect-violet dark:text-[#b490f5] text-[11px] font-sans font-semibold tracking-[0.06em] uppercase select-none shrink-0"
+              className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-architect-violet/[0.08] dark:bg-architect-violet/15 border border-architect-violet/20 dark:border-architect-violet/30 text-architect-violet dark:text-[#b490f5] text-[10.5px] font-sans font-semibold tracking-[0.06em] uppercase select-none shrink-0"
               title="VeriPay Cryptographic Verification Engine"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-architect-violet dark:bg-[#b490f5]" aria-hidden="true" />
@@ -220,7 +220,7 @@ export function AppShell({
           <>
             {/* Backdrop */}
             <div
-              className="fixed inset-0 top-[76px] bg-black/60 dark:bg-black/75 z-40 lg:hidden backdrop-blur-xs transition-opacity"
+              className="fixed inset-0 top-[64px] bg-black/60 dark:bg-black/75 z-40 lg:hidden backdrop-blur-xs transition-opacity"
               onClick={() => setMobileMenuOpen(false)}
               aria-hidden="true"
             />
@@ -231,7 +231,7 @@ export function AppShell({
               role="dialog"
               aria-modal="true"
               aria-label="Mobile Navigation Menu"
-              className="fixed top-[76px] inset-x-0 bg-paper-white dark:bg-[#141416] border-b border-smoke dark:border-[#26262a] z-50 p-5 space-y-2 shadow-2xl lg:hidden animate-in slide-in-from-top-2 duration-150"
+              className="fixed top-[64px] inset-x-0 bg-paper-white dark:bg-[#141416] border-b border-smoke dark:border-[#26262a] z-50 p-5 space-y-2 shadow-2xl lg:hidden animate-in slide-in-from-top-2 duration-150"
             >
               <div className="flex items-center justify-between px-3 py-1 pb-2 border-b border-smoke/70 dark:border-[#222226]">
                 <span className="text-[11px] font-mono-token uppercase tracking-wider text-[#888888] dark:text-[#77777c]">

@@ -36,26 +36,26 @@ function CancelContent() {
     <div className="min-h-screen bg-page-bg text-text-primary p-6 sm:p-12 font-sans flex flex-col justify-between transition-colors">
       <div className="max-w-xl mx-auto w-full space-y-8 my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-border-color">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-[8px] bg-ember-orange text-white flex items-center justify-center font-bold text-[14px]">
+        <div className="flex items-center justify-between pb-4 border-b border-smoke dark:border-[#27272a]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-[6px] bg-ember-orange text-white flex items-center justify-center font-bold text-[13px] tracking-tight shadow-2xs">
               P
             </div>
-            <span className="text-[18px] font-semibold tracking-[-0.03em] text-obsidian dark:text-[#f5f3ef]">PACTUM</span>
+            <span className="text-[17px] font-semibold tracking-[-0.03em] text-obsidian dark:text-[#f5f3ef]">PACTUM</span>
           </div>
-          <span className="text-[11.5px] font-mono font-medium px-2.5 py-1 rounded-[6px] bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800/40">
+          <span className="text-[11.5px] font-mono-token font-medium px-2.5 py-1 rounded-[4px] bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40">
             Payment Cancelled
           </span>
         </div>
 
         {/* Cancellation Notice Card */}
-        <div className="bg-card-surface rounded-[12px] p-8 sm:p-10 border border-border-color shadow-xs space-y-6 text-center transition-colors">
-          <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto border border-red-200 dark:border-red-800/40">
-            <XCircle className="w-7 h-7" />
+        <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-8 sm:p-10 border border-smoke dark:border-[#27272a] shadow-2xs space-y-6 text-center transition-colors">
+          <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-900/40">
+            <XCircle className="w-6 h-6" />
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-[24px] sm:text-[26px] font-medium tracking-[-0.02em] text-obsidian dark:text-[#f5f3ef]">
+            <h1 className="text-[22px] sm:text-[24px] font-semibold tracking-[-0.02em] text-obsidian dark:text-[#f5f3ef]">
               PayPal Checkout Cancelled
             </h1>
             <p className="text-[14.5px] text-text-secondary max-w-sm mx-auto leading-relaxed">
@@ -63,21 +63,21 @@ function CancelContent() {
             </p>
           </div>
 
-          <div className="bg-warm-cream/50 dark:bg-[#141416] rounded-[8px] p-3.5 text-[13px] text-text-secondary flex items-center justify-center gap-2 border border-border-color">
-            <Shield className="w-4 h-4 text-lichen-green" />
+          <div className="bg-warm-cream/50 dark:bg-[#141416] rounded-[6px] p-3.5 text-[13px] text-secondary flex items-center justify-center gap-2 border border-smoke dark:border-[#27272a]">
+            <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>Procurement mandate and negotiated supplier terms remain intact.</span>
           </div>
 
           {sessionId && (
-            <div className="text-[12px] font-mono text-text-muted">
+            <div className="text-[12px] font-mono-token text-ash-gray">
               Session Reference: {sessionId}
             </div>
           )}
 
-          <div className="pt-4 border-t border-border-color flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="pt-4 border-t border-smoke dark:border-[#27272a] flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={() => router.push("/")}
-              className="px-5 py-2.5 rounded-[8px] border border-border-color text-[13.5px] font-medium text-obsidian dark:text-[#f5f3ef] hover:bg-warm-cream dark:hover:bg-[#202024] transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-[8px] border border-smoke dark:border-[#27272a] text-[13.5px] font-medium text-obsidian dark:text-[#f5f3ef] hover:bg-smoke/40 dark:hover:bg-[#202024] transition-colors cursor-pointer"
             >
               Overview
             </button>
@@ -87,7 +87,7 @@ function CancelContent() {
                   ? router.push(`/?screen=settlement&sessionId=${sessionId}`)
                   : router.push("/")
               }
-              className="px-5 py-2.5 rounded-[8px] bg-ember-orange text-white text-[13.5px] font-medium hover:bg-[#e65c00] transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              className="px-4 py-2.5 rounded-[8px] bg-ember-orange text-white text-[13.5px] font-medium hover:bg-[#d95500] transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Return to Settlement Center</span>
