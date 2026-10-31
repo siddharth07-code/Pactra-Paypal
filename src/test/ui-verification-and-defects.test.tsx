@@ -270,12 +270,13 @@ describe("ProcurementHistoryScreen Filter and Sort Verification", () => {
 });
 
 describe("SettlementCenterScreen Ineligible Session Safeguard", () => {
-  it("displays explicit ineligible notice when session has no agreed offer", () => {
+  it("displays explicit awaiting agreement notice when session has no agreed offer", () => {
     const noDealSession = createMockSession({
       id: "sess-nodeal",
       status: "NEGOTIATING",
       finalOffer: undefined,
       selectedQuote: undefined,
+      agreementRecord: undefined,
     });
 
     render(
@@ -287,11 +288,15 @@ describe("SettlementCenterScreen Ineligible Session Safeguard", () => {
     );
 
     expect(
-      screen.getByText(/Settlement Ineligible: This mandate has no agreed vendor offer or concluded in No Deal/i)
+      screen.getByText(/Accept a vendor agreement to continue/i)
     ).toBeDefined();
 
-    // The Continue to PayPal button must be disabled
-    const continueBtn = screen.getByRole("button", { name: /Continue to PayPal/i });
-    expect(continueBtn.hasAttribute("disabled")).toBe(true);
+    expect(
+      screen.getByText(/Awaiting Accepted Agreement/i)
+    ).toBeDefined();
+
+    // The Continue to PayPal button must NOT be present as an available action
+    const continueBtn = screen.queryByRole("button", { name: /Continue to PayPal/i });
+    expect(continueBtn).toBeNull();
   });
 });
