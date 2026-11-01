@@ -264,11 +264,17 @@ export async function POST(req: NextRequest) {
             dataSource,
           });
 
-          // Server-side eligibility gate: prevent negotiation if no quotes are eligible
-          if (!evaluationResult.hasEligibleQuotes) {
+          // Server-side eligibility gate: prevent negotiation if no quotes are valid negotiation candidates
+          const candidates =
+            evaluationResult.negotiationCandidates && evaluationResult.negotiationCandidates.length > 0
+              ? evaluationResult.negotiationCandidates
+              : evaluationResult.eligibleQuotes;
+          const hasCandidates = candidates.length > 0;
+
+          if (!hasCandidates) {
             const ineligibles = evaluationResult.summary.ineligibleCount;
             const reviews = evaluationResult.summary.reviewCount;
-            const failureDetail = `Sourcing eligibility gate blocked negotiation: 0 of ${quotes.length} vendor quotes are eligible (${ineligibles} disqualified, ${reviews} require review).`;
+            const failureDetail = `Sourcing eligibility gate blocked negotiation: 0 of ${quotes.length} vendor quotes are valid negotiation candidates (${ineligibles} disqualified, ${reviews} require review).`;
             sendEvent("NEGOTIATION_FAILED", {
               sessionId: currentSessionId,
               error: "Sourcing gate failure: No eligible quotes satisfy the mandate.",
@@ -279,7 +285,7 @@ export async function POST(req: NextRequest) {
             return;
           }
 
-          // Initialize orchestrator with SSE emitter using strictly eligible quotes
+          // Initialize orchestrator with SSE emitter using negotiation candidates
           const geminiClient = new GeminiNegotiationClient();
           const orchestrator = new NegotiationOrchestrator({
             geminiClient,
@@ -290,10 +296,10 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          // Execute negotiation loop with eligible quotes, reusing existing session ID if available
+          // Execute negotiation loop with negotiation candidate quotes, reusing existing session ID if available
           const orchestrationResult = await orchestrator.runNegotiation(
             mandate,
-            evaluationResult.eligibleQuotes,
+            candidates,
             currentSessionId,
             evaluationResult.evaluations
           );

@@ -179,6 +179,8 @@ export interface SourcingEvaluationResult {
   ineligibleQuotes: VendorQuote[];
   reviewQuotes: VendorQuote[];
   hasEligibleQuotes: boolean;
+  negotiationCandidates?: VendorQuote[];
+  hasNegotiationCandidates?: boolean;
   bestQuote?: VendorQuote;
   summary: {
     totalQuotesEvaluated: number;

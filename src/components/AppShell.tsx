@@ -123,7 +123,7 @@ export function AppShell({
 
           {/* ZONE 2 — CENTER: PRIMARY NAVIGATION */}
           <nav
-            className="hidden lg:flex items-center h-full gap-1 xl:gap-1.5"
+            className="hidden xl:flex items-center h-full gap-1.5"
             aria-label="Primary navigation"
           >
             {navItems.map((item) => {
@@ -176,17 +176,17 @@ export function AppShell({
           </nav>
 
           {/* ZONE 3 — RIGHT: CONTEXT PILL & CONTROLS */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             {/* Active Session Indicator Pill if active */}
             {activeSessionId && (
               <div
-                className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-smoke/40 dark:bg-[#202025] border border-smoke dark:border-[#2e2e34] text-[11.5px] font-mono-token text-secondary"
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-smoke/40 dark:bg-[#202025] border border-smoke dark:border-[#2e2e34] text-[11.5px] font-mono-token text-secondary shrink-0 max-w-[200px]"
                 title={`Active procurement session: ${activeSessionId}${activeBudgetString ? ` (${activeBudgetString})` : ""}`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-                <span className="truncate max-w-[120px]">{activeSessionId}</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" aria-hidden="true" />
+                <span className="truncate max-w-[85px] xl:max-w-[110px]">{activeSessionId}</span>
                 {activeBudgetString && (
-                  <span className="hidden xl:inline text-obsidian dark:text-[#f6f4f0] font-medium border-l border-smoke dark:border-[#2e2e34] pl-1.5">
+                  <span className="hidden xl:inline text-obsidian dark:text-[#f6f4f0] font-medium border-l border-smoke dark:border-[#2e2e34] pl-1.5 shrink-0">
                     {activeBudgetString}
                   </span>
                 )}
@@ -194,14 +194,14 @@ export function AppShell({
             )}
 
             {/* Compact Institutional Theme Toggle (Light / Dark) */}
-            <ThemeToggle />
+            <ThemeToggle className="shrink-0" />
 
             {/* Mobile Navigation Trigger Button */}
             <button
               ref={menuTriggerRef}
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-[8px] text-obsidian dark:text-[#f5f3ef] hover:bg-smoke/50 dark:hover:bg-[#202024] border border-smoke dark:border-[#2e2e34] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors"
+              className="xl:hidden p-2 rounded-[8px] text-obsidian dark:text-[#f5f3ef] hover:bg-smoke/50 dark:hover:bg-[#202024] border border-smoke dark:border-[#2e2e34] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors shrink-0"
               aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-nav-drawer"
@@ -220,7 +220,7 @@ export function AppShell({
           <>
             {/* Backdrop */}
             <div
-              className="fixed inset-0 top-[64px] bg-black/60 dark:bg-black/75 z-40 lg:hidden backdrop-blur-xs transition-opacity"
+              className="fixed inset-0 top-[64px] bg-black/60 dark:bg-black/75 z-40 xl:hidden backdrop-blur-xs transition-opacity"
               onClick={() => setMobileMenuOpen(false)}
               aria-hidden="true"
             />
@@ -231,18 +231,17 @@ export function AppShell({
               role="dialog"
               aria-modal="true"
               aria-label="Mobile Navigation Menu"
-              className="fixed top-[64px] inset-x-0 bg-paper-white dark:bg-[#141416] border-b border-smoke dark:border-[#26262a] z-50 p-5 space-y-2 shadow-2xl lg:hidden animate-in slide-in-from-top-2 duration-150"
+              className="fixed top-[64px] inset-x-0 bg-paper-white dark:bg-[#141416] border-b border-smoke dark:border-[#26262a] z-50 p-5 space-y-2 shadow-2xl xl:hidden max-h-[calc(100vh-64px)] overflow-y-auto animate-in slide-in-from-top-2 duration-150"
             >
               <div className="flex items-center justify-between px-3 py-1 pb-2 border-b border-smoke/70 dark:border-[#222226]">
                 <span className="text-[11px] font-mono-token uppercase tracking-wider text-[#888888] dark:text-[#77777c]">
                   Navigation
                 </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] font-medium text-[#888888] dark:text-[#77777c]">
-                    Theme
+                {activeSessionId && (
+                  <span className="text-[11px] font-mono-token text-secondary truncate max-w-[160px]">
+                    {activeSessionId}
                   </span>
-                  <ThemeToggle />
-                </div>
+                )}
               </div>
               {navItems.map((item) => {
                 const Icon = item.icon;

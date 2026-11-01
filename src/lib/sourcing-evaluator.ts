@@ -498,6 +498,108 @@ export async function evaluateVendorQuote(
   };
 }
 
+export interface NegotiationCandidateEvaluation {
+  isCandidate: boolean;
+  hardDisqualificationReasons: string[];
+  isAboveBudgetBaseline: boolean;
+}
+
+/**
+ * Phase 6.5: Negotiation Arena Entry Eligibility Evaluator
+ * Evaluates whether a quote can enter the negotiation arena.
+ * Distinguishes negotiation eligibility from baseline settlement feasibility:
+ * - A quote above the budget ceiling IS eligible to enter negotiation so the buyer agent can negotiate it down.
+ * - Preserves hard disqualifications: SKU/specification contradiction, condition mismatch, non-negotiable delivery/return SLA violations, and invalid mandate parameters.
+ */
+export function evaluateNegotiationCandidate(
+  mandate: ProcurementMandate,
+  quote: VendorQuote,
+  evaluation?: QuoteEvaluation
+): NegotiationCandidateEvaluation {
+  const hardDisqualificationReasons: string[] = [];
+
+  // 1. Basic Quote Integrity
+  if (!Number.isFinite(quote.initialUnitAsk) || quote.initialUnitAsk <= 0) {
+    hardDisqualificationReasons.push("Asking price must be a positive number.");
+  }
+  if (!Number.isFinite(quote.shippingCost) || quote.shippingCost < 0) {
+    hardDisqualificationReasons.push("Shipping cost must be non-negative.");
+  }
+  if (!quote.sku || !quote.sku.trim()) {
+    hardDisqualificationReasons.push("Quote must have a valid SKU.");
+  }
+
+  // 2. Mandate Integrity
+  if (!Number.isInteger(mandate.quantity) || mandate.quantity < 1) {
+    hardDisqualificationReasons.push("Mandate quantity must be an integer >= 1.");
+  }
+  if (!Number.isFinite(mandate.maxTotalBudget) || mandate.maxTotalBudget <= 0) {
+    hardDisqualificationReasons.push("Mandate budget ceiling must be positive.");
+  }
+  if (!Number.isInteger(mandate.maxDeliveryDays) || mandate.maxDeliveryDays < 1) {
+    hardDisqualificationReasons.push("Mandate max delivery days must be >= 1.");
+  }
+  if (!Number.isInteger(mandate.minReturnDays) || mandate.minReturnDays < 0) {
+    hardDisqualificationReasons.push("Mandate min return days must be >= 0.");
+  }
+
+  // 3. Product Condition Check (Hard constraint)
+  if (mandate.requiredCondition && quote.condition) {
+    if (quote.condition !== mandate.requiredCondition) {
+      hardDisqualificationReasons.push(
+        `Product condition '${quote.condition}' does not satisfy mandated '${mandate.requiredCondition}'.`
+      );
+    }
+  }
+
+  // 4. Compatibility & Specifications Check (Hard constraint)
+  if (evaluation) {
+    if (!evaluation.compatibility.categoryMatch) {
+      hardDisqualificationReasons.push(
+        `Product category does not match mandated category '${mandate.itemQuery}'.`
+      );
+    }
+    const specMismatches = evaluation.compatibility.specificationMatches.filter(
+      (s) => s.mandatory && s.matchStatus === "MISMATCH"
+    );
+    if (specMismatches.length > 0) {
+      hardDisqualificationReasons.push(
+        `Contradicts mandatory specifications: ${specMismatches.map((s) => s.specName).join(", ")}.`
+      );
+    }
+  }
+
+  // 5. Non-negotiable SLA limits (Hard constraint)
+  const isDeliveryCompliant = evaluation ? evaluation.sla.deliveryCompliant : quote.deliveryDays <= mandate.maxDeliveryDays;
+  if (!isDeliveryCompliant) {
+    hardDisqualificationReasons.push(
+      `Offered delivery time (${quote.deliveryDays}d) exceeds mandated max (${mandate.maxDeliveryDays}d).`
+    );
+  }
+
+  const isReturnCompliant = evaluation ? evaluation.sla.returnCompliant : quote.returnDays >= mandate.minReturnDays;
+  if (!isReturnCompliant) {
+    hardDisqualificationReasons.push(
+      `Offered return policy (${quote.returnDays}d) is less than mandated min (${mandate.minReturnDays}d).`
+    );
+  }
+
+  // 6. Landed Cost vs Budget Check (Negotiable!)
+  const unitCents = Math.round((quote.initialUnitAsk || 0) * 100);
+  const shippingCents = Math.round((quote.shippingCost || 0) * 100);
+  const landedCents = unitCents * (mandate.quantity || 1) + shippingCents;
+  const maxBudgetCents = Math.round((mandate.maxTotalBudget || 0) * 100);
+  const isAboveBudgetBaseline = landedCents > maxBudgetCents;
+
+  const isCandidate = hardDisqualificationReasons.length === 0;
+
+  return {
+    isCandidate,
+    hardDisqualificationReasons,
+    isAboveBudgetBaseline,
+  };
+}
+
 /**
  * Main Sourcing Evaluator
  * Evaluates all quotes, generates explainable rankings, and filters eligible offers.
@@ -522,11 +624,17 @@ export class SourcingEvaluator {
     const eligibleQuotes: VendorQuote[] = [];
     const ineligibleQuotes: VendorQuote[] = [];
     const reviewQuotes: VendorQuote[] = [];
+    const negotiationCandidates: VendorQuote[] = [];
 
     // Evaluate each quote
     for (const quote of quotes) {
       const evaluation = await evaluateVendorQuote(mandate, quote, this.options);
       evaluations[quote.vendorId] = evaluation;
+
+      const candEval = evaluateNegotiationCandidate(mandate, quote, evaluation);
+      if (candEval.isCandidate) {
+        negotiationCandidates.push(quote);
+      }
 
       if (evaluation.status === "ELIGIBLE") {
         eligibleQuotes.push(quote);
@@ -555,6 +663,8 @@ export class SourcingEvaluator {
       ineligibleQuotes,
       reviewQuotes,
       hasEligibleQuotes: eligibleQuotes.length > 0,
+      negotiationCandidates,
+      hasNegotiationCandidates: negotiationCandidates.length > 0,
       bestQuote,
       summary: {
         totalQuotesEvaluated: quotes.length,

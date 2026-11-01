@@ -186,6 +186,8 @@ export async function POST(req: NextRequest) {
           rankedQuotes: evaluationResult.rankedQuotes,
           eligibleQuotes: evaluationResult.eligibleQuotes,
           hasEligibleQuotes: evaluationResult.hasEligibleQuotes,
+          negotiationCandidates: evaluationResult.negotiationCandidates,
+          hasNegotiationCandidates: evaluationResult.hasNegotiationCandidates,
           sourcingSummary: evaluationResult.summary,
           isFixture: sourcingResult.isFixture,
           dataSource: sourcingResult.dataSource,

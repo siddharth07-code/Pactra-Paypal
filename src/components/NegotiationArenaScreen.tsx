@@ -282,14 +282,22 @@ export function NegotiationArenaScreen({
             aria-label="Negotiation timeline log"
           >
             {events.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-2 text-[#737373] dark:text-[#a3a3a3]">
-                <Building2 className="w-8 h-8 text-ash-gray opacity-50 mb-1" aria-hidden="true" />
-                <p className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0]">
-                  Arena Ready
-                </p>
-                <p className="text-[13px] max-w-sm leading-relaxed">
-                  Autonomous Gemini buyer and supplier agents will negotiate discrete rounds under Boulware decay and anti-thrashing rules.
-                </p>
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3 text-[#737373] dark:text-[#a3a3a3]">
+                <div className="w-14 h-14 rounded-full bg-smoke/50 dark:bg-[#202025] border border-smoke dark:border-[#2e2e34] flex items-center justify-center mb-1 shadow-2xs">
+                  <Building2 className="w-7 h-7 text-obsidian/70 dark:text-[#b490f5]" aria-hidden="true" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+                    Arena Ready
+                  </h3>
+                  <p className="text-[13px] max-w-sm leading-relaxed text-[#737373] dark:text-[#a3a3a3]">
+                    Multi-agent negotiation workspace initialized. Autonomous Gemini buyer will negotiate across discrete rounds under mathematical Boulware guardrails.
+                  </p>
+                </div>
+                <div className="pt-1 flex items-center gap-2 px-3 py-1.5 rounded-[6px] bg-warm-cream/50 dark:bg-[#151518] border border-smoke dark:border-[#27272a] text-[12px] font-mono-token text-secondary">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+                  <span>Awaiting stream activation from Sourcing</span>
+                </div>
               </div>
             ) : (
               events.map((ev) => {

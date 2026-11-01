@@ -357,13 +357,13 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
 
         {/* Desktop Table View */}
         <div className="hidden sm:block overflow-x-auto">
-          <table className="w-full text-left text-[13px] border-collapse">
+          <table className="w-full text-left text-[13px] border-collapse table-fixed">
             <thead>
               <tr className="border-b border-smoke dark:border-[#27272a] bg-warm-cream/30 dark:bg-[#141416] type-table-header text-[#737373] dark:text-[#a3a3a3]">
-                <th scope="col" className="py-3 pl-6 pr-4 font-semibold">Invariant</th>
-                <th scope="col" className="py-3 px-4 font-semibold">Evaluation Rule</th>
-                <th scope="col" className="py-3 px-4 font-semibold">Authoritative Evaluated Value</th>
-                <th scope="col" className="py-3 pl-4 pr-6 text-right font-semibold">Result</th>
+                <th scope="col" className="w-[24%] py-3 pl-6 pr-4 font-semibold">Invariant</th>
+                <th scope="col" className="w-[36%] py-3 px-4 font-semibold">Evaluation Rule</th>
+                <th scope="col" className="w-[28%] py-3 px-4 font-semibold">Authoritative Evaluated Value</th>
+                <th scope="col" className="w-[12%] py-3 pl-4 pr-6 text-right font-semibold">Result</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-smoke dark:divide-[#27272a]">
@@ -406,8 +406,8 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                 },
               ].map((item, idx) => (
                 <tr key={idx} className="hover:bg-smoke/30 dark:hover:bg-[#1f1f23] transition-colors">
-                  <td className="py-3.5 pl-6 pr-4 whitespace-nowrap font-semibold text-obsidian dark:text-[#f6f4f0]">
-                    <div className="flex items-center gap-2">
+                  <td className="py-3.5 pl-6 pr-4 font-semibold text-obsidian dark:text-[#f6f4f0]">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span>{item.name}</span>
                       {item.inv.isSupplierAttestation && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-medium">
@@ -416,10 +416,10 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                       )}
                     </div>
                   </td>
-                  <td className="py-3.5 px-4 text-[#737373] dark:text-[#a3a3a3] max-w-xs">
+                  <td className="py-3.5 px-4 text-[#737373] dark:text-[#a3a3a3] leading-snug break-words">
                     {item.rule}
                   </td>
-                  <td className="py-3.5 px-4 font-mono-token text-[12px] text-obsidian dark:text-[#f6f4f0]">
+                  <td className="py-3.5 px-4 font-mono-token text-[12px] text-obsidian dark:text-[#f6f4f0] break-words">
                     {item.inv.code && (
                       <span className="text-[11px] font-sans font-medium text-architect-violet dark:text-[#a78bfa] mr-1.5">
                         [{item.inv.code}]

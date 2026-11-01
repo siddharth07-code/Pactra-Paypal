@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 import type {
   VendorQuote,
@@ -27,8 +28,8 @@ import type {
   ProcurementMandate,
   MandateStatus,
   QuoteEvaluation,
-  SourcingEvaluationResult,
 } from "@/types/pactum";
+import { evaluateNegotiationCandidate } from "@/lib/sourcing-evaluator";
 
 interface SourcingScreenProps {
   onStartNegotiation: (
@@ -80,8 +81,6 @@ export function SourcingScreen({
   // Sourced quotes preview & session reuse
   const [sourcedQuotes, setSourcedQuotes] = useState<VendorQuote[] | null>(null);
   const [quoteEvaluations, setQuoteEvaluations] = useState<Record<string, QuoteEvaluation> | null>(null);
-  const [hasEligibleQuotes, setHasEligibleQuotes] = useState<boolean>(true);
-  const [sourcingSummary, setSourcingSummary] = useState<SourcingEvaluationResult["summary"] | null>(null);
   const [previewedSessionId, setPreviewedSessionId] = useState<string | null>(null);
   const [isSourcing, setIsSourcing] = useState(false);
   const [sourcingError, setSourcingError] = useState<string | null>(null);
@@ -132,8 +131,6 @@ export function SourcingScreen({
     setClarificationQuestions([]);
     setMissingFieldsList([]);
     setQuoteEvaluations(null);
-    setHasEligibleQuotes(true);
-    setSourcingSummary(null);
   };
 
   const handleItemQueryChange = (val: string) => {
@@ -213,8 +210,6 @@ export function SourcingScreen({
     setPreviewedSessionId(null);
     setSourcedQuotes(null);
     setQuoteEvaluations(null);
-    setHasEligibleQuotes(true);
-    setSourcingSummary(null);
     setSourcingError(null);
     setMandateStatus("READY");
     setClarificationQuestions([]);
@@ -344,8 +339,6 @@ export function SourcingScreen({
 
       setSourcedQuotes(data.quotes || []);
       setQuoteEvaluations(data.evaluations || null);
-      setHasEligibleQuotes(data.hasEligibleQuotes !== undefined ? data.hasEligibleQuotes : (data.quotes?.length > 0));
-      setSourcingSummary(data.sourcingSummary || null);
       setPreviewedSessionId(data.sessionId || null);
       if (data.mandateIntelligence) {
         setMandateStatus(data.mandateIntelligence.status);
@@ -356,6 +349,43 @@ export function SourcingScreen({
       setIsSourcing(false);
     }
   };
+
+  const currentMandateForEval: ProcurementMandate = {
+    id: previewedSessionId || "mandate_current",
+    rawPrompt: prompt,
+    itemQuery: itemQuery.trim() || "4K USB-C monitors",
+    quantity: Number.isInteger(quantity) && quantity >= 1 ? quantity : 25,
+    maxTotalBudget: Number.isFinite(budget) && budget > 0 ? budget : 8500,
+    maxDeliveryDays: Number.isInteger(maxDelivery) && maxDelivery >= 1 ? maxDelivery : 5,
+    minReturnDays: Number.isInteger(minReturn) && minReturn >= 0 ? minReturn : 30,
+    currency,
+    requiredSpecs: [],
+    requiredCondition: "NEW",
+    createdAt: new Date().toISOString(),
+    version: 1,
+    isLocked: false,
+  };
+
+  const negotiationCandidates = sourcedQuotes
+    ? sourcedQuotes.filter((q) =>
+        evaluateNegotiationCandidate(currentMandateForEval, q, quoteEvaluations?.[q.vendorId]).isCandidate
+      )
+    : [];
+
+  const someQuotesAboveBudget =
+    sourcedQuotes !== null &&
+    negotiationCandidates.length > 0 &&
+    negotiationCandidates.some((q) => {
+      const evalRes = quoteEvaluations?.[q.vendorId];
+      const landed = evalRes ? evalRes.financials.landedCost : (q.initialUnitAsk * quantity + q.shippingCost);
+      return landed > budget;
+    });
+
+  const canEnterArena =
+    !isLoading &&
+    !isSourcing &&
+    mandateStatus !== "INVALID" &&
+    (sourcedQuotes === null || negotiationCandidates.length > 0);
 
   const handleEnterArena = () => {
     if (mandateStatus === "INVALID") {
@@ -368,8 +398,8 @@ export function SourcingScreen({
       return;
     }
 
-    if (sourcedQuotes && !hasEligibleQuotes) {
-      setSourcingError("Cannot enter negotiation arena: No retrieved quotes satisfy the authoritative mandate. Adjust constraints or review disqualification reasons.");
+    if (sourcedQuotes !== null && negotiationCandidates.length === 0) {
+      setSourcingError("Cannot enter negotiation arena: No retrieved vendor quotes satisfy mandatory specifications or SLA bounds.");
       return;
     }
 
@@ -405,43 +435,45 @@ export function SourcingScreen({
       />
 
       {/* Benchmark Presets */}
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        <span className="text-[12px] font-sans font-medium text-[#737373] dark:text-[#a3a3a3] mr-1">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 pt-1">
+        <span className="text-[12px] font-sans font-medium text-[#737373] dark:text-[#a3a3a3] shrink-0">
           Preset Scenarios:
         </span>
-        <button
-          type="button"
-          onClick={() => applyPreset(25, "4K USB-C monitors", 8500, 5, 30)}
-          className={`h-8 px-3 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
-            itemQuery === "4K USB-C monitors" && budget === 8500 && quantity === 25
-              ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white"
-              : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
-          }`}
-        >
-          Scenario A ($8.5k / 25 4K Monitors)
-        </button>
-        <button
-          type="button"
-          onClick={() => applyPreset(10, "Ergonomic Standing Desks", 4500, 7, 14)}
-          className={`h-8 px-3 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
-            itemQuery === "Ergonomic Standing Desks" && budget === 4500 && quantity === 10
-              ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white"
-              : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
-          }`}
-        >
-          Scenario B ($4.5k / 10 Desks)
-        </button>
-        <button
-          type="button"
-          onClick={() => applyPreset(4, "Enterprise Rack Servers", 15000, 5, 30)}
-          className={`h-8 px-3 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
-            itemQuery === "Enterprise Rack Servers" && budget === 15000 && quantity === 4
-              ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white"
-              : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
-          }`}
-        >
-          Scenario C ($15.0k / 4 Servers)
-        </button>
+        <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => applyPreset(25, "4K USB-C monitors", 8500, 5, 30)}
+            className={`w-full sm:w-auto min-h-[36px] sm:min-h-[32px] px-3.5 py-1.5 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange text-center ${
+              itemQuery === "4K USB-C monitors" && budget === 8500 && quantity === 25
+                ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white font-semibold"
+                : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
+            }`}
+          >
+            Scenario A ($8.5k / 25 4K Monitors)
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPreset(10, "Ergonomic Standing Desks", 4500, 7, 14)}
+            className={`w-full sm:w-auto min-h-[36px] sm:min-h-[32px] px-3.5 py-1.5 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange text-center ${
+              itemQuery === "Ergonomic Standing Desks" && budget === 4500 && quantity === 10
+                ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white font-semibold"
+                : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
+            }`}
+          >
+            Scenario B ($4.5k / 10 Desks)
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPreset(4, "Enterprise Rack Servers", 15000, 5, 30)}
+            className={`w-full sm:w-auto min-h-[36px] sm:min-h-[32px] px-3.5 py-1.5 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange text-center ${
+              itemQuery === "Enterprise Rack Servers" && budget === 15000 && quantity === 4
+                ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white font-semibold"
+                : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
+            }`}
+          >
+            Scenario C ($15.0k / 4 Servers)
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -660,6 +692,17 @@ export function SourcingScreen({
             </div>
           )}
 
+          {/* Informational Banner: Baseline Asking Prices Exceed Budget */}
+          {sourcedQuotes !== null && someQuotesAboveBudget && (
+            <div className="p-3 rounded-[6px] bg-amber-500/[0.08] dark:bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-[12.5px] text-amber-800 dark:text-amber-300">
+              <Info className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" aria-hidden="true" />
+              <div className="space-y-0.5">
+                <span className="font-semibold block">Negotiation Required for Budget Compliance</span>
+                <span>Some supplier asking prices exceed your budget. Enter negotiation to seek compliant offers.</span>
+              </div>
+            </div>
+          )}
+
           <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
             <GhostButton
               onClick={handleSourcePreview}
@@ -670,15 +713,15 @@ export function SourcingScreen({
             </GhostButton>
             <PrimaryButton
               onClick={handleEnterArena}
-              disabled={isLoading || isSourcing || (sourcedQuotes !== null && !hasEligibleQuotes)}
+              disabled={!canEnterArena}
               className="flex-1"
             >
               Enter Arena
             </PrimaryButton>
           </div>
-          {sourcedQuotes !== null && !hasEligibleQuotes && (
+          {sourcedQuotes !== null && negotiationCandidates.length === 0 && (
             <p className="text-[11.5px] text-rose-600 dark:text-rose-400 text-center pt-1 font-medium">
-              Cannot enter arena: 0 retrieved vendor quotes are eligible
+              Cannot enter arena: 0 retrieved vendor quotes are eligible for negotiation
             </p>
           )}
         </div>
@@ -703,7 +746,7 @@ export function SourcingScreen({
                     ? "neutral"
                     : sourcedQuotes.length === 0
                     ? "warning"
-                    : hasEligibleQuotes
+                    : negotiationCandidates.length > 0
                     ? "verified"
                     : "failure"
                 }
@@ -713,19 +756,19 @@ export function SourcingScreen({
                     : sourcedQuotes.length === 0
                     ? "No Matching Quotes"
                     : quoteEvaluations
-                    ? `${sourcedQuotes.length} Quotes (${sourcingSummary?.eligibleCount ?? 0} Eligible)`
+                    ? `${sourcedQuotes.length} Quotes (${negotiationCandidates.length} Negotiable)`
                     : `${sourcedQuotes.length} Quotes Loaded`
                 }
               />
             </div>
 
-            {quoteEvaluations && sourcedQuotes && sourcedQuotes.length > 0 && !hasEligibleQuotes && (
+            {quoteEvaluations && sourcedQuotes && sourcedQuotes.length > 0 && negotiationCandidates.length === 0 && (
               <div className="mt-4 p-3 rounded-[6px] bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 text-[12.5px] text-rose-800 dark:text-rose-300 flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-semibold">All Sourced Quotes Disqualified or Require Review</div>
+                  <div className="font-semibold">All Sourced Quotes Disqualified from Negotiation</div>
                   <div className="text-[12px] opacity-90 mt-0.5">
-                    None of the {sourcedQuotes.length} supplier quotes satisfy your active mandate constraints. Review individual failure reasons below or loosen constraints before commencing negotiation.
+                    None of the {sourcedQuotes.length} supplier quotes satisfy mandatory specifications, condition, or SLA requirements. Review individual failure reasons below or adjust constraints before entering negotiation.
                   </div>
                 </div>
               </div>
@@ -753,6 +796,7 @@ export function SourcingScreen({
                         const evalResult = quoteEvaluations ? quoteEvaluations[quote.vendorId] : undefined;
                         const landedTotal = evalResult ? evalResult.financials.landedCost : quote.initialUnitAsk * quantity + quote.shippingCost;
                         const isFeasible = evalResult ? evalResult.financials.withinBudget : landedTotal <= budget;
+                        const candEval = evaluateNegotiationCandidate(currentMandateForEval, quote, evalResult);
 
                         // Find ranking index among eligible offers
                         const eligibleQuotesSorted = sourcedQuotes
@@ -764,6 +808,8 @@ export function SourcingScreen({
                         const badgeStatus = evalResult
                           ? evalResult.status === "ELIGIBLE"
                             ? "verified"
+                            : candEval.isCandidate && candEval.isAboveBudgetBaseline
+                            ? "warning"
                             : evalResult.status === "NEEDS_REVIEW"
                             ? "warning"
                             : "failure"
@@ -776,12 +822,14 @@ export function SourcingScreen({
                             ? rankNumber
                               ? `Eligible • Rank #${rankNumber} (${evalResult.rankingScore} pts)`
                               : "Eligible"
+                            : candEval.isCandidate && candEval.isAboveBudgetBaseline
+                            ? "Above Budget (Negotiable)"
                             : evalResult.status === "NEEDS_REVIEW"
                             ? "Needs Review"
-                            : "Ineligible"
+                            : "Hard Ineligible"
                           : isFeasible
                           ? "Within Budget"
-                          : "Exceeds";
+                          : "Above Budget (Negotiable)";
 
                         return (
                           <tr
@@ -905,6 +953,7 @@ export function SourcingScreen({
                     const evalResult = quoteEvaluations ? quoteEvaluations[quote.vendorId] : undefined;
                     const landedTotal = evalResult ? evalResult.financials.landedCost : quote.initialUnitAsk * quantity + quote.shippingCost;
                     const isFeasible = evalResult ? evalResult.financials.withinBudget : landedTotal <= budget;
+                    const candEval = evaluateNegotiationCandidate(currentMandateForEval, quote, evalResult);
 
                     const eligibleQuotesSorted = sourcedQuotes
                       .filter((q) => quoteEvaluations?.[q.vendorId]?.status === "ELIGIBLE")
@@ -915,6 +964,8 @@ export function SourcingScreen({
                     const badgeStatus = evalResult
                       ? evalResult.status === "ELIGIBLE"
                         ? "verified"
+                        : candEval.isCandidate && candEval.isAboveBudgetBaseline
+                        ? "warning"
                         : evalResult.status === "NEEDS_REVIEW"
                         ? "warning"
                         : "failure"
@@ -927,12 +978,14 @@ export function SourcingScreen({
                         ? rankNumber
                           ? `Rank #${rankNumber} (${evalResult.rankingScore} pts)`
                           : "Eligible"
+                        : candEval.isCandidate && candEval.isAboveBudgetBaseline
+                        ? "Above Budget (Negotiable)"
                         : evalResult.status === "NEEDS_REVIEW"
                         ? "Needs Review"
-                        : "Ineligible"
+                        : "Hard Ineligible"
                       : isFeasible
                       ? "Within Budget"
-                      : "Exceeds";
+                      : "Above Budget (Negotiable)";
 
                     return (
                       <div key={quote.vendorId} className="py-3.5 space-y-2">

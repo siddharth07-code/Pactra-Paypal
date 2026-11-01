@@ -199,13 +199,13 @@ describe("ProcurementHistoryScreen Filter and Sort Verification", () => {
 
     // Filter to ACTIVE
     fireEvent.change(filterSelect, { target: { value: "ACTIVE" } });
-    expect(screen.getByText("sess-active")).toBeDefined();
+    expect(screen.getAllByText("sess-active").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("sess-captured")).toBeNull();
     expect(screen.queryByText("sess-disputed")).toBeNull();
 
     // Filter to DISPUTED
     fireEvent.change(filterSelect, { target: { value: "DISPUTED" } });
-    expect(screen.getByText("sess-disputed")).toBeDefined();
+    expect(screen.getAllByText("sess-disputed").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("sess-active")).toBeNull();
   });
 

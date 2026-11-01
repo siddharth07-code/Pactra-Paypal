@@ -183,116 +183,217 @@ export function ProcurementHistoryScreen({
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-[13.5px] border-collapse">
-              <thead>
-                <tr className="border-b border-smoke dark:border-[#27272a] bg-warm-cream/50 dark:bg-[#141416] type-table-header text-[#737373] dark:text-[#a3a3a3]">
-                  <th scope="col" className="py-3.5 pl-6 pr-4 font-semibold">Session ID</th>
-                  <th scope="col" className="py-3.5 px-4 font-semibold">Item Specification</th>
-                  <th scope="col" className="py-3.5 px-4 font-semibold">Supplier</th>
-                  <th scope="col" className="py-3.5 px-4 font-semibold text-right">Qty</th>
-                  <th scope="col" className="py-3.5 px-4 font-semibold text-right">Ceiling Budget</th>
-                  <th scope="col" className="py-3.5 px-4 font-semibold text-center">Audit Status</th>
-                  <th scope="col" className="py-3.5 px-4 font-semibold text-center">Lifecycle State</th>
-                  <th scope="col" className="py-3.5 pl-4 pr-6 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-smoke dark:divide-[#27272a]">
-                {filteredSessions.map((s) => {
-                  const isAuditPassed = s.auditCertificate?.passed === true;
+          <>
+            {/* Desktop Table View (>= sm) */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left text-[13.5px] border-collapse">
+                <thead>
+                  <tr className="border-b border-smoke dark:border-[#27272a] bg-warm-cream/50 dark:bg-[#141416] type-table-header text-[#737373] dark:text-[#a3a3a3]">
+                    <th scope="col" className="py-3.5 pl-6 pr-4 font-semibold">Session ID</th>
+                    <th scope="col" className="py-3.5 px-4 font-semibold">Item Specification</th>
+                    <th scope="col" className="py-3.5 px-4 font-semibold">Supplier</th>
+                    <th scope="col" className="py-3.5 px-4 font-semibold text-right">Qty</th>
+                    <th scope="col" className="py-3.5 px-4 font-semibold text-right">Ceiling Budget</th>
+                    <th scope="col" className="py-3.5 px-4 font-semibold text-center">Audit Status</th>
+                    <th scope="col" className="py-3.5 px-4 font-semibold text-center">Lifecycle State</th>
+                    <th scope="col" className="py-3.5 pl-4 pr-6 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-smoke dark:divide-[#27272a]">
+                  {filteredSessions.map((s) => {
+                    const isAuditPassed = s.auditCertificate?.passed === true;
 
-                  return (
-                    <tr
-                      key={s.id}
-                      className="hover:bg-warm-cream/35 dark:hover:bg-[#1f1f23] transition-colors group"
-                    >
-                      {/* Session ID */}
-                      <td className="py-4 pl-6 pr-4 whitespace-nowrap">
-                        <span className="font-mono-token text-[12px] font-medium text-obsidian dark:text-[#f5f3ef]">
-                          {s.id}
-                        </span>
-                      </td>
+                    return (
+                      <tr
+                        key={s.id}
+                        className="hover:bg-warm-cream/35 dark:hover:bg-[#1f1f23] transition-colors group"
+                      >
+                        {/* Session ID */}
+                        <td className="py-4 pl-6 pr-4 whitespace-nowrap">
+                          <span className="font-mono-token text-[12px] font-medium text-obsidian dark:text-[#f5f3ef]">
+                            {s.id}
+                          </span>
+                        </td>
 
-                      {/* Item Specification */}
-                      <td className="py-4 px-4">
-                        <div className="font-medium text-obsidian dark:text-[#f5f3ef] line-clamp-1 max-w-[220px]">
+                        {/* Item Specification */}
+                        <td className="py-4 px-4">
+                          <div className="font-medium text-obsidian dark:text-[#f5f3ef] line-clamp-1 max-w-[220px]">
+                            {s.mandate.itemQuery}
+                          </div>
+                          <div className="text-[12px] text-[#666666] dark:text-[#a5a19b]">
+                            {s.mandate.requiredSpecs.join(", ") || "Standard SLA"}
+                          </div>
+                        </td>
+
+                        {/* Supplier */}
+                        <td className="py-4 px-4 whitespace-nowrap">
+                          <span className="font-medium text-obsidian dark:text-[#f5f3ef]">
+                            {s.selectedQuote?.vendorName || "Evaluating Baselines"}
+                          </span>
+                        </td>
+
+                        {/* Quantity */}
+                        <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-obsidian dark:text-[#f5f3ef]">
+                          {s.mandate.quantity.toLocaleString()}
+                        </td>
+
+                        {/* Ceiling Budget */}
+                        <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap font-medium text-obsidian dark:text-[#f5f3ef]">
+                          <CurrencyDisplay
+                            amount={s.mandate.maxTotalBudget}
+                            currency={s.mandate.currency}
+                            size="sm"
+                          />
+                        </td>
+
+                        {/* Audit Status */}
+                        <td className="py-4 px-4 text-center whitespace-nowrap">
+                          {s.auditCertificate ? (
+                            <StatusBadge
+                              status={isAuditPassed ? "verified" : "failure"}
+                              label={isAuditPassed ? "PASS" : "FAIL"}
+                            />
+                          ) : (
+                            <StatusBadge status="neutral" label="PENDING" />
+                          )}
+                        </td>
+
+                        {/* Lifecycle State */}
+                        <td className="py-4 px-4 text-center whitespace-nowrap">
+                          {(() => {
+                            const l = getSessionLifecycleConfig(s);
+                            return <StatusBadge status={l.status} label={l.label} />;
+                          })()}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-4 pl-4 pr-6 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setInspectedSession(s)}
+                              className="p-1.5 rounded-[6px] border border-smoke dark:border-[#2e2e34] text-obsidian dark:text-[#f5f3ef] hover:bg-warm-cream dark:hover:bg-[#242429] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+                              aria-label={`Inspect session ${s.id} details`}
+                              title="Inspect session record"
+                            >
+                              <Eye className="w-4 h-4" aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onSelectSession(s)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] bg-warm-cream/70 dark:bg-[#202024] border border-smoke dark:border-[#2e2e34] text-[12.5px] font-medium text-obsidian dark:text-[#f5f3ef] hover:border-ember-orange hover:text-ember-orange transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+                              aria-label={`Open session ${s.id}`}
+                            >
+                              <span>Open</span>
+                              <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Dedicated Session Cards (< sm) */}
+            <div className="sm:hidden divide-y divide-smoke dark:divide-[#27272a]">
+              {filteredSessions.map((s) => {
+                const isAuditPassed = s.auditCertificate?.passed === true;
+                const lifecycle = getSessionLifecycleConfig(s);
+                const supplierName = s.selectedQuote?.vendorName || "Not established";
+                const hasMerkleRoot = Boolean(s.merkleRoot);
+
+                return (
+                  <div
+                    key={s.id}
+                    className="p-4 space-y-3 hover:bg-warm-cream/35 dark:hover:bg-[#1f1f23] transition-colors"
+                  >
+                    {/* Top Row: Item and Lifecycle Badge */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5 min-w-0">
+                        <h3 className="font-medium text-[14.5px] text-obsidian dark:text-[#f5f3ef] truncate">
                           {s.mandate.itemQuery}
+                        </h3>
+                        <div className="flex items-center gap-1.5 text-[11.5px] text-secondary font-mono-token">
+                          <span>ID:</span>
+                          <span className="truncate max-w-[140px]">{s.id}</span>
                         </div>
-                        <div className="text-[12px] text-[#666666] dark:text-[#a5a19b]">
-                          {s.mandate.requiredSpecs.join(", ") || "Standard SLA"}
-                        </div>
-                      </td>
+                      </div>
+                      <div className="shrink-0">
+                        <StatusBadge status={lifecycle.status} label={lifecycle.label} />
+                      </div>
+                    </div>
 
-                      {/* Supplier */}
-                      <td className="py-4 px-4 whitespace-nowrap">
-                        <span className="font-medium text-obsidian dark:text-[#f5f3ef]">
-                          {s.selectedQuote?.vendorName || "Evaluating Baselines"}
+                    {/* Middle Grid: Supplier, Qty, Budget, Audit */}
+                    <div className="grid grid-cols-2 gap-2.5 text-[12.5px] pt-1">
+                      <div>
+                        <span className="text-secondary block text-[11px]">Supplier</span>
+                        <span className="font-medium text-obsidian dark:text-[#f5f3ef] truncate block">
+                          {supplierName}
                         </span>
-                      </td>
-
-                      {/* Quantity */}
-                      <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-obsidian dark:text-[#f5f3ef]">
-                        {s.mandate.quantity.toLocaleString()}
-                      </td>
-
-                      {/* Ceiling Budget */}
-                      <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap font-medium text-obsidian dark:text-[#f5f3ef]">
+                      </div>
+                      <div>
+                        <span className="text-secondary block text-[11px]">Quantity</span>
+                        <span className="font-medium text-obsidian dark:text-[#f5f3ef] tabular-nums">
+                          {s.mandate.quantity.toLocaleString()} units
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-secondary block text-[11px]">Ceiling Budget</span>
                         <CurrencyDisplay
                           amount={s.mandate.maxTotalBudget}
                           currency={s.mandate.currency}
                           size="sm"
                         />
-                      </td>
-
-                      {/* Audit Status */}
-                      <td className="py-4 px-4 text-center whitespace-nowrap">
+                      </div>
+                      <div>
+                        <span className="text-secondary block text-[11px]">ACWORLD Audit</span>
                         {s.auditCertificate ? (
                           <StatusBadge
                             status={isAuditPassed ? "verified" : "failure"}
                             label={isAuditPassed ? "PASS" : "FAIL"}
                           />
                         ) : (
-                          <StatusBadge status="neutral" label="PENDING" />
+                          <span className="text-secondary text-[11.5px] italic">Not established</span>
                         )}
-                      </td>
+                      </div>
+                    </div>
 
-                      {/* Lifecycle State */}
-                      <td className="py-4 px-4 text-center whitespace-nowrap">
-                        {(() => {
-                          const l = getSessionLifecycleConfig(s);
-                          return <StatusBadge status={l.status} label={l.label} />;
-                        })()}
-                      </td>
+                    {/* Merkle Root indicator if available */}
+                    {hasMerkleRoot && (
+                      <div className="text-[11px] font-mono-token text-secondary flex items-center gap-1 pt-1 truncate">
+                        <span className="font-medium text-obsidian dark:text-[#f5f3ef]">Root:</span>
+                        <span className="truncate">{s.merkleRoot}</span>
+                      </div>
+                    )}
 
-                      {/* Actions */}
-                      <td className="py-4 pl-4 pr-6 text-right whitespace-nowrap">
-                        <div className="inline-flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setInspectedSession(s)}
-                            className="p-1.5 rounded-[6px] border border-smoke dark:border-[#2e2e34] text-obsidian dark:text-[#f5f3ef] hover:bg-warm-cream dark:hover:bg-[#242429] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
-                            aria-label={`Inspect session ${s.id} details`}
-                            title="Inspect session record"
-                          >
-                            <Eye className="w-4 h-4" aria-hidden="true" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onSelectSession(s)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] bg-warm-cream/70 dark:bg-[#202024] border border-smoke dark:border-[#2e2e34] text-[12.5px] font-medium text-obsidian dark:text-[#f5f3ef] hover:border-ember-orange hover:text-ember-orange transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
-                            aria-label={`Open session ${s.id}`}
-                          >
-                            <span>Open</span>
-                            <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-smoke/70 dark:border-[#222226]">
+                      <button
+                        type="button"
+                        onClick={() => setInspectedSession(s)}
+                        className="flex-1 py-2 px-3 rounded-[6px] border border-smoke dark:border-[#2e2e34] text-[12.5px] font-medium text-obsidian dark:text-[#f5f3ef] hover:bg-warm-cream dark:hover:bg-[#242429] transition-colors cursor-pointer flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+                        aria-label={`Inspect session ${s.id} details`}
+                      >
+                        <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>Inspect</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSelectSession(s)}
+                        className="flex-1 py-2 px-3 rounded-[6px] bg-warm-cream/70 dark:bg-[#202024] border border-smoke dark:border-[#2e2e34] text-[12.5px] font-medium text-obsidian dark:text-[#f5f3ef] hover:border-ember-orange hover:text-ember-orange transition-colors cursor-pointer flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+                        aria-label={`Open session ${s.id}`}
+                      >
+                        <span>Open Session</span>
+                        <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
