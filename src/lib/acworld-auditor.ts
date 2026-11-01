@@ -159,11 +159,11 @@ export class AcworldAuditor {
     const priceEvidenceRefs: string[] = [];
 
     if (finalOffer && selectedQuote) {
-      const unitCents = toCents(finalOffer.unitPrice);
-      const shipCents = toCents(finalOffer.shippingCost);
-      const totalCents = unitCents * finalOffer.quantity + shipCents;
+      const unitCents = toCents(finalOffer.unitPrice ?? 0);
+      const shipCents = toCents(finalOffer.shippingCost ?? selectedQuote.shippingCost ?? 0);
+      const totalCents = unitCents * (finalOffer.quantity || 1) + shipCents;
       computedTotal = fromCents(totalCents);
-      const maxBudgetCents = toCents(mandate.maxTotalBudget);
+      const maxBudgetCents = toCents(mandate.maxTotalBudget ?? 0);
 
       priceEvidenceRefs.push(`budget:${mandate.maxTotalBudget}`, `total:${computedTotal}`);
 
@@ -171,6 +171,18 @@ export class AcworldAuditor {
         priceStatus = "INVALID";
         priceCode = "INVALID_CURRENCY";
         priceReason = `Invalid mandate currency code: ${mandate.currency}. Must be a 3-letter currency code (e.g. USD).`;
+      } else if (selectedQuote.currency && selectedQuote.currency.toUpperCase() !== mandate.currency.toUpperCase()) {
+        priceStatus = "INVALID";
+        priceCode = "CURRENCY_MISMATCH";
+        priceReason = `Quote currency mismatch: selected quote currency ${selectedQuote.currency} does not match mandate currency ${mandate.currency}.`;
+      } else if (finalOffer.currency && finalOffer.currency.toUpperCase() !== mandate.currency.toUpperCase()) {
+        priceStatus = "INVALID";
+        priceCode = "CURRENCY_MISMATCH";
+        priceReason = `Final offer currency mismatch: final offer currency ${finalOffer.currency} does not match mandate currency ${mandate.currency}.`;
+      } else if (session.agreementRecord?.currency && session.agreementRecord.currency.toUpperCase() !== mandate.currency.toUpperCase()) {
+        priceStatus = "INVALID";
+        priceCode = "CURRENCY_MISMATCH";
+        priceReason = `Agreement currency mismatch: agreement currency ${session.agreementRecord.currency} does not match mandate currency ${mandate.currency}.`;
       } else if (!Number.isFinite(mandate.maxTotalBudget) || mandate.maxTotalBudget <= 0) {
         priceStatus = "INVALID";
         priceCode = "INVALID_BUDGET";

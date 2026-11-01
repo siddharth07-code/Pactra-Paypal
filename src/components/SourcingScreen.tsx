@@ -94,7 +94,7 @@ export function SourcingScreen({
     d: number,
     r: number
   ) => {
-    const sym = curr === "EUR" ? "€" : curr === "GBP" ? "£" : "$";
+    const sym = curr === "INR" ? "₹" : curr === "EUR" ? "€" : curr === "GBP" ? "£" : "$";
     return `Purchase ${q} ${item} under an ${sym}${b.toLocaleString()} total budget, with delivery within ${d} days and a minimum ${r}-day return policy.`;
   };
 
@@ -424,7 +424,7 @@ export function SourcingScreen({
     );
   };
 
-  const currencyPrefix = currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
+  const currencyPrefix = currency === "INR" ? "₹" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
 
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
@@ -648,6 +648,7 @@ export function SourcingScreen({
                 className="w-full h-10 bg-paper-white dark:bg-[#18181b] rounded-[8px] px-3 py-2 text-[14px] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange transition-colors cursor-pointer font-medium"
               >
                 <option value="USD">USD ($)</option>
+                <option value="INR">INR (₹)</option>
                 <option value="EUR">EUR (€)</option>
                 <option value="GBP">GBP (£)</option>
               </select>

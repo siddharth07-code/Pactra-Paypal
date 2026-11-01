@@ -180,11 +180,11 @@ export function AppShell({
             {/* Active Session Indicator Pill if active */}
             {activeSessionId && (
               <div
-                className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-smoke/40 dark:bg-[#202025] border border-smoke dark:border-[#2e2e34] text-[11.5px] font-mono-token text-secondary shrink-0 max-w-[200px]"
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-smoke/40 dark:bg-[#202025] border border-smoke dark:border-[#2e2e34] text-[11.5px] font-mono-token text-secondary shrink-0 max-w-[360px]"
                 title={`Active procurement session: ${activeSessionId}${activeBudgetString ? ` (${activeBudgetString})` : ""}`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" aria-hidden="true" />
-                <span className="truncate max-w-[85px] xl:max-w-[110px]">{activeSessionId}</span>
+                <span className="truncate max-w-[90px] xl:max-w-[120px]">{activeSessionId}</span>
                 {activeBudgetString && (
                   <span className="hidden xl:inline text-obsidian dark:text-[#f6f4f0] font-medium border-l border-smoke dark:border-[#2e2e34] pl-1.5 shrink-0">
                     {activeBudgetString}

@@ -212,10 +212,10 @@ describe("SettlementCenterScreen — Semantic Lifecycle Verification", () => {
     // Delivery SLA and Return window
     expect(screen.getByText("4 Days (Max 5d)")).toBeDefined();
     expect(screen.getByText("35 Days (Min 30d)")).toBeDefined();
-    // Agreed landed cost: 320 * 25 + 150 = $8,150
-    expect(screen.getByText("$8,150 USD")).toBeDefined();
+    // Agreed landed cost: 320 * 25 + 150 = $8,150.00
+    expect(screen.getByText("$8,150.00")).toBeDefined();
     // Savings: 8,500 - 8,150 = $350 (4.1%)
-    expect(screen.getByText("+$350 (4.1%)")).toBeDefined();
+    expect(screen.getByText("+$350.00 (4.1%)")).toBeDefined();
     // Header badge reflects awaiting audit
     expect(screen.getByText("Awaiting Audit")).toBeDefined();
   });

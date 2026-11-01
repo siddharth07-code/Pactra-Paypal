@@ -61,7 +61,7 @@ export const BUYER_MANDATE_SCHEMA: Schema = {
     },
     currency: {
       type: Type.STRING,
-      description: "Three-letter ISO currency code: strictly 'USD', 'EUR', or 'GBP'. Null if ambiguous or unsupported.",
+      description: "Three-letter ISO currency code: strictly 'USD', 'INR', 'EUR', or 'GBP'. Null if ambiguous or unsupported.",
     },
     maxDeliveryDays: {
       type: Type.INTEGER,
@@ -126,7 +126,7 @@ CRITICAL OPERATIONAL RULES:
    - Distinguish total budget (e.g. "$8,500 total") from unit price (e.g. "$340 each").
    - If conflicting budgets are given (e.g. "budget $8,500 but do not spend more than $6,000"), report this in contradictions. Do NOT arbitrarily pick one.
 4. Currencies:
-   - Supported currencies are strictly: USD ($), EUR (€), GBP (£).
+   - Supported currencies are strictly: USD ($), INR (₹), EUR (€), GBP (£).
    - If currency is missing, ambiguous, or unsupported, report in missingFields or ambiguities. Do NOT invent a currency.
 5. Quantity:
    - Accurately parse numeric and written numbers (e.g. "twenty-five" = 25, "one hundred" = 100, "12" = 12).
@@ -554,18 +554,18 @@ Extract the structured procurement mandate according to the required schema.`;
       }
     }
 
-    // Currency validation: strictly USD, EUR, GBP
+    // Currency validation: strictly USD, INR, EUR, GBP
     let currency: CurrencyCode | undefined;
     const rawCurrency = typeof candidate.currency === "string" ? candidate.currency.toUpperCase() : defaultCurrency?.toUpperCase();
-    if (rawCurrency === "USD" || rawCurrency === "EUR" || rawCurrency === "GBP") {
+    if (rawCurrency === "USD" || rawCurrency === "INR" || rawCurrency === "EUR" || rawCurrency === "GBP") {
       currency = rawCurrency;
     } else if (rawCurrency) {
-      ambiguities.push(`Unsupported currency '${rawCurrency}'. Only USD, EUR, and GBP are supported.`);
+      ambiguities.push(`Unsupported currency '${rawCurrency}'. Only USD, INR, EUR, and GBP are supported.`);
       if (!missingFields.includes("currency")) missingFields.push("currency");
-      clarificationQuestions.push("Please confirm a supported currency: USD ($), EUR (€), or GBP (£).");
+      clarificationQuestions.push("Please confirm a supported currency: USD ($), INR (₹), EUR (€), or GBP (£).");
     } else {
       if (!missingFields.includes("currency")) missingFields.push("currency");
-      clarificationQuestions.push("Please specify the currency (USD, EUR, or GBP).");
+      clarificationQuestions.push("Please specify the currency (USD, INR, EUR, or GBP).");
     }
 
     // 4. Validate Delivery SLA Days

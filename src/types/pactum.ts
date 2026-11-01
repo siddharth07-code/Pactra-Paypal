@@ -9,7 +9,7 @@
  * convert to integer minor units (cents) for exact arithmetic.
  */
 
-export type CurrencyCode = "USD" | "EUR" | "GBP" | string;
+export type CurrencyCode = "USD" | "INR" | "EUR" | "GBP" | string;
 
 export interface RequiredSpecification {
   name: string;
@@ -92,6 +92,7 @@ export interface VendorQuote {
   condition: ProductCondition;
   status: VendorQuoteStatus;
   dataSource: DataSource;
+  currency?: CurrencyCode;
 }
 
 /**
@@ -200,6 +201,7 @@ export interface NegotiationOffer {
   deliveryDays: number; // d_t: delivery time in days
   returnDays: number; // r_t: return window in days
   shippingCost: number; // S_ship(x_t): shipping cost
+  currency?: CurrencyCode;
 }
 
 export type NegotiationActor = "BUYER" | "VENDOR";
@@ -223,6 +225,7 @@ export interface AgreementRecord {
   agreedPrice: number;
   agreedOffer: NegotiationOffer;
   totalCost: number;
+  currency?: CurrencyCode;
   agreedBy: AgreementType;
   acceptingParty: "VENDOR" | "BUYER";
   acceptanceMechanism: AgreementType;

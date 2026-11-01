@@ -184,14 +184,14 @@ export function parseProcurementMandate(input: MandateParseInput): MandateParseR
   const clarificationQuestions: string[] = [];
 
   // 1. Quantity extraction: e.g. "purchase 25", "order 10", "buy 50", "qty: 12", "quantity of 100"
-  // Remove currency expressions (e.g. $8,500, €5,000, £10,000) so amounts/commas are not misparsed as quantities
-  const promptSansCurrency = normalizedPrompt.replace(/[\$€£]\s*[\d,]+(?:\.\d+)?/g, " ");
+  // Remove currency expressions (e.g. $8,500, ₹15,000, €5,000, £10,000) so amounts/commas are not misparsed as quantities
+  const promptSansCurrency = normalizedPrompt.replace(/[\$€£₹]\s*[\d,]+(?:\.\d+)?/g, " ");
 
   let quantity: number | null = null;
   const qtyMatch =
     promptSansCurrency.match(/\b(?:purchase|order|buy|procure|acquire|source|qty:?|quantity(?:\s+of)?)\s+(\d+)\b(?!\s*k\b)/i) ||
     promptSansCurrency.match(/\b(\d+)\s+(?:units?|pieces?|items?|pack(?:s)?)\b/i) ||
-    promptSansCurrency.match(/\b(\d+)\s+([a-zA-Z0-9\s-]+?)(?:\s+(?:under|for|with|at|budget|delivery|within|min|sla|\$|€|£)\b|$)/i);
+    promptSansCurrency.match(/\b(\d+)\s+([a-zA-Z0-9\s-]+?)(?:\s+(?:under|for|with|at|budget|delivery|within|min|sla|\$|€|£|₹)\b|$)/i);
 
   if (qtyMatch) {
     // Ensure matched number is not a resolution (e.g. 4k), refresh rate, memory size, or SLA day count
@@ -259,8 +259,8 @@ export function parseProcurementMandate(input: MandateParseInput): MandateParseR
 
   // Check explicit unit price: e.g. "at $340 each", "$340 per unit", "at 340 a piece"
   const unitMatch =
-    normalizedPrompt.match(/(?:at|for)\s*[\$€£]?\s*([\d,]+(?:\.\d+)?)\s*(?:each|per\s+unit|a\s+piece|a\s+unit|per\s+item|\/unit)\b/i) ||
-    normalizedPrompt.match(/\bunit\s+price\s+(?:of|is|at|under)?\s*[\$€£]?\s*([\d,]+(?:\.\d+)?)/i);
+    normalizedPrompt.match(/(?:at|for)\s*[\$€£₹]?\s*([\d,]+(?:\.\d+)?)\s*(?:each|per\s+unit|a\s+piece|a\s+unit|per\s+item|\/unit)\b/i) ||
+    normalizedPrompt.match(/\bunit\s+price\s+(?:of|is|at|under)?\s*[\$€£₹]?\s*([\d,]+(?:\.\d+)?)/i);
 
   if (unitMatch) {
     const uVal = parseFloat(unitMatch[1].replace(/,/g, ""));
@@ -271,9 +271,9 @@ export function parseProcurementMandate(input: MandateParseInput): MandateParseR
 
   // Check total budget
   const explicitTotalMatch =
-    normalizedPrompt.match(/(?:total\s+budget|max(?:imum)?\s+budget|total\s+cost|total\s+spend|cap)\s+(?:of|is|under)?\s*[\$€£]?\s*([\d,]+(?:\.\d+)?)/i) ||
-    normalizedPrompt.match(/[\$€£]\s*([\d,]+(?:\.\d+)?)\s*(?:total|in\s+total|altogether)\b/i) ||
-    normalizedPrompt.match(/(?:under|within|max(?:imum)?\s+of|budget\s+of|cap\s+of|up\s+to|not\s+spend\s+more\s+than)\s*[\$€£]\s*([\d,]+(?:\.\d+)?)/i);
+    normalizedPrompt.match(/(?:total\s+budget|max(?:imum)?\s+budget|total\s+cost|total\s+spend|cap)\s+(?:of|is|under)?\s*[\$€£₹]?\s*([\d,]+(?:\.\d+)?)/i) ||
+    normalizedPrompt.match(/[\$€£₹]\s*([\d,]+(?:\.\d+)?)\s*(?:total|in\s+total|altogether)\b/i) ||
+    normalizedPrompt.match(/(?:under|within|max(?:imum)?\s+of|budget\s+of|cap\s+of|up\s+to|not\s+spend\s+more\s+than)\s*[\$€£₹]\s*([\d,]+(?:\.\d+)?)/i);
 
   if (explicitTotalMatch) {
     const rawVal = explicitTotalMatch[1].replace(/,/g, "");
@@ -283,7 +283,7 @@ export function parseProcurementMandate(input: MandateParseInput): MandateParseR
     }
   } else if (!unitMatch) {
     // Only match bare currency number as total budget if there is no explicit unit price match
-    const bareBudgetMatch = normalizedPrompt.match(/[\$€£]\s*([\d,]+(?:\.\d+)?)/i);
+    const bareBudgetMatch = normalizedPrompt.match(/[\$€£₹]\s*([\d,]+(?:\.\d+)?)/i);
     if (bareBudgetMatch) {
       const rawVal = bareBudgetMatch[1].replace(/,/g, "");
       const parsed = parseFloat(rawVal);
@@ -294,7 +294,7 @@ export function parseProcurementMandate(input: MandateParseInput): MandateParseR
   }
 
   // Detect conflicting budget ceilings in text (e.g. "$8,500 total, but do not spend more than $6,000")
-  const allBudgets = Array.from(normalizedPrompt.matchAll(/[\$€£]\s*([\d,]+(?:\.\d+)?)/g))
+  const allBudgets = Array.from(normalizedPrompt.matchAll(/[\$€£₹]\s*([\d,]+(?:\.\d+)?)/g))
     .map((m) => parseFloat(m[1].replace(/,/g, "")))
     .filter((n) => Number.isFinite(n) && n > 0);
 
@@ -366,28 +366,31 @@ export function parseProcurementMandate(input: MandateParseInput): MandateParseR
     clarificationQuestions.push("Please specify the minimum acceptable return policy window in days.");
   }
 
-  // 6. Currency extraction: strictly USD, EUR, GBP
+  // 6. Currency extraction: strictly USD, INR, EUR, GBP
   let currency: CurrencyCode | null = null;
-  if (/€|\beur\b|\beuros?\b/i.test(normalizedPrompt) || input.currency === "EUR") {
+  if (/₹|\binr\b|\brupees?\b/i.test(normalizedPrompt) || input.currency === "INR") {
+    currency = "INR";
+  } else if (/€|\beur\b|\beuros?\b/i.test(normalizedPrompt) || input.currency === "EUR") {
     currency = "EUR";
   } else if (/£|\bgbp\b|\bpounds?\b/i.test(normalizedPrompt) || input.currency === "GBP") {
     currency = "GBP";
   } else if (/\$|\busd\b|\bdollars?\b/i.test(normalizedPrompt) || input.currency === "USD") {
     currency = "USD";
   } else if (input.currency) {
-    if (input.currency === "USD" || input.currency === "EUR" || input.currency === "GBP") {
-      currency = input.currency;
+    const inputUpper = input.currency.toUpperCase();
+    if (inputUpper === "USD" || inputUpper === "INR" || inputUpper === "EUR" || inputUpper === "GBP") {
+      currency = inputUpper;
     } else {
-      ambiguities.push(`Unsupported currency '${input.currency}'. Only USD, EUR, and GBP are supported.`);
+      ambiguities.push(`Unsupported currency '${input.currency}'. Only USD, INR, EUR, and GBP are supported.`);
       missingFields.push("currency");
     }
   } else {
     // Check unsupported currency symbols
-    if (/¥|\bjpy\b|\byen\b|₹|\binr\b|\brupees?\b|\baud\b|\bcad\b/i.test(normalizedPrompt)) {
-      ambiguities.push("Unsupported currency detected. Only USD ($), EUR (€), and GBP (£) are supported.");
+    if (/¥|\bjpy\b|\byen\b|\baud\b|\bcad\b/i.test(normalizedPrompt)) {
+      ambiguities.push("Unsupported currency detected. Only USD ($), INR (₹), EUR (€), and GBP (£) are supported.");
     }
     missingFields.push("currency");
-    clarificationQuestions.push("Please specify the transaction currency (USD, EUR, or GBP).");
+    clarificationQuestions.push("Please specify the transaction currency (USD, INR, EUR, or GBP).");
   }
 
   // 7. Specifications extraction

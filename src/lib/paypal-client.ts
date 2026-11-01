@@ -12,6 +12,7 @@
 
 import crypto from "crypto";
 import { assertValidConfiguration } from "./env-validator";
+import { isPayPalSupportedCurrency } from "./currency";
 
 export interface PayPalConfig {
   clientId?: string;
@@ -203,6 +204,12 @@ export class PayPalClient {
    * and custom_id bound to VERIPAY_ROOT:<merkle_root>;SESSION:<sessionId>.
    */
   public async createAuthorizedOrder(params: CreateOrderParams): Promise<CreateOrderResponse> {
+    if (!isPayPalSupportedCurrency(params.currency)) {
+      throw new Error(
+        `PayPal Orders v2 does not support ${params.currency} transactions. Domestic and international PayPal merchant checkout requires a supported settlement currency (e.g., USD, EUR, GBP). Internal procurement negotiation and Merkle attestation remain valid, but automated PayPal capture is unavailable for ${params.currency}.`
+      );
+    }
+
     // Exact amount reconciliation
     const itemTotal = (params.unitPrice * params.quantity).toFixed(2);
     const shipping = params.shippingCost.toFixed(2);
@@ -470,6 +477,12 @@ export class PayPalClient {
    * Creates a B2B negotiated invoice using PayPal Invoicing API.
    */
   public async createNegotiatedInvoice(params: CreateInvoiceParams): Promise<CreateInvoiceResponse> {
+    if (!isPayPalSupportedCurrency(params.currency)) {
+      throw new Error(
+        `PayPal Invoicing does not support ${params.currency} invoices. Must use a PayPal supported settlement currency (e.g., USD, EUR, GBP).`
+      );
+    }
+
     const itemTotal = params.unitPrice * params.quantity;
     const totalAmount = itemTotal + params.shippingCost;
     const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;

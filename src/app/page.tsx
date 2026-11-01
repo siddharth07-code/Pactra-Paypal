@@ -9,6 +9,124 @@ import { EvidenceVaultScreen } from "@/components/EvidenceVaultScreen";
 import { SettlementCenterScreen } from "@/components/SettlementCenterScreen";
 import { ProcurementHistoryScreen } from "@/components/ProcurementHistoryScreen";
 import type { ProcurementSession, VendorQuote, ProcurementMandate } from "@/types/pactum";
+import { formatSessionBudgetString } from "@/lib/currency";
+
+function convertSessionTurnsToStreamEvents(session: ProcurementSession): StreamEventItem[] {
+  if (!session.turns || session.turns.length === 0) {
+    return [];
+  }
+  const events: StreamEventItem[] = [];
+  let currentRound = 0;
+
+  for (let i = 0; i < session.turns.length; i++) {
+    const turn = session.turns[i];
+    if (turn.round !== currentRound) {
+      currentRound = turn.round;
+      events.push({
+        id: `turn_rnd_${currentRound}`,
+        type: "ROUND_STARTED",
+        timestamp: turn.timestamp || new Date().toISOString(),
+        payload: { round: currentRound, maxRounds: 4 },
+      });
+    }
+
+    if (turn.guardrailStatus === "GUARDRAIL_BLOCKED" || turn.guardrailStatus === "GUARDRAIL_INTERVENTION") {
+      events.push({
+        id: turn.id || `turn_gr_${i}`,
+        type: turn.guardrailStatus,
+        timestamp: turn.timestamp || new Date().toISOString(),
+        payload: {
+          round: turn.round,
+          vendorId: turn.vendorId,
+          reason: turn.guardrailReason,
+          rejectedOffer: turn.proposedOffer,
+        },
+      });
+    } else if (turn.actor === "BUYER") {
+      if (turn.turnType === "ACCEPTANCE") {
+        events.push({
+          id: turn.id || `turn_ba_${i}`,
+          type: "BUYER_ACCEPTANCE",
+          timestamp: turn.timestamp || new Date().toISOString(),
+          payload: {
+            round: turn.round,
+            vendorId: turn.vendorId,
+            message: turn.message,
+            unitPrice: turn.proposedOffer?.unitPrice,
+          },
+        });
+      } else {
+        events.push({
+          id: turn.id || `turn_bp_${i}`,
+          type: "BUYER_PROPOSAL",
+          timestamp: turn.timestamp || new Date().toISOString(),
+          payload: {
+            round: turn.round,
+            vendorId: turn.vendorId,
+            message: turn.message,
+            proposedOffer: turn.proposedOffer,
+            utilityScore: turn.utilityScore,
+            threshold: turn.boulwareThreshold,
+          },
+        });
+      }
+    } else if (turn.actor === "VENDOR") {
+      if (turn.turnType === "ACCEPTANCE") {
+        events.push({
+          id: turn.id || `turn_va_${i}`,
+          type: "VENDOR_ACCEPTANCE",
+          timestamp: turn.timestamp || new Date().toISOString(),
+          payload: {
+            round: turn.round,
+            vendorId: turn.vendorId,
+            message: turn.message,
+            unitPrice: turn.proposedOffer?.unitPrice,
+          },
+        });
+      } else {
+        events.push({
+          id: turn.id || `turn_vc_${i}`,
+          type: "VENDOR_COUNTEROFFER",
+          timestamp: turn.timestamp || new Date().toISOString(),
+          payload: {
+            round: turn.round,
+            vendorId: turn.vendorId,
+            newUnitAsk: turn.proposedOffer?.unitPrice,
+            turn: { message: turn.message },
+          },
+        });
+      }
+    }
+  }
+
+  if (session.agreementRecord) {
+    events.push({
+      id: `ev_completed_${session.id}`,
+      type: "NEGOTIATION_COMPLETED",
+      timestamp: session.agreementRecord.acceptedAt || new Date().toISOString(),
+      payload: {
+        outcome: "ACCEPTED",
+        selectedVendor: session.agreementRecord.vendorName,
+        winningVendorId: session.agreementRecord.vendorId,
+        totalCost: session.agreementRecord.totalCost,
+        savings: (session.mandate.maxTotalBudget || 0) - session.agreementRecord.totalCost,
+        finalOffer: session.agreementRecord.agreedOffer,
+      },
+    });
+  } else if (session.turns.length > 0 && session.status === "AUDIT_FAILED") {
+    events.push({
+      id: `ev_no_deal_${session.id}`,
+      type: "NEGOTIATION_COMPLETED",
+      timestamp: new Date().toISOString(),
+      payload: {
+        outcome: "NO_DEAL",
+        reason: "No competing vendor counteroffer satisfied mandatory budget and SLA constraints.",
+      },
+    });
+  }
+
+  return events;
+}
 
 export default function Home() {
   const [currentScreen, setCurrentScreen] = useState<NavScreen>("overview");
@@ -71,21 +189,24 @@ export default function Home() {
     }
 
     refreshSessions().then((loaded) => {
+      let matchedSession: ProcurementSession | undefined;
       if (sessionParam) {
-        const matched = loaded.find((s) => s.id === sessionParam);
-        if (matched) {
-          setActiveSession(matched);
-          setArenaSessionId(matched.id);
-          setArenaMandate(matched.mandate);
-          setArenaQuotes(matched.quotes || []);
-          return;
-        }
+        matchedSession = loaded.find((s) => s.id === sessionParam);
       }
-      if (loaded.length > 0) {
-        setActiveSession(loaded[0]);
-        setArenaSessionId(loaded[0].id);
-        setArenaMandate(loaded[0].mandate);
-        setArenaQuotes(loaded[0].quotes || []);
+      if (!matchedSession && loaded.length > 0) {
+        matchedSession = loaded[0];
+      }
+
+      if (matchedSession) {
+        setActiveSession(matchedSession);
+        setArenaSessionId(matchedSession.id);
+        setArenaMandate(matchedSession.mandate);
+        setArenaQuotes(matchedSession.quotes || []);
+
+        // Hydrate persisted turns if no live stream is active
+        if (matchedSession.turns && matchedSession.turns.length > 0) {
+          setStreamEvents(convertSessionTurnsToStreamEvents(matchedSession));
+        }
       }
     });
   }, [refreshSessions]);
@@ -99,13 +220,17 @@ export default function Home() {
     };
   }, []);
 
-  // Handle launch of negotiation from Sourcing or Overview
+  // Handle launch of negotiation from Sourcing, Arena, or Overview
   const handleStartNegotiation = async (
     prompt: string,
     currency: string,
     rawMandate?: Partial<ProcurementMandate>,
     sessionId?: string
   ) => {
+    if (isStreaming) {
+      return; // Concurrency guard: double-clicking does not create duplicate runs
+    }
+
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -228,11 +353,51 @@ export default function Home() {
     }
   };
 
+  const handleArenaStartNegotiation = async () => {
+    if (isStreaming) return;
+
+    const target =
+      activeSession ||
+      (arenaSessionId ? sessions.find((s) => s.id === arenaSessionId) : undefined);
+
+    if (target) {
+      if (
+        target.agreementRecord ||
+        target.status === "SETTLED" ||
+        target.status === "AUDIT_PASSED" ||
+        target.status === "PAYPAL_CAPTURED"
+      ) {
+        // Completed negotiations must not be restarted
+        return;
+      }
+      await handleStartNegotiation(
+        target.mandate.rawPrompt,
+        target.mandate.currency || "USD",
+        target.mandate,
+        target.id
+      );
+    } else if (arenaMandate) {
+      await handleStartNegotiation(
+        arenaMandate.rawPrompt,
+        arenaMandate.currency || "USD",
+        arenaMandate,
+        arenaSessionId
+      );
+    }
+  };
+
   const handleOpenSession = (session: ProcurementSession) => {
     setActiveSession(session);
     setArenaSessionId(session.id);
     setArenaMandate(session.mandate);
     setArenaQuotes(session.quotes || []);
+
+    // Hydrate existing turns for completed or in-progress session
+    if (session.turns && session.turns.length > 0) {
+      setStreamEvents(convertSessionTurnsToStreamEvents(session));
+    } else {
+      setStreamEvents([]);
+    }
 
     // Lifecycle-aware routing: Navigate based on authoritative session state
     if (session.status === "MANDATE_PENDING" || session.status === "SOURCING") {
@@ -250,9 +415,9 @@ export default function Home() {
   };
 
   const activeBudgetString = arenaMandate
-    ? `Budget: $${arenaMandate.maxTotalBudget.toLocaleString()} ${arenaMandate.currency}`
+    ? formatSessionBudgetString(arenaMandate.maxTotalBudget, arenaMandate.currency)
     : activeSession
-    ? `Budget: $${activeSession.mandate.maxTotalBudget.toLocaleString()} ${activeSession.mandate.currency}`
+    ? formatSessionBudgetString(activeSession.mandate.maxTotalBudget, activeSession.mandate.currency)
     : undefined;
 
   return (
@@ -281,11 +446,13 @@ export default function Home() {
 
       {currentScreen === "arena" && (
         <NegotiationArenaScreen
-          sessionId={arenaSessionId}
-          mandate={arenaMandate}
-          quotes={arenaQuotes}
+          sessionId={arenaSessionId || activeSession?.id}
+          mandate={arenaMandate || activeSession?.mandate}
+          quotes={arenaQuotes.length > 0 ? arenaQuotes : activeSession?.quotes || []}
           events={streamEvents}
           isStreaming={isStreaming}
+          session={activeSession}
+          onStartNegotiation={handleArenaStartNegotiation}
           onProceedToSettlement={async () => {
             const loaded = await refreshSessions();
             if (arenaSessionId) {

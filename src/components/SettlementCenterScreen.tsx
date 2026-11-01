@@ -33,6 +33,7 @@ import {
   FileText,
 } from "lucide-react";
 import type { ProcurementSession, ProcurementSessionStatus } from "@/types/pactum";
+import { formatCurrency, isPayPalSupportedCurrency } from "@/lib/currency";
 
 interface SettlementCenterScreenProps {
   session?: ProcurementSession;
@@ -508,14 +509,14 @@ export function SettlementCenterScreen({
                     <div className="flex justify-between items-center text-[13px]">
                       <span className="text-[#737373] dark:text-[#a3a3a3]">Mandate Budget Ceiling:</span>
                       <span className="type-financial text-obsidian dark:text-[#f6f4f0] font-medium">
-                        ${mandateBudget.toLocaleString()} {mandate?.currency}
+                        {formatCurrency(mandateBudget, mandate?.currency)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-[13px]">
                       <span className="text-[#737373] dark:text-[#a3a3a3]">Agreed Landed Cost:</span>
                       {hasAgreement && agreedLandedCost !== null ? (
                         <span className="type-financial text-ember-orange font-semibold text-[15px]">
-                          ${agreedLandedCost.toLocaleString()} {mandate?.currency}
+                          {formatCurrency(agreedLandedCost, mandate?.currency)}
                         </span>
                       ) : (
                         <span className="text-[#737373] dark:text-[#a3a3a3] italic font-normal">
@@ -534,8 +535,8 @@ export function SettlementCenterScreen({
                           }`}
                         >
                           {netSavings >= 0
-                            ? `+$${netSavings.toLocaleString()} (${savingsPct.toFixed(1)}%)`
-                            : `-$${Math.abs(netSavings).toLocaleString()} (Over budget)`}
+                            ? `+${formatCurrency(netSavings, mandate?.currency)} (${savingsPct.toFixed(1)}%)`
+                            : `-${formatCurrency(Math.abs(netSavings), mandate?.currency)} (Over budget)`}
                         </span>
                       </div>
                     )}
@@ -709,6 +710,19 @@ export function SettlementCenterScreen({
                       </PrimaryButton>
                       <p className="text-[12px] text-[#dc2626] dark:text-[#f87171] text-center font-medium">
                         PayPal checkout blocked: One or more ACWORLD audit invariants failed.
+                      </p>
+                    </div>
+                  ) : !isPayPalSupportedCurrency(mandate?.currency || "USD") ? (
+                    <div className="space-y-2.5">
+                      <PrimaryButton
+                        disabled={true}
+                        className="w-full flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed bg-amber-600/20 text-amber-500 border border-amber-500/30"
+                      >
+                        <AlertCircle className="w-4 h-4 text-amber-500" aria-hidden="true" />
+                        <span>PayPal Checkout Restricted ({mandate?.currency || "INR"})</span>
+                      </PrimaryButton>
+                      <p className="text-[12px] text-amber-600 dark:text-amber-400 text-center font-medium leading-relaxed">
+                        PayPal Orders v2 does not support settlement in {mandate?.currency}. Internal procurement mandate, multi-vendor negotiation, Merkle flight recorder, and ACWORLD audit remain fully verified.
                       </p>
                     </div>
                   ) : (

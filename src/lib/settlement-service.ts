@@ -12,6 +12,7 @@ import { sessionStore } from "./session-store";
 import { VeriPayMerkleTree } from "./veripay-merkle";
 import { CryptographicFlightRecorder } from "./flight-recorder";
 import { settlementLogger } from "./settlement-logger";
+import { isPayPalSupportedCurrency } from "./currency";
 import type {
   AuditCertificate,
   CaptureIntentRecord,
@@ -219,6 +220,15 @@ export class SettlementService {
         success: false,
         sessionId,
         error: `ACWORLD audit gate failed pre-checkout verification: ${failingInvariants}`,
+        blockedAtGate: true,
+      };
+    }
+
+    if (!isPayPalSupportedCurrency(session.mandate.currency)) {
+      return {
+        success: false,
+        sessionId,
+        error: `PayPal Orders v2 provider restriction: Currency '${session.mandate.currency}' is not supported for PayPal checkout/settlement. Internal procurement, negotiation, Merkle proofs, and ACWORLD audit remain fully valid, but PayPal checkout cannot be created in ${session.mandate.currency}.`,
         blockedAtGate: true,
       };
     }

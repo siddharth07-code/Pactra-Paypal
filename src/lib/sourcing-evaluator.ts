@@ -319,10 +319,16 @@ export async function evaluateVendorQuote(
     disqualificationReasons.push(`Invalid mandate quantity: ${mandate.quantity}. Quantity must be an integer >= 1.`);
   }
 
-  const supportedCurrencies = ["USD", "EUR", "GBP"];
+  const supportedCurrencies = ["USD", "INR", "EUR", "GBP"];
   const currencySupported = supportedCurrencies.includes((mandate.currency || "USD").toUpperCase());
   if (!currencySupported) {
-    disqualificationReasons.push(`Unsupported mandate currency '${mandate.currency}'. Must be USD, EUR, or GBP.`);
+    disqualificationReasons.push(`Unsupported mandate currency '${mandate.currency}'. Must be USD, INR, EUR, or GBP.`);
+  }
+
+  if (quote.currency && quote.currency.toUpperCase() !== (mandate.currency || "USD").toUpperCase()) {
+    disqualificationReasons.push(
+      `Currency mismatch: Quote currency '${quote.currency}' does not match mandate currency '${mandate.currency}'. Cross-currency quotes cannot be evaluated without conversion.`
+    );
   }
 
   const unitCents = toCents(quote.initialUnitAsk || 0);
@@ -527,6 +533,11 @@ export function evaluateNegotiationCandidate(
   }
   if (!quote.sku || !quote.sku.trim()) {
     hardDisqualificationReasons.push("Quote must have a valid SKU.");
+  }
+  if (quote.currency && quote.currency.toUpperCase() !== (mandate.currency || "USD").toUpperCase()) {
+    hardDisqualificationReasons.push(
+      `Currency mismatch: Quote currency '${quote.currency}' does not match mandate currency '${mandate.currency}'.`
+    );
   }
 
   // 2. Mandate Integrity

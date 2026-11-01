@@ -15,6 +15,7 @@ import {
   Info,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
+import { formatCurrency } from "@/lib/currency";
 
 /**
  * Institutional Primary CTA Button
@@ -368,12 +369,6 @@ export function CurrencyDisplay({
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }) {
-  const formatter = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency,
-    maximumFractionDigits: 2,
-  });
-
   const sizeStyles = {
     sm: "text-[13px] font-medium tracking-tight",
     md: "text-[15px] font-medium tracking-tight",
@@ -385,7 +380,7 @@ export function CurrencyDisplay({
     <span
       className={`type-financial text-obsidian dark:text-[#f6f4f0] ${sizeStyles[size]} ${className}`}
     >
-      {formatter.format(amount)}
+      {formatCurrency(amount, currency)}
     </span>
   );
 }

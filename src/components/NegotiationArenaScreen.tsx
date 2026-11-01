@@ -14,8 +14,10 @@ import {
   ChevronDown,
   ArrowRight,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
-import type { VendorQuote, ProcurementMandate } from "@/types/pactum";
+import type { VendorQuote, ProcurementMandate, ProcurementSession } from "@/types/pactum";
+import { formatCurrency } from "@/lib/currency";
 
 export interface StreamEventItem {
   id: string;
@@ -31,6 +33,8 @@ interface NegotiationArenaScreenProps {
   events: StreamEventItem[];
   isStreaming: boolean;
   onProceedToSettlement?: () => void;
+  onStartNegotiation?: () => Promise<void> | void;
+  session?: ProcurementSession;
 }
 
 export function NegotiationArenaScreen({
@@ -40,13 +44,15 @@ export function NegotiationArenaScreen({
   events,
   isStreaming,
   onProceedToSettlement,
+  onStartNegotiation,
+  session,
 }: NegotiationArenaScreenProps) {
   const feedContainerRef = useRef<HTMLDivElement>(null);
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
 
   // Auto-scroll inside feed container without shifting global window scroll
   useEffect(() => {
-    if (feedContainerRef.current) {
+    if (feedContainerRef.current && typeof feedContainerRef.current.scrollTo === "function") {
       const prefersReducedMotion =
         typeof window !== "undefined" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -69,24 +75,32 @@ export function NegotiationArenaScreen({
   const failed = events.some((ev) => ev.type === "NEGOTIATION_FAILED");
 
   const isNoDeal = Boolean(
-    completedEvent &&
-    (completedEvent.payload.outcome === "NO_DEAL" ||
-      (!completedEvent.payload.selectedVendor &&
-        !completedEvent.payload.winningVendor &&
-        !completedEvent.payload.winningVendorId))
+    (completedEvent &&
+      (completedEvent.payload.outcome === "NO_DEAL" ||
+        (!completedEvent.payload.selectedVendor &&
+          !completedEvent.payload.winningVendor &&
+          !completedEvent.payload.winningVendorId))) ||
+      Boolean(session?.turns && session.turns.length > 0 && !session.agreementRecord && session.status === "AUDIT_FAILED")
   );
 
   const isConsensusDeal = Boolean(
-    completedEvent &&
-    completedEvent.payload.outcome !== "NO_DEAL" &&
-    (completedEvent.payload.selectedVendor ||
-      completedEvent.payload.winningVendor ||
-      completedEvent.payload.winningVendorId)
+    (completedEvent &&
+      completedEvent.payload.outcome !== "NO_DEAL" &&
+      (completedEvent.payload.selectedVendor ||
+        completedEvent.payload.winningVendor ||
+        completedEvent.payload.winningVendorId)) ||
+      session?.agreementRecord
   );
 
-  const winningVendorId = completedEvent?.payload?.winningVendorId as string | undefined;
-  const winningVendorName = (completedEvent?.payload?.selectedVendor ||
-    completedEvent?.payload?.winningVendor) as string | undefined;
+  const winningVendorId =
+    (completedEvent?.payload?.winningVendorId as string | undefined) ||
+    session?.agreementRecord?.vendorId;
+  const winningVendorName =
+    ((completedEvent?.payload?.selectedVendor ||
+      completedEvent?.payload?.winningVendor) as string | undefined) ||
+    session?.agreementRecord?.vendorName;
+
+  const currencyCode = mandate?.currency || session?.mandate?.currency || "USD";
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
@@ -116,20 +130,20 @@ export function NegotiationArenaScreen({
             <div className="flex items-center gap-1.5">
               <span>Session:</span>
               <span className="font-mono-token text-obsidian dark:text-[#f6f4f0] text-[12px]">
-                {sessionId || "Pending"}
+                {sessionId || session?.id || "Pending"}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
               <span>Target:</span>
               <span className="font-medium text-obsidian dark:text-[#f6f4f0]">
-                {mandate?.itemQuery || "4K Monitors"} ({mandate?.quantity || 25} units)
+                {mandate?.itemQuery || session?.mandate?.itemQuery || "4K Monitors"} ({mandate?.quantity || session?.mandate?.quantity || 25} units)
               </span>
             </div>
             <div className="flex items-center gap-1.5">
               <span>Ceiling:</span>
               <CurrencyDisplay
-                amount={mandate?.maxTotalBudget || 8500}
-                currency={mandate?.currency || "USD"}
+                amount={mandate?.maxTotalBudget || session?.mandate?.maxTotalBudget || 8500}
+                currency={currencyCode}
                 size="sm"
               />
             </div>
@@ -167,11 +181,38 @@ export function NegotiationArenaScreen({
           {/* Compact Supplier Comparison Table / List */}
           <div className="divide-y divide-smoke dark:divide-[#27272a] border border-smoke dark:border-[#27272a] rounded-[8px] bg-paper-white dark:bg-[#18181b] overflow-hidden shadow-2xs">
             {quotes.map((quote) => {
-              const landedCost =
-                quote.currentUnitBid * (mandate?.quantity || 25) + quote.shippingCost;
-              const isFeasible = landedCost <= (mandate?.maxTotalBudget || 8500);
+              const quantity = mandate?.quantity || session?.mandate?.quantity || 25;
+              const unitPrice = quote.currentUnitBid ?? quote.initialUnitAsk;
+              const shippingCost = quote.shippingCost || 0;
+              const unitCents = Math.round(unitPrice * 100);
+              const shippingCents = Math.round(shippingCost * 100);
+              const landedCost = (unitCents * quantity + shippingCents) / 100;
+
+              const maxBudget = mandate?.maxTotalBudget || session?.mandate?.maxTotalBudget || 8500;
+              const maxDelivery = mandate?.maxDeliveryDays || session?.mandate?.maxDeliveryDays || 5;
+              const minReturn = mandate?.minReturnDays || session?.mandate?.minReturnDays || 30;
+
+              let eligibilityLabel: string;
+              let badgeStatus: "verified" | "neutral" | "warning" | "failure";
+
+              if (!Number.isFinite(unitPrice) || unitPrice <= 0 || !quote.sku) {
+                eligibilityLabel = "Disqualified";
+                badgeStatus = "failure";
+              } else if (quote.deliveryDays > maxDelivery || quote.returnDays < minReturn) {
+                eligibilityLabel = "Hard Constraint Violation";
+                badgeStatus = "warning";
+              } else if (landedCost <= maxBudget) {
+                eligibilityLabel = "Within Budget";
+                badgeStatus = "verified";
+              } else {
+                eligibilityLabel = "Above Budget — Negotiation Candidate";
+                badgeStatus = "neutral";
+              }
+
               const isSelected = selectedVendorId === quote.vendorId;
-              const isWinner = isConsensusDeal && (winningVendorId === quote.vendorId || winningVendorName === quote.vendorName);
+              const isWinner =
+                isConsensusDeal &&
+                (winningVendorId === quote.vendorId || winningVendorName === quote.vendorName);
 
               return (
                 <div
@@ -205,7 +246,7 @@ export function NegotiationArenaScreen({
                         )}
                       </div>
                       <div className="text-[11.5px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
-                        {quote.sku}
+                        SKU: {quote.sku}
                       </div>
                     </div>
 
@@ -216,21 +257,35 @@ export function NegotiationArenaScreen({
                       <div className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums tracking-tight">
                         <CurrencyDisplay
                           amount={landedCost}
-                          currency={mandate?.currency || "USD"}
+                          currency={currencyCode}
                           size="md"
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Aligned Financial & Logistics Metrics Row */}
+                  {/* Aligned Financial Metrics: Unit Ask, Shipping, Quantity */}
                   <div className="grid grid-cols-3 gap-2 pt-3 mt-3 border-t border-smoke dark:border-[#27272a] text-[12px]">
                     <div>
-                      <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Current Ask</span>
+                      <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Unit Ask</span>
                       <span className="font-sans font-medium text-obsidian dark:text-[#f6f4f0] tabular-nums">
-                        ${quote.currentUnitBid}
+                        {formatCurrency(unitPrice, currencyCode)}
                       </span>
                     </div>
+                    <div>
+                      <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Shipping</span>
+                      <span className="font-sans font-medium text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                        {formatCurrency(shippingCost, currencyCode)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Quantity</span>
+                      <span className="text-obsidian dark:text-[#f6f4f0] tabular-nums">{quantity} units</span>
+                    </div>
+                  </div>
+
+                  {/* Logistics SLA & Return Policy */}
+                  <div className="grid grid-cols-2 gap-2 pt-2 text-[12px]">
                     <div>
                       <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Delivery SLA</span>
                       <span className="text-obsidian dark:text-[#f6f4f0]">{quote.deliveryDays} days</span>
@@ -241,14 +296,14 @@ export function NegotiationArenaScreen({
                     </div>
                   </div>
 
-                  {/* Feasibility Indicator */}
-                  <div className="pt-2.5 flex items-center justify-between text-[11.5px]">
-                    <span className="text-[#737373] dark:text-[#a3a3a3]">
-                      Shipping: ${quote.shippingCost}
+                  {/* Feasibility Indicator Badge */}
+                  <div className="pt-2.5 flex items-center justify-between text-[11.5px] border-t border-smoke/60 dark:border-[#27272a]/60 mt-2">
+                    <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3]">
+                      Eligibility Status:
                     </span>
                     <StatusBadge
-                      status={isFeasible ? "verified" : "warning"}
-                      label={isFeasible ? "Within Budget" : "Exceeds Ceiling"}
+                      status={badgeStatus}
+                      label={eligibilityLabel}
                     />
                   </div>
                 </div>
@@ -282,21 +337,67 @@ export function NegotiationArenaScreen({
             aria-label="Negotiation timeline log"
           >
             {events.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3 text-[#737373] dark:text-[#a3a3a3]">
-                <div className="w-14 h-14 rounded-full bg-smoke/50 dark:bg-[#202025] border border-smoke dark:border-[#2e2e34] flex items-center justify-center mb-1 shadow-2xs">
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 sm:p-8 space-y-4 text-[#737373] dark:text-[#a3a3a3]">
+                <div className="w-14 h-14 rounded-full bg-smoke/50 dark:bg-[#202025] border border-smoke dark:border-[#2e2e34] flex items-center justify-center shadow-2xs">
                   <Building2 className="w-7 h-7 text-obsidian/70 dark:text-[#b490f5]" aria-hidden="true" />
                 </div>
-                <div className="space-y-1">
-                  <h3 className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-                    Arena Ready
+                <div className="space-y-1.5 max-w-md">
+                  <h3 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+                    Ready to negotiate
                   </h3>
-                  <p className="text-[13px] max-w-sm leading-relaxed text-[#737373] dark:text-[#a3a3a3]">
-                    Multi-agent negotiation workspace initialized. Autonomous Gemini buyer will negotiate across discrete rounds under mathematical Boulware guardrails.
+                  <p className="text-[12.5px] leading-relaxed text-[#737373] dark:text-[#a3a3a3]">
+                    Baseline supplier asking prices are starting commercial positions, not accepted agreements. Autonomous Gemini buyer agent will negotiate across discrete rounds under mathematical Boulware guardrails.
                   </p>
                 </div>
-                <div className="pt-1 flex items-center gap-2 px-3 py-1.5 rounded-[6px] bg-warm-cream/50 dark:bg-[#151518] border border-smoke dark:border-[#27272a] text-[12px] font-mono-token text-secondary">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" />
-                  <span>Awaiting stream activation from Sourcing</span>
+
+                {/* Mandate Constraints & Feasibility Strip */}
+                <div className="w-full max-w-md grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-[8px] bg-warm-cream/40 dark:bg-[#151518] border border-smoke dark:border-[#27272a] text-[12px] text-left">
+                  <div>
+                    <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3] block">Suppliers</span>
+                    <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">{quotes.length} eligible</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3] block">Rounds</span>
+                    <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">4 discrete</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3] block">Target</span>
+                    <span className="font-semibold text-obsidian dark:text-[#f6f4f0] truncate block" title={`${mandate?.itemQuery || "Items"} (${mandate?.quantity || 25} units)`}>
+                      {mandate?.quantity || 25} units
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3] block">Budget Ceiling</span>
+                    <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
+                      {formatCurrency(mandate?.maxTotalBudget || 8500, currencyCode)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Primary Start Negotiation Action */}
+                <div className="pt-2">
+                  <PrimaryButton
+                    onClick={onStartNegotiation}
+                    disabled={isStreaming || quotes.length === 0}
+                    className="flex items-center gap-2 px-6 py-2.5 text-[13.5px] cursor-pointer"
+                  >
+                    {isStreaming ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                        <span>Initializing Negotiation...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Start Negotiation</span>
+                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                      </>
+                    )}
+                  </PrimaryButton>
+                  {quotes.length === 0 && (
+                    <p className="text-[11.5px] text-amber-500 mt-2">
+                      No supplier quotes loaded for this session. Sourcing must retrieve baseline quotes first.
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (
@@ -356,9 +457,15 @@ export function NegotiationArenaScreen({
 
                       {Boolean(proposedOffer) && (
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1.5 border-t border-smoke/70 dark:border-[#27272a] text-[12px] font-sans tabular-nums text-[#737373] dark:text-[#a3a3a3]">
-                          <span>Unit Bid: <strong className="text-obsidian dark:text-[#f6f4f0] font-semibold">${proposedOffer?.unitPrice}</strong></span>
-                          <span>Delivery SLA: <strong className="text-obsidian dark:text-[#f6f4f0] font-semibold">{proposedOffer?.deliveryDays}d</strong></span>
-                          <span>Return Window: <strong className="text-obsidian dark:text-[#f6f4f0] font-semibold">{proposedOffer?.returnDays}d</strong></span>
+                          <span>
+                            Unit Bid: <strong className="text-obsidian dark:text-[#f6f4f0] font-semibold">{formatCurrency(proposedOffer?.unitPrice ?? 0, currencyCode)}</strong>
+                          </span>
+                          <span>
+                            Delivery SLA: <strong className="text-obsidian dark:text-[#f6f4f0] font-semibold">{proposedOffer?.deliveryDays}d</strong>
+                          </span>
+                          <span>
+                            Return Window: <strong className="text-obsidian dark:text-[#f6f4f0] font-semibold">{proposedOffer?.returnDays}d</strong>
+                          </span>
                           <span className="ml-auto text-[11px] text-[#006840] dark:text-[#4ade80] font-mono-token">
                             Guardrail Passed
                           </span>
@@ -368,7 +475,7 @@ export function NegotiationArenaScreen({
                   );
                 }
 
-                // 3. GUARDRAIL INTERVENTION / BLOCKED (Mathematically explicit, clean presentation)
+                // 3. GUARDRAIL INTERVENTION / BLOCKED
                 if (ev.type === "GUARDRAIL_INTERVENTION" || ev.type === "GUARDRAIL_BLOCKED") {
                   const reasonStr = String(p.reason || p.detail || "Predicate constraint violation");
                   let predicateName = "Mechanism-Design Guardrail";
@@ -410,7 +517,7 @@ export function NegotiationArenaScreen({
 
                       {rejectedOffer && (
                         <div className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3] font-mono-token pt-0.5">
-                          Blocked Offer: ${rejectedOffer.unitPrice}/unit • {rejectedOffer.deliveryDays}d delivery • {rejectedOffer.returnDays}d return
+                          Blocked Offer: {formatCurrency(rejectedOffer.unitPrice ?? 0, currencyCode)}/unit • {rejectedOffer.deliveryDays}d delivery • {rejectedOffer.returnDays}d return
                         </div>
                       )}
 
@@ -449,11 +556,11 @@ export function NegotiationArenaScreen({
                         <div className="flex items-center gap-2">
                           {concession !== null && (
                             <span className="text-[11px] font-mono-token text-[#006840] dark:text-[#4ade80]">
-                              (-${concession.toFixed(2)} concession)
+                              (-{formatCurrency(concession, currencyCode)} concession)
                             </span>
                           )}
                           <span className="font-sans font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
-                            New Ask: ${String(p.newUnitAsk)}
+                            New Ask: {formatCurrency(newAsk, currencyCode)}
                           </span>
                         </div>
                       </div>
@@ -461,6 +568,60 @@ export function NegotiationArenaScreen({
                       {Boolean(p.turn && typeof p.turn === "object") && (
                         <p className="text-[13px] text-[#4a4a52] dark:text-[#c4c0ba] leading-relaxed italic">
                           &ldquo;{String((p.turn as { message?: string }).message)}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  );
+                }
+
+                // 4.b VENDOR ACCEPTANCE
+                if (ev.type === "VENDOR_ACCEPTANCE") {
+                  return (
+                    <div
+                      key={ev.id}
+                      className="py-3 px-3.5 rounded-[6px] bg-emerald-500/[0.05] dark:bg-[#141a16] border border-emerald-500/25 space-y-1.5 transition-colors"
+                    >
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="font-semibold text-[#006840] dark:text-[#4ade80] flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          <span>Vendor Accepted Proposal ({String(p.vendorName || p.vendorId)})</span>
+                        </span>
+                        {typeof p.unitPrice === "number" && (
+                          <span className="font-sans font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                            Agreed Unit: {formatCurrency(p.unitPrice, currencyCode)}
+                          </span>
+                        )}
+                      </div>
+                      {typeof p.message === "string" && (
+                        <p className="text-[13px] text-[#4a4a52] dark:text-[#c4c0ba] italic">
+                          &ldquo;{p.message}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  );
+                }
+
+                // 4.c BUYER ACCEPTANCE
+                if (ev.type === "BUYER_ACCEPTANCE") {
+                  return (
+                    <div
+                      key={ev.id}
+                      className="py-3 px-3.5 rounded-[6px] bg-emerald-500/[0.05] dark:bg-[#141a16] border border-emerald-500/25 space-y-1.5 transition-colors"
+                    >
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="font-semibold text-[#006840] dark:text-[#4ade80] flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          <span>Buyer Accepted Counteroffer ({String(p.vendorName || p.vendorId)})</span>
+                        </span>
+                        {typeof p.unitPrice === "number" && (
+                          <span className="font-sans font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                            Agreed Unit: {formatCurrency(p.unitPrice, currencyCode)}
+                          </span>
+                        )}
+                      </div>
+                      {typeof p.message === "string" && (
+                        <p className="text-[13px] text-[#4a4a52] dark:text-[#c4c0ba] italic">
+                          &ldquo;{p.message}&rdquo;
                         </p>
                       )}
                     </div>
@@ -533,14 +694,14 @@ export function NegotiationArenaScreen({
                         <span>
                           Final Landed Cost:{" "}
                           <strong className="text-obsidian dark:text-white tabular-nums">
-                            ${String(totalCostVal ?? "—")}
+                            {formatCurrency(Number(totalCostVal ?? 0), currencyCode)}
                           </strong>
                         </span>
                         <span>•</span>
                         <span>
                           Net Savings:{" "}
                           <strong className="text-[#006840] dark:text-[#4ade80] tabular-nums">
-                            +${String(savingsVal)}
+                            +{formatCurrency(Number(savingsVal ?? 0), currencyCode)}
                           </strong>
                         </span>
                       </div>

@@ -376,6 +376,7 @@ export class Channel3Client {
               quotes: data.quotes.map((q) => ({
                 ...q,
                 category: q.category || (detectedCategory !== "unknown" ? detectedCategory : undefined),
+                currency: q.currency || mandate.currency || "USD",
                 dataSource: "CHANNEL3",
               })),
               dataSource: "CHANNEL3",
@@ -394,7 +395,10 @@ export class Channel3Client {
     const catalog = FIXTURE_CATALOGS_BY_CATEGORY[detectedCategory];
     if (catalog && catalog.length > 0) {
       return {
-        quotes: catalog.map((q) => ({ ...q })),
+        quotes: catalog.map((q) => ({
+          ...q,
+          currency: q.currency || mandate.currency || "USD",
+        })),
         dataSource: "MOCK_CATALOG",
         isFixture: true,
         timestamp: new Date().toISOString(),

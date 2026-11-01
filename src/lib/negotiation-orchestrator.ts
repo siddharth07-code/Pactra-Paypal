@@ -37,6 +37,7 @@ import {
   getVendorSimulationProfile,
   type VendorSimulationProfile,
 } from "./vendor-simulator";
+import { formatCurrency } from "./currency";
 
 export interface OrchestratorOptions {
   geminiClient?: GeminiNegotiationClient;
@@ -132,6 +133,15 @@ export class NegotiationOrchestrator {
       throw new Error(`Negotiation is already actively running for session ${sessionId}. Duplicate concurrent negotiation blocked.`);
     }
     NegotiationOrchestrator.activeNegotiationLocks.add(sessionId);
+
+    // Strict currency validation: quotes must match mandate currency
+    for (const q of initialQuotes) {
+      if (q.currency && q.currency.toUpperCase() !== mandate.currency.toUpperCase()) {
+        throw new Error(
+          `Currency mismatch: vendor quote ${q.vendorName} (${q.currency}) does not match mandate currency (${mandate.currency}). Cross-currency negotiation prohibited.`
+        );
+      }
+    }
 
     try {
       const merkleTree = new VeriPayMerkleTree();
@@ -539,8 +549,9 @@ export class NegotiationOrchestrator {
               sku: vendor.sku,
               offerReference: turnId,
               agreedPrice: vendorResponse.unitAsk,
-              agreedOffer: { ...offer, unitPrice: vendorResponse.unitAsk },
+              agreedOffer: { ...offer, unitPrice: vendorResponse.unitAsk, currency: mandate.currency },
               totalCost: vendorResponse.unitAsk * mandate.quantity + vendor.shippingCost,
+              currency: mandate.currency,
               agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
               acceptingParty: "VENDOR",
               acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
@@ -680,8 +691,9 @@ export class NegotiationOrchestrator {
             sku: vendor.sku,
             offerReference: acceptTurnId,
             agreedPrice: finalAsk,
-            agreedOffer: candidateOffer,
+            agreedOffer: { ...candidateOffer, currency: mandate.currency },
             totalCost,
+            currency: mandate.currency,
             agreedBy: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
             acceptingParty: "BUYER",
             acceptanceMechanism: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
@@ -700,7 +712,7 @@ export class NegotiationOrchestrator {
             turnType: "ACCEPTANCE",
             offerState: "ACCEPTED",
             agreementId: agreement.agreementId,
-            message: `Simulated buyer response: We accept your final wholesale terms of $${finalAsk.toFixed(2)} per unit for ${mandate.quantity} units with ${vendor.deliveryDays}-day delivery and ${vendor.returnDays}-day return protection.`,
+            message: `Simulated buyer response: We accept your final wholesale terms of ${formatCurrency(finalAsk, mandate.currency)} per unit for ${mandate.quantity} units with ${vendor.deliveryDays}-day delivery and ${vendor.returnDays}-day return protection.`,
             proposedOffer: candidateOffer,
             utilityScore: utility,
             boulwareThreshold: deadlineThreshold,
@@ -752,6 +764,9 @@ export class NegotiationOrchestrator {
           agreement.agreedPrice > 0;
         const mandateVersionValid =
           agreement.mandateVersion === (mandate.version ?? 1);
+        const currencyValid =
+          !agreement.currency ||
+          agreement.currency.toUpperCase() === mandate.currency.toUpperCase();
 
         const feasible =
           withinBudget &&
@@ -759,7 +774,8 @@ export class NegotiationOrchestrator {
           returnCompliant &&
           conditionCompliant &&
           arithmeticValid &&
-          mandateVersionValid;
+          mandateVersionValid &&
+          currencyValid;
 
         if (!feasible) return null;
 
