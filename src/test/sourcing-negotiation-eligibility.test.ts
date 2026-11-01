@@ -98,7 +98,7 @@ describe("Phase 6.5: Sourcing & Arena Entry Negotiation Eligibility Model", () =
     expect(canEnterArena).toBe(true);
 
     // Explanatory notice must be flagged
-    const someQuotesAboveBudget = result.negotiationCandidates.some(
+    const someQuotesAboveBudget = (result.negotiationCandidates || []).some(
       (q) => q.initialUnitAsk * baseMandate.quantity + q.shippingCost > baseMandate.maxTotalBudget
     );
     expect(someQuotesAboveBudget).toBe(true);
