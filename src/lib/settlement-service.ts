@@ -12,7 +12,8 @@ import { sessionStore } from "./session-store";
 import { VeriPayMerkleTree } from "./veripay-merkle";
 import { CryptographicFlightRecorder } from "./flight-recorder";
 import { settlementLogger } from "./settlement-logger";
-import { isPayPalSupportedCurrency } from "./currency";
+import { isPayPalSupportedCurrency, fromMinorUnits, toMinorUnits, formatCurrency } from "./currency";
+import { auditFxSettlement } from "./fx-settlement";
 import type {
   AuditCertificate,
   CaptureIntentRecord,
@@ -224,13 +225,45 @@ export class SettlementService {
       };
     }
 
-    if (!isPayPalSupportedCurrency(session.mandate.currency)) {
-      return {
-        success: false,
-        sessionId,
-        error: `Automated PayPal settlement is unavailable for '${session.mandate.currency}' in the configured PayPal environment. Internal procurement, negotiation, Merkle proofs, and ACWORLD audit remain fully valid, but PayPal checkout cannot be created in ${session.mandate.currency}.`,
-        blockedAtGate: true,
-      };
+    const isCrossCurrency = !isPayPalSupportedCurrency(session.mandate.currency);
+    let settlementCurrency = session.mandate.currency;
+    let settlementTotal = totalAmount;
+    let settlementUnitPrice = finalOffer.unitPrice;
+    let settlementShipping = finalOffer.shippingCost;
+
+    if (isCrossCurrency) {
+      if (!session.fxRecord) {
+        return {
+          success: false,
+          sessionId,
+          error: `Automated PayPal settlement is unavailable for '${session.mandate.currency}' in the configured PayPal environment without an approved FX settlement quote. An FX quote must be locked before checkout.`,
+          blockedAtGate: true,
+        };
+      }
+
+      if (session.fxRecord.status !== "LOCKED") {
+        return {
+          success: false,
+          sessionId,
+          error: `FX settlement quote is in '${session.fxRecord.status}' state. Quote must be 'LOCKED' to fix the exchange rate before PayPal checkout.`,
+          blockedAtGate: true,
+        };
+      }
+
+      const fxAudit = auditFxSettlement({ session, fxRecord: session.fxRecord });
+      if (!fxAudit.passed) {
+        return {
+          success: false,
+          sessionId,
+          error: `ACWORLD FX Settlement Verification failed: ${fxAudit.error}`,
+          blockedAtGate: true,
+        };
+      }
+
+      settlementCurrency = session.fxRecord.targetCurrency;
+      settlementTotal = fromMinorUnits(session.fxRecord.targetAmountMinor);
+      settlementUnitPrice = settlementTotal / finalOffer.quantity;
+      settlementShipping = 0;
     }
 
     const baseOrigin = origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -242,11 +275,11 @@ export class SettlementService {
     const orderResult = await this.paypalClient.createAuthorizedOrder({
         sessionId,
         merkleRoot: preSettlementRoot,
-        currency: session.mandate.currency,
-        unitPrice: finalOffer.unitPrice,
+        currency: settlementCurrency,
+        unitPrice: settlementUnitPrice,
         quantity: finalOffer.quantity,
-        shippingCost: finalOffer.shippingCost,
-        totalAmount,
+        shippingCost: settlementShipping,
+        totalAmount: settlementTotal,
         productTitle: session.selectedQuote.productTitle,
         returnUrl,
         cancelUrl,
@@ -480,17 +513,37 @@ export class SettlementService {
         };
       }
 
-      // Verify amount matches authoritative calculation
+      // Verify settlement currency and amount match authoritative calculation
+      const isCrossCurrency = Boolean(session.fxRecord);
+      const expectedCurrency = isCrossCurrency ? session.fxRecord!.targetCurrency : session.mandate.currency;
+      const expectedAmount = isCrossCurrency
+        ? fromMinorUnits(session.fxRecord!.targetAmountMinor)
+        : totalAmount;
+
+      const orderCurrency = orderDetails.purchase_units?.[0]?.amount?.currency_code;
+      if (orderCurrency && orderCurrency.toUpperCase() !== expectedCurrency.toUpperCase()) {
+        return {
+          success: false,
+          sessionId,
+          orderId: effectiveOrderId,
+          auditCertificate: this.buildFailedCertificate(sessionId, `Order currency mismatch: PayPal ${orderCurrency} vs Expected ${expectedCurrency}`),
+          error: `PayPal order currency '${orderCurrency}' does not match expected settlement currency '${expectedCurrency}'.`,
+          blockedAtGate: true,
+        };
+      }
+
       const orderAmountStr = orderDetails.purchase_units?.[0]?.amount?.value;
       if (orderAmountStr) {
         const orderAmount = parseFloat(orderAmountStr);
-        if (Math.abs(orderAmount - totalAmount) > 0.01) {
+        if (Math.abs(orderAmount - expectedAmount) > 0.01) {
           return {
             success: false,
             sessionId,
             orderId: effectiveOrderId,
-            auditCertificate: this.buildFailedCertificate(sessionId, `Order amount mismatch: PayPal ${orderAmount} vs Session ${totalAmount}`),
-            error: `PayPal order amount ($${orderAmount}) does not match session agreed amount ($${totalAmount}).`,
+            auditCertificate: this.buildFailedCertificate(sessionId, `Order amount mismatch: PayPal ${orderAmount} vs Expected ${expectedAmount}`),
+            error: isCrossCurrency
+              ? `PayPal order amount ($${orderAmount}) does not match expected settlement amount ($${expectedAmount}).`
+              : `PayPal order amount ($${orderAmount}) does not match session agreed amount ($${expectedAmount}).`,
             blockedAtGate: true,
           };
         }
@@ -555,6 +608,36 @@ export class SettlementService {
       session.status = "AUDIT_PASSED";
       sessionStore.saveSession(session);
 
+      // 3.5 INDEPENDENT ACWORLD FX SETTLEMENT VERIFICATION GATE
+      if (session.fxRecord) {
+        const fxAuditResult = auditFxSettlement({
+          session,
+          fxRecord: session.fxRecord,
+          expectedPayPalOrder: {
+            currency: orderCurrency || expectedCurrency,
+            amountMinor: toMinorUnits(parseFloat(orderAmountStr || expectedAmount.toString())),
+          },
+        });
+
+        if (!fxAuditResult.passed) {
+          session.status = "AUDIT_FAILED";
+          sessionStore.saveSession(session);
+
+          return {
+            success: false,
+            sessionId,
+            auditCertificate: this.buildFailedCertificate(
+              sessionId,
+              `ACWORLD FX Settlement Verification Failed: ${fxAuditResult.error}`
+            ),
+            orderId: effectiveOrderId,
+            authorizationId,
+            error: `ACWORLD FX Verification Failed: ${fxAuditResult.error}`,
+            blockedAtGate: true,
+          };
+        }
+      }
+
       // 4. AUDITED CAPTURE OPERATION
       // Idempotency: Check if remote order was already captured on PayPal (e.g. from an earlier interrupted attempt)
       const existingCaptures = orderDetails.purchase_units?.[0]?.payments?.captures;
@@ -566,8 +649,8 @@ export class SettlementService {
         sessionId,
         orderId: effectiveOrderId,
         authorizationId,
-        amount: totalAmount,
-        currency: session.mandate.currency,
+        amount: expectedAmount,
+        currency: expectedCurrency,
         preSettlementRoot,
         mandateVersion: session.mandate.version ?? 1,
         status: completedCapture ? "CAPTURED" : "PENDING_CAPTURE",
@@ -585,8 +668,8 @@ export class SettlementService {
         metadata: {
           intentId: captureIntentId,
           status: captureIntent.status,
-          amount: totalAmount,
-          currency: session.mandate.currency,
+          amount: expectedAmount,
+          currency: expectedCurrency,
         },
       });
 
@@ -605,12 +688,12 @@ export class SettlementService {
             correlationId: sessionId,
             sessionId,
             orderId: effectiveOrderId,
-            metadata: { captureTarget, amount: totalAmount },
+            metadata: { captureTarget, amount: expectedAmount },
           });
 
           const captureResult = await this.paypalClient.capturePayment(captureTarget, {
-            currency: session.mandate.currency,
-            value: totalAmount,
+            currency: expectedCurrency,
+            value: expectedAmount,
           });
 
           if (captureResult.status !== "COMPLETED") {
@@ -680,8 +763,11 @@ export class SettlementService {
       }
 
       session.paypalCaptureId = captureId;
-      session.captureAmount = totalAmount;
+      session.captureAmount = expectedAmount;
       session.status = "PAYPAL_CAPTURED";
+      if (session.fxRecord) {
+        session.fxRecord.status = "CONSUMED";
+      }
 
       // 5. Post-Audit & Settlement Merkle Event Commitment
       if (session.flightRecord) {
@@ -707,8 +793,11 @@ export class SettlementService {
             paypalOrderId: session.paypalOrderId,
             paypalAuthorizationId: authorizationId,
             paypalCaptureId: session.paypalCaptureId,
-            amount: totalAmount,
-            currency: session.mandate.currency,
+            amount: expectedAmount,
+            currency: expectedCurrency,
+            commercialAmount: totalAmount,
+            commercialCurrency: session.mandate.currency,
+            fxConversionHash: session.fxRecord?.conversionHash,
             status: "SETTLED",
           },
           {
@@ -732,8 +821,11 @@ export class SettlementService {
           sessionId,
           paypalOrderId: session.paypalOrderId,
           paypalCaptureId: session.paypalCaptureId,
-          amount: totalAmount,
-          currency: session.mandate.currency,
+          amount: expectedAmount,
+          currency: expectedCurrency,
+          commercialAmount: totalAmount,
+          commercialCurrency: session.mandate.currency,
+          fxConversionHash: session.fxRecord?.conversionHash,
           timestamp: new Date().toISOString(),
         });
         session.postAuditRoot = merkleTree.getRootHash();
@@ -745,11 +837,13 @@ export class SettlementService {
         const invoiceResult = await this.paypalClient.createNegotiatedInvoice({
           sessionId,
           merkleRoot: session.postAuditRoot,
-          currency: session.mandate.currency,
-          unitPrice: finalOffer.unitPrice,
+          currency: expectedCurrency,
+          unitPrice: isCrossCurrency ? expectedAmount / finalOffer.quantity : finalOffer.unitPrice,
           quantity: finalOffer.quantity,
-          shippingCost: finalOffer.shippingCost,
-          productTitle: session.selectedQuote.productTitle,
+          shippingCost: isCrossCurrency ? 0 : finalOffer.shippingCost,
+          productTitle: isCrossCurrency
+            ? `${session.selectedQuote.productTitle} (FX Settled: ${formatCurrency(session.agreementRecord?.totalCost || totalAmount, session.mandate.currency)} @ 1 USD = ₹${session.fxRecord!.rate})`
+            : session.selectedQuote.productTitle,
         });
 
         invoiceId = invoiceResult.id;
@@ -892,15 +986,20 @@ export class SettlementService {
       const finalOffer = session.finalOffer;
       const totalAmount = finalOffer.unitPrice * finalOffer.quantity + finalOffer.shippingCost;
       const preSettlementRoot = session.preSettlementRoot ?? session.merkleRoot ?? "";
+      const isCrossCurrency = Boolean(session.fxRecord);
+      const settlementCurrency = isCrossCurrency ? session.fxRecord!.targetCurrency : session.mandate.currency;
+      const settlementTotal = isCrossCurrency ? fromMinorUnits(session.fxRecord!.targetAmountMinor) : totalAmount;
+      const settlementUnitPrice = isCrossCurrency ? settlementTotal / finalOffer.quantity : finalOffer.unitPrice;
+      const settlementShipping = isCrossCurrency ? 0 : finalOffer.shippingCost;
 
       const orderResult = await this.paypalClient.createAuthorizedOrder({
         sessionId,
         merkleRoot: preSettlementRoot,
-        currency: session.mandate.currency,
-        unitPrice: finalOffer.unitPrice,
+        currency: settlementCurrency,
+        unitPrice: settlementUnitPrice,
         quantity: finalOffer.quantity,
-        shippingCost: finalOffer.shippingCost,
-        totalAmount,
+        shippingCost: settlementShipping,
+        totalAmount: settlementTotal,
         productTitle: session.selectedQuote.productTitle,
       });
 
@@ -982,9 +1081,36 @@ export class SettlementService {
       }
 
       const finalOffer = session.finalOffer;
-      const expectedTotal = finalOffer
+      const totalAmount = finalOffer
         ? finalOffer.unitPrice * finalOffer.quantity + finalOffer.shippingCost
         : 0;
+      const isCrossCurrency = Boolean(session.fxRecord);
+      const expectedCurrency = isCrossCurrency ? session.fxRecord!.targetCurrency : session.mandate.currency;
+      const expectedTotal = isCrossCurrency
+        ? fromMinorUnits(session.fxRecord!.targetAmountMinor)
+        : totalAmount;
+
+      if (isCrossCurrency && session.fxRecord) {
+        const fxAudit = auditFxSettlement({
+          session,
+          fxRecord: session.fxRecord,
+          expectedPayPalOrder: {
+            currency: session.fxRecord.targetCurrency,
+            amountMinor: session.fxRecord.targetAmountMinor,
+          },
+        });
+        if (!fxAudit.passed) {
+          return {
+            success: false,
+            sessionId,
+            status: session.status,
+            reconciled: false,
+            message: `FX settlement audit verification failed: ${fxAudit.error}`,
+            error: "FX settlement audit verification failed",
+          };
+        }
+      }
+
       const preSettlementRoot = session.preSettlementRoot ?? session.merkleRoot ?? "";
       const expectedCustomId = `VERIPAY_ROOT:${preSettlementRoot};SESSION:${sessionId}`;
 
@@ -992,13 +1118,13 @@ export class SettlementService {
 
       // Verify remote order currency
       const remoteCurrency = orderDetails.purchase_units?.[0]?.amount?.currency_code;
-      if (remoteCurrency && remoteCurrency !== session.mandate.currency) {
+      if (remoteCurrency && remoteCurrency.toUpperCase() !== expectedCurrency.toUpperCase()) {
         return {
           success: false,
           sessionId,
           status: session.status,
           reconciled: false,
-          message: `Reconciliation currency mismatch: remote order has currency '${remoteCurrency}', expected '${session.mandate.currency}'.`,
+          message: `Reconciliation currency mismatch: remote order has currency '${remoteCurrency}', expected '${expectedCurrency}'.`,
           error: "Currency mismatch",
         };
       }
@@ -1039,20 +1165,24 @@ export class SettlementService {
         // Verify completed capture amount and currency
         if (
           completedCapture.amount &&
-          completedCapture.amount.currency_code !== session.mandate.currency
+          completedCapture.amount.currency_code.toUpperCase() !== expectedCurrency.toUpperCase()
         ) {
           return {
             success: false,
             sessionId,
             status: session.status,
             reconciled: false,
-            message: `Reconciliation capture currency mismatch: capture currency '${completedCapture.amount.currency_code}' != '${session.mandate.currency}'.`,
+            message: `Reconciliation capture currency mismatch: capture currency '${completedCapture.amount.currency_code}' != '${expectedCurrency}'.`,
             error: "Capture currency mismatch",
           };
         }
 
         // Remote capture was successful! Reconcile session state
         session.paypalCaptureId = completedCapture.id;
+        session.captureAmount = expectedTotal;
+        if (session.fxRecord) {
+          session.fxRecord.status = "CONSUMED";
+        }
         if (session.captureIntent) {
           session.captureIntent.status = "CAPTURED";
           session.captureIntent.paypalCaptureId = completedCapture.id;

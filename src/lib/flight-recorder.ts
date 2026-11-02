@@ -687,6 +687,35 @@ export class CryptographicFlightRecorder {
       );
     }
 
+    // 6.5 Phase 6.8 Verifiable FX Settlement Bridge Events
+    if (session.fxRecord) {
+      recorder.recordEvent(
+        session.fxRecord.status === "LOCKED" || session.fxRecord.status === "CONSUMED"
+          ? "FX_QUOTE_LOCKED"
+          : "FX_QUOTE_CREATED",
+        {
+          sessionId: session.id,
+          quoteId: session.fxRecord.id,
+          agreementHash: session.fxRecord.agreementHash,
+          sourceCurrency: session.fxRecord.sourceCurrency,
+          targetCurrency: session.fxRecord.targetCurrency,
+          sourceAmountMinor: session.fxRecord.sourceAmountMinor,
+          targetAmountMinor: session.fxRecord.targetAmountMinor,
+          rate: session.fxRecord.rate,
+          rateConvention: session.fxRecord.rateConvention,
+          rateSource: session.fxRecord.rateSource,
+          provider: session.fxRecord.provider,
+          conversionHash: session.fxRecord.conversionHash,
+          status: session.fxRecord.status,
+        },
+        {
+          mandateVersion: session.mandate.version ?? 1,
+          agreementId: session.agreementRecord?.agreementId,
+          timestamp: session.fxRecord.quotedAt,
+        }
+      );
+    }
+
     // 7. Settlement Authorization & Capture
     if (session.paypalOrderId) {
       recorder.recordEvent(
@@ -712,7 +741,8 @@ export class CryptographicFlightRecorder {
           paypalOrderId: session.paypalOrderId,
           paypalCaptureId: session.paypalCaptureId,
           captureAmount: session.captureAmount,
-          currency: session.mandate.currency,
+          currency: session.fxRecord ? session.fxRecord.targetCurrency : session.mandate.currency,
+          commercialCurrency: session.mandate.currency,
           paypalInvoiceId: session.paypalInvoiceId,
         },
         {

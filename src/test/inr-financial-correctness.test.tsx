@@ -492,27 +492,21 @@ describe("Phase 6.7: INR Financial Correctness & Settlement UI Verification", ()
 
     render(<SettlementCenterScreen session={session} />);
 
-    // Verify informational panel exists
-    expect(screen.getAllByText(/Settlement Provider/i).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText(/Unavailable for INR/i)).toBeDefined();
-    expect(
-      screen.getByText(/Automated PayPal settlement is unavailable for the configured environment for INR transactions/i)
-    ).toBeDefined();
-
-    // Verify there is NO disabled CTA button titled "PayPal Checkout" or "PayPal Checkout Restricted"
-    const buttons = screen.queryAllByRole("button");
-    const checkoutButtons = buttons.filter((b) =>
-      b.textContent?.toLowerCase().includes("paypal checkout")
-    );
-    expect(checkoutButtons.length).toBe(0);
-
-    // Header badge displays "Settlement Provider Unavailable"
-    expect(screen.getByText("Settlement Provider Unavailable")).toBeDefined();
+    // Header badge displays "PayPal Sandbox (FX Bridge)" and "Audit Passed" (Phase 6.8)
+    expect(screen.getByText("PayPal Sandbox (FX Bridge)")).toBeDefined();
     expect(screen.getByText(/Audit Passed/i)).toBeDefined();
+
+    // Verify Cross-Currency Settlement bridge card exists
+    expect(screen.getByText("CROSS-CURRENCY SETTLEMENT")).toBeDefined();
+    expect(screen.getAllByText(/INR → USD Bridge/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/An FX settlement quote is required/i)).toBeDefined();
+
+    // Verify CTA button allows requesting an authoritative settlement quote
+    expect(screen.getByText(/Get Settlement Quote/i)).toBeDefined();
   });
 
-  // Proof 15: Missing PayPal artifacts are not presented as pending operations
-  it("15. Missing PayPal artifacts are not presented as pending operations", () => {
+  // Proof 15: Cross-Currency settlement artifacts display commercial and settlement obligations
+  it("15. Cross-Currency settlement artifacts display commercial and settlement obligations", () => {
     const inrQuote = NATIVE_INR_FIXTURES_BY_CATEGORY.monitors[0];
     const agreedOffer: NegotiationOffer = {
       unitPrice: 28500,
@@ -575,19 +569,13 @@ describe("Phase 6.7: INR Financial Correctness & Settlement UI Verification", ()
 
     render(<SettlementCenterScreen session={session} />);
 
-    // Verify noisy artifact statuses are not rendered
-    expect(screen.queryByText(/Not created/i)).toBeNull();
-    expect(screen.queryByText(/Not captured/i)).toBeNull();
-    expect(screen.queryByText(/Not generated/i)).toBeNull();
-
-    // Verify contextual empty state is rendered
-    expect(screen.getByText(/No payment artifacts/i)).toBeDefined();
-    expect(
-      screen.getByText(/No PayPal order was created because automated settlement is unavailable for this session currency/i)
-    ).toBeDefined();
+    // Verify cross-currency settlement artifacts card is rendered
+    expect(screen.getByText(/Cross-Currency Settlement Artifacts/i)).toBeDefined();
+    expect(screen.getByText(/1. Commercial Agreement/i)).toBeDefined();
+    expect(screen.getByText(/Authoritative & Audited/i)).toBeDefined();
 
     // Verified Cryptographic Lineage Merkle Root remains displayed separately
-    expect(screen.getAllByText(/Cryptographic Lineage/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Bound Merkle Root:/i)).toBeDefined();
     expect(screen.getByTitle("f".repeat(64))).toBeDefined();
   });
 

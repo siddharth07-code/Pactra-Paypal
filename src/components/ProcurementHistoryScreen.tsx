@@ -260,10 +260,17 @@ export function ProcurementHistoryScreen({
 
                         {/* Lifecycle State */}
                         <td className="py-4 px-4 text-center whitespace-nowrap">
-                          {(() => {
-                            const l = getSessionLifecycleConfig(s);
-                            return <StatusBadge status={l.status} label={l.label} />;
-                          })()}
+                          <div className="flex items-center justify-center gap-1.5">
+                            {(() => {
+                              const l = getSessionLifecycleConfig(s);
+                              return <StatusBadge status={l.status} label={l.label} />;
+                            })()}
+                            {s.fxRecord && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-mono-token font-medium bg-architect-violet/10 text-architect-violet dark:text-[#a78bfa] border border-architect-violet/20">
+                                FX Settled
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Actions */}
@@ -534,6 +541,41 @@ export function ProcurementHistoryScreen({
                 </div>
               </div>
             </div>
+
+            {/* 5. Verifiable FX Settlement Bridge (if applicable) */}
+            {inspectedSession.fxRecord && (
+              <div className="space-y-2.5">
+                <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-architect-violet dark:text-[#b490f5] font-medium block">
+                  Verifiable FX Settlement Bridge
+                </span>
+                <div className="bg-warm-cream/40 dark:bg-[#141416] p-4 rounded-[8px] border border-smoke dark:border-[#27272a] space-y-1.5 text-xs font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-[#737373] dark:text-[#a3a3a3]">Commercial Obligation:</span>
+                    <span className="text-obsidian dark:text-[#f5f3ef] font-semibold">
+                      {inspectedSession.agreementRecord ? `${inspectedSession.agreementRecord.currency || "INR"} ${inspectedSession.agreementRecord.totalCost.toLocaleString()}` : "INR"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#737373] dark:text-[#a3a3a3]">Locked FX Rate:</span>
+                    <span className="text-obsidian dark:text-[#f5f3ef]">1 USD = ₹{inspectedSession.fxRecord.rate}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#737373] dark:text-[#a3a3a3]">Settlement Obligation:</span>
+                    <span className="text-lichen-green font-bold">
+                      ${(inspectedSession.fxRecord.targetAmountMinor / 100).toFixed(2)} USD
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#737373] dark:text-[#a3a3a3]">Conversion Status:</span>
+                    <span className="text-obsidian dark:text-[#f5f3ef] uppercase">{inspectedSession.fxRecord.status}</span>
+                  </div>
+                  <div className="pt-1 border-t border-smoke/70 dark:border-[#27272a]">
+                    <span className="text-[#737373] dark:text-[#a3a3a3] block mb-0.5">Conversion Hash:</span>
+                    <span className="break-all text-[11px] text-obsidian dark:text-[#f5f3ef]">{inspectedSession.fxRecord.conversionHash}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Modal Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t border-smoke dark:border-[#27272a]">

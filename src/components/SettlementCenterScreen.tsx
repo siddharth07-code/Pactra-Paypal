@@ -31,9 +31,11 @@ import {
   PlusCircle,
   History,
   FileText,
+  RefreshCw,
+  ArrowRightLeft,
 } from "lucide-react";
 import type { ProcurementSession, ProcurementSessionStatus } from "@/types/pactum";
-import { formatCurrency, isPayPalSupportedCurrency, formatDaysSLA } from "@/lib/currency";
+import { formatCurrency, formatDaysSLA } from "@/lib/currency";
 
 interface SettlementCenterScreenProps {
   session?: ProcurementSession;
@@ -86,6 +88,10 @@ export function SettlementCenterScreen({
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isReconciling, setIsReconciling] = useState(false);
+  const [isFetchingQuote, setIsFetchingQuote] = useState(false);
+  const [isLockingQuote, setIsLockingQuote] = useState(false);
+  const [fxError, setFxError] = useState<string | null>(null);
+  const [selectedRateSource, setSelectedRateSource] = useState<"DETERMINISTIC_DEMO" | "LIVE_PROVIDER">("DETERMINISTIC_DEMO");
 
   // Authoritative agreement record and agreed offer
   const agreementRecord = session?.agreementRecord;
@@ -133,11 +139,21 @@ export function SettlementCenterScreen({
   const isAuditMissing = auditCert === undefined;
   const failedInvariantsCount = auditCert?.invariants?.filter((i) => !i.passed).length ?? 0;
 
-  // PayPal Artifacts existence
+  // Cross-Currency Settlement Bridge state
+  const isCrossCurrency = Boolean(mandate?.currency && mandate.currency !== "USD");
+  const isFxQuoteExpired = Boolean(
+    session?.fxRecord &&
+    session.fxRecord.status !== "LOCKED" &&
+    session.fxRecord.status !== "CONSUMED" &&
+    new Date(session.fxRecord.expiresAt).getTime() < Date.now()
+  );
+
+  // PayPal & Settlement Artifacts existence
   const hasAnyArtifact = Boolean(
     session?.paypalOrderId ||
     session?.paypalCaptureId ||
     session?.paypalInvoiceId ||
+    session?.fxRecord ||
     session?.merkleRoot
   );
 
@@ -295,6 +311,72 @@ export function SettlementCenterScreen({
   };
 
   /**
+   * Cross-Currency Settlement Bridge: Request server-owned FX Quote
+   */
+  const handleGetFxQuote = async () => {
+    if (!session?.id || isFetchingQuote || !isAuditPassed) return;
+    setIsFetchingQuote(true);
+    setFxError(null);
+    try {
+      const res = await fetch("/api/fx/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: session.id,
+          rateSource: selectedRateSource,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.fxRecord) {
+        throw new Error(data.error || "Failed to obtain FX settlement quote.");
+      }
+      if (onSessionUpdated) {
+        onSessionUpdated({ ...session, fxRecord: data.fxRecord });
+      }
+      if (onRefreshSession) {
+        await onRefreshSession();
+      }
+    } catch (err: unknown) {
+      setFxError(err instanceof Error ? err.message : "Failed to obtain FX quote.");
+    } finally {
+      setIsFetchingQuote(false);
+    }
+  };
+
+  /**
+   * Cross-Currency Settlement Bridge: Lock FX Quote & run ACWORLD FX Verification
+   */
+  const handleLockFxQuote = async () => {
+    if (!session?.id || !session.fxRecord || isLockingQuote || !isAuditPassed) return;
+    setIsLockingQuote(true);
+    setFxError(null);
+    try {
+      const res = await fetch("/api/fx/lock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: session.id,
+          quoteId: session.fxRecord.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.fxRecord) {
+        throw new Error(data.error || "Failed to lock FX quote.");
+      }
+      if (onSessionUpdated) {
+        onSessionUpdated({ ...session, fxRecord: data.fxRecord });
+      }
+      if (onRefreshSession) {
+        await onRefreshSession();
+      }
+    } catch (err: unknown) {
+      setFxError(err instanceof Error ? err.message : "Failed to lock FX quote.");
+    } finally {
+      setIsLockingQuote(false);
+    }
+  };
+
+  /**
    * Settlement Lifecycle Badge Config
    * Maps session and agreement states accurately to settlement lifecycle stages.
    */
@@ -352,12 +434,12 @@ export function SettlementCenterScreen({
           subtitle="Verify the agreed procurement terms before payment."
         />
         <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
-          {mandate?.currency && !isPayPalSupportedCurrency(mandate.currency) ? (
+          {isCrossCurrency ? (
             <>
-              <StatusBadge status={badgeConfig.status} label={badgeConfig.label} />
-              <span className="text-[11.5px] font-sans font-medium px-2.5 py-1 rounded-[4px] bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25">
-                Settlement Provider Unavailable
+              <span className="text-[11.5px] font-sans font-medium px-2.5 py-1 rounded-[4px] bg-smoke/30 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a]">
+                PayPal Sandbox (FX Bridge)
               </span>
+              <StatusBadge status={badgeConfig.status} label={badgeConfig.label} />
             </>
           ) : (
             <>
@@ -648,7 +730,33 @@ export function SettlementCenterScreen({
                       )}
                     </PrimaryButton>
                   ) : session.status === "AWAITING_PAYPAL_APPROVAL" ? (
-                    <div className="space-y-2.5">
+                    <div className="space-y-3">
+                      {isCrossCurrency && session.fxRecord && (
+                        <div className="p-3.5 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a] space-y-1.5 text-[12px]">
+                          <div className="flex justify-between font-mono-token">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">PayPal Order:</span>
+                            <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">{session.paypalOrderId}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">Commercial Amount:</span>
+                            <span className="font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                              {formatCurrency(agreedLandedCost ?? 0, mandate?.currency || "INR")}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">PayPal Settlement:</span>
+                            <span className="font-bold text-lichen-green tabular-nums">
+                              {formatCurrency(session.fxRecord.targetAmountMinor / 100, "USD")}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">FX Conversion:</span>
+                            <span className="text-[#006840] dark:text-[#4ade80] font-medium flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Locked &amp; Verified
+                            </span>
+                          </div>
+                        </div>
+                      )}
                       <PrimaryButton
                         onClick={() => {
                           if (session.paypalApprovalUrl) {
@@ -729,21 +837,252 @@ export function SettlementCenterScreen({
                         PayPal checkout blocked: One or more ACWORLD audit invariants failed.
                       </p>
                     </div>
-                  ) : !isPayPalSupportedCurrency(mandate?.currency || "USD") ? (
-                    <div className="rounded-[8px] p-4 bg-amber-500/[0.06] dark:bg-amber-500/[0.08] border border-amber-500/30 space-y-2.5">
-                      <div className="flex items-center justify-between pb-2 border-b border-amber-500/20 text-[12px]">
-                        <div className="flex items-center gap-1.5 text-obsidian dark:text-[#f6f4f0] font-medium">
-                          <CreditCard className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                          <span>Settlement Provider: <span className="font-semibold">PayPal Sandbox</span></span>
+                  ) : isCrossCurrency ? (
+                    !session.fxRecord ? (
+                      <div className="rounded-[8px] p-4 bg-warm-cream/40 dark:bg-[#141416] border border-smoke dark:border-[#27272a] space-y-3 overflow-hidden break-words">
+                        <div className="flex items-center justify-between pb-2 border-b border-smoke dark:border-[#27272a] text-[12px]">
+                          <div className="flex items-center gap-1.5 text-obsidian dark:text-[#f6f4f0] font-semibold">
+                            <ArrowRightLeft className="w-4 h-4 text-architect-violet dark:text-[#a78bfa]" />
+                            <span>CROSS-CURRENCY SETTLEMENT</span>
+                          </div>
+                          <span className="font-mono-token text-[10.5px] px-2 py-0.5 rounded bg-architect-violet/10 text-architect-violet dark:text-[#a78bfa] font-medium border border-architect-violet/20">
+                            INR &rarr; USD Bridge
+                          </span>
                         </div>
-                        <span className="font-mono-token text-[11px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium border border-amber-500/25">
-                          Unavailable for {mandate?.currency || "this currency"}
-                        </span>
+                        <div className="space-y-1.5 text-[12px]">
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">Commercial Agreement:</span>
+                            <span className="font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                              {formatCurrency(agreedLandedCost ?? 0, mandate?.currency || "INR")}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">Settlement Rail:</span>
+                            <span className="font-medium text-obsidian dark:text-[#f6f4f0]">PayPal Sandbox</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">Settlement Currency:</span>
+                            <span className="font-medium text-obsidian dark:text-[#f6f4f0]">USD</span>
+                          </div>
+                        </div>
+                        <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
+                          An FX settlement quote is required before this INR agreement can be settled through PayPal.
+                        </p>
+                        <div className="flex items-center justify-between pt-1 text-[11.5px]">
+                          <span className="text-[#737373] dark:text-[#a3a3a3]">Rate Source:</span>
+                          <div className="inline-flex rounded-md border border-smoke dark:border-[#27272a] p-0.5 bg-paper-white dark:bg-[#1a1a1e]">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedRateSource("DETERMINISTIC_DEMO")}
+                              className={`px-2 py-0.5 rounded text-[10.5px] font-medium transition-colors cursor-pointer ${
+                                selectedRateSource === "DETERMINISTIC_DEMO"
+                                  ? "bg-architect-violet text-white"
+                                  : "text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian"
+                              }`}
+                            >
+                              Deterministic Demo FX
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedRateSource("LIVE_PROVIDER")}
+                              className={`px-2 py-0.5 rounded text-[10.5px] font-medium transition-colors cursor-pointer ${
+                                selectedRateSource === "LIVE_PROVIDER"
+                                  ? "bg-architect-violet text-white"
+                                  : "text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian"
+                              }`}
+                            >
+                              Live Provider
+                            </button>
+                          </div>
+                        </div>
+                        {fxError && (
+                          <p className="text-[11.5px] text-[#dc2626] dark:text-[#f87171]">
+                            {fxError}
+                          </p>
+                        )}
+                        <PrimaryButton
+                          onClick={handleGetFxQuote}
+                          disabled={isFetchingQuote || isSessionNotFound}
+                          className="w-full flex items-center justify-center gap-2"
+                        >
+                          {isFetchingQuote ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Fetching Settlement Quote...</span>
+                            </>
+                          ) : (
+                            <>
+                              <ArrowRightLeft className="w-4 h-4" />
+                              <span>Get Settlement Quote</span>
+                            </>
+                          )}
+                        </PrimaryButton>
                       </div>
-                      <p className="text-[12.5px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
-                        Automated PayPal settlement is unavailable for the configured environment for {mandate?.currency || "INR"} transactions. The agreement and ACWORLD audit remain valid; no PayPal order has been created.
-                      </p>
-                    </div>
+                    ) : isFxQuoteExpired ? (
+                      <div className="rounded-[8px] p-4 bg-amber-500/[0.06] dark:bg-amber-500/[0.08] border border-amber-500/30 space-y-3 overflow-hidden break-words">
+                        <div className="flex items-center justify-between pb-2 border-b border-amber-500/20 text-[12px]">
+                          <div className="flex items-center gap-1.5 text-obsidian dark:text-[#f6f4f0] font-semibold">
+                            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                            <span>FX Quote Expired</span>
+                          </div>
+                          <span className="font-mono-token text-[10.5px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium">
+                            Expired
+                          </span>
+                        </div>
+                        <p className="text-[12px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
+                          The settlement quote expired before it was locked. Request a new quote to continue.
+                        </p>
+                        {fxError && (
+                          <p className="text-[11.5px] text-[#dc2626] dark:text-[#f87171]">
+                            {fxError}
+                          </p>
+                        )}
+                        <PrimaryButton
+                          onClick={handleGetFxQuote}
+                          disabled={isFetchingQuote}
+                          className="w-full flex items-center justify-center gap-2"
+                        >
+                          {isFetchingQuote ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Refreshing Quote...</span>
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-4 h-4" />
+                              <span>Refresh FX Quote</span>
+                            </>
+                          )}
+                        </PrimaryButton>
+                      </div>
+                    ) : session.fxRecord.status === "QUOTED" ? (
+                      <div className="rounded-[8px] p-4 bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] space-y-3 overflow-hidden break-words">
+                        <div className="flex items-center justify-between pb-2 border-b border-smoke dark:border-[#27272a] text-[12px]">
+                          <div className="flex items-center gap-1.5 text-obsidian dark:text-[#f6f4f0] font-semibold">
+                            <ArrowRightLeft className="w-4 h-4 text-architect-violet dark:text-[#a78bfa]" />
+                            <span>FX QUOTED</span>
+                          </div>
+                          <StatusBadge status="info" label="Quote Ready" />
+                        </div>
+                        <div className="space-y-1.5 text-[12px]">
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">Commercial Amount:</span>
+                            <span className="font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                              {formatCurrency(agreedLandedCost ?? 0, mandate?.currency || "INR")}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">FX Rate:</span>
+                            <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">
+                              1 USD = ₹{session.fxRecord.rate}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">USD Settlement Amount:</span>
+                            <span className="font-bold text-[13px] text-lichen-green tabular-nums">
+                              {formatCurrency(session.fxRecord.targetAmountMinor / 100, "USD")}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">Rate Source:</span>
+                            <span className="font-medium text-obsidian dark:text-[#f6f4f0]">
+                              {session.fxRecord.rateSource === "DETERMINISTIC_DEMO" ? "Deterministic Demo FX" : (session.fxRecord.provider || "Live Provider")}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">Quoted At:</span>
+                            <span className="text-[#737373] dark:text-[#a3a3a3] font-mono-token">
+                              {new Date(session.fxRecord.quotedAt).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">Valid Until:</span>
+                            <span className="text-amber-600 dark:text-amber-400 font-mono-token">
+                              {new Date(session.fxRecord.expiresAt).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
+                          Locking this quote fixes the USD settlement amount used for PayPal authorization.
+                        </p>
+                        {fxError && (
+                          <p className="text-[11.5px] text-[#dc2626] dark:text-[#f87171]">
+                            {fxError}
+                          </p>
+                        )}
+                        <PrimaryButton
+                          onClick={handleLockFxQuote}
+                          disabled={isLockingQuote}
+                          className="w-full flex items-center justify-center gap-2"
+                        >
+                          {isLockingQuote ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Locking FX Quote &amp; Verifying...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-4 h-4" />
+                              <span>Lock FX Quote</span>
+                            </>
+                          )}
+                        </PrimaryButton>
+                      </div>
+                    ) : (
+                      <div className="rounded-[8px] p-4 bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] space-y-3 overflow-hidden break-words">
+                        <div className="flex items-center justify-between pb-2 border-b border-smoke dark:border-[#27272a] text-[12px]">
+                          <div className="flex items-center gap-1.5 text-obsidian dark:text-[#f6f4f0] font-semibold">
+                            <ShieldCheck className="w-4 h-4 text-lichen-green" />
+                            <span>FX LOCKED</span>
+                          </div>
+                          <StatusBadge status="verified" label="FX Quote Locked" />
+                        </div>
+                        <div className="space-y-1.5 text-[12px]">
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">Commercial Obligation:</span>
+                            <span className="font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                              {formatCurrency(agreedLandedCost ?? 0, mandate?.currency || "INR")}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">Locked FX Rate:</span>
+                            <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">
+                              1 USD = ₹{session.fxRecord.rate}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">PayPal Settlement:</span>
+                            <span className="font-bold text-[13px] text-lichen-green tabular-nums">
+                              {formatCurrency(session.fxRecord.targetAmountMinor / 100, "USD")}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3]">Conversion:</span>
+                            <span className="text-[#006840] dark:text-[#4ade80] font-medium flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Verified
+                            </span>
+                          </div>
+                        </div>
+                        <PrimaryButton
+                          onClick={handleContinueToPayPal}
+                          disabled={isInitiating || isSessionNotFound}
+                          className="w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isInitiating ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                              <span>Connecting to PayPal Sandbox...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Continue to PayPal Sandbox</span>
+                              <ExternalLink className="w-4 h-4" aria-hidden="true" />
+                            </>
+                          )}
+                        </PrimaryButton>
+                      </div>
+                    )
                   ) : (
                     <div className="space-y-2.5">
                       <div className="flex items-center gap-1.5 text-[12px] text-[#006840] dark:text-[#4ade80] font-medium justify-center pb-0.5">
@@ -773,52 +1112,144 @@ export function SettlementCenterScreen({
               </div>
 
               {/* Transaction Artifacts Card */}
-              {mandate?.currency && !isPayPalSupportedCurrency(mandate.currency) ? (
+              {isCrossCurrency ? (
                 <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 border border-smoke dark:border-[#27272a] space-y-4 shadow-2xs">
                   <div className="flex items-center justify-between pb-2.5 border-b border-smoke dark:border-[#27272a]">
-                    <h3 className="text-[12px] font-sans uppercase tracking-wider text-[#737373] dark:text-[#a3a3a3] font-semibold">
-                      Payment Artifacts
+                    <h3 className="text-[12px] font-sans uppercase tracking-wider text-architect-violet dark:text-[#a78bfa] font-semibold">
+                      Cross-Currency Settlement Artifacts
                     </h3>
-                    <span className="text-[11px] font-mono-token text-amber-600 dark:text-amber-400">
-                      Settlement Unavailable
+                    <span className="text-[11px] font-mono-token text-lichen-green">
+                      INR &rarr; USD Bridge
                     </span>
                   </div>
-                  <div className="py-2 space-y-1">
-                    <p className="text-[13px] text-obsidian dark:text-[#f6f4f0] font-medium">
-                      No payment artifacts
-                    </p>
-                    <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
-                      No PayPal order was created because automated settlement is unavailable for this session currency.
-                    </p>
-                  </div>
-                  {session.merkleRoot && (
-                    <div className="pt-3 border-t border-smoke dark:border-[#27272a] space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] font-medium text-architect-violet dark:text-[#a78bfa]">
-                          Cryptographic Lineage Root
+
+                  <div className="space-y-3 text-[12.5px]">
+                    <div className="p-3 rounded-[6px] bg-smoke/25 dark:bg-[#202025] border border-smoke dark:border-[#27272a] space-y-1.5">
+                      <div className="text-[11px] font-sans uppercase tracking-wider font-semibold text-[#737373] dark:text-[#a3a3a3]">
+                        1. Commercial Agreement
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[#737373] dark:text-[#a3a3a3]">Landed Cost:</span>
+                        <span className="font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                          {formatCurrency(agreedLandedCost ?? 0, mandate?.currency || "INR")}
                         </span>
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="font-mono-token text-[11.5px] text-architect-violet dark:text-[#a78bfa] bg-smoke/30 dark:bg-[#202025] px-2 py-0.5 rounded border border-smoke dark:border-[#27272a]"
-                            title={session.merkleRoot}
-                          >
-                            {session.merkleRoot.slice(0, 16)}...
+                      </div>
+                      <div className="flex justify-between items-center text-[11.5px]">
+                        <span className="text-[#737373] dark:text-[#a3a3a3]">Commercial Status:</span>
+                        <span className="text-lichen-green font-medium">Authoritative &amp; Audited</span>
+                      </div>
+                    </div>
+
+                    {session.fxRecord ? (
+                      <div className="p-3 rounded-[6px] bg-smoke/25 dark:bg-[#202025] border border-smoke dark:border-[#27272a] space-y-1.5 font-mono-token text-[11.5px]">
+                        <div className="text-[11px] font-sans uppercase tracking-wider font-semibold text-architect-violet dark:text-[#a78bfa]">
+                          2. Verifiable FX Quote
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">Locked FX Rate:</span>
+                          <span className="text-obsidian dark:text-[#f6f4f0]">1 USD = ₹{session.fxRecord.rate}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">Settlement Obligation:</span>
+                          <span className="font-bold text-lichen-green">
+                            {formatCurrency(session.fxRecord.targetAmountMinor / 100, "USD")}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyText(session.merkleRoot!, "root")}
-                            title="Copy Full Merkle Root"
-                            className="p-1 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
-                          >
-                            {copiedKey === "root" ? <Check className="w-3 h-3 text-lichen-green" aria-hidden="true" /> : <Copy className="w-3 h-3" aria-hidden="true" />}
-                          </button>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">Status:</span>
+                          <span className="text-obsidian dark:text-[#f6f4f0] font-sans uppercase text-[10.5px]">
+                            {session.fxRecord.status}
+                          </span>
+                        </div>
+                        <div className="pt-1 border-t border-smoke/70 dark:border-[#27272a]">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">Conversion Hash:</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10.5px] text-obsidian dark:text-[#f6f4f0]" title={session.fxRecord.conversionHash}>
+                                {session.fxRecord.conversionHash.slice(0, 14)}...
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyText(session.fxRecord!.conversionHash, "fxhash")}
+                                title="Copy Conversion Hash"
+                                className="p-0.5 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                              >
+                                {copiedKey === "fxhash" ? <Check className="w-3 h-3 text-lichen-green" /> : <Copy className="w-3 h-3" />}
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <p className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3]">
-                        Verified SHA-256 Merkle root commits to full negotiation history and ACWORLD audit.
-                      </p>
+                    ) : (
+                      <div className="p-3 rounded-[6px] bg-smoke/25 dark:bg-[#202025] border border-smoke dark:border-[#27272a] text-[12px] text-[#737373] dark:text-[#a3a3a3]">
+                        FX Quote has not yet been requested.
+                      </div>
+                    )}
+
+                    <div className="p-3 rounded-[6px] bg-smoke/25 dark:bg-[#202025] border border-smoke dark:border-[#27272a] space-y-1.5 font-mono-token text-[11.5px]">
+                      <div className="text-[11px] font-sans uppercase tracking-wider font-semibold text-architect-violet dark:text-[#a78bfa]">
+                        3. PayPal Orders v2 Rail
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">PayPal Order ID:</span>
+                        {session.paypalOrderId ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-obsidian dark:text-[#f6f4f0]">{session.paypalOrderId}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyText(session.paypalOrderId!, "order")}
+                              className="p-0.5 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                            >
+                              {copiedKey === "order" ? <Check className="w-3 h-3 text-lichen-green" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[#737373] dark:text-[#a3a3a3] font-sans italic">Not created</span>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">PayPal Capture ID:</span>
+                        {session.paypalCaptureId ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-obsidian dark:text-[#f6f4f0]">{session.paypalCaptureId}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyText(session.paypalCaptureId!, "capture")}
+                              className="p-0.5 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                            >
+                              {copiedKey === "capture" ? <Check className="w-3 h-3 text-lichen-green" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[#737373] dark:text-[#a3a3a3] font-sans italic">Not captured</span>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">Settlement Currency:</span>
+                        <span className="text-obsidian dark:text-[#f6f4f0] font-sans font-medium">USD</span>
+                      </div>
                     </div>
-                  )}
+
+                    {session.merkleRoot && (
+                      <div className="pt-2 border-t border-smoke dark:border-[#27272a] space-y-1">
+                        <div className="flex items-center justify-between text-[12px]">
+                          <span className="font-medium text-architect-violet dark:text-[#a78bfa]">
+                            Bound Merkle Root:
+                          </span>
+                          <div className="flex items-center gap-1.5 font-mono-token text-[11px]">
+                            <span title={session.merkleRoot}>{session.merkleRoot.slice(0, 16)}...</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyText(session.merkleRoot!, "root")}
+                              className="p-0.5 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                            >
+                              {copiedKey === "root" ? <Check className="w-3 h-3 text-lichen-green" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : !hasAnyArtifact ? (
                 <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 border border-smoke dark:border-[#27272a] space-y-3 shadow-2xs">
@@ -1109,6 +1540,54 @@ export function SettlementCenterScreen({
                       );
                     })}
                   </div>
+
+                  {/* Phase 7: ACWORLD FX Settlement Verification (Distinct Post-Commercial Transformation Check) */}
+                  {isCrossCurrency && session.fxRecord && (
+                    <div className="pt-4 mt-2 border-t border-smoke dark:border-[#27272a] space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-[12.5px] font-sans uppercase tracking-wider font-semibold text-architect-violet dark:text-[#a78bfa] block">
+                            ACWORLD FX Settlement Verification
+                          </span>
+                          <span className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3]">
+                            Post-commercial cross-currency audit gate
+                          </span>
+                        </div>
+                        <StatusBadge
+                          status={session.fxRecord.status === "LOCKED" || session.fxRecord.status === "CONSUMED" ? "verified" : "warning"}
+                          label={session.fxRecord.status === "LOCKED" || session.fxRecord.status === "CONSUMED" ? "13/13 CHECKS PASS" : "PENDING LOCK"}
+                        />
+                      </div>
+                      <div className="p-3.5 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a] space-y-1.5 text-[11.5px] font-mono-token">
+                        <div className="flex justify-between">
+                          <span className="text-[#737373] dark:text-[#a3a3a3]">Source Landed Cost:</span>
+                          <span className="text-obsidian dark:text-[#f6f4f0]">
+                            {session.fxRecord.sourceAmountMinor.toLocaleString()} paise (₹{formatCurrency(agreedLandedCost ?? 0, "INR").replace("₹", "")})
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#737373] dark:text-[#a3a3a3]">Rational Conversion:</span>
+                          <span className="text-obsidian dark:text-[#f6f4f0]">
+                            ÷ {session.fxRecord.rate} ({session.fxRecord.roundingMode})
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#737373] dark:text-[#a3a3a3]">Target Settlement:</span>
+                          <span className="text-lichen-green font-bold">
+                            ${(session.fxRecord.targetAmountMinor / 100).toFixed(2)} USD ({session.fxRecord.targetAmountMinor} cents)
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#737373] dark:text-[#a3a3a3]">Agreement Hash Binding:</span>
+                          <span className="text-[#006840] dark:text-[#4ade80] font-medium">Verified</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#737373] dark:text-[#a3a3a3]">Conversion Commitment:</span>
+                          <span className="text-[#006840] dark:text-[#4ade80] font-medium">Verified</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

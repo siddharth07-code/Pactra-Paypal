@@ -11,6 +11,8 @@ import { sessionStore } from "@/lib/session-store";
 import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
 import { defaultWebhookLedger } from "@/lib/webhook-deduplication";
 import { settlementLogger } from "@/lib/settlement-logger";
+import { fromMinorUnits } from "@/lib/currency";
+import { computeAgreementHash } from "@/lib/fx-settlement";
 
 export async function POST(req: NextRequest) {
   const rateLimit = await defaultRateLimiter.checkLimit(req, "PAYPAL_SETTLEMENT");
@@ -129,17 +131,39 @@ export async function POST(req: NextRequest) {
               const amountObj = event.resource.amount as
                 | { value?: string; currency_code?: string }
                 | undefined;
-              const expectedTotal = session.finalOffer
+
+              const isFxSettlement = !!session.fxRecord;
+              const expectedCurrency = isFxSettlement
+                ? session.fxRecord!.targetCurrency
+                : session.mandate.currency;
+              const expectedTotal = isFxSettlement
+                ? fromMinorUnits(session.fxRecord!.targetAmountMinor)
+                : session.finalOffer
                 ? session.finalOffer.unitPrice * session.finalOffer.quantity +
                   session.finalOffer.shippingCost
                 : 0;
 
+              // If FX settlement, verify FX record binds to authoritative agreement
+              if (isFxSettlement && session.agreementRecord) {
+                const computedHash = computeAgreementHash(session.agreementRecord);
+                if (session.fxRecord!.agreementHash !== computedHash) {
+                  const errMsg = `Webhook FX verification failed: agreement hash mismatch.`;
+                  if (event.id) {
+                    defaultWebhookLedger.recordFailed(event.id, errMsg);
+                  }
+                  return new Response(
+                    JSON.stringify({ error: errMsg }),
+                    { status: 422, headers: { "Content-Type": "application/json" } }
+                  );
+                }
+              }
+
               if (amountObj) {
                 if (
                   amountObj.currency_code &&
-                  amountObj.currency_code !== session.mandate.currency
+                  amountObj.currency_code !== expectedCurrency
                 ) {
-                  const errMsg = `Webhook capture currency mismatch: expected ${session.mandate.currency}, got ${amountObj.currency_code}.`;
+                  const errMsg = `Webhook capture currency mismatch: expected ${expectedCurrency}, got ${amountObj.currency_code}.`;
                   if (event.id) {
                     defaultWebhookLedger.recordFailed(event.id, errMsg);
                   }
@@ -161,6 +185,16 @@ export async function POST(req: NextRequest) {
                     );
                   }
                 }
+              }
+
+              // Update session capture amount if value present
+              if (amountObj?.value) {
+                session.captureAmount = parseFloat(amountObj.value);
+              }
+
+              // Transition fxRecord status to CONSUMED if locked
+              if (session.fxRecord && session.fxRecord.status === "LOCKED") {
+                session.fxRecord.status = "CONSUMED";
               }
 
               // Never downgrade a session that is already SETTLED or PAYPAL_CAPTURED

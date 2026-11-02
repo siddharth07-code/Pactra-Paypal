@@ -211,11 +211,47 @@ export class PayPalClient {
     }
 
     // Exact amount reconciliation
-    const itemTotal = (params.unitPrice * params.quantity).toFixed(2);
-    const shipping = params.shippingCost.toFixed(2);
-    const total = (parseFloat(itemTotal) + parseFloat(shipping)).toFixed(2);
+    const shippingNum = Number.isFinite(params.shippingCost) && params.shippingCost >= 0 ? params.shippingCost : 0;
+    const shipping = shippingNum.toFixed(2);
+
+    let total: string;
+    let itemTotal: string;
+
+    if (params.totalAmount !== undefined && Number.isFinite(params.totalAmount) && params.totalAmount > 0) {
+      total = params.totalAmount.toFixed(2);
+      const computedItemTotal = (parseFloat(total) - parseFloat(shipping)).toFixed(2);
+      itemTotal = parseFloat(computedItemTotal) >= 0 ? computedItemTotal : total;
+    } else {
+      itemTotal = (params.unitPrice * params.quantity).toFixed(2);
+      total = (parseFloat(itemTotal) + parseFloat(shipping)).toFixed(2);
+    }
 
     const customId = `VERIPAY_ROOT:${params.merkleRoot};SESSION:${params.sessionId}`;
+
+    // Item line calculation: ensure unit_amount * quantity matches itemTotal exactly for PayPal schema
+    const standardUnitStr = params.unitPrice.toFixed(2);
+    const standardSumStr = (parseFloat(standardUnitStr) * params.quantity).toFixed(2);
+    const itemsList = standardSumStr === itemTotal
+      ? [
+          {
+            name: params.productTitle,
+            unit_amount: {
+              currency_code: params.currency,
+              value: standardUnitStr,
+            },
+            quantity: params.quantity.toString(),
+          },
+        ]
+      : [
+          {
+            name: `${params.productTitle} (${params.quantity} units)`,
+            unit_amount: {
+              currency_code: params.currency,
+              value: itemTotal,
+            },
+            quantity: "1",
+          },
+        ];
 
     const payload: Record<string, unknown> = {
       intent: "AUTHORIZE",
@@ -238,16 +274,7 @@ export class PayPalClient {
               },
             },
           },
-          items: [
-            {
-              name: params.productTitle,
-              unit_amount: {
-                currency_code: params.currency,
-                value: params.unitPrice.toFixed(2),
-              },
-              quantity: params.quantity.toString(),
-            },
-          ],
+          items: itemsList,
         },
       ],
     };

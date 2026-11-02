@@ -277,6 +277,66 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
         </div>
       )}
 
+      {/* Verifiable FX Settlement Bridge Evidence (Phase 18) */}
+      {session?.fxRecord && (
+        <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] shadow-2xs space-y-3.5 transition-colors">
+          <div className="flex items-center justify-between pb-2.5 border-b border-smoke dark:border-[#27272a]">
+            <span className="text-[12px] font-sans font-semibold text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+              Verifiable FX Settlement Evidence
+            </span>
+            <StatusBadge
+              status={session.fxRecord.status === "LOCKED" || session.fxRecord.status === "CONSUMED" ? "verified" : "info"}
+              label={`FX ${session.fxRecord.status}`}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-[12.5px]">
+            <div className="p-3 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a]">
+              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Commercial Amount</span>
+              <span className="font-semibold text-obsidian dark:text-[#f6f4f0] text-[13px] tabular-nums">
+                {(session.fxRecord.sourceAmountMinor / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} {session.fxRecord.sourceCurrency}
+              </span>
+              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[10.5px] font-mono-token">
+                {session.fxRecord.sourceAmountMinor} minor units
+              </span>
+            </div>
+            <div className="p-3 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a]">
+              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Locked FX Rate</span>
+              <span className="font-semibold text-obsidian dark:text-[#f6f4f0] text-[13px] font-mono-token">
+                1 USD = ₹{session.fxRecord.rate}
+              </span>
+              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[10.5px]">
+                {session.fxRecord.rateConvention} ({session.fxRecord.rateSource === "DETERMINISTIC_DEMO" ? "Deterministic Demo FX" : (session.fxRecord.provider || "Live")})
+              </span>
+            </div>
+            <div className="p-3 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a]">
+              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Settlement Obligation</span>
+              <span className="font-bold text-lichen-green text-[13px] tabular-nums">
+                ${(session.fxRecord.targetAmountMinor / 100).toFixed(2)} {session.fxRecord.targetCurrency}
+              </span>
+              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[10.5px] font-mono-token">
+                {session.fxRecord.targetAmountMinor} minor units ({session.fxRecord.roundingMode})
+              </span>
+            </div>
+            <div className="p-3 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a]">
+              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Timestamps &amp; SLA</span>
+              <span className="text-obsidian dark:text-[#f6f4f0] block text-[11.5px] font-mono-token">
+                Quoted: {new Date(session.fxRecord.quotedAt).toLocaleTimeString()}
+              </span>
+              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[10.5px] font-mono-token">
+                Expires: {new Date(session.fxRecord.expiresAt).toLocaleTimeString()}
+              </span>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-smoke dark:border-[#27272a]">
+            <div className="text-[12px] text-[#737373] dark:text-[#a3a3a3] mb-1 font-medium">
+              Cryptographic Conversion Commitment (SHA-256)
+            </div>
+            <CopyableHash hash={session.fxRecord.conversionHash} truncate={false} />
+          </div>
+        </div>
+      )}
+
       {/* Evaluator Architecture & Verification Guide */}
       <details className="group bg-paper-white dark:bg-[#18181b] rounded-[8px] border border-smoke dark:border-[#27272a] p-5 shadow-2xs transition-colors">
         <summary className="flex items-center justify-between cursor-pointer list-none select-none">

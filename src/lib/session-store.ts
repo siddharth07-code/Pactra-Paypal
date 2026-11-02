@@ -397,6 +397,8 @@ export class AuthoritativeSessionStore {
       finalOffer: undefined,
       agreementRecord: undefined,
       auditCertificate: undefined,
+      fxRecord: undefined,
+      fxQuoteHistory: undefined,
       merkleRoot: undefined,
       preSettlementRoot: undefined,
       postAuditRoot: undefined,

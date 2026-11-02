@@ -113,13 +113,29 @@ export async function GET(req: NextRequest) {
         });
       }
 
+      if (session.fxRecord) {
+        tree.addEvent("FX_QUOTE_LOCKED", {
+          sessionId: session.id,
+          quoteId: session.fxRecord.id,
+          agreementHash: session.fxRecord.agreementHash,
+          sourceCurrency: session.fxRecord.sourceCurrency,
+          targetCurrency: session.fxRecord.targetCurrency,
+          sourceAmountMinor: session.fxRecord.sourceAmountMinor,
+          targetAmountMinor: session.fxRecord.targetAmountMinor,
+          rate: session.fxRecord.rate,
+          conversionHash: session.fxRecord.conversionHash,
+          status: session.fxRecord.status,
+        });
+      }
+
       if (session.paypalCaptureId) {
         tree.addEvent("SETTLEMENT_CAPTURED", {
           sessionId: session.id,
           paypalOrderId: session.paypalOrderId,
           paypalCaptureId: session.paypalCaptureId,
           amount: session.captureAmount,
-          currency: session.mandate.currency,
+          currency: session.fxRecord ? session.fxRecord.targetCurrency : session.mandate.currency,
+          commercialCurrency: session.mandate.currency,
           timestamp: session.updatedAt,
         });
       }
