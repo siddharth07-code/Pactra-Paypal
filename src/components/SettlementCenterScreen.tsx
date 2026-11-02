@@ -134,10 +134,10 @@ export function SettlementCenterScreen({
 
   // Strict Fail-Closed Audit Evaluation (Section 13)
   const auditCert = session?.auditCertificate;
-  const isAuditPassed = Boolean(auditCert && auditCert.passed === true);
-  const isAuditFailed = Boolean(auditCert && auditCert.passed === false);
+  const isAuditPassed = Boolean(auditCert && auditCert.passed === true && session?.status !== "AUDIT_FAILED");
+  const isAuditFailed = Boolean((auditCert && auditCert.passed === false) || session?.status === "AUDIT_FAILED");
   const isAuditMissing = auditCert === undefined;
-  const failedInvariantsCount = auditCert?.invariants?.filter((i) => !i.passed).length ?? 0;
+  const failedInvariantsCount = auditCert?.invariants?.filter((i) => !i.passed).length ?? (session?.status === "AUDIT_FAILED" ? 1 : 0);
 
   // Cross-Currency Settlement Bridge state
   const isCrossCurrency = Boolean(mandate?.currency && mandate.currency !== "USD");
@@ -245,6 +245,13 @@ export function SettlementCenterScreen({
       // Normal browser redirect to the authoritative PayPal Sandbox checkout interface
       window.location.assign(data.approvalUrl);
     } catch (err: unknown) {
+      if (onRefreshSession) {
+        try {
+          await onRefreshSession();
+        } catch {
+          // Ignore refresh error
+        }
+      }
       setCheckoutError(err instanceof Error ? err.message : "Checkout initiation failed.");
       setIsInitiating(false);
     }
@@ -765,7 +772,7 @@ export function SettlementCenterScreen({
                             handleContinueToPayPal();
                           }
                         }}
-                        disabled={isInitiating}
+                        disabled={isInitiating || !isAuditPassed}
                         className="w-full flex items-center justify-center gap-2"
                       >
                         {isInitiating ? (

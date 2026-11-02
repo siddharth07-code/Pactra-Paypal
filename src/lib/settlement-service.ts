@@ -19,6 +19,7 @@ import type {
   CaptureIntentRecord,
   ProcurementSession,
   ProcurementSessionStatus,
+  SettlementEligibilityResult,
 } from "../types/pactum";
 
 export interface SettleRequest {
@@ -59,6 +60,178 @@ export interface CompleteSettlementRequest {
   createInvoice?: boolean;
 }
 
+/**
+ * Phase 6.8.1: Centralized Server-Side Settlement Eligibility Evaluator
+ * Evaluates whether an authoritative session satisfies all prerequisites for PayPal checkout.
+ * Enforces:
+ * 1. Agreement currency & non-stale terms (budget ceiling, delivery SLA, return SLA).
+ * 2. Commercial ACWORLD audit validity & freshness.
+ * 3. Cryptographic flight recorder integrity & pre-settlement root commitment.
+ * 4. Cross-currency FX verification (LOCKED quote, agreementHash, arithmetic, rounding).
+ */
+export function evaluateSettlementEligibility(session: ProcurementSession): SettlementEligibilityResult {
+  const blockers: string[] = [];
+  const reasons: SettlementEligibilityResult["reasons"] = {};
+
+  // 1. Terminal / Incompatible Lifecycle Check
+  if (session.status === "CANCELLED") {
+    blockers.push(`Session ${session.id} is CANCELLED and cannot proceed to settlement checkout.`);
+    reasons.lifecycle = "Session is CANCELLED.";
+  }
+  if (session.status === "PAYPAL_CAPTURED" || session.status === "SETTLED") {
+    blockers.push(`Session ${session.id} has already been settled and captured.`);
+    reasons.lifecycle = "Session already settled/captured.";
+  }
+  if (session.status === "CAPTURE_PENDING_RECONCILIATION") {
+    blockers.push(`Session ${session.id} is in CAPTURE_PENDING_RECONCILIATION state. Authoritative reconciliation is required.`);
+    reasons.lifecycle = "Reconciliation required.";
+  }
+
+  // 2. Agreement Current & Constraints Feasibility
+  let agreementCurrent = true;
+  if (!session.finalOffer || !session.selectedQuote) {
+    agreementCurrent = false;
+    blockers.push(`Session ${session.id} has no final agreed offer or selected vendor quote.`);
+    reasons.agreement = "Missing final agreed offer or selected quote.";
+  } else if (session.agreementRecord) {
+    if (session.agreementRecord.sessionId && session.agreementRecord.sessionId !== session.id) {
+      agreementCurrent = false;
+      blockers.push(`Agreement session mismatch: recorded agreement session ${session.agreementRecord.sessionId} does not match active session ${session.id}.`);
+      reasons.agreement = "Agreement session mismatch.";
+    }
+    const currentMandateVersion = session.mandate.version ?? 1;
+    if (session.agreementRecord.mandateVersion !== currentMandateVersion) {
+      agreementCurrent = false;
+      blockers.push(`Stale agreement rejected: agreement is from mandate version ${session.agreementRecord.mandateVersion}, current mandate is version ${currentMandateVersion}.`);
+      reasons.agreement = "Stale mandate version.";
+    }
+    if (session.agreementRecord.vendorId !== session.selectedQuote.vendorId) {
+      agreementCurrent = false;
+      blockers.push(`Agreement vendor mismatch: recorded agreement vendor ${session.agreementRecord.vendorId} does not match selected vendor ${session.selectedQuote.vendorId}.`);
+      reasons.agreement = "Vendor mismatch.";
+    }
+    const agreedTotal = session.agreementRecord.totalCost ?? (
+      session.finalOffer.unitPrice * session.finalOffer.quantity + session.finalOffer.shippingCost
+    );
+    if (agreedTotal > session.mandate.maxTotalBudget) {
+      agreementCurrent = false;
+      blockers.push(`Agreed total landed cost (${agreedTotal}) exceeds maximum total budget (${session.mandate.maxTotalBudget}).`);
+      reasons.agreement = "Budget ceiling exceeded.";
+    }
+    if (session.finalOffer.deliveryDays > session.mandate.maxDeliveryDays) {
+      agreementCurrent = false;
+      blockers.push(`Delivery timeframe (${session.finalOffer.deliveryDays} days) exceeds mandate SLA (${session.mandate.maxDeliveryDays} days).`);
+      reasons.agreement = "Delivery SLA exceeded.";
+    }
+    if (session.finalOffer.returnDays < session.mandate.minReturnDays) {
+      agreementCurrent = false;
+      blockers.push(`Return policy window (${session.finalOffer.returnDays} days) is less than mandate minimum (${session.mandate.minReturnDays} days).`);
+      reasons.agreement = "Return policy SLA violated.";
+    }
+  }
+
+  // 3. Commercial ACWORLD Audit Valid & Fresh
+  let commercialAuditValid = false;
+  const auditCert = session.auditCertificate;
+  if (!auditCert) {
+    blockers.push("Commercial ACWORLD audit has not yet been executed.");
+    reasons.commercialAudit = "Missing audit certificate.";
+  } else if (!auditCert.passed) {
+    const failingInvs = auditCert.invariants?.filter((i) => !i.passed).map((i) => i.name).join(", ");
+    blockers.push(`Commercial ACWORLD audit is failing (${failingInvs || "failed"}). A passing audit is required.`);
+    reasons.commercialAudit = `Audit failing: ${failingInvs || "failed"}`;
+  } else {
+    const currentMandateVersion = session.mandate.version ?? 1;
+    if (auditCert.mandateVersion !== undefined && auditCert.mandateVersion !== currentMandateVersion) {
+      blockers.push(`Stale audit certificate: issued for mandate version ${auditCert.mandateVersion}, current version is ${currentMandateVersion}.`);
+      reasons.commercialAudit = "Stale audit mandate version.";
+    } else if (session.agreementRecord?.agreementId && auditCert.agreementId && auditCert.agreementId !== session.agreementRecord.agreementId) {
+      blockers.push(`Audit certificate agreement mismatch: certificate bound to ${auditCert.agreementId}, current agreement is ${session.agreementRecord.agreementId}.`);
+      reasons.commercialAudit = "Audit agreement mismatch.";
+    } else {
+      commercialAuditValid = true;
+    }
+  }
+
+  // If session status is AUDIT_FAILED and commercial audit is still failing, add lifecycle blocker
+  if (session.status === "AUDIT_FAILED" && !commercialAuditValid) {
+    if (!blockers.some((b) => b.includes("AUDIT_FAILED"))) {
+      blockers.push(`Session ${session.id} has status 'AUDIT_FAILED' and cannot proceed to settlement checkout without a passing re-audit.`);
+    }
+    reasons.lifecycle = "Session is in AUDIT_FAILED state.";
+  }
+
+  // 4. Evidence Current & Flight Recorder Integrity
+  let evidenceCurrent = false;
+  const evidenceRoot = session.preSettlementRoot ?? session.merkleRoot;
+  if (!evidenceRoot || evidenceRoot.length !== 64 || evidenceRoot === "0".repeat(64)) {
+    blockers.push("Session has no valid cryptographic Merkle evidence root.");
+    reasons.evidence = "Missing or invalid evidence root.";
+  } else if (session.flightRecord) {
+    try {
+      const recorder = CryptographicFlightRecorder.fromSerialized(session.flightRecord);
+      const integrity = recorder.verifyIntegrity();
+      if (!integrity.valid) {
+        blockers.push(`Flight recorder cryptographic integrity failed: ${integrity.error}`);
+        reasons.evidence = `Chain integrity invalid: ${integrity.errorCode}`;
+      } else {
+        evidenceCurrent = true;
+      }
+    } catch (err) {
+      blockers.push(`Failed to verify flight recorder: ${err instanceof Error ? err.message : String(err)}`);
+      reasons.evidence = "Deserialization error.";
+    }
+  } else {
+    evidenceCurrent = true;
+  }
+
+  // 5. Cross-Currency FX Verification
+  const isCrossCurrency = !isPayPalSupportedCurrency(session.mandate.currency);
+  const fxRequired = isCrossCurrency;
+  let fxValid = !fxRequired;
+
+  if (fxRequired) {
+    if (!session.fxRecord) {
+      blockers.push(`Automated PayPal settlement is unavailable for '${session.mandate.currency}' in the configured PayPal environment without an approved FX settlement quote. An FX quote must be locked before checkout.`);
+      reasons.fx = "Missing FX quote.";
+    } else if (session.fxRecord.status !== "LOCKED" && session.fxRecord.status !== "CONSUMED") {
+      blockers.push(`FX settlement quote is in '${session.fxRecord.status}' state. Quote must be 'LOCKED' to fix the exchange rate before PayPal checkout.`);
+      reasons.fx = `Invalid quote status: ${session.fxRecord.status}`;
+    } else {
+      const fxAudit = auditFxSettlement({ session, fxRecord: session.fxRecord });
+      if (!fxAudit.passed) {
+        blockers.push(`ACWORLD FX Settlement Verification failed: ${fxAudit.error}`);
+        reasons.fx = `FX audit failed: ${fxAudit.error}`;
+      } else {
+        fxValid = true;
+      }
+    }
+  }
+
+  const eligible =
+    agreementCurrent &&
+    commercialAuditValid &&
+    evidenceCurrent &&
+    fxValid &&
+    blockers.length === 0 &&
+    session.status !== "CANCELLED" &&
+    session.status !== "PAYPAL_CAPTURED" &&
+    session.status !== "SETTLED" &&
+    session.status !== "CAPTURE_PENDING_RECONCILIATION";
+
+  return {
+    eligible,
+    commercialAuditValid,
+    agreementCurrent,
+    evidenceCurrent,
+    fxRequired,
+    fxValid,
+    paymentCurrency: "USD",
+    blockers,
+    reasons,
+  };
+}
+
 export class SettlementService {
   private auditor: AcworldAuditor;
   private paypalClient: PayPalClient;
@@ -68,6 +241,13 @@ export class SettlementService {
   constructor(options?: { auditor?: AcworldAuditor; paypalClient?: PayPalClient }) {
     this.auditor = options?.auditor ?? new AcworldAuditor();
     this.paypalClient = options?.paypalClient ?? new PayPalClient();
+  }
+
+  /**
+   * Evaluates centralized settlement eligibility for a session.
+   */
+  public evaluateSettlementEligibility(session: ProcurementSession): SettlementEligibilityResult {
+    return evaluateSettlementEligibility(session);
   }
 
   /**
@@ -208,8 +388,23 @@ export class SettlementService {
 
     // Evaluate authoritative ACWORLD Pre-Checkout Audit Gate
     const preAuditCert = this.auditor.audit({ session });
+
+    // Preserve historical audit certificate before updating authoritative outcome
+    if (session.auditCertificate && session.auditCertificate.certificateId !== preAuditCert.certificateId) {
+      session.auditHistory = session.auditHistory || [];
+      if (!session.auditHistory.some((c) => c.certificateId === session.auditCertificate!.certificateId)) {
+        session.auditHistory.push(session.auditCertificate);
+      }
+    }
+
     session.auditCertificate = preAuditCert;
-    session.status = preAuditCert.passed ? "AUDIT_PASSED" : "AUDIT_FAILED";
+    if (preAuditCert.passed) {
+      session.status = "AUDIT_PASSED";
+      session.preSettlementRoot = preAuditCert.verifiedRoot;
+      session.merkleRoot = preAuditCert.verifiedRoot;
+    } else {
+      session.status = "AUDIT_FAILED";
+    }
     sessionStore.saveSession(session);
 
     if (!session.auditCertificate.passed) {
@@ -221,6 +416,17 @@ export class SettlementService {
         success: false,
         sessionId,
         error: `ACWORLD audit gate failed pre-checkout verification: ${failingInvariants}`,
+        blockedAtGate: true,
+      };
+    }
+
+    // Evaluate centralized settlement eligibility
+    const eligibility = evaluateSettlementEligibility(session);
+    if (!eligibility.eligible) {
+      return {
+        success: false,
+        sessionId,
+        error: eligibility.blockers[0] || "Session is not eligible for settlement checkout.",
         blockedAtGate: true,
       };
     }

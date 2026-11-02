@@ -77,8 +77,8 @@ export async function POST(req: NextRequest) {
         };
       }
 
-      // Verify commercial ACWORLD audit passed
-      if (!session.auditCertificate || !session.auditCertificate.passed) {
+      // Verify commercial ACWORLD audit passed and session is not AUDIT_FAILED
+      if (!session.auditCertificate || !session.auditCertificate.passed || session.status === "AUDIT_FAILED") {
         return {
           status: 403,
           body: {
@@ -192,6 +192,7 @@ export async function POST(req: NextRequest) {
         });
         session.flightRecord = recorder.exportFlightRecord();
         session.merkleRoot = recorder.getRootHash();
+        session.preSettlementRoot = recorder.getRootHash();
       } catch {
         // Continue if recorder reconstitution has minor non-fatal issue
       }

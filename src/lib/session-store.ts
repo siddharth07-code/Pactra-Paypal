@@ -62,6 +62,7 @@ export const ALLOWED_SESSION_TRANSITIONS: Record<
   AUDIT_FAILED: [
     "AUDIT_FAILED",
     "AUDIT_PENDING",
+    "AUDIT_PASSED",
     "NEGOTIATING",
     "MANDATE_PENDING",
     "CANCELLED",
@@ -216,7 +217,11 @@ export class AuthoritativeSessionStore {
    * Retrieves an authoritative session by ID.
    */
   public getSession(sessionId: string): ProcurementSession | undefined {
-    const session = this.sessions.get(sessionId);
+    let session = this.sessions.get(sessionId);
+    if (!session) {
+      this.rehydrateFromPersistence();
+      session = this.sessions.get(sessionId);
+    }
     return session ? JSON.parse(JSON.stringify(session)) : undefined;
   }
 
@@ -224,6 +229,9 @@ export class AuthoritativeSessionStore {
    * Retrieves all authoritative sessions, sorted by updatedAt descending.
    */
   public getAllSessions(): ProcurementSession[] {
+    if (this.sessions.size === 0) {
+      this.rehydrateFromPersistence();
+    }
     const all = Array.from(this.sessions.values()).map((s) => JSON.parse(JSON.stringify(s)));
     all.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     return all;

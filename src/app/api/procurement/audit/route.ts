@@ -53,8 +53,23 @@ export async function POST(req: NextRequest) {
     const auditor = new AcworldAuditor();
     const auditCertificate = auditor.audit({ session });
 
+    // Preserve historical audit certificate before updating authoritative outcome
+    if (session.auditCertificate && session.auditCertificate.certificateId !== auditCertificate.certificateId) {
+      session.auditHistory = session.auditHistory || [];
+      if (!session.auditHistory.some((c) => c.certificateId === session.auditCertificate!.certificateId)) {
+        session.auditHistory.push(session.auditCertificate);
+      }
+    }
+
     session.auditCertificate = auditCertificate;
-    session.status = auditCertificate.passed ? "AUDIT_PASSED" : "AUDIT_FAILED";
+    if (auditCertificate.passed) {
+      if (session.status === "AUDIT_FAILED" || session.status === "AUDIT_PENDING") {
+        session.status = "AUDIT_PASSED";
+      }
+    } else {
+      session.status = "AUDIT_FAILED";
+    }
+
     sessionStore.saveSession(session);
 
     return NextResponse.json({
@@ -62,6 +77,7 @@ export async function POST(req: NextRequest) {
       sessionId,
       auditCertificate,
       status: session.status,
+      session,
     });
   } catch {
     return NextResponse.json(

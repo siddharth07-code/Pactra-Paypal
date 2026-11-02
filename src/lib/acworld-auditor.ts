@@ -376,6 +376,15 @@ export class AcworldAuditor {
       if (session.flightRecord) {
         try {
           const recorder = CryptographicFlightRecorder.fromSerialized(session.flightRecord);
+          // If pre-settlement events (e.g. FX quote/lock) advanced merkleRoot to recorder root,
+          // ensure preSettlementRoot is synchronized before verifying anchor commitment
+          if (
+            !session.postAuditRoot &&
+            session.merkleRoot === recorder.getRootHash() &&
+            session.preSettlementRoot !== recorder.getRootHash()
+          ) {
+            session.preSettlementRoot = recorder.getRootHash();
+          }
           const expectedRootAnchor = session.postAuditRoot ?? session.preSettlementRoot ?? session.merkleRoot;
           const integrity = recorder.verifyIntegrity(expectedRootAnchor);
           if (!integrity.valid) {

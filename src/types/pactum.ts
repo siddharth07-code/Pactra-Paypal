@@ -585,6 +585,7 @@ export interface ProcurementSession {
   preSettlementRoot?: string; // Explicit pre-settlement evidence root
   postAuditRoot?: string; // Root after ACWORLD_FINAL_STATE_AUDIT event is recorded
   auditCertificate?: AuditCertificate;
+  auditHistory?: AuditCertificate[]; // Historical audit evaluations preserved across re-audits
   fxRecord?: FXConversionRecord; // Phase 6.8 Verifiable FX settlement bridge record
   fxQuoteHistory?: FXConversionRecord[];
   paypalOrderId?: string;
@@ -750,4 +751,25 @@ export interface NegotiationStreamEvent {
   sessionId: string;
   timestamp: string;
   payload: Record<string, unknown>;
+}
+
+/**
+ * Phase 6.8.1: Centralized Server-Side Settlement Eligibility Evaluation Result
+ */
+export interface SettlementEligibilityResult {
+  eligible: boolean;
+  commercialAuditValid: boolean;
+  agreementCurrent: boolean;
+  evidenceCurrent: boolean;
+  fxRequired: boolean;
+  fxValid: boolean;
+  paymentCurrency: "USD";
+  blockers: string[];
+  reasons: {
+    commercialAudit?: string;
+    agreement?: string;
+    evidence?: string;
+    fx?: string;
+    lifecycle?: string;
+  };
 }
