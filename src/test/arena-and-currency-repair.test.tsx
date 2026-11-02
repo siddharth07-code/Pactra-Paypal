@@ -561,7 +561,7 @@ describe("Phase 6.6: Negotiation Arena Repair & INR Currency Support", () => {
           totalAmount: 14600,
           productTitle: "Server",
         })
-      ).rejects.toThrow(/PayPal Orders v2 does not support INR transactions/i);
+      ).rejects.toThrow(/Automated PayPal settlement is unavailable for INR/i);
 
       await expect(
         paypalClient.createNegotiatedInvoice({
@@ -574,7 +574,7 @@ describe("Phase 6.6: Negotiation Arena Repair & INR Currency Support", () => {
           productTitle: "Server",
           recipientEmail: "buyer@example.com",
         })
-      ).rejects.toThrow(/PayPal Invoicing does not support INR invoices/i);
+      ).rejects.toThrow(/Automated PayPal settlement is unavailable for INR/i);
     });
 
     // 22. No silent currency conversion.

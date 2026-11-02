@@ -206,7 +206,7 @@ export class PayPalClient {
   public async createAuthorizedOrder(params: CreateOrderParams): Promise<CreateOrderResponse> {
     if (!isPayPalSupportedCurrency(params.currency)) {
       throw new Error(
-        `PayPal Orders v2 does not support ${params.currency} transactions. Domestic and international PayPal merchant checkout requires a supported settlement currency (e.g., USD, EUR, GBP). Internal procurement negotiation and Merkle attestation remain valid, but automated PayPal capture is unavailable for ${params.currency}.`
+        `Automated PayPal settlement is unavailable for ${params.currency} in the configured PayPal environment. Domestic and international PayPal merchant checkout requires a supported settlement currency (e.g., USD, EUR, GBP). Internal procurement negotiation and Merkle attestation remain valid, but automated PayPal capture is unavailable for ${params.currency}.`
       );
     }
 
@@ -479,7 +479,7 @@ export class PayPalClient {
   public async createNegotiatedInvoice(params: CreateInvoiceParams): Promise<CreateInvoiceResponse> {
     if (!isPayPalSupportedCurrency(params.currency)) {
       throw new Error(
-        `PayPal Invoicing does not support ${params.currency} invoices. Must use a PayPal supported settlement currency (e.g., USD, EUR, GBP).`
+        `Automated PayPal settlement is unavailable for ${params.currency} invoices in the configured PayPal environment. Must use a supported settlement currency (e.g., USD, EUR, GBP).`
       );
     }
 

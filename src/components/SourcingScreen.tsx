@@ -168,7 +168,17 @@ export function SourcingScreen({
     setPreviewedSessionId(null);
     setSourcedQuotes(null);
     clearIntelligenceIfValid();
-    setPrompt(formatSynchronizedPrompt(quantity, itemQuery, budget, val, maxDelivery, minReturn));
+
+    let updatedBudget = budget;
+    if (val === "INR" && currency !== "INR" && budget === 8500 && itemQuery === "4K USB-C monitors") {
+      updatedBudget = 750000;
+      setBudget(750000);
+    } else if (val === "USD" && currency === "INR" && budget === 750000 && itemQuery === "4K USB-C monitors") {
+      updatedBudget = 8500;
+      setBudget(8500);
+    }
+
+    setPrompt(formatSynchronizedPrompt(quantity, itemQuery, updatedBudget, val, maxDelivery, minReturn));
   };
 
   const handleDeliveryChange = (val: number) => {
@@ -442,9 +452,9 @@ export function SourcingScreen({
         <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
-            onClick={() => applyPreset(25, "4K USB-C monitors", 8500, 5, 30)}
+            onClick={() => applyPreset(25, "4K USB-C monitors", 8500, 5, 30, "USD")}
             className={`w-full sm:w-auto min-h-[36px] sm:min-h-[32px] px-3.5 py-1.5 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange text-center ${
-              itemQuery === "4K USB-C monitors" && budget === 8500 && quantity === 25
+              itemQuery === "4K USB-C monitors" && budget === 8500 && quantity === 25 && currency === "USD"
                 ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white font-semibold"
                 : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
             }`}
@@ -453,9 +463,9 @@ export function SourcingScreen({
           </button>
           <button
             type="button"
-            onClick={() => applyPreset(10, "Ergonomic Standing Desks", 4500, 7, 14)}
+            onClick={() => applyPreset(10, "Ergonomic Standing Desks", 4500, 7, 14, "USD")}
             className={`w-full sm:w-auto min-h-[36px] sm:min-h-[32px] px-3.5 py-1.5 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange text-center ${
-              itemQuery === "Ergonomic Standing Desks" && budget === 4500 && quantity === 10
+              itemQuery === "Ergonomic Standing Desks" && budget === 4500 && quantity === 10 && currency === "USD"
                 ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white font-semibold"
                 : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
             }`}
@@ -464,14 +474,25 @@ export function SourcingScreen({
           </button>
           <button
             type="button"
-            onClick={() => applyPreset(4, "Enterprise Rack Servers", 15000, 5, 30)}
+            onClick={() => applyPreset(4, "Enterprise Rack Servers", 15000, 5, 30, "USD")}
             className={`w-full sm:w-auto min-h-[36px] sm:min-h-[32px] px-3.5 py-1.5 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange text-center ${
-              itemQuery === "Enterprise Rack Servers" && budget === 15000 && quantity === 4
+              itemQuery === "Enterprise Rack Servers" && budget === 15000 && quantity === 4 && currency === "USD"
                 ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white font-semibold"
                 : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
             }`}
           >
             Scenario C ($15.0k / 4 Servers)
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPreset(25, "4K USB-C monitors", 750000, 5, 30, "INR")}
+            className={`w-full sm:w-auto min-h-[36px] sm:min-h-[32px] px-3.5 py-1.5 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange text-center ${
+              itemQuery === "4K USB-C monitors" && budget === 750000 && quantity === 25 && currency === "INR"
+                ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white font-semibold"
+                : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
+            }`}
+          >
+            Scenario INR (₹750k / 25 4K Monitors)
           </button>
         </div>
       </div>

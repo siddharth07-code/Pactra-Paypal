@@ -210,8 +210,8 @@ describe("SettlementCenterScreen — Semantic Lifecycle Verification", () => {
     // Agreed quantity
     expect(screen.getByText("25 units")).toBeDefined();
     // Delivery SLA and Return window
-    expect(screen.getByText("4 Days (Max 5d)")).toBeDefined();
-    expect(screen.getByText("35 Days (Min 30d)")).toBeDefined();
+    expect(screen.getByText("4 days (max 5 days)")).toBeDefined();
+    expect(screen.getByText("35 days (min 30 days)")).toBeDefined();
     // Agreed landed cost: 320 * 25 + 150 = $8,150.00
     expect(screen.getByText("$8,150.00")).toBeDefined();
     // Savings: 8,500 - 8,150 = $350 (4.1%)
@@ -258,7 +258,7 @@ describe("SettlementCenterScreen — Semantic Lifecycle Verification", () => {
     // Header badge shows Audit Blocked
     expect(screen.getByText("Audit Blocked")).toBeDefined();
     // Card banner shows 2 failed invariants
-    expect(screen.getByText("2 of 5 Invariants Failed — Checkout Blocked")).toBeDefined();
+    expect(screen.getByText("2 of 5 checks failed — Checkout Blocked")).toBeDefined();
     // Invariant badges show PASS and FAIL
     expect(screen.getAllByText("PASS").length).toBe(3);
     expect(screen.getAllByText("FAIL").length).toBe(2);
@@ -284,7 +284,7 @@ describe("SettlementCenterScreen — Semantic Lifecycle Verification", () => {
     // Header badge shows Audit Passed
     expect(screen.getByText("Audit Passed")).toBeDefined();
     // Banner shows 5/5 verified
-    expect(screen.getByText("5/5 Invariants Independently Verified")).toBeDefined();
+    expect(screen.getByText("5/5 checks passed")).toBeDefined();
     // All 5 invariants show PASS
     expect(screen.getAllByText("PASS").length).toBe(5);
     // Continue to PayPal button is enabled

@@ -42,6 +42,8 @@ export const DETERMINISTIC_FIXTURE_QUOTES: VendorQuote[] = [
     condition: "NEW",
     status: "ACTIVE",
     dataSource: "MOCK_CATALOG",
+    currency: "USD",
+    priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
   },
   {
     vendorId: "vendor-displayworld",
@@ -57,6 +59,8 @@ export const DETERMINISTIC_FIXTURE_QUOTES: VendorQuote[] = [
     condition: "NEW",
     status: "ACTIVE",
     dataSource: "MOCK_CATALOG",
+    currency: "USD",
+    priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
   },
   {
     vendorId: "vendor-nextech-supplies",
@@ -72,6 +76,8 @@ export const DETERMINISTIC_FIXTURE_QUOTES: VendorQuote[] = [
     condition: "NEW",
     status: "ACTIVE",
     dataSource: "MOCK_CATALOG",
+    currency: "USD",
+    priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
   },
 ];
 
@@ -96,6 +102,8 @@ export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
       condition: "NEW",
       status: "ACTIVE",
       dataSource: "MOCK_CATALOG",
+      currency: "USD",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
     },
     {
       vendorId: "vendor-displayworld-mobile",
@@ -111,6 +119,8 @@ export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
       condition: "NEW",
       status: "ACTIVE",
       dataSource: "MOCK_CATALOG",
+      currency: "USD",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
     },
     {
       vendorId: "vendor-nextech-computing",
@@ -126,6 +136,8 @@ export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
       condition: "NEW",
       status: "ACTIVE",
       dataSource: "MOCK_CATALOG",
+      currency: "USD",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
     },
   ],
   servers: [
@@ -143,6 +155,8 @@ export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
       condition: "NEW",
       status: "ACTIVE",
       dataSource: "MOCK_CATALOG",
+      currency: "USD",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
     },
     {
       vendorId: "vendor-displayworld-datacenter",
@@ -158,6 +172,8 @@ export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
       condition: "NEW",
       status: "ACTIVE",
       dataSource: "MOCK_CATALOG",
+      currency: "USD",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
     },
     {
       vendorId: "vendor-nextech-servers",
@@ -173,6 +189,8 @@ export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
       condition: "NEW",
       status: "ACTIVE",
       dataSource: "MOCK_CATALOG",
+      currency: "USD",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
     },
   ],
   furniture: [
@@ -190,6 +208,8 @@ export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
       condition: "NEW",
       status: "ACTIVE",
       dataSource: "MOCK_CATALOG",
+      currency: "USD",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
     },
     {
       vendorId: "vendor-displayworld-office",
@@ -205,6 +225,8 @@ export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
       condition: "NEW",
       status: "ACTIVE",
       dataSource: "MOCK_CATALOG",
+      currency: "USD",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
     },
     {
       vendorId: "vendor-nextech-workspaces",
@@ -220,6 +242,8 @@ export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
       condition: "NEW",
       status: "ACTIVE",
       dataSource: "MOCK_CATALOG",
+      currency: "USD",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
     },
   ],
   networking: [
@@ -237,6 +261,8 @@ export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
       condition: "NEW",
       status: "ACTIVE",
       dataSource: "MOCK_CATALOG",
+      currency: "USD",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
     },
     {
       vendorId: "vendor-displayworld-telecom",
@@ -252,6 +278,8 @@ export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
       condition: "NEW",
       status: "ACTIVE",
       dataSource: "MOCK_CATALOG",
+      currency: "USD",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
     },
     {
       vendorId: "vendor-nextech-networks",
@@ -267,6 +295,280 @@ export const FIXTURE_CATALOGS_BY_CATEGORY: Record<string, VendorQuote[]> = {
       condition: "NEW",
       status: "ACTIVE",
       dataSource: "MOCK_CATALOG",
+      currency: "USD",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+  ],
+};
+
+/**
+ * Native INR deterministic fixtures with economically plausible commercial wholesale pricing.
+ * Never derived by re-labeling USD figures.
+ */
+export const NATIVE_INR_FIXTURES_BY_CATEGORY: Record<string, VendorQuote[]> = {
+  monitors: [
+    {
+      vendorId: "vendor-apex-displays-india",
+      vendorName: "Apex Displays India (Wholesale)",
+      sku: "APX-IN-4K-27U",
+      productTitle: 'Apex Pro India 27" 4K UHD IPS USB-C Monitor 90W PD',
+      category: "monitors",
+      initialUnitAsk: 32500.0,
+      currentUnitBid: 32500.0,
+      shippingCost: 12500.0,
+      deliveryDays: 4,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+    {
+      vendorId: "vendor-displayworld-india",
+      vendorName: "DisplayWorld India Direct",
+      sku: "DWD-IN-4K-27B",
+      productTitle: 'DisplayWorld India 27" 4K Commercial Display USB-C',
+      category: "monitors",
+      initialUnitAsk: 33800.0,
+      currentUnitBid: 33800.0,
+      shippingCost: 8500.0,
+      deliveryDays: 3,
+      returnDays: 35,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+    {
+      vendorId: "vendor-nextech-india",
+      vendorName: "NexTech India Commercial",
+      sku: "NXT-IN-4K-27H",
+      productTitle: 'NexTech Commercial India 27" 4K IPS USB-C Hub Monitor',
+      category: "monitors",
+      initialUnitAsk: 31200.0,
+      currentUnitBid: 31200.0,
+      shippingCost: 15000.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+  ],
+  servers: [
+    {
+      vendorId: "vendor-apex-servers-india",
+      vendorName: "Apex Cloud Infrastructure India",
+      sku: "APX-IN-SRV-2U",
+      productTitle: "Apex Enterprise India 2U Rackmount Server Dual Xeon 64GB ECC",
+      category: "servers",
+      initialUnitAsk: 280000.0,
+      currentUnitBid: 280000.0,
+      shippingCost: 25000.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+    {
+      vendorId: "vendor-displayworld-servers-india",
+      vendorName: "DisplayWorld Data Systems India",
+      sku: "DWD-IN-SRV-2U",
+      productTitle: "DisplayWorld CloudRack India 2U Enterprise Server 128GB ECC",
+      category: "servers",
+      initialUnitAsk: 310000.0,
+      currentUnitBid: 310000.0,
+      shippingCost: 20000.0,
+      deliveryDays: 4,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+    {
+      vendorId: "vendor-nextech-servers-india",
+      vendorName: "NexTech Server Solutions India",
+      sku: "NXT-IN-SRV-1U",
+      productTitle: "NexTech HighDensity India 1U Rack Server 64GB ECC",
+      category: "servers",
+      initialUnitAsk: 245000.0,
+      currentUnitBid: 245000.0,
+      shippingCost: 35000.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+  ],
+  furniture: [
+    {
+      vendorId: "vendor-apex-furniture-india",
+      vendorName: "Apex Commercial Furniture India",
+      sku: "APX-IN-DSK-60",
+      productTitle: 'Apex ErgoRise India Dual-Motor Commercial Standing Desk 60"x30"',
+      category: "furniture",
+      initialUnitAsk: 38000.0,
+      currentUnitBid: 38000.0,
+      shippingCost: 15000.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+    {
+      vendorId: "vendor-displayworld-furniture-india",
+      vendorName: "DisplayWorld Office India",
+      sku: "DWD-IN-DSK-72",
+      productTitle: 'DisplayWorld ProLift India Sit-Stand Commercial Desk 72"x30"',
+      category: "furniture",
+      initialUnitAsk: 42000.0,
+      currentUnitBid: 42000.0,
+      shippingCost: 12000.0,
+      deliveryDays: 4,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+    {
+      vendorId: "vendor-nextech-furniture-india",
+      vendorName: "NexTech Workspaces India",
+      sku: "NXT-IN-DSK-60",
+      productTitle: 'NexTech HeavyDuty India Motorized Standing Desk 60"x30"',
+      category: "furniture",
+      initialUnitAsk: 35000.0,
+      currentUnitBid: 35000.0,
+      shippingCost: 18000.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+  ],
+  laptops: [
+    {
+      vendorId: "vendor-apex-laptops-india",
+      vendorName: "Apex Enterprise Systems India",
+      sku: "APX-IN-LAP-15",
+      productTitle: 'Apex DevBook Pro India 15" Laptop Core i7 32GB RAM 1TB SSD',
+      category: "laptops",
+      initialUnitAsk: 115000.0,
+      currentUnitBid: 115000.0,
+      shippingCost: 12000.0,
+      deliveryDays: 4,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+    {
+      vendorId: "vendor-displayworld-laptops-india",
+      vendorName: "DisplayWorld Mobile Systems India",
+      sku: "DWD-IN-LAP-16",
+      productTitle: 'DisplayWorld WorkStation India 16" 32GB RAM 1TB',
+      category: "laptops",
+      initialUnitAsk: 122000.0,
+      currentUnitBid: 122000.0,
+      shippingCost: 9000.0,
+      deliveryDays: 3,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+    {
+      vendorId: "vendor-nextech-laptops-india",
+      vendorName: "NexTech Enterprise Systems India",
+      sku: "NXT-IN-LAP-14",
+      productTitle: 'NexTech Enterprise Elite India 14" 16GB RAM 512GB SSD',
+      category: "laptops",
+      initialUnitAsk: 98000.0,
+      currentUnitBid: 98000.0,
+      shippingCost: 15000.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+  ],
+  networking: [
+    {
+      vendorId: "vendor-apex-networks-india",
+      vendorName: "Apex Networks Wholesale India",
+      sku: "APX-IN-NET-48",
+      productTitle: "Apex NetCore India 48-Port PoE+ Managed Gigabit Switch 370W",
+      category: "networking",
+      initialUnitAsk: 68000.0,
+      currentUnitBid: 68000.0,
+      shippingCost: 14000.0,
+      deliveryDays: 4,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+    {
+      vendorId: "vendor-displayworld-networks-india",
+      vendorName: "DisplayWorld Network Solutions India",
+      sku: "DWD-IN-NET-48",
+      productTitle: "DisplayWorld SwitchX India 48-Port Gigabit Enterprise PoE+",
+      category: "networking",
+      initialUnitAsk: 72000.0,
+      currentUnitBid: 72000.0,
+      shippingCost: 11000.0,
+      deliveryDays: 3,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
+    },
+    {
+      vendorId: "vendor-nextech-networks-india",
+      vendorName: "NexTech Telecom Supplies India",
+      sku: "NXT-IN-NET-24",
+      productTitle: "NexTech Edge India 24-Port Managed Switch PoE+ 250W",
+      category: "networking",
+      initialUnitAsk: 51000.0,
+      currentUnitBid: 51000.0,
+      shippingCost: 16000.0,
+      deliveryDays: 5,
+      returnDays: 30,
+      condition: "NEW",
+      status: "ACTIVE",
+      dataSource: "MOCK_CATALOG",
+      currency: "INR",
+      priceProvenance: "NATIVE_DETERMINISTIC_FIXTURE",
     },
   ],
 };
@@ -378,6 +680,7 @@ export class Channel3Client {
                 category: q.category || (detectedCategory !== "unknown" ? detectedCategory : undefined),
                 currency: q.currency || mandate.currency || "USD",
                 dataSource: "CHANNEL3",
+                priceProvenance: "CHANNEL3_LIVE",
               })),
               dataSource: "CHANNEL3",
               isFixture: false,
@@ -391,23 +694,32 @@ export class Channel3Client {
       }
     }
 
-    // Return category-specific deterministic fixtures with explicit labeling
-    const catalog = FIXTURE_CATALOGS_BY_CATEGORY[detectedCategory];
+    // Return category-specific deterministic fixtures with explicit native currency matching
+    const mandateCurrency = (mandate.currency || "USD").toUpperCase();
+    const catalog = mandateCurrency === "INR"
+      ? NATIVE_INR_FIXTURES_BY_CATEGORY[detectedCategory]
+      : FIXTURE_CATALOGS_BY_CATEGORY[detectedCategory];
+
     if (catalog && catalog.length > 0) {
-      return {
-        quotes: catalog.map((q) => ({
-          ...q,
-          currency: q.currency || mandate.currency || "USD",
-        })),
-        dataSource: "MOCK_CATALOG",
-        isFixture: true,
-        timestamp: new Date().toISOString(),
-        category: detectedCategory,
-      };
+      // Strictly enforce currency integrity: only return quotes natively matching the mandate currency.
+      // NEVER silently re-label USD quotes as INR or vice-versa!
+      const matchingQuotes = catalog.filter(
+        (q) => (q.currency || "USD").toUpperCase() === mandateCurrency
+      );
+
+      if (matchingQuotes.length > 0) {
+        return {
+          quotes: matchingQuotes.map((q) => ({ ...q })),
+          dataSource: "MOCK_CATALOG",
+          isFixture: true,
+          timestamp: new Date().toISOString(),
+          category: detectedCategory,
+        };
+      }
     }
 
-    // No appropriate fixtures exist for this category — return clear empty results state
-    // (Never return monitor quotes for unrelated mandate categories!)
+    // No appropriate fixtures exist for this category and currency — return clear empty results state
+    // (Never return quotes with mismatched currency or wrong category!)
     return {
       quotes: [],
       dataSource: "MOCK_CATALOG",

@@ -228,7 +228,7 @@ export class SettlementService {
       return {
         success: false,
         sessionId,
-        error: `PayPal Orders v2 provider restriction: Currency '${session.mandate.currency}' is not supported for PayPal checkout/settlement. Internal procurement, negotiation, Merkle proofs, and ACWORLD audit remain fully valid, but PayPal checkout cannot be created in ${session.mandate.currency}.`,
+        error: `Automated PayPal settlement is unavailable for '${session.mandate.currency}' in the configured PayPal environment. Internal procurement, negotiation, Merkle proofs, and ACWORLD audit remain fully valid, but PayPal checkout cannot be created in ${session.mandate.currency}.`,
         blockedAtGate: true,
       };
     }

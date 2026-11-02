@@ -74,6 +74,11 @@ export interface MandateIntelligenceResult {
   error?: string;
 }
 
+export type PriceProvenance =
+  | "NATIVE_DETERMINISTIC_FIXTURE"
+  | "CHANNEL3_LIVE"
+  | "FX_CONVERTED";
+
 /**
  * 4.2 VendorQuote
  * Competing wholesale vendor offer
@@ -93,6 +98,10 @@ export interface VendorQuote {
   status: VendorQuoteStatus;
   dataSource: DataSource;
   currency?: CurrencyCode;
+  priceProvenance?: PriceProvenance;
+  sourceCurrency?: CurrencyCode;
+  fxRate?: number;
+  fxTimestamp?: string;
 }
 
 /**
@@ -226,6 +235,7 @@ export interface AgreementRecord {
   agreedOffer: NegotiationOffer;
   totalCost: number;
   currency?: CurrencyCode;
+  priceProvenance?: PriceProvenance;
   agreedBy: AgreementType;
   acceptingParty: "VENDOR" | "BUYER";
   acceptanceMechanism: AgreementType;

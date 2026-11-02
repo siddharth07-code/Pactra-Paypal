@@ -33,7 +33,7 @@ import {
   FileText,
 } from "lucide-react";
 import type { ProcurementSession, ProcurementSessionStatus } from "@/types/pactum";
-import { formatCurrency, isPayPalSupportedCurrency } from "@/lib/currency";
+import { formatCurrency, isPayPalSupportedCurrency, formatDaysSLA } from "@/lib/currency";
 
 interface SettlementCenterScreenProps {
   session?: ProcurementSession;
@@ -317,6 +317,9 @@ export function SettlementCenterScreen({
       case "AUDIT_FAILED":
         return { status: "failure" as const, label: "Audit Blocked" };
       case "AUDIT_PENDING":
+        if (isAuditPassed) {
+          return { status: "verified" as const, label: "Audit Passed" };
+        }
         return hasAgr
           ? { status: "warning" as const, label: "Awaiting Audit" }
           : { status: "neutral" as const, label: "Awaiting Agreement" };
@@ -328,6 +331,9 @@ export function SettlementCenterScreen({
       case "CANCELLED":
         return { status: "failure" as const, label: "Cancelled" };
       default:
+        if (isAuditPassed) {
+          return { status: "verified" as const, label: "Audit Passed" };
+        }
         return hasAgr
           ? { status: "neutral" as const, label: "Awaiting Audit" }
           : { status: "neutral" as const, label: "Awaiting Agreement" };
@@ -346,10 +352,21 @@ export function SettlementCenterScreen({
           subtitle="Verify the agreed procurement terms before payment."
         />
         <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
-          <span className="text-[11.5px] font-sans font-medium px-2.5 py-1 rounded-[4px] bg-smoke/30 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a]">
-            PayPal Sandbox
-          </span>
-          <StatusBadge status={badgeConfig.status} label={badgeConfig.label} />
+          {mandate?.currency && !isPayPalSupportedCurrency(mandate.currency) ? (
+            <>
+              <StatusBadge status={badgeConfig.status} label={badgeConfig.label} />
+              <span className="text-[11.5px] font-sans font-medium px-2.5 py-1 rounded-[4px] bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                Settlement Provider Unavailable
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-[11.5px] font-sans font-medium px-2.5 py-1 rounded-[4px] bg-smoke/30 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a]">
+                PayPal Sandbox
+              </span>
+              <StatusBadge status={badgeConfig.status} label={badgeConfig.label} />
+            </>
+          )}
         </div>
       </div>
 
@@ -470,25 +487,25 @@ export function SettlementCenterScreen({
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[#737373] dark:text-[#a3a3a3]">Delivery SLA:</span>
-                    {hasAgreement && deliveryDays !== null ? (
+                    {hasAgreement && deliveryDays != null ? (
                       <span className="text-obsidian dark:text-[#f6f4f0]">
-                        {deliveryDays} Days (Max {mandate?.maxDeliveryDays}d)
+                        {formatDaysSLA(deliveryDays, mandate?.maxDeliveryDays, "max")}
                       </span>
                     ) : (
                       <span className="text-[#737373] dark:text-[#a3a3a3] italic">
-                        Not established {mandate?.maxDeliveryDays ? `(Mandate: ≤ ${mandate.maxDeliveryDays}d)` : ""}
+                        Not established {mandate?.maxDeliveryDays ? `(Mandate: ≤ ${mandate.maxDeliveryDays} days)` : ""}
                       </span>
                     )}
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[#737373] dark:text-[#a3a3a3]">Return Policy Window:</span>
-                    {hasAgreement && returnDays !== null ? (
+                    {hasAgreement && returnDays != null ? (
                       <span className="text-obsidian dark:text-[#f6f4f0]">
-                        {returnDays} Days (Min {mandate?.minReturnDays}d)
+                        {formatDaysSLA(returnDays, mandate?.minReturnDays, "min")}
                       </span>
                     ) : (
                       <span className="text-[#737373] dark:text-[#a3a3a3] italic">
-                        Not established {mandate?.minReturnDays ? `(Mandate: ≥ ${mandate.minReturnDays}d)` : ""}
+                        Not established {mandate?.minReturnDays ? `(Mandate: ≥ ${mandate.minReturnDays} days)` : ""}
                       </span>
                     )}
                   </div>
@@ -515,7 +532,7 @@ export function SettlementCenterScreen({
                     <div className="flex justify-between items-center text-[13px]">
                       <span className="text-[#737373] dark:text-[#a3a3a3]">Agreed Landed Cost:</span>
                       {hasAgreement && agreedLandedCost !== null ? (
-                        <span className="type-financial text-ember-orange font-semibold text-[15px]">
+                        <span className="type-financial text-obsidian dark:text-[#f6f4f0] font-semibold text-[15px]">
                           {formatCurrency(agreedLandedCost, mandate?.currency)}
                         </span>
                       ) : (
@@ -713,16 +730,18 @@ export function SettlementCenterScreen({
                       </p>
                     </div>
                   ) : !isPayPalSupportedCurrency(mandate?.currency || "USD") ? (
-                    <div className="space-y-2.5">
-                      <PrimaryButton
-                        disabled={true}
-                        className="w-full flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed bg-amber-600/20 text-amber-500 border border-amber-500/30"
-                      >
-                        <AlertCircle className="w-4 h-4 text-amber-500" aria-hidden="true" />
-                        <span>PayPal Checkout Restricted ({mandate?.currency || "INR"})</span>
-                      </PrimaryButton>
-                      <p className="text-[12px] text-amber-600 dark:text-amber-400 text-center font-medium leading-relaxed">
-                        PayPal Orders v2 does not support settlement in {mandate?.currency}. Internal procurement mandate, multi-vendor negotiation, Merkle flight recorder, and ACWORLD audit remain fully verified.
+                    <div className="rounded-[8px] p-4 bg-amber-500/[0.06] dark:bg-amber-500/[0.08] border border-amber-500/30 space-y-2.5">
+                      <div className="flex items-center justify-between pb-2 border-b border-amber-500/20 text-[12px]">
+                        <div className="flex items-center gap-1.5 text-obsidian dark:text-[#f6f4f0] font-medium">
+                          <CreditCard className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                          <span>Settlement Provider: <span className="font-semibold">PayPal Sandbox</span></span>
+                        </div>
+                        <span className="font-mono-token text-[11px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium border border-amber-500/25">
+                          Unavailable for {mandate?.currency || "this currency"}
+                        </span>
+                      </div>
+                      <p className="text-[12.5px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
+                        Automated PayPal settlement is unavailable for the configured environment for {mandate?.currency || "INR"} transactions. The agreement and ACWORLD audit remain valid; no PayPal order has been created.
                       </p>
                     </div>
                   ) : (
@@ -753,8 +772,55 @@ export function SettlementCenterScreen({
                 </div>
               </div>
 
-              {/* PayPal Transaction Artifacts Card */}
-              {!hasAnyArtifact ? (
+              {/* Transaction Artifacts Card */}
+              {mandate?.currency && !isPayPalSupportedCurrency(mandate.currency) ? (
+                <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 border border-smoke dark:border-[#27272a] space-y-4 shadow-2xs">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-smoke dark:border-[#27272a]">
+                    <h3 className="text-[12px] font-sans uppercase tracking-wider text-[#737373] dark:text-[#a3a3a3] font-semibold">
+                      Payment Artifacts
+                    </h3>
+                    <span className="text-[11px] font-mono-token text-amber-600 dark:text-amber-400">
+                      Settlement Unavailable
+                    </span>
+                  </div>
+                  <div className="py-2 space-y-1">
+                    <p className="text-[13px] text-obsidian dark:text-[#f6f4f0] font-medium">
+                      No payment artifacts
+                    </p>
+                    <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
+                      No PayPal order was created because automated settlement is unavailable for this session currency.
+                    </p>
+                  </div>
+                  {session.merkleRoot && (
+                    <div className="pt-3 border-t border-smoke dark:border-[#27272a] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] font-medium text-architect-violet dark:text-[#a78bfa]">
+                          Cryptographic Lineage Root
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="font-mono-token text-[11.5px] text-architect-violet dark:text-[#a78bfa] bg-smoke/30 dark:bg-[#202025] px-2 py-0.5 rounded border border-smoke dark:border-[#27272a]"
+                            title={session.merkleRoot}
+                          >
+                            {session.merkleRoot.slice(0, 16)}...
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(session.merkleRoot!, "root")}
+                            title="Copy Full Merkle Root"
+                            className="p-1 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                          >
+                            {copiedKey === "root" ? <Check className="w-3 h-3 text-lichen-green" aria-hidden="true" /> : <Copy className="w-3 h-3" aria-hidden="true" />}
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3]">
+                        Verified SHA-256 Merkle root commits to full negotiation history and ACWORLD audit.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : !hasAnyArtifact ? (
                 <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 border border-smoke dark:border-[#27272a] space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between pb-2.5 border-b border-smoke dark:border-[#27272a]">
                     <h3 className="text-[12px] font-sans uppercase tracking-wider text-[#737373] dark:text-[#a3a3a3] font-semibold">
@@ -897,12 +963,12 @@ export function SettlementCenterScreen({
                       Independent ACWORLD Audit Gate
                     </h2>
                     <p className="text-[13px] text-[#737373] dark:text-[#a3a3a3] mt-0.5">
-                      Server-side verification strictly required prior to releasing PayPal capture
+                      Five deterministic checks required before settlement.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[11.5px] font-sans font-medium text-[#737373] dark:text-[#a3a3a3] bg-smoke/30 dark:bg-[#202025] px-2.5 py-1 rounded-[4px] border border-smoke dark:border-[#27272a]">
-                      Zero-Trust Gate
+                      Pre-Settlement Gate
                     </span>
                     <button
                       type="button"
@@ -966,8 +1032,8 @@ export function SettlementCenterScreen({
                         )}
                         <span className="tracking-tight">
                           {auditCert.passed
-                            ? "5/5 Invariants Independently Verified"
-                            : `${failedInvariantsCount} of 5 Invariants Failed — Checkout Blocked`}
+                            ? "5/5 checks passed"
+                            : `${failedInvariantsCount} of 5 checks failed — Checkout Blocked`}
                         </span>
                       </div>
                       <span className="text-[11px] font-mono-token px-2 py-0.5 rounded-[4px] bg-smoke/30 dark:bg-[#202025] text-[#737373] dark:text-[#a3a3a3] border border-smoke dark:border-[#27272a]">

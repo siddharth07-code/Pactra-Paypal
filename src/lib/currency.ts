@@ -179,3 +179,25 @@ export function formatSessionBudgetString(
   const formatted = formatCurrency(maxTotalBudget, curr, { showDecimals: true });
   return `Budget: ${formatted} ${curr}`;
 }
+
+/**
+ * Centralized grammatically correct day / SLA formatter.
+ * Handles singular and plural correctly:
+ * - formatDaysSLA(1, 5, "max") -> "1 day (max 5 days)"
+ * - formatDaysSLA(60, 30, "min") -> "60 days (min 30 days)"
+ * - formatDaysSLA(1, 1, "max") -> "1 day (max 1 day)"
+ * - formatDaysSLA(5) -> "5 days"
+ */
+export function formatDaysSLA(
+  days: number,
+  limitDays?: number | null,
+  limitType: "max" | "min" = "max"
+): string {
+  const dayStr = `${days} ${days === 1 ? "day" : "days"}`;
+  if (limitDays === undefined || limitDays === null) {
+    return dayStr;
+  }
+  const limitDayStr = `${limitDays} ${limitDays === 1 ? "day" : "days"}`;
+  return `${dayStr} (${limitType} ${limitDayStr})`;
+}
+
