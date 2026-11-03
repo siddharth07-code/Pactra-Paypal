@@ -6,7 +6,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { evaluateSettlementEligibility } from "@/lib/settlement-service";
+import { verifyFxCommercialSession } from "@/lib/fx-session-verification";
 import { sessionStore } from "@/lib/session-store";
 import {
   lockFXQuote,
@@ -90,8 +90,8 @@ export async function POST(req: NextRequest) {
           };
         }
 
-        const eligibility = evaluateSettlementEligibility(session, { requireFx: false });
-        if (!eligibility.eligible) return { status: 403, body: { success: false, error: eligibility.blockers.join("; ") } };
+        const commercialError = verifyFxCommercialSession(session);
+        if (commercialError) return { status: 403, body: { success: false, error: commercialError } };
 
         const activeQuote = session.fxRecord;
         if (!activeQuote) {
@@ -149,6 +149,13 @@ export async function POST(req: NextRequest) {
           };
         }
 
+        if (activeQuote.status === "LOCKED") {
+          const events = session.flightRecord?.events ?? [];
+          const isBound = (type: string) => events.some(event => event.eventType === type && event.publicPayload.quoteId === lockedQuote.id && event.publicPayload.conversionHash === lockedQuote.conversionHash);
+          if (!isBound("FX_QUOTE_LOCKED") || !isBound("FX_SETTLEMENT_VERIFIED")) return { status: 422, body: { success: false, error: "Required locked FX evidence is missing." } };
+          return { status: 200, body: { success: true, alreadyLocked: true, fxRecord: lockedQuote, fxAuditReport: fxAudit, fxVerification: { ...fxAudit, conversionHash: lockedQuote.conversionHash, agreementHash: lockedQuote.agreementHash } } };
+        }
+
         // Update session state
         session.fxRecord = lockedQuote;
         session.fxVerification = { ...fxAudit, conversionHash: lockedQuote.conversionHash, agreementHash: lockedQuote.agreementHash };
@@ -178,6 +185,7 @@ export async function POST(req: NextRequest) {
             rateConvention: lockedQuote.rateConvention,
             rateSource: lockedQuote.rateSource,
             provider: lockedQuote.provider,
+            ...(lockedQuote.referenceRate ? { referenceRate: lockedQuote.referenceRate } : {}),
             quotedAt: lockedQuote.quotedAt,
             expiresAt: lockedQuote.expiresAt,
             roundingMode: lockedQuote.roundingMode,

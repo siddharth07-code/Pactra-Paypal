@@ -6,7 +6,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { evaluateSettlementEligibility } from "@/lib/settlement-service";
+import { verifyFxCommercialSession } from "@/lib/fx-session-verification";
 import { sessionStore } from "@/lib/session-store";
 import { toMinorUnits } from "@/lib/currency";
 import {
@@ -14,6 +14,7 @@ import {
   computeAgreementHash,
   computeConversionHash,
   validateFxQuote,
+  auditFxSettlement,
 } from "@/lib/fx-settlement";
 import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
 import {
@@ -22,6 +23,7 @@ import {
   IdempotencyPayloadMismatchError,
 } from "@/lib/idempotency";
 import { CryptographicFlightRecorder } from "@/lib/flight-recorder";
+import { configuredFxSource, FXProviderError } from "@/lib/fx-provider-config";
 import type { FXRateSource } from "@/types/pactum";
 
 export async function POST(req: NextRequest) {
@@ -45,6 +47,10 @@ export async function POST(req: NextRequest) {
     }
 
     const { sessionId, rateSource } = body;
+    let providerSource: FXRateSource;
+    try { providerSource = configuredFxSource(rateSource); } catch (error) {
+      return new Response(JSON.stringify({ success: false, code: error instanceof FXProviderError ? error.code : "FX_CONFIGURATION_INVALID", error: error instanceof Error ? error.message : "Invalid FX configuration." }), { status: 400, headers: { "Content-Type": "application/json" } });
+    }
 
     if (!sessionId || typeof sessionId !== "string") {
       return new Response(
@@ -95,8 +101,8 @@ export async function POST(req: NextRequest) {
           };
         }
 
-        const eligibility = evaluateSettlementEligibility(session, { requireFx: false });
-        if (!eligibility.eligible) return { status: 403, body: { success: false, error: eligibility.blockers.join("; ") } };
+        const commercialError = verifyFxCommercialSession(session);
+        if (commercialError) return { status: 403, body: { success: false, error: commercialError } };
 
         // Check agreement currency - native USD does not require FX
         const agreementCurrency = session.agreementRecord?.currency ?? session.mandate.currency;
@@ -132,16 +138,22 @@ export async function POST(req: NextRequest) {
           ? computeAgreementHash(agreement)
           : "unhashed_agreement";
 
+        if (session.fxRecord?.rateSource === "LIVE_PROVIDER" && providerSource === "DETERMINISTIC_DEMO" && rateSource === undefined) {
+          return { status: 409, body: { success: false, code: "FX_MODE_CONFLICT", error: "An external reference quote already exists. Select a rate source explicitly; demo substitution is not automatic." } };
+        }
+
         if (session.fxRecord?.status === "LOCKED") {
+          if (session.fxRecord.rateSource !== providerSource) return { status: 409, body: { success: false, code: "FX_MODE_CONFLICT", error: "The locked quote uses a different rate source. It remains unchanged and requires explicit review." } };
           try {
             validateFxQuote(session.fxRecord);
             if (session.fxRecord.agreementHash !== agreementHash) throw new Error("Locked quote agreement mismatch.");
-            return { status: 200, body: { success: true, fxRecord: session.fxRecord } };
+            const fxAudit = auditFxSettlement({ session, fxRecord: session.fxRecord });
+            if (!fxAudit.passed) throw new Error("Locked quote verification failed.");
+            return { status: 200, body: { success: true, fxRecord: session.fxRecord, fxVerification: { ...fxAudit, conversionHash: session.fxRecord.conversionHash, agreementHash: session.fxRecord.agreementHash } } };
           } catch { return { status: 409, body: { success: false, error: "Locked FX quote is invalid; explicit review required. Rate was not refreshed." } }; }
         }
 
         // Obtain provider
-        const providerSource: FXRateSource = rateSource ?? "DETERMINISTIC_DEMO";
         const provider = getFXRateProvider(providerSource);
 
         let quote;
@@ -159,7 +171,8 @@ export async function POST(req: NextRequest) {
             status: 503,
             body: {
               success: false,
-              error: `FX provider error (${providerSource}): ${err instanceof Error ? err.message : String(err)}`,
+              error: err instanceof FXProviderError ? err.message : "FX provider unavailable. Please retry.",
+              code: err instanceof FXProviderError ? err.code : "FX_PROVIDER_UNAVAILABLE",
             },
           };
         }
@@ -191,6 +204,7 @@ export async function POST(req: NextRequest) {
             rateConvention: quote.rateConvention,
             rateSource: quote.rateSource,
             provider: quote.provider,
+            ...(quote.referenceRate ? { referenceRate: quote.referenceRate } : {}),
             quotedAt: quote.quotedAt,
             expiresAt: quote.expiresAt,
             roundingMode: quote.roundingMode,
@@ -221,7 +235,7 @@ export async function POST(req: NextRequest) {
         const { status, body: resBody, isReplay } = await defaultIdempotencyStore.executeIdempotent({
           scope: "FX_QUOTE",
           key: idempotencyKey,
-          payload: body,
+          payload: { ...body, rateSource: providerSource },
           execute: executeOperation,
         });
 

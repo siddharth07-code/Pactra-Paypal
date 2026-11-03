@@ -34,8 +34,30 @@ import {
   RefreshCw,
   ArrowRightLeft,
 } from "lucide-react";
-import type { ProcurementSession, ProcurementSessionStatus } from "@/types/pactum";
+import type { ProcurementSession, ProcurementSessionStatus, FXConversionRecord } from "@/types/pactum";
 import { formatCurrency, formatDaysSLA } from "@/lib/currency";
+
+function displayFxRate(rate: string): string {
+  const [whole, decimals = ""] = rate.split(".");
+  return `${whole}.${decimals.padEnd(4, "0")}`;
+}
+
+function FXRateProvenance({ record }: { record: FXConversionRecord }) {
+  const reference = record.referenceRate;
+  return (
+    <div className="space-y-1.5 text-[11.5px] min-w-0 break-words">
+      <div className="flex flex-wrap justify-between gap-2"><span>Rate Type:</span><span>{record.rateSource === "LIVE_PROVIDER" ? "External Reference Rate" : "Deterministic Demo Rate"}</span></div>
+      <div className="flex flex-wrap justify-between gap-2"><span>Provider:</span><span>{record.provider || "Not Recorded"}</span></div>
+      {reference && <>
+        <div className="flex flex-wrap justify-between gap-2"><span>Provider Updated:</span><time dateTime={reference.updatedAt}>{new Date(reference.updatedAt).toLocaleString()}</time></div>
+        <div className="flex flex-wrap justify-between gap-2"><span>Retrieved:</span><time dateTime={reference.retrievedAt}>{new Date(reference.retrievedAt).toLocaleString()}</time></div>
+      </>}
+      <div className="flex flex-wrap justify-between gap-2"><span>Quote Expires:</span><time dateTime={record.expiresAt}>{new Date(record.expiresAt).toLocaleString()}</time></div>
+      <div className="flex flex-wrap justify-between gap-2"><span>Status:</span><span>{record.status !== "CONSUMED" && Date.parse(record.expiresAt) <= Date.now() ? "EXPIRED" : record.status}</span></div>
+      {record.rateSource === "LIVE_PROVIDER" && <p className="text-[#737373] dark:text-[#a3a3a3]">Periodically updated reference rate. Quote expiry is separate from provider updates. This is not a guaranteed executable market rate.</p>}
+    </div>
+  );
+}
 
 interface SettlementCenterScreenProps {
   session?: ProcurementSession;
@@ -91,7 +113,7 @@ export function SettlementCenterScreen({
   const [isFetchingQuote, setIsFetchingQuote] = useState(false);
   const [isLockingQuote, setIsLockingQuote] = useState(false);
   const [fxError, setFxError] = useState<string | null>(null);
-  const [selectedRateSource, setSelectedRateSource] = useState<"DETERMINISTIC_DEMO" | "LIVE_PROVIDER">("DETERMINISTIC_DEMO");
+  const [selectedRateSource, setSelectedRateSource] = useState<"DETERMINISTIC_DEMO" | "LIVE_PROVIDER" | undefined>(undefined);
 
   // Authoritative agreement record and agreed offer
   const agreementRecord = session?.agreementRecord;
@@ -146,9 +168,8 @@ export function SettlementCenterScreen({
   const fxVerified = hasFxVerification && fxVerification!.passed && fxVerification!.checks.length > 0 && fxVerification!.checks.every(check => check.passed);
   const isFxQuoteExpired = Boolean(
     session?.fxRecord &&
-    session.fxRecord.status !== "LOCKED" &&
     session.fxRecord.status !== "CONSUMED" &&
-    new Date(session.fxRecord.expiresAt).getTime() < Date.now()
+    new Date(session.fxRecord.expiresAt).getTime() <= Date.now()
   );
 
   // PayPal & Settlement Artifacts existence
@@ -333,7 +354,7 @@ export function SettlementCenterScreen({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: session.id,
-          rateSource: selectedRateSource,
+          rateSource: selectedRateSource ?? session.fxRecord?.rateSource,
         }),
       });
       const data = await res.json();
@@ -876,7 +897,7 @@ export function SettlementCenterScreen({
                           </div>
                         </div>
                         <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
-                          An FX settlement quote is required before this INR agreement can be settled through PayPal.
+                          An FX settlement quote is required before this INR agreement can be settled through PayPal. The server configuration supplies the default rate source.
                         </p>
                         <div className="flex items-center justify-between pt-1 text-[11.5px]">
                           <span className="text-[#737373] dark:text-[#a3a3a3]">Rate Source:</span>
@@ -940,7 +961,7 @@ export function SettlementCenterScreen({
                           </span>
                         </div>
                         <p className="text-[12px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
-                          The settlement quote expired before it was locked. Request a new quote to continue.
+                          {session.fxRecord.status === "LOCKED" ? "The locked quote expired. It will not be refreshed automatically; explicit review is required." : "The settlement quote expired before it was locked. Request a new quote to continue."}
                         </p>
                         {fxError && (
                           <p className="text-[11.5px] text-[#dc2626] dark:text-[#f87171]">
@@ -949,7 +970,7 @@ export function SettlementCenterScreen({
                         )}
                         <PrimaryButton
                           onClick={handleGetFxQuote}
-                          disabled={isFetchingQuote}
+                          disabled={isFetchingQuote || session.fxRecord.status === "LOCKED"}
                           className="w-full flex items-center justify-center gap-2"
                         >
                           {isFetchingQuote ? (
@@ -984,7 +1005,7 @@ export function SettlementCenterScreen({
                           <div className="flex justify-between">
                             <span className="text-[#737373] dark:text-[#a3a3a3]">FX Rate:</span>
                             <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">
-                              1 USD = ₹{session.fxRecord.rate}
+                              1 USD = ₹{displayFxRate(session.fxRecord.rate)}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -993,24 +1014,7 @@ export function SettlementCenterScreen({
                               {formatCurrency(session.fxRecord.targetAmountMinor / 100, "USD")}
                             </span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">Rate Source:</span>
-                            <span className="font-medium text-obsidian dark:text-[#f6f4f0]">
-                              {session.fxRecord.rateSource === "DETERMINISTIC_DEMO" ? "Deterministic Demo FX" : (session.fxRecord.provider || "Live Provider")}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-[11px]">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">Quoted At:</span>
-                            <span className="text-[#737373] dark:text-[#a3a3a3] font-mono-token">
-                              {new Date(session.fxRecord.quotedAt).toLocaleTimeString()}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-[11px]">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">Valid Until:</span>
-                            <span className="text-amber-600 dark:text-amber-400 font-mono-token">
-                              {new Date(session.fxRecord.expiresAt).toLocaleTimeString()}
-                            </span>
-                          </div>
+                          <FXRateProvenance record={session.fxRecord} />
                         </div>
                         <p className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
                           Locking this quote fixes the USD settlement amount used for PayPal authorization.
@@ -1057,7 +1061,7 @@ export function SettlementCenterScreen({
                           <div className="flex justify-between">
                             <span className="text-[#737373] dark:text-[#a3a3a3]">Locked FX Rate:</span>
                             <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">
-                              1 USD = ₹{session.fxRecord.rate}
+                              1 USD = ₹{displayFxRate(session.fxRecord.rate)}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -1066,13 +1070,8 @@ export function SettlementCenterScreen({
                               {formatCurrency(session.fxRecord.targetAmountMinor / 100, "USD")}
                             </span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">Conversion:</span>
-                            <span className="text-[#006840] dark:text-[#4ade80] font-medium flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Verified
-                            </span>
-                          </div>
+                          <FXRateProvenance record={session.fxRecord} />
+                          <div className="flex justify-between"><span>Conversion:</span><span>{fxVerified ? "Verified" : "Verification Pending"}</span></div>
                         </div>
                         <PrimaryButton
                           onClick={handleContinueToPayPal}
@@ -1157,7 +1156,7 @@ export function SettlementCenterScreen({
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">Locked FX Rate:</span>
-                          <span className="text-obsidian dark:text-[#f6f4f0]">1 USD = ₹{session.fxRecord.rate}</span>
+                          <span className="text-obsidian dark:text-[#f6f4f0]">1 USD = ₹{displayFxRate(session.fxRecord.rate)}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">Settlement Obligation:</span>

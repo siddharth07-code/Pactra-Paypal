@@ -12,6 +12,10 @@
  */
 
 import crypto from "crypto";
+import { CryptographicFlightRecorder } from "./flight-recorder";
+import { ExchangeRateApiProvider } from "./exchange-rate-api";
+import { configuredFxSource, fxIntegerSetting, validateReferenceProvenance } from "./fx-provider-config";
+export { ExchangeRateApiProvider as LiveFXProvider } from "./exchange-rate-api";
 import { canonicalJson } from "./veripay-merkle";
 import { toMinorUnits, isPayPalSupportedCurrency } from "./currency";
 import type {
@@ -43,6 +47,7 @@ export function validateFxQuote(record: FXConversionRecord, allowExpired = false
     throw new Error("Invalid FX timestamps or expired interval.");
   }
   if (!allowExpired && Date.now() >= expires) throw new Error("FX quote has expired; locked rates cannot be silently refreshed.");
+  validateReferenceProvenance(record, allowExpired);
   if (computeConversionHash(record) !== record.conversionHash) throw new Error("FX conversionHash integrity mismatch: quote has been mutated.");
 }
 
@@ -184,6 +189,7 @@ export function computeConversionHash(
     expiresAt: record.expiresAt,
     roundingMode: record.roundingMode,
     commitmentVersion: record.commitmentVersion ?? 2,
+    ...(record.referenceRate ? { referenceRate: record.referenceRate } : {}),
   };
 
   return crypto
@@ -223,7 +229,7 @@ export class DeterministicDemoFXProvider implements FXRateProvider {
     assertSupportedFxPair(req.sourceCurrency, req.targetCurrency);
     const id = `fxq_${crypto.randomBytes(8).toString("hex")}`;
     const quotedAt = new Date().toISOString();
-    const ttlMs = (req.ttlSeconds ?? DEFAULT_QUOTE_TTL_SECONDS) * 1000;
+    const ttlMs = (req.ttlSeconds ?? fxIntegerSetting("FX_QUOTE_TTL_SECONDS", DEFAULT_QUOTE_TTL_SECONDS, DEFAULT_QUOTE_TTL_SECONDS)) * 1000;
     const expiresAt = new Date(Date.now() + ttlMs).toISOString();
 
     const targetAmountMinor = computeFxConversion(
@@ -263,99 +269,15 @@ export class DeterministicDemoFXProvider implements FXRateProvider {
 }
 
 /**
- * Optional Live FX Provider.
- * Queries live exchange rates from authoritative market rate APIs when configured.
- */
-export class LiveFXProvider implements FXRateProvider {
-  private apiKey?: string;
-
-  constructor(apiKey?: string) {
-    this.apiKey = apiKey || process.env.EXCHANGE_RATE_API_KEY;
-  }
-
-  public async getQuote(req: FXQuoteRequest): Promise<FXConversionRecord> {
-    if (!this.apiKey) {
-      throw new Error(
-        "Live FX Provider error: No API key configured in server environment (EXCHANGE_RATE_API_KEY). Use 'DETERMINISTIC_DEMO' or configure valid credentials."
-      );
-    }
-
-    // Example live provider integration (timeout bounded at 4 seconds)
-    const url = `https://v6.exchangerate-api.com/v6/${encodeURIComponent(this.apiKey)}/pair/${req.targetCurrency}/${req.sourceCurrency}`;
-
-    let liveRate: string;
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-
-      if (!res.ok) {
-        throw new Error(`Live FX provider responded with status ${res.status}`);
-      }
-
-      const data = await res.json() as { conversion_rate?: number };
-      if (!data.conversion_rate || !Number.isFinite(data.conversion_rate) || data.conversion_rate <= 0) {
-        throw new Error("Live FX provider returned invalid or missing conversion_rate.");
-      }
-
-      liveRate = data.conversion_rate.toFixed(4);
-    } catch (err: unknown) {
-      throw new Error(
-        `Live FX provider request failed: ${err instanceof Error ? err.message : "Network error"}`
-      );
-    }
-
-    const id = `fxq_live_${crypto.randomBytes(8).toString("hex")}`;
-    const quotedAt = new Date().toISOString();
-    const ttlMs = (req.ttlSeconds ?? DEFAULT_QUOTE_TTL_SECONDS) * 1000;
-    const expiresAt = new Date(Date.now() + ttlMs).toISOString();
-
-    const targetAmountMinor = computeFxConversion(
-      req.sourceAmountMinor,
-      liveRate,
-      "INR_PER_USD",
-      "HALF_UP"
-    );
-
-    const recordWithoutHash: Omit<FXConversionRecord, "conversionHash"> = {
-      id,
-      commitmentVersion: 2,
-      sessionId: req.sessionId,
-      agreementHash: req.agreementHash,
-      agreementId: req.agreementId,
-      sourceCurrency: req.sourceCurrency.toUpperCase(),
-      targetCurrency: req.targetCurrency.toUpperCase(),
-      sourceAmountMinor: req.sourceAmountMinor,
-      targetAmountMinor,
-      rate: liveRate,
-      rateConvention: "INR_PER_USD",
-      rateSource: "LIVE_PROVIDER",
-      provider: "ExchangeRate API Live",
-      quotedAt,
-      expiresAt,
-      roundingMode: "HALF_UP",
-      status: "QUOTED",
-    };
-
-    const conversionHash = computeConversionHash(recordWithoutHash);
-
-    return {
-      ...recordWithoutHash,
-      conversionHash,
-    };
-  }
-}
-
-/**
  * Returns the requested FX rate provider without silent fallbacks.
  */
-export function getFXRateProvider(source?: FXRateSource): FXRateProvider {
+export function getFXRateProvider(requested?: FXRateSource): FXRateProvider {
+  const source = configuredFxSource(requested);
   if (source !== undefined && source !== "LIVE_PROVIDER" && source !== "DETERMINISTIC_DEMO") {
     throw new Error("Unsupported FX rate source.");
   }
   if (source === "LIVE_PROVIDER") {
-    return new LiveFXProvider();
+    return new ExchangeRateApiProvider();
   }
   return new DeterministicDemoFXProvider();
 }
@@ -433,10 +355,10 @@ export interface FXSettlementAuditResult {
 }
 
 /**
- * Phase 7: ACWORLD FX Settlement Verification
- * 
- * Distinct deterministic verification stage executed after commercial ACWORLD audit.
- * Evaluates all 13 checks required by Phase 7.
+ * ACWORLD FX Settlement Verification
+ *
+ * Independent transformation checks after commercial audit, including live provider
+ * provenance/evidence and optional authoritative PayPal order checks.
  */
 export function auditFxSettlement(params: {
   session: ProcurementSession;
@@ -453,6 +375,23 @@ export function auditFxSettlement(params: {
     validateFxQuote(fxRecord, params.historical === true || fxRecord.status === "CONSUMED" || Boolean(session.captureIntent && ["CAPTURE_SUBMITTED", "UNCERTAIN", "CAPTURED"].includes(session.captureIntent.status)));
   } catch (error) {
     checks.push({ name: "FX_COMMITMENT_VALID", passed: false, reason: error instanceof Error ? error.message : "Invalid FX quote" });
+  }
+  if (fxRecord.rateSource === "LIVE_PROVIDER") {
+    try {
+      validateReferenceProvenance(fxRecord, params.historical === true || fxRecord.status === "CONSUMED" || Boolean(session.captureIntent && ["CAPTURE_SUBMITTED", "UNCERTAIN", "CAPTURED"].includes(session.captureIntent.status)));
+      checks.push({ name: "PROVIDER_PROVENANCE_AND_FRESHNESS", passed: true });
+    } catch (error) {
+      checks.push({ name: "PROVIDER_PROVENANCE_AND_FRESHNESS", passed: false, reason: error instanceof Error ? error.message : "Invalid provider provenance." });
+    }
+    try {
+      if (!session.flightRecord || session.flightRecord.sessionId !== session.id) throw new Error("Missing session FX evidence.");
+      const recorder = CryptographicFlightRecorder.fromSerialized(session.flightRecord);
+      const committed = recorder.getEvents().some(event => event.eventType === "FX_QUOTE_CREATED" && event.publicPayload.conversionHash === fxRecord.conversionHash && event.publicPayload.agreementHash === fxRecord.agreementHash);
+      if (!committed) throw new Error("FX reference-rate commitment is missing from VeriPay evidence.");
+      checks.push({ name: "FX_REFERENCE_EVIDENCE", passed: true });
+    } catch (error) {
+      checks.push({ name: "FX_REFERENCE_EVIDENCE", passed: false, reason: error instanceof Error ? error.message : "Invalid FX evidence." });
+    }
   }
   const auditTimestamp = new Date().toISOString();
 

@@ -267,6 +267,16 @@ export interface FXConversionRecord {
   rateConvention: FXRateConvention;
   rateSource: FXRateSource;
   provider?: string;
+  referenceRate?: {
+    provider: "EXCHANGERATE_API";
+    baseCurrency: "USD";
+    quoteCurrency: "INR";
+    updatedAt: string;
+    nextUpdateAt: string;
+    retrievedAt: string;
+    maxAgeSeconds: number;
+    responseHash: string;
+  };
   quotedAt: string;
   expiresAt: string;
   roundingMode: FXRoundingMode;
