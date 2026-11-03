@@ -207,7 +207,7 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
     });
 
     it("blocks capture if order is still in PAYER_ACTION_REQUIRED status (buyer not yet approved)", async () => {
-      sessionStore.saveSession(validSession);
+      sessionStore.saveSession({ ...validSession, paypalOrderId: "ORDER_UNAPPROVED" });
 
       const mockPayPalClient = new PayPalClient();
       vi.spyOn(mockPayPalClient, "getOrder").mockResolvedValue({
@@ -347,6 +347,7 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
       const staleSession: ProcurementSession = {
         ...validSession,
         id: "session-stale-mandate-capture",
+        paypalOrderId: "ORDER_STALE",
         mandate: {
           ...validSession.mandate,
           version: 2,
@@ -385,6 +386,7 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
       const skuMismatchSession: ProcurementSession = {
         ...validSession,
         id: "session-sku-mismatch",
+        paypalOrderId: "ORDER-MOCK-SKU",
         agreementRecord: {
           agreementId: "agree-sku-mismatch",
           sessionId: "session-sku-mismatch",
@@ -404,7 +406,9 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
       };
       sessionStore.saveSession(skuMismatchSession);
 
-      const service = new SettlementService();
+      const client = new PayPalClient();
+      vi.spyOn(client, "getOrder").mockResolvedValue({ id: "ORDER-MOCK-SKU", status: "APPROVED", intent: "AUTHORIZE", purchase_units: [{ amount: { currency_code: "USD", value: "8150.00" }, custom_id: `VERIPAY_ROOT:${skuMismatchSession.preSettlementRoot ?? skuMismatchSession.merkleRoot};SESSION:${skuMismatchSession.id}` }] });
+      const service = new SettlementService({ paypalClient: client });
       const res = await service.completeSettlement({
         sessionId: skuMismatchSession.id,
         orderId: "ORDER-MOCK-SKU",
@@ -419,6 +423,7 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
       const settledSession = {
         ...validSession,
         paypalAuthorizationId: "AUTH-EXISTING-123",
+        paypalOrderId: "ORDER-ALREADY-CAPTURED",
       };
       sessionStore.saveSession(settledSession);
 
@@ -431,6 +436,7 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
         purchase_units: [
           {
             reference_id: "default",
+            custom_id: `VERIPAY_ROOT:${settledSession.preSettlementRoot ?? settledSession.merkleRoot};SESSION:${settledSession.id}`,
             amount: { currency_code: "USD", value: "8150.00" },
             payments: {
               captures: [
@@ -466,6 +472,7 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
       const timeoutSession = {
         ...validSession,
         paypalAuthorizationId: "AUTH-TIMEOUT-123",
+        paypalOrderId: "ORDER-TIMEOUT-TEST",
       };
       sessionStore.saveSession(timeoutSession);
 
@@ -477,6 +484,7 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
         purchase_units: [
           {
             reference_id: "default",
+            custom_id: `VERIPAY_ROOT:${timeoutSession.preSettlementRoot ?? timeoutSession.merkleRoot};SESSION:${timeoutSession.id}`,
             amount: { currency_code: "USD", value: "8150.00" },
           },
         ],

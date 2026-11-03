@@ -16,6 +16,7 @@ export type SettlementEventCode =
   | "CAPTURE_SUBMITTED"
   | "CAPTURE_COMPLETED"
   | "CAPTURE_TIMEOUT_UNCERTAIN"
+  | "CAPTURE_OUTCOME_UNCERTAIN"
   | "CAPTURE_FAILED"
   | "RECONCILIATION_INITIATED"
   | "RECONCILIATION_RESOLVED"
@@ -165,6 +166,8 @@ export class SettlementLogger {
       case "CAPTURE_FAILED":
         this.metrics.capturesFailed++;
         break;
+      case "CAPTURE_OUTCOME_UNCERTAIN":
+        break; // An uncertain outcome must not be counted as a confirmed failure.
       case "CAPTURE_TIMEOUT_UNCERTAIN":
         this.metrics.timeoutsEncountered++;
         break;

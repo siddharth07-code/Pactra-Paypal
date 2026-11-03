@@ -141,6 +141,9 @@ export function SettlementCenterScreen({
 
   // Cross-Currency Settlement Bridge state
   const isCrossCurrency = Boolean(mandate?.currency && mandate.currency !== "USD");
+  const fxVerification = session?.fxVerification;
+  const hasFxVerification = Boolean(fxVerification && fxVerification.conversionHash === session?.fxRecord?.conversionHash && fxVerification.agreementHash === session?.fxRecord?.agreementHash && isAuditPassed && (session?.fxRecord?.status === "CONSUMED" || Date.parse(session?.fxRecord?.expiresAt ?? "") > Date.now()));
+  const fxVerified = hasFxVerification && fxVerification!.passed && fxVerification!.checks.length > 0 && fxVerification!.checks.every(check => check.passed);
   const isFxQuoteExpired = Boolean(
     session?.fxRecord &&
     session.fxRecord.status !== "LOCKED" &&
@@ -338,7 +341,7 @@ export function SettlementCenterScreen({
         throw new Error(data.error || "Failed to obtain FX settlement quote.");
       }
       if (onSessionUpdated) {
-        onSessionUpdated({ ...session, fxRecord: data.fxRecord });
+        onSessionUpdated({ ...session, fxRecord: data.fxRecord, fxVerification: data.fxVerification });
       }
       if (onRefreshSession) {
         await onRefreshSession();
@@ -371,7 +374,7 @@ export function SettlementCenterScreen({
         throw new Error(data.error || "Failed to lock FX quote.");
       }
       if (onSessionUpdated) {
-        onSessionUpdated({ ...session, fxRecord: data.fxRecord });
+        onSessionUpdated({ ...session, fxRecord: data.fxRecord, fxVerification: data.fxVerification });
       }
       if (onRefreshSession) {
         await onRefreshSession();
@@ -1561,8 +1564,8 @@ export function SettlementCenterScreen({
                           </span>
                         </div>
                         <StatusBadge
-                          status={session.fxRecord.status === "LOCKED" || session.fxRecord.status === "CONSUMED" ? "verified" : "warning"}
-                          label={session.fxRecord.status === "LOCKED" || session.fxRecord.status === "CONSUMED" ? "13/13 CHECKS PASS" : "PENDING LOCK"}
+                          status={fxVerified ? "verified" : "warning"}
+                          label={hasFxVerification ? (fxVerified ? `${fxVerification!.checks.filter(check => check.passed).length}/${fxVerification!.checks.length} CHECKS PASS` : "Verification Failed") : "Not Verified"}
                         />
                       </div>
                       <div className="p-3.5 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a] space-y-1.5 text-[11.5px] font-mono-token">

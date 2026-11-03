@@ -149,6 +149,8 @@ export class PayPalClient {
     this.clientSecret = config?.clientSecret ?? process.env.PAYPAL_CLIENT_SECRET ?? "";
     this.baseUrl = config?.baseUrl ?? process.env.PAYPAL_BASE_URL ?? "https://api-m.sandbox.paypal.com";
 
+    if (this.baseUrl !== "https://api-m.sandbox.paypal.com") throw new Error("Only PayPal Sandbox is permitted.");
+
     // Security check: Ensure baseUrl is not accidentally targeting live paypal if sandbox is expected
     if (!this.baseUrl.includes("sandbox") && process.env.NODE_ENV !== "production") {
       this.baseUrl = "https://api-m.sandbox.paypal.com";
@@ -434,7 +436,8 @@ export class PayPalClient {
     };
 
     const authorizationId =
-      data.purchase_units?.[0]?.payments?.authorizations?.[0]?.id || data.id;
+      data.purchase_units?.[0]?.payments?.authorizations?.[0]?.id;
+    if (data.id !== orderId || !authorizationId) throw new Error("PayPal authorization response is missing a valid order/authorization binding.");
 
     return {
       id: data.id,
@@ -470,6 +473,7 @@ export class PayPalClient {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          "PayPal-Request-Id": `capture-${authorizationOrOrderId}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -488,14 +492,11 @@ export class PayPalClient {
       throw new Error(`PayPal capture failed (${response.status}): ${errText}`);
     }
 
-    const data = (await response.json()) as { id: string; status: CaptureOrderResponse["status"] };
+    const data = (await response.json()) as { id: string; status: CaptureOrderResponse["status"]; amount: CaptureOrderResponse["amount"] };
     return {
       id: data.id,
       status: data.status,
-      amount: {
-        currency_code: amount.currency,
-        value: amount.value.toFixed(2),
-      },
+      amount: data.amount,
       orderId: authorizationOrOrderId,
     };
   }

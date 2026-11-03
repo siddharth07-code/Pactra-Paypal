@@ -341,6 +341,7 @@ describe("PHASE 5.2 — Critical Payment Safety & Cross-Key Duplicate Capture", 
       intent: "AUTHORIZE",
       purchase_units: [
         {
+          custom_id: `VERIPAY_ROOT:${session.preSettlementRoot ?? session.merkleRoot};SESSION:${session.id}`,
           reference_id: session.id,
           amount: { currency_code: "USD", value: "8150.00" },
           payments: {
@@ -384,6 +385,7 @@ describe("PHASE 5.2 — Critical Payment Safety & Cross-Key Duplicate Capture", 
       intent: "AUTHORIZE",
       purchase_units: [
         {
+          custom_id: `VERIPAY_ROOT:${session.preSettlementRoot ?? session.merkleRoot};SESSION:${session.id}`,
           reference_id: session.id,
           amount: { currency_code: "USD", value: "8150.00" },
           payments: {
@@ -422,6 +424,7 @@ describe("PHASE 5.2 — Critical Payment Safety & Cross-Key Duplicate Capture", 
       intent: "AUTHORIZE",
       purchase_units: [
         {
+          custom_id: `VERIPAY_ROOT:${session.preSettlementRoot ?? session.merkleRoot};SESSION:${session.id}`,
           reference_id: session.id,
           amount: { currency_code: "USD", value: "8150.00" },
         },
@@ -614,7 +617,7 @@ describe("PHASE 5.2 — Webhook Security and Lifecycle", () => {
     });
 
     const res = await webhookRouteHandler(req);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(422);
 
     // Invariant: Session status must NOT be downgraded or upgraded to PAYPAL_CAPTURED!
     const reloaded = sessionStore.getSession(session.id)!;

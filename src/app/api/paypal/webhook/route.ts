@@ -12,7 +12,8 @@ import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter"
 import { defaultWebhookLedger } from "@/lib/webhook-deduplication";
 import { settlementLogger } from "@/lib/settlement-logger";
 import { fromMinorUnits } from "@/lib/currency";
-import { computeAgreementHash } from "@/lib/fx-settlement";
+import { orderEvidenceError, paymentAmountError } from "@/lib/payment-evidence";
+import { auditFxSettlement, consumeFxRecord, computeAgreementHash } from "@/lib/fx-settlement";
 
 export async function POST(req: NextRequest) {
   const rateLimit = await defaultRateLimiter.checkLimit(req, "PAYPAL_SETTLEMENT");
@@ -122,11 +123,19 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      if (!lockAcquired) {
+        if (event.id) defaultWebhookLedger.recordFailed(event.id, "Session lock contention; retry required.");
+        return new Response(JSON.stringify({ error: "Session operation in progress; retry webhook." }), { status: 503 });
+      }
       if (lockAcquired) {
         try {
           const session = sessionStore.getSession(sessionId);
           if (session) {
             if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
+              if (!["AUDIT_PASSED", "PAYPAL_AUTHORIZED", "CAPTURE_PENDING_RECONCILIATION", "PAYPAL_CAPTURED", "SETTLED"].includes(session.status)) {
+                if (event.id) defaultWebhookLedger.recordFailed(event.id, "Capture cannot advance current lifecycle.");
+                return new Response(JSON.stringify({ error: "Capture cannot advance current lifecycle." }), { status: 422 });
+              }
               // Remote amount and currency verification
               const amountObj = event.resource.amount as
                 | { value?: string; currency_code?: string }
@@ -158,48 +167,39 @@ export async function POST(req: NextRequest) {
                 }
               }
 
-              if (amountObj) {
-                if (
-                  amountObj.currency_code &&
-                  amountObj.currency_code !== expectedCurrency
-                ) {
-                  const errMsg = `Webhook capture currency mismatch: expected ${expectedCurrency}, got ${amountObj.currency_code}.`;
-                  if (event.id) {
-                    defaultWebhookLedger.recordFailed(event.id, errMsg);
-                  }
-                  return new Response(
-                    JSON.stringify({ error: errMsg }),
-                    { status: 422, headers: { "Content-Type": "application/json" } }
-                  );
-                }
-                if (amountObj.value && expectedTotal > 0) {
-                  const capturedVal = parseFloat(amountObj.value);
-                  if (Math.abs(capturedVal - expectedTotal) > 0.01) {
-                    const errMsg = `Webhook capture amount mismatch: expected ${expectedTotal}, got ${capturedVal}.`;
-                    if (event.id) {
-                      defaultWebhookLedger.recordFailed(event.id, errMsg);
-                    }
-                    return new Response(
-                      JSON.stringify({ error: errMsg }),
-                      { status: 422, headers: { "Content-Type": "application/json" } }
-                    );
-                  }
-                }
+              const amountError = paymentAmountError(amountObj, expectedCurrency, expectedTotal);
+              if (amountError) {
+                if (event.id) defaultWebhookLedger.recordFailed(event.id, amountError);
+                return new Response(JSON.stringify({ error: amountError }), { status: 422 });
               }
-
-              // Update session capture amount if value present
-              if (amountObj?.value) {
-                session.captureAmount = parseFloat(amountObj.value);
+              if (!session.paypalOrderId || typeof event.resource.id !== "string" || !event.resource.id) {
+                if (event.id) defaultWebhookLedger.recordFailed(event.id, "Missing order/capture binding.");
+                return new Response(JSON.stringify({ error: "Missing order/capture binding." }), { status: 422 });
               }
-
-              // Transition fxRecord status to CONSUMED if locked
-              if (session.fxRecord && session.fxRecord.status === "LOCKED") {
-                session.fxRecord.status = "CONSUMED";
+              const remoteOrder = await paypalClient.getOrder(session.paypalOrderId);
+              const customId = `VERIPAY_ROOT:${session.preSettlementRoot ?? session.merkleRoot ?? ""};SESSION:${sessionId}`;
+              const bindingError = orderEvidenceError(remoteOrder, session.paypalOrderId, customId, expectedCurrency, expectedTotal);
+              const captures = remoteOrder.purchase_units?.[0]?.payments?.captures ?? [];
+              const capture = captures.find(c => c.id === event.resource.id && c.status === "COMPLETED");
+              if (bindingError || captures.length !== 1 || !capture || paymentAmountError(capture.amount, expectedCurrency, expectedTotal)) {
+                if (event.id) defaultWebhookLedger.recordFailed(event.id, "Remote capture evidence not confirmed.");
+                return new Response(JSON.stringify({ error: "Remote capture evidence not confirmed." }), { status: 422 });
+              }
+              if (session.fxRecord && !auditFxSettlement({ session, fxRecord: session.fxRecord, historical: true }).passed) {
+                if (event.id) defaultWebhookLedger.recordFailed(event.id, "FX integrity verification failed.");
+                return new Response(JSON.stringify({ error: "FX integrity verification failed." }), { status: 422 });
+              }
+              session.captureAmount = expectedTotal;
+              consumeFxRecord(session);
+              if (session.captureIntent) {
+                session.captureIntent.status = "CAPTURED";
+                session.captureIntent.paypalCaptureId = capture.id;
+                session.captureIntent.updatedAt = new Date().toISOString();
               }
 
               // Never downgrade a session that is already SETTLED or PAYPAL_CAPTURED
               if (session.status === "SETTLED" || session.status === "PAYPAL_CAPTURED") {
-                if (!session.paypalCaptureId && event.resource.id) {
+                if (event.resource.id) {
                   session.paypalCaptureId = event.resource.id as string;
                   sessionStore.saveSession(session);
                 }
@@ -214,6 +214,10 @@ export async function POST(req: NextRequest) {
                 sessionStore.saveSession(session);
               }
             } else if (event.event_type === "INVOICING.INVOICE.PAID") {
+              if (!session.paypalInvoiceId || event.resource.id !== session.paypalInvoiceId || !["SETTLED", "PAYPAL_CAPTURED", "DISPUTED"].includes(session.status)) {
+                if (event.id) defaultWebhookLedger.recordFailed(event.id, "Invoice not bound to captured session.");
+                return new Response(JSON.stringify({ error: "Invoice not bound to captured session." }), { status: 422 });
+              }
               session.invoiceStatus = "PAID";
               // A dispute must never silently revert to an ordinary settled state!
               if (session.status !== "DISPUTED") {
@@ -239,7 +243,7 @@ export async function POST(req: NextRequest) {
                 session.status !== "PAYPAL_CAPTURED" &&
                 session.status !== "DISPUTED"
               ) {
-                session.status = "AUDIT_FAILED";
+                session.status = "CAPTURE_PENDING_RECONCILIATION";
                 sessionStore.saveSession(session);
               }
             }

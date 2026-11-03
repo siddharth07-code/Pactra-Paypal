@@ -6,12 +6,14 @@
  */
 
 import { NextRequest } from "next/server";
+import { evaluateSettlementEligibility } from "@/lib/settlement-service";
 import { sessionStore } from "@/lib/session-store";
 import { toMinorUnits } from "@/lib/currency";
 import {
   getFXRateProvider,
   computeAgreementHash,
   computeConversionHash,
+  validateFxQuote,
 } from "@/lib/fx-settlement";
 import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
 import {
@@ -58,154 +60,160 @@ export async function POST(req: NextRequest) {
       status: number;
       body: Record<string, unknown>;
     }> => {
-      const session = sessionStore.getSession(sessionId);
-      if (!session) {
-        return {
-          status: 404,
-          body: { success: false, error: `Session ${sessionId} not found in authoritative store.` },
-        };
-      }
-
-      // Check commercial agreement exists
-      if (!session.agreementRecord && !session.finalOffer) {
-        return {
-          status: 422,
-          body: {
-            success: false,
-            error: "Cannot generate FX quote: Commercial negotiation agreement does not exist.",
-          },
-        };
-      }
-
-      // Verify commercial ACWORLD audit passed and session is not AUDIT_FAILED
-      if (!session.auditCertificate || !session.auditCertificate.passed || session.status === "AUDIT_FAILED") {
-        return {
-          status: 403,
-          body: {
-            success: false,
-            error: "Cannot generate FX quote: Commercial agreement must pass ACWORLD audit before FX settlement.",
-          },
-        };
-      }
-
-      // Check agreement currency - native USD does not require FX
-      const agreementCurrency = session.agreementRecord?.currency ?? session.mandate.currency;
-      if (agreementCurrency === "USD") {
-        return {
-          status: 400,
-          body: {
-            success: false,
-            error: "Native USD agreements do not require FX conversion.",
-          },
-        };
-      }
-
-      if (agreementCurrency !== "INR") {
-        return {
-          status: 422,
-          body: {
-            success: false,
-            error: `Unsupported commercial currency '${agreementCurrency}'. Supported cross-currency settlement: INR -> USD.`,
-          },
-        };
-      }
-
-      // Calculate authoritative landed cost
-      const agreement = session.agreementRecord;
-      const landedCost = agreement
-        ? agreement.totalCost
-        : session.finalOffer!.unitPrice * session.finalOffer!.quantity +
-          session.finalOffer!.shippingCost;
-
-      const sourceAmountMinor = toMinorUnits(landedCost);
-      const agreementHash = agreement
-        ? computeAgreementHash(agreement)
-        : "unhashed_agreement";
-
-      // If existing locked quote is still valid for this exact agreement, return it
-      if (session.fxRecord && session.fxRecord.status === "LOCKED") {
-        if (session.fxRecord.agreementHash === agreementHash) {
+      if (!sessionStore.acquireLock(sessionId)) return { status: 409, body: { success: false, error: "Session operation already in progress." } };
+      try {
+        const session = sessionStore.getSession(sessionId);
+        if (!session) {
           return {
-            status: 200,
+            status: 404,
+            body: { success: false, error: `Session ${sessionId} not found in authoritative store.` },
+          };
+        }
+
+        if (!["AUDIT_PASSED", "AUDIT_PENDING"].includes(session.status) && session.status !== "AUDIT_FAILED") {
+          return { status: 409, body: { success: false, error: "FX operations prohibited in current settlement lifecycle." } };
+        }
+        // Check commercial agreement exists
+        if (!session.agreementRecord && !session.finalOffer) {
+          return {
+            status: 422,
             body: {
-              success: true,
-              fxRecord: session.fxRecord,
-              note: "Existing locked quote is bound to this agreement.",
+              success: false,
+              error: "Cannot generate FX quote: Commercial negotiation agreement does not exist.",
             },
           };
         }
-      }
 
-      // Obtain provider
-      const providerSource: FXRateSource = rateSource ?? "DETERMINISTIC_DEMO";
-      const provider = getFXRateProvider(providerSource);
+        // Verify commercial ACWORLD audit passed and session is not AUDIT_FAILED
+        if (!session.auditCertificate || !session.auditCertificate.passed || session.status === "AUDIT_FAILED") {
+          return {
+            status: 403,
+            body: {
+              success: false,
+              error: "Cannot generate FX quote: Commercial agreement must pass ACWORLD audit before FX settlement.",
+            },
+          };
+        }
 
-      let quote;
-      try {
-        quote = await provider.getQuote({
-          sessionId: session.id,
-          agreementHash,
-          agreementId: agreement?.agreementId ?? session.id,
-          sourceCurrency: "INR",
-          targetCurrency: "USD",
-          sourceAmountMinor,
-        });
-      } catch (err) {
+        const eligibility = evaluateSettlementEligibility(session, { requireFx: false });
+        if (!eligibility.eligible) return { status: 403, body: { success: false, error: eligibility.blockers.join("; ") } };
+
+        // Check agreement currency - native USD does not require FX
+        const agreementCurrency = session.agreementRecord?.currency ?? session.mandate.currency;
+        if (agreementCurrency === "USD") {
+          return {
+            status: 400,
+            body: {
+              success: false,
+              error: "Native USD agreements do not require FX conversion.",
+            },
+          };
+        }
+
+        if (agreementCurrency !== "INR") {
+          return {
+            status: 422,
+            body: {
+              success: false,
+              error: `Unsupported commercial currency '${agreementCurrency}'. Supported cross-currency settlement: INR -> USD.`,
+            },
+          };
+        }
+
+        // Calculate authoritative landed cost
+        const agreement = session.agreementRecord;
+        const landedCost = agreement
+          ? agreement.totalCost
+          : session.finalOffer!.unitPrice * session.finalOffer!.quantity +
+            session.finalOffer!.shippingCost;
+
+        const sourceAmountMinor = toMinorUnits(landedCost);
+        const agreementHash = agreement
+          ? computeAgreementHash(agreement)
+          : "unhashed_agreement";
+
+        if (session.fxRecord?.status === "LOCKED") {
+          try {
+            validateFxQuote(session.fxRecord);
+            if (session.fxRecord.agreementHash !== agreementHash) throw new Error("Locked quote agreement mismatch.");
+            return { status: 200, body: { success: true, fxRecord: session.fxRecord } };
+          } catch { return { status: 409, body: { success: false, error: "Locked FX quote is invalid; explicit review required. Rate was not refreshed." } }; }
+        }
+
+        // Obtain provider
+        const providerSource: FXRateSource = rateSource ?? "DETERMINISTIC_DEMO";
+        const provider = getFXRateProvider(providerSource);
+
+        let quote;
+        try {
+          quote = await provider.getQuote({
+            sessionId: session.id,
+            agreementHash,
+            agreementId: agreement?.agreementId ?? session.id,
+            sourceCurrency: "INR",
+            targetCurrency: "USD",
+            sourceAmountMinor,
+          });
+        } catch (err) {
+          return {
+            status: 503,
+            body: {
+              success: false,
+              error: `FX provider error (${providerSource}): ${err instanceof Error ? err.message : String(err)}`,
+            },
+          };
+        }
+
+        // Bind to session and agreement
+        quote.sessionId = session.id;
+        quote.agreementId = agreement?.agreementId ?? session.id;
+        quote.agreementHash = agreementHash;
+        quote.conversionHash = computeConversionHash(quote);
+
+        // Save to session
+        session.fxVerification = undefined;
+        session.fxRecord = quote;
+        session.fxQuoteHistory = session.fxQuoteHistory || [];
+        session.fxQuoteHistory.push(quote);
+
+        // Flight recorder event
+        try {
+          const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
+          recorder.recordEvent("FX_QUOTE_CREATED", {
+            quoteId: quote.id,
+            agreementHash: quote.agreementHash,
+            commitmentVersion: quote.commitmentVersion,
+            sourceCurrency: quote.sourceCurrency,
+            targetCurrency: quote.targetCurrency,
+            sourceAmountMinor: quote.sourceAmountMinor,
+            targetAmountMinor: quote.targetAmountMinor,
+            rate: quote.rate,
+            rateConvention: quote.rateConvention,
+            rateSource: quote.rateSource,
+            provider: quote.provider,
+            quotedAt: quote.quotedAt,
+            expiresAt: quote.expiresAt,
+            roundingMode: quote.roundingMode,
+            conversionHash: quote.conversionHash,
+            status: quote.status,
+          });
+          session.flightRecord = recorder.exportFlightRecord();
+          session.merkleRoot = recorder.getRootHash();
+          session.preSettlementRoot = recorder.getRootHash();
+        } catch {
+          return { status: 422, body: { success: false, error: "Required FX evidence could not be committed." } };
+        }
+
+        sessionStore.saveSession(session);
+
         return {
-          status: 503,
+          status: 200,
           body: {
-            success: false,
-            error: `FX provider error (${providerSource}): ${err instanceof Error ? err.message : String(err)}`,
+            success: true,
+            fxRecord: quote,
           },
         };
-      }
-
-      // Bind to session and agreement
-      quote.sessionId = session.id;
-      quote.agreementId = agreement?.agreementId ?? session.id;
-      quote.agreementHash = agreementHash;
-      quote.conversionHash = computeConversionHash(quote);
-
-      // Save to session
-      session.fxRecord = quote;
-      session.fxQuoteHistory = session.fxQuoteHistory || [];
-      session.fxQuoteHistory.push(quote);
-
-      // Flight recorder event
-      try {
-        const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
-        recorder.recordEvent("FX_QUOTE_CREATED", {
-          quoteId: quote.id,
-          sourceCurrency: quote.sourceCurrency,
-          targetCurrency: quote.targetCurrency,
-          sourceAmountMinor: quote.sourceAmountMinor,
-          targetAmountMinor: quote.targetAmountMinor,
-          rate: quote.rate,
-          rateConvention: quote.rateConvention,
-          rateSource: quote.rateSource,
-          provider: quote.provider,
-          quotedAt: quote.quotedAt,
-          expiresAt: quote.expiresAt,
-          roundingMode: quote.roundingMode,
-          conversionHash: quote.conversionHash,
-          status: quote.status,
-        });
-        session.flightRecord = recorder.exportFlightRecord();
-        session.merkleRoot = recorder.getRootHash();
-        session.preSettlementRoot = recorder.getRootHash();
-      } catch {
-        // Continue if recorder reconstitution has minor non-fatal issue
-      }
-
-      sessionStore.saveSession(session);
-
-      return {
-        status: 200,
-        body: {
-          success: true,
-          fxRecord: quote,
-        },
-      };
+      } finally { sessionStore.releaseLock(sessionId); }
     };
 
     if (idempotencyKey) {

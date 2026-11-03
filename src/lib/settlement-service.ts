@@ -6,6 +6,7 @@
  */
 
 import crypto from "crypto";
+import { orderEvidenceError, paymentAmountError } from "./payment-evidence";
 import { AcworldAuditor } from "./acworld-auditor";
 import { PayPalClient } from "./paypal-client";
 import { sessionStore } from "./session-store";
@@ -13,7 +14,8 @@ import { VeriPayMerkleTree } from "./veripay-merkle";
 import { CryptographicFlightRecorder } from "./flight-recorder";
 import { settlementLogger } from "./settlement-logger";
 import { isPayPalSupportedCurrency, fromMinorUnits, toMinorUnits, formatCurrency } from "./currency";
-import { auditFxSettlement } from "./fx-settlement";
+import { applyAuditCertificate } from "./settlement-lifecycle";
+import { auditFxSettlement, consumeFxRecord } from "./fx-settlement";
 import type {
   AuditCertificate,
   CaptureIntentRecord,
@@ -69,14 +71,14 @@ export interface CompleteSettlementRequest {
  * 3. Cryptographic flight recorder integrity & pre-settlement root commitment.
  * 4. Cross-currency FX verification (LOCKED quote, agreementHash, arithmetic, rounding).
  */
-export function evaluateSettlementEligibility(session: ProcurementSession): SettlementEligibilityResult {
+export function evaluateSettlementEligibility(session: ProcurementSession, options: { requireFx?: boolean } = {}): SettlementEligibilityResult {
   const blockers: string[] = [];
   const reasons: SettlementEligibilityResult["reasons"] = {};
 
   // 1. Terminal / Incompatible Lifecycle Check
-  if (session.status === "CANCELLED") {
-    blockers.push(`Session ${session.id} is CANCELLED and cannot proceed to settlement checkout.`);
-    reasons.lifecycle = "Session is CANCELLED.";
+  if (session.status === "CANCELLED" || session.status === "DISPUTED") {
+    blockers.push(`Session ${session.id} has status '${session.status}' and cannot proceed to settlement checkout.`);
+    reasons.lifecycle = `Session is ${session.status}.`;
   }
   if (session.status === "PAYPAL_CAPTURED" || session.status === "SETTLED") {
     blockers.push(`Session ${session.id} has already been settled and captured.`);
@@ -153,8 +155,8 @@ export function evaluateSettlementEligibility(session: ProcurementSession): Sett
     }
   }
 
-  // If session status is AUDIT_FAILED and commercial audit is still failing, add lifecycle blocker
-  if (session.status === "AUDIT_FAILED" && !commercialAuditValid) {
+  // A passing certificate alone cannot override a persisted failure; an authoritative re-audit must update both.
+  if (session.status === "AUDIT_FAILED") {
     if (!blockers.some((b) => b.includes("AUDIT_FAILED"))) {
       blockers.push(`Session ${session.id} has status 'AUDIT_FAILED' and cannot proceed to settlement checkout without a passing re-audit.`);
     }
@@ -171,8 +173,8 @@ export function evaluateSettlementEligibility(session: ProcurementSession): Sett
     try {
       const recorder = CryptographicFlightRecorder.fromSerialized(session.flightRecord);
       const integrity = recorder.verifyIntegrity();
-      if (!integrity.valid) {
-        blockers.push(`Flight recorder cryptographic integrity failed: ${integrity.error}`);
+      if (!integrity.valid || recorder.getRootHash() !== evidenceRoot) {
+        blockers.push(`Flight recorder cryptographic integrity failed: ${integrity.error ?? "evidence root mismatch"}`);
         reasons.evidence = `Chain integrity invalid: ${integrity.errorCode}`;
       } else {
         evidenceCurrent = true;
@@ -190,11 +192,11 @@ export function evaluateSettlementEligibility(session: ProcurementSession): Sett
   const fxRequired = isCrossCurrency;
   let fxValid = !fxRequired;
 
-  if (fxRequired) {
+  if (fxRequired && options.requireFx !== false) {
     if (!session.fxRecord) {
       blockers.push(`Automated PayPal settlement is unavailable for '${session.mandate.currency}' in the configured PayPal environment without an approved FX settlement quote. An FX quote must be locked before checkout.`);
       reasons.fx = "Missing FX quote.";
-    } else if (session.fxRecord.status !== "LOCKED" && session.fxRecord.status !== "CONSUMED") {
+    } else if (session.fxRecord.status !== "LOCKED") {
       blockers.push(`FX settlement quote is in '${session.fxRecord.status}' state. Quote must be 'LOCKED' to fix the exchange rate before PayPal checkout.`);
       reasons.fx = `Invalid quote status: ${session.fxRecord.status}`;
     } else {
@@ -212,7 +214,7 @@ export function evaluateSettlementEligibility(session: ProcurementSession): Sett
     agreementCurrent &&
     commercialAuditValid &&
     evidenceCurrent &&
-    fxValid &&
+    (fxValid || options.requireFx === false) &&
     blockers.length === 0 &&
     session.status !== "CANCELLED" &&
     session.status !== "PAYPAL_CAPTURED" &&
@@ -307,6 +309,10 @@ export class SettlementService {
         };
       }
 
+      if (session.paypalOrderId && ["AWAITING_PAYPAL_APPROVAL", "PAYPAL_AUTHORIZED"].includes(session.status)) {
+        return { success: Boolean(session.paypalApprovalUrl), sessionId, orderId: session.paypalOrderId, approvalUrl: session.paypalApprovalUrl, error: session.paypalApprovalUrl ? undefined : "Existing order requires reconciliation; new checkout is blocked." };
+      }
+
     if (!session.finalOffer || !session.selectedQuote) {
       return {
         success: false,
@@ -358,6 +364,16 @@ export class SettlementService {
     const finalOffer = session.finalOffer;
     const totalAmount = finalOffer.unitPrice * finalOffer.quantity + finalOffer.shippingCost;
 
+    // Evaluate authoritative ACWORLD Pre-Checkout Audit Gate
+    const preAuditCert = this.auditor.audit({ session });
+
+    applyAuditCertificate(session, preAuditCert);
+    if (preAuditCert.passed) {
+      session.preSettlementRoot = preAuditCert.verifiedRoot;
+      session.merkleRoot = preAuditCert.verifiedRoot;
+    }
+    sessionStore.saveSession(session);
+
     // Pre-flight check against mandate constraints
     if (totalAmount > session.mandate.maxTotalBudget) {
       return {
@@ -386,29 +402,8 @@ export class SettlementService {
       };
     }
 
-    // Evaluate authoritative ACWORLD Pre-Checkout Audit Gate
-    const preAuditCert = this.auditor.audit({ session });
-
-    // Preserve historical audit certificate before updating authoritative outcome
-    if (session.auditCertificate && session.auditCertificate.certificateId !== preAuditCert.certificateId) {
-      session.auditHistory = session.auditHistory || [];
-      if (!session.auditHistory.some((c) => c.certificateId === session.auditCertificate!.certificateId)) {
-        session.auditHistory.push(session.auditCertificate);
-      }
-    }
-
-    session.auditCertificate = preAuditCert;
-    if (preAuditCert.passed) {
-      session.status = "AUDIT_PASSED";
-      session.preSettlementRoot = preAuditCert.verifiedRoot;
-      session.merkleRoot = preAuditCert.verifiedRoot;
-    } else {
-      session.status = "AUDIT_FAILED";
-    }
-    sessionStore.saveSession(session);
-
-    if (!session.auditCertificate.passed) {
-      const failingInvariants = session.auditCertificate.invariants
+    if (!preAuditCert.passed) {
+      const failingInvariants = preAuditCert.invariants
         .filter((inv) => !inv.passed)
         .map((inv) => `${inv.name}: ${inv.reason || "failed"}`)
         .join("; ");
@@ -603,7 +598,7 @@ export class SettlementService {
         };
       }
 
-      if (session.status === "CANCELLED") {
+      if (session.status === "CANCELLED" || session.status === "DISPUTED") {
         return {
           success: false,
           sessionId,
@@ -612,6 +607,8 @@ export class SettlementService {
           blockedAtGate: true,
         };
       }
+
+      if (!session.paypalOrderId) return { success: false, sessionId, auditCertificate: this.buildFailedCertificate(sessionId, "Missing authoritative PayPal order binding."), error: "Missing authoritative PayPal order binding.", blockedAtGate: true };
 
       // Verify orderId binding to avoid arbitrary client injection
       if (session.paypalOrderId && orderId && session.paypalOrderId !== orderId) {
@@ -727,7 +724,7 @@ export class SettlementService {
         : totalAmount;
 
       const orderCurrency = orderDetails.purchase_units?.[0]?.amount?.currency_code;
-      if (orderCurrency && orderCurrency.toUpperCase() !== expectedCurrency.toUpperCase()) {
+      if (!orderCurrency || orderCurrency !== expectedCurrency) {
         return {
           success: false,
           sessionId,
@@ -741,7 +738,7 @@ export class SettlementService {
       const orderAmountStr = orderDetails.purchase_units?.[0]?.amount?.value;
       if (orderAmountStr) {
         const orderAmount = parseFloat(orderAmountStr);
-        if (Math.abs(orderAmount - expectedAmount) > 0.01) {
+        if (!Number.isFinite(orderAmount) || toMinorUnits(orderAmount) !== toMinorUnits(expectedAmount)) {
           return {
             success: false,
             sessionId,
@@ -757,7 +754,7 @@ export class SettlementService {
 
       // Verify custom_id cryptographic binding if present
       const actualCustomId = orderDetails.purchase_units?.[0]?.custom_id;
-      if (actualCustomId && actualCustomId !== expectedCustomId) {
+      if (actualCustomId !== expectedCustomId) {
         return {
           success: false,
           sessionId,
@@ -767,6 +764,10 @@ export class SettlementService {
           blockedAtGate: true,
         };
       }
+
+      const remoteEvidenceError = orderEvidenceError(orderDetails, effectiveOrderId, expectedCustomId, expectedCurrency, expectedAmount);
+      if (remoteEvidenceError) return { success: false, sessionId, auditCertificate: this.buildFailedCertificate(sessionId, remoteEvidenceError), error: remoteEvidenceError, blockedAtGate: true };
+      if (!["APPROVED", "COMPLETED"].includes(orderDetails.status)) return { success: false, sessionId, auditCertificate: this.buildFailedCertificate(sessionId, "Invalid remote order state."), error: "Invalid remote order state.", blockedAtGate: true };
 
       // 2. Authorize order (if in APPROVED status)
       let authorizationId = session.paypalAuthorizationId;
@@ -778,7 +779,7 @@ export class SettlementService {
         sessionStore.saveSession(session);
       } else if (!authorizationId) {
         authorizationId =
-          orderDetails.purchase_units?.[0]?.payments?.authorizations?.[0]?.id || effectiveOrderId;
+          orderDetails.purchase_units?.[0]?.payments?.authorizations?.find(a => a.status === "CREATED")?.id;
         session.paypalAuthorizationId = authorizationId;
       }
 
@@ -788,7 +789,7 @@ export class SettlementService {
         expectedOrderCustomId: expectedCustomId,
       });
 
-      session.auditCertificate = auditCertificate;
+      applyAuditCertificate(session, auditCertificate);
 
       // FAIL-CLOSED GATE CHECK: If audit fails, strictly block capture
       if (!auditCertificate.passed) {
@@ -825,6 +826,7 @@ export class SettlementService {
           },
         });
 
+        session.fxVerification = { ...fxAuditResult, conversionHash: session.fxRecord.conversionHash, agreementHash: session.fxRecord.agreementHash };
         if (!fxAuditResult.passed) {
           session.status = "AUDIT_FAILED";
           sessionStore.saveSession(session);
@@ -848,6 +850,22 @@ export class SettlementService {
       // Idempotency: Check if remote order was already captured on PayPal (e.g. from an earlier interrupted attempt)
       const existingCaptures = orderDetails.purchase_units?.[0]?.payments?.captures;
       const completedCapture = existingCaptures?.find((c) => c.status === "COMPLETED");
+
+      if (completedCapture && (existingCaptures?.length !== 1 || !completedCapture.id || paymentAmountError(completedCapture.amount, expectedCurrency, expectedAmount))) {
+        session.status = "CAPTURE_PENDING_RECONCILIATION";
+        sessionStore.saveSession(session);
+        return { success: false, sessionId, auditCertificate, error: "Existing capture amount mismatch or incomplete capture evidence.", uncertain: true, blockedAtGate: true };
+      }
+      if (!completedCapture && (existingCaptures?.length || !authorizationId || ["CAPTURE_SUBMITTED", "UNCERTAIN", "CAPTURED"].includes(session.captureIntent?.status ?? ""))) {
+        session.status = "CAPTURE_PENDING_RECONCILIATION";
+        sessionStore.saveSession(session);
+        return { success: false, sessionId, auditCertificate, error: "Capture evidence remains uncertain; reconciliation required.", uncertain: true, blockedAtGate: true };
+      }
+
+      if (!completedCapture) {
+        const eligibility = evaluateSettlementEligibility(session);
+        if (!eligibility.eligible) return { success: false, sessionId, auditCertificate, error: eligibility.blockers.join("; "), blockedAtGate: true };
+      }
 
       const captureIntentId = session.captureIntent?.intentId ?? `cintent_${crypto.randomBytes(8).toString("hex")}`;
       const captureIntent: CaptureIntentRecord = {
@@ -903,7 +921,8 @@ export class SettlementService {
           });
 
           if (captureResult.status !== "COMPLETED") {
-            captureIntent.status = "FAILED";
+            captureIntent.status = "UNCERTAIN";
+            session.status = "CAPTURE_PENDING_RECONCILIATION";
             captureIntent.lastError = `PayPal capture returned non-completed status: ${captureResult.status}`;
             captureIntent.updatedAt = new Date().toISOString();
             session.captureIntent = captureIntent;
@@ -922,8 +941,12 @@ export class SettlementService {
               orderId: effectiveOrderId,
               authorizationId,
               error: `PayPal capture returned non-completed status: ${captureResult.status}`,
+              uncertain: true,
               blockedAtGate: false,
             };
+          }
+          if (!captureResult.id || paymentAmountError(captureResult.amount, expectedCurrency, expectedAmount)) {
+            throw new Error("Uncertain capture: remote capture amount/currency mismatch or missing evidence.");
           }
           captureId = captureResult.id;
           captureIntent.status = "CAPTURED";
@@ -932,48 +955,29 @@ export class SettlementService {
           session.captureIntent = captureIntent;
         } catch (captureErr: unknown) {
           const errMsg = captureErr instanceof Error ? captureErr.message : String(captureErr);
-          const isTimeout = /timeout|abort|econnreset|etimedout/i.test(errMsg);
-          if (isTimeout) {
-            captureIntent.status = "UNCERTAIN";
-            captureIntent.lastError = errMsg;
-            captureIntent.updatedAt = new Date().toISOString();
-            session.captureIntent = captureIntent;
-            session.status = "CAPTURE_PENDING_RECONCILIATION";
-            sessionStore.saveSession(session);
-
-            settlementLogger.error("CAPTURE_TIMEOUT_UNCERTAIN", `Capture timed out: ${errMsg}`, {
-              correlationId: sessionId,
-              sessionId,
-              orderId: effectiveOrderId,
-              metadata: { intentId: captureIntentId },
-            });
-
-            return {
-              success: false,
-              sessionId,
-              auditCertificate,
-              orderId,
-              authorizationId,
-              error: `Network timeout communicating with PayPal during capture: ${errMsg}. Session left in uncertain remote state and marked CAPTURE_PENDING_RECONCILIATION for authoritative reconciliation.`,
-              uncertain: true,
-              blockedAtGate: false,
-            };
-          }
-          captureIntent.status = "FAILED";
+          // Submission may have reached PayPal even when the response is malformed or unavailable.
+          captureIntent.status = "UNCERTAIN";
           captureIntent.lastError = errMsg;
           captureIntent.updatedAt = new Date().toISOString();
           session.captureIntent = captureIntent;
+          session.status = "CAPTURE_PENDING_RECONCILIATION";
           sessionStore.saveSession(session);
-          throw captureErr;
+          settlementLogger.error("CAPTURE_OUTCOME_UNCERTAIN", "Capture outcome requires authoritative reconciliation.", {
+            correlationId: sessionId, sessionId, orderId: effectiveOrderId, metadata: { intentId: captureIntentId },
+          });
+          return {
+            success: false, sessionId, auditCertificate, orderId: effectiveOrderId, authorizationId,
+            error: `Capture outcome could not be confirmed: ${errMsg}. Session left in uncertain remote state and marked CAPTURE_PENDING_RECONCILIATION for authoritative reconciliation.`,
+            uncertain: true, blockedAtGate: false,
+          };
         }
       }
 
       session.paypalCaptureId = captureId;
       session.captureAmount = expectedAmount;
       session.status = "PAYPAL_CAPTURED";
-      if (session.fxRecord) {
-        session.fxRecord.status = "CONSUMED";
-      }
+      consumeFxRecord(session);
+      sessionStore.saveSession(session);
 
       // 5. Post-Audit & Settlement Merkle Event Commitment
       if (session.flightRecord) {
@@ -1085,8 +1089,8 @@ export class SettlementService {
       return { success: false, error: `Session ${sessionId} not found.` };
     }
 
-    if (session.status === "SETTLED" || session.status === "PAYPAL_CAPTURED") {
-      return { success: false, error: "Cannot cancel an already settled and captured session." };
+    if (sessionStore.isLocked(sessionId) || ["SETTLED", "PAYPAL_CAPTURED", "DISPUTED", "CAPTURE_PENDING_RECONCILIATION"].includes(session.status)) {
+      return { success: false, error: "Cannot cancel a captured, disputed, uncertain, or busy settlement. Authoritative reconciliation is required for uncertain capture." };
     }
 
     session.status = "CANCELLED";
@@ -1187,37 +1191,15 @@ export class SettlementService {
       }
     }
 
-    // Pre-create authorized order if not already present
     if (!session.paypalOrderId) {
-      const finalOffer = session.finalOffer;
-      const totalAmount = finalOffer.unitPrice * finalOffer.quantity + finalOffer.shippingCost;
-      const preSettlementRoot = session.preSettlementRoot ?? session.merkleRoot ?? "";
-      const isCrossCurrency = Boolean(session.fxRecord);
-      const settlementCurrency = isCrossCurrency ? session.fxRecord!.targetCurrency : session.mandate.currency;
-      const settlementTotal = isCrossCurrency ? fromMinorUnits(session.fxRecord!.targetAmountMinor) : totalAmount;
-      const settlementUnitPrice = isCrossCurrency ? settlementTotal / finalOffer.quantity : finalOffer.unitPrice;
-      const settlementShipping = isCrossCurrency ? 0 : finalOffer.shippingCost;
-
-      const orderResult = await this.paypalClient.createAuthorizedOrder({
-        sessionId,
-        merkleRoot: preSettlementRoot,
-        currency: settlementCurrency,
-        unitPrice: settlementUnitPrice,
-        quantity: finalOffer.quantity,
-        shippingCost: settlementShipping,
-        totalAmount: settlementTotal,
-        productTitle: session.selectedQuote.productTitle,
-      });
-
-      session.paypalOrderId = orderResult.id;
-      session.paypalApprovalUrl = orderResult.approvalUrl;
-      session.status = "PAYPAL_AUTHORIZED";
-      sessionStore.saveSession(session);
+      const checkout = await this.initiateCheckout({ sessionId });
+      if (!checkout.success) return { success: false, sessionId, auditCertificate: sessionStore.getSession(sessionId)?.auditCertificate ?? this.buildFailedCertificate(sessionId, checkout.error ?? "Checkout blocked."), error: checkout.error, blockedAtGate: true };
     }
+    const currentSession = sessionStore.getSession(sessionId)!;
 
     return this.completeSettlement({
       sessionId,
-      orderId: session.paypalOrderId,
+      orderId: currentSession.paypalOrderId,
       createInvoice,
     });
   }
@@ -1300,10 +1282,7 @@ export class SettlementService {
         const fxAudit = auditFxSettlement({
           session,
           fxRecord: session.fxRecord,
-          expectedPayPalOrder: {
-            currency: session.fxRecord.targetCurrency,
-            amountMinor: session.fxRecord.targetAmountMinor,
-          },
+          historical: true,
         });
         if (!fxAudit.passed) {
           return {
@@ -1322,6 +1301,9 @@ export class SettlementService {
 
       const orderDetails = await this.paypalClient.getOrder(session.paypalOrderId);
 
+      const remoteEvidenceError = orderEvidenceError(orderDetails, session.paypalOrderId, expectedCustomId, expectedCurrency, expectedTotal);
+      if (remoteEvidenceError) return { success: false, sessionId, status: session.status, reconciled: false, message: remoteEvidenceError, error: remoteEvidenceError };
+
       // Verify remote order currency
       const remoteCurrency = orderDetails.purchase_units?.[0]?.amount?.currency_code;
       if (remoteCurrency && remoteCurrency.toUpperCase() !== expectedCurrency.toUpperCase()) {
@@ -1339,7 +1321,7 @@ export class SettlementService {
       const remoteAmountStr = orderDetails.purchase_units?.[0]?.amount?.value;
       if (remoteAmountStr && expectedTotal > 0) {
         const remoteAmount = parseFloat(remoteAmountStr);
-        if (Math.abs(remoteAmount - expectedTotal) > 0.01) {
+        if (!Number.isFinite(remoteAmount) || toMinorUnits(remoteAmount) !== toMinorUnits(expectedTotal)) {
           return {
             success: false,
             sessionId,
@@ -1353,7 +1335,7 @@ export class SettlementService {
 
       // Verify remote custom_id binding
       const actualCustomId = orderDetails.purchase_units?.[0]?.custom_id;
-      if (actualCustomId && actualCustomId !== expectedCustomId) {
+      if (actualCustomId !== expectedCustomId) {
         return {
           success: false,
           sessionId,
@@ -1364,31 +1346,23 @@ export class SettlementService {
         };
       }
 
+      if (session.fxRecord) {
+        const fxAudit = auditFxSettlement({ session, fxRecord: session.fxRecord, historical: true, expectedPayPalOrder: { currency: orderDetails.purchase_units![0].amount!.currency_code, amountMinor: toMinorUnits(expectedTotal) } });
+        if (!fxAudit.passed) return { success: false, sessionId, status: session.status, reconciled: false, message: fxAudit.error ?? "FX verification failed." };
+        session.fxVerification = { ...fxAudit, conversionHash: session.fxRecord.conversionHash, agreementHash: session.fxRecord.agreementHash };
+      }
+
       const existingCaptures = orderDetails.purchase_units?.[0]?.payments?.captures;
       const completedCapture = existingCaptures?.find((c) => c.status === "COMPLETED");
 
       if (completedCapture) {
-        // Verify completed capture amount and currency
-        if (
-          completedCapture.amount &&
-          completedCapture.amount.currency_code.toUpperCase() !== expectedCurrency.toUpperCase()
-        ) {
-          return {
-            success: false,
-            sessionId,
-            status: session.status,
-            reconciled: false,
-            message: `Reconciliation capture currency mismatch: capture currency '${completedCapture.amount.currency_code}' != '${expectedCurrency}'.`,
-            error: "Capture currency mismatch",
-          };
-        }
+        const captureError = paymentAmountError(completedCapture.amount, expectedCurrency, expectedTotal);
+        if (existingCaptures?.length !== 1 || !completedCapture.id || captureError) return { success: false, sessionId, status: session.status, reconciled: false, message: captureError ?? "Missing capture ID.", error: captureError ?? "Missing capture ID." };
 
         // Remote capture was successful! Reconcile session state
         session.paypalCaptureId = completedCapture.id;
         session.captureAmount = expectedTotal;
-        if (session.fxRecord) {
-          session.fxRecord.status = "CONSUMED";
-        }
+        consumeFxRecord(session);
         if (session.captureIntent) {
           session.captureIntent.status = "CAPTURED";
           session.captureIntent.paypalCaptureId = completedCapture.id;
@@ -1414,22 +1388,8 @@ export class SettlementService {
         };
       }
 
-      // Check if order is completed
-      if (orderDetails.status === "COMPLETED") {
-        session.status = "PAYPAL_CAPTURED";
-        if (session.captureIntent) {
-          session.captureIntent.status = "CAPTURED";
-          session.captureIntent.updatedAt = new Date().toISOString();
-        }
-        session.updatedAt = new Date().toISOString();
-        sessionStore.saveSession(session);
-        return {
-          success: true,
-          sessionId,
-          status: "PAYPAL_CAPTURED",
-          reconciled: true,
-          message: "Authoritative reconciliation confirmed PayPal order completed.",
-        };
+      if (existingCaptures?.length || (orderDetails.status === "COMPLETED" && !orderDetails.purchase_units?.[0]?.payments?.authorizations?.some(a => a.id && a.status === "CREATED"))) {
+        return { success: false, sessionId, status: session.status, reconciled: false, message: "Remote order lacks complete verified capture evidence; reconciliation remains pending." };
       }
 
       // Inspect if order was cancelled or voided remotely
@@ -1486,6 +1446,10 @@ export class SettlementService {
           reconciled: false,
           message: `Remote order is in status '${orderDetails.status}' with no completed captures. In-flight capture remains uncertain; blind capture retry is strictly blocked until remote capture completes or order is cancelled.`,
         };
+      }
+
+      if (!["APPROVED", "COMPLETED"].includes(orderDetails.status) || !orderDetails.purchase_units?.[0]?.payments?.authorizations?.some(a => a.id && a.status === "CREATED")) {
+        return { success: false, sessionId, status: session.status, reconciled: false, message: "Remote authorization not confirmed; reconciliation remains pending." };
       }
 
       // If capture was never submitted to PayPal (e.g. unconfirmed initial state without capture intent),

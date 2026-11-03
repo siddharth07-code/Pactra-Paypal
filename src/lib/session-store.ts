@@ -258,6 +258,10 @@ export class AuthoritativeSessionStore {
         }
       }
 
+      if (existing.status === "CANCELLED" && session.status !== "CANCELLED" && session.status !== "MANDATE_PENDING") {
+        throw new Error("Invalid state transition: cancelled session requires explicit mandate revision.");
+      }
+
       // Validate critical terminal invariants to prevent illegal status downgrades
       if (existing.status === "SETTLED" && session.status !== "SETTLED" && session.status !== "DISPUTED") {
         throw new Error(
@@ -405,6 +409,7 @@ export class AuthoritativeSessionStore {
       finalOffer: undefined,
       agreementRecord: undefined,
       auditCertificate: undefined,
+      fxVerification: undefined,
       fxRecord: undefined,
       fxQuoteHistory: undefined,
       merkleRoot: undefined,

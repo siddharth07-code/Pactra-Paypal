@@ -254,6 +254,7 @@ export type FXConversionStatus = "QUOTED" | "LOCKED" | "EXPIRED" | "CONSUMED";
 export type FXRoundingMode = "HALF_UP";
 
 export interface FXConversionRecord {
+  commitmentVersion?: 2; // Missing means legacy: reject for new financial operations.
   id: string;
   sessionId: string;
   agreementHash: string;
@@ -586,6 +587,7 @@ export interface ProcurementSession {
   postAuditRoot?: string; // Root after ACWORLD_FINAL_STATE_AUDIT event is recorded
   auditCertificate?: AuditCertificate;
   auditHistory?: AuditCertificate[]; // Historical audit evaluations preserved across re-audits
+  fxVerification?: { passed: boolean; checks: { name: string; passed: boolean; reason?: string }[]; auditTimestamp: string; conversionHash: string; agreementHash: string };
   fxRecord?: FXConversionRecord; // Phase 6.8 Verifiable FX settlement bridge record
   fxQuoteHistory?: FXConversionRecord[];
   paypalOrderId?: string;

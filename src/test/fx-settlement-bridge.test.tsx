@@ -1,3 +1,4 @@
+import { completedOrder } from "@/test/helpers/payment-fixtures";
 /**
  * PACTUM — Phase 6.8 Verifiable FX Settlement Bridge Test Suite
  * File: src/test/fx-settlement-bridge.test.tsx
@@ -401,7 +402,7 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
         ttlSeconds: -10,
       });
 
-      expect(() => lockFXQuote(quote, session.agreementRecord!)).toThrow(/expired/i);
+      expect(() => lockFXQuote(quote, session.agreementRecord!)).toThrow(/expired|expiration/i);
     });
 
     it("14. Locked quote cannot mutate", async () => {
@@ -519,12 +520,13 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
       const quote = await provider.getQuote({
         sessionId: session.id,
         agreementHash: computeAgreementHash(session.agreementRecord!),
-        sourceCurrency: "EUR", // Mismatched currency
+        sourceCurrency: "INR", // Mismatched currency
         targetCurrency: "USD",
         sourceAmountMinor: INR_LANDED_COST_PAISE,
       });
       const locked = lockFXQuote(quote, session.agreementRecord!);
 
+      locked.sourceCurrency = "EUR";
       const result = auditFxSettlement({ session, fxRecord: locked });
       expect(result.passed).toBe(false);
       const check = result.checks.find((c) => c.name === "SOURCE_CURRENCY_MATCH");
@@ -618,11 +620,12 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
         sessionId: session.id,
         agreementHash: computeAgreementHash(session.agreementRecord!),
         sourceCurrency: "INR",
-        targetCurrency: "XYZ", // Unsupported currency
+        targetCurrency: "USD", // Unsupported currency
         sourceAmountMinor: INR_LANDED_COST_PAISE,
       });
       const locked = lockFXQuote(quote, session.agreementRecord!);
 
+      locked.targetCurrency = "INR";
       const result = auditFxSettlement({ session, fxRecord: locked });
       expect(result.passed).toBe(false);
       const check = result.checks.find((c) => c.name === "TARGET_CURRENCY_PAYPAL_SUPPORTED");
@@ -982,6 +985,7 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
         status: "COMPLETED",
         intent: "AUTHORIZE",
         purchase_units: [{
+          custom_id: `VERIPAY_ROOT:${session.preSettlementRoot ?? session.merkleRoot};SESSION:${session.id}`,
           amount: { currency_code: "USD", value: "8150.00" },
           payments: { captures: [{ id: "CAP-USD", status: "COMPLETED", amount: { currency_code: "USD", value: "8150.00" } }] },
         }],
@@ -1015,6 +1019,7 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
         status: "COMPLETED",
         intent: "AUTHORIZE",
         purchase_units: [{
+          custom_id: `VERIPAY_ROOT:${session.preSettlementRoot ?? session.merkleRoot};SESSION:${session.id}`,
           amount: { currency_code: "USD", value: targetUsdStr },
           payments: { captures: [{ id: "CAP-FX-USD", status: "COMPLETED", amount: { currency_code: "USD", value: targetUsdStr } }] },
         }],
@@ -1050,6 +1055,7 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
         status: "COMPLETED",
         intent: "AUTHORIZE",
         purchase_units: [{
+          custom_id: `VERIPAY_ROOT:${session.preSettlementRoot ?? session.merkleRoot};SESSION:${session.id}`,
           amount: { currency_code: "USD", value: targetUsdStr },
           payments: { captures: [{ id: "CAP-SAFE", status: "COMPLETED", amount: { currency_code: "USD", value: targetUsdStr } }] },
         }],
@@ -1081,6 +1087,7 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
         status: "COMPLETED",
         intent: "AUTHORIZE",
         purchase_units: [{
+          custom_id: `VERIPAY_ROOT:${session.preSettlementRoot ?? session.merkleRoot};SESSION:${session.id}`,
           amount: { currency_code: "EUR", value: "8485.03" }, // Mismatched currency
           payments: { captures: [{ id: "CAP-FAIL", status: "COMPLETED", amount: { currency_code: "EUR", value: "8485.03" } }] },
         }],
@@ -1113,6 +1120,7 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
         status: "COMPLETED",
         intent: "AUTHORIZE",
         purchase_units: [{
+          custom_id: `VERIPAY_ROOT:${session.preSettlementRoot ?? session.merkleRoot};SESSION:${session.id}`,
           amount: { currency_code: "USD", value: "9999.99" }, // Mismatched amount
           payments: { captures: [{ id: "CAP-AMT-FAIL", status: "COMPLETED", amount: { currency_code: "USD", value: "9999.99" } }] },
         }],
@@ -1147,6 +1155,7 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
         status: "COMPLETED",
         intent: "AUTHORIZE",
         purchase_units: [{
+          custom_id: `VERIPAY_ROOT:${session.preSettlementRoot ?? session.merkleRoot};SESSION:${session.id}`,
           amount: { currency_code: "USD", value: "8485.03" },
           payments: { captures: [{ id: "CAP-S", status: "COMPLETED", amount: { currency_code: "USD", value: "8485.03" } }] },
         }],
@@ -1285,6 +1294,9 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
       sessionStore.saveSession(session);
 
       const targetUsdStr = (session.fxRecord.targetAmountMinor / 100).toFixed(2);
+      session.paypalOrderId = "ORDER-WEBHOOK-CONFIRMED";
+      sessionStore.saveSession(session);
+      vi.spyOn(PayPalClient.prototype, "getOrder").mockResolvedValue(completedOrder(session, "CAP-DEDUP-1", targetUsdStr));
       const webhookPayload = {
         id: "WH-DEDUP-UNIQUE-EVENT-ID",
         event_type: "PAYMENT.CAPTURE.COMPLETED",

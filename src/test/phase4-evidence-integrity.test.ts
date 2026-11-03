@@ -906,6 +906,7 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
         getOrder: vi.fn().mockResolvedValue({
           id: session.paypalOrderId,
           status: "CREATED", // Remote order is still just CREATED, not completed
+          intent: "AUTHORIZE",
           purchase_units: [
             {
               amount: { currency_code: "USD", value: "8150.00" },
@@ -920,9 +921,9 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
       const recon = await settlement.reconcileSettlement({ sessionId: "sess_reconcile_unconfirmed" });
 
       // Cannot claim capture success
-      expect(recon.status).toBe("PAYPAL_AUTHORIZED");
-      expect(recon.reconciled).toBe(true);
-      expect(sessionStore.getSession("sess_reconcile_unconfirmed")!.status).toBe("PAYPAL_AUTHORIZED");
+      expect(recon.status).toBe("CAPTURE_PENDING_RECONCILIATION");
+      expect(recon.reconciled).toBe(false);
+      expect(sessionStore.getSession("sess_reconcile_unconfirmed")!.status).toBe("CAPTURE_PENDING_RECONCILIATION");
     });
 
     it("preserves historical pre-settlement root when post-settlement events are appended", async () => {
@@ -940,7 +941,7 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
       const mockPaypal = {
         getOrder: vi.fn().mockResolvedValue({
           id: session.paypalOrderId,
-          status: "COMPLETED",
+          status: "APPROVED",
           intent: "AUTHORIZE",
           purchase_units: [
             {
@@ -949,9 +950,11 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
             },
           ],
         }),
+        authorizeOrder: vi.fn().mockResolvedValue({ authorizationId: "AUTH_PRESERVATION" }),
         capturePayment: vi.fn().mockResolvedValue({
           id: "cap_successful_123",
           status: "COMPLETED",
+          amount: { currency_code: "USD", value: "8150.00" },
         }),
         createNegotiatedInvoice: vi.fn().mockResolvedValue({
           invoiceId: "inv_12345",
@@ -1931,7 +1934,7 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
           };
         }),
         authorizeOrder: vi.fn().mockResolvedValue({ authorizationId: "AUTH_MOCK_CONCURRENCY" }),
-        capturePayment: vi.fn().mockResolvedValue({ id: "CAPTURE_CONCURRENCY_1", status: "COMPLETED" }),
+        capturePayment: vi.fn().mockResolvedValue({ id: "CAPTURE_CONCURRENCY_1", status: "COMPLETED", amount: { currency_code: "USD", value: "8100.00" } }),
         createNegotiatedInvoice: vi.fn().mockResolvedValue({ invoiceId: "INV_123", status: "SENT" }),
         createDraftInvoice: vi.fn().mockResolvedValue({ invoiceId: "INV_123" }),
         sendInvoice: vi.fn().mockResolvedValue({ success: true }),
@@ -2015,7 +2018,7 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
             amount: { value: "8100.00", currency_code: "USD" },
             custom_id: `VERIPAY_ROOT:${session.preSettlementRoot};SESSION:${session.id}`,
             payments: {
-              captures: [{ id: "REMOTE_CONFIRMED_CAP_1", status: "COMPLETED" }],
+              captures: [{ id: "REMOTE_CONFIRMED_CAP_1", status: "COMPLETED", amount: { currency_code: "USD", value: "8100.00" } }],
             },
           },
         ],

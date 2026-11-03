@@ -237,6 +237,7 @@ describe("Phase 5.1: Adversarial Reliability Verification & Recovery Hardening",
         getOrder: vi.fn().mockResolvedValue({
           id: session.paypalOrderId,
           status: "COMPLETED",
+          intent: "AUTHORIZE",
           purchase_units: [
             {
               amount: { currency_code: "USD", value: "8150.00" },
@@ -290,6 +291,7 @@ describe("Phase 5.1: Adversarial Reliability Verification & Recovery Hardening",
         getOrder: vi.fn().mockResolvedValue({
           id: session.paypalOrderId,
           status: "VOIDED",
+          intent: "AUTHORIZE",
           purchase_units: [
             {
               amount: { currency_code: "USD", value: "8150.00" },

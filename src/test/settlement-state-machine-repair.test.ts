@@ -52,7 +52,8 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
     maxDeliveryDays: 5,
     minReturnDays: 30,
     currency: "INR",
-    requiredSpecs: { resolution: "4K", ports: ["USB-C"] },
+    requiredSpecs: [{ name: "Resolution", value: "4K", mandatory: true }, { name: "Ports", value: "USB-C", mandatory: true }],
+    createdAt: new Date().toISOString(),
     version: 1,
     isLocked: true,
   };
@@ -66,7 +67,8 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
     maxDeliveryDays: 5,
     minReturnDays: 30,
     currency: "USD",
-    requiredSpecs: { resolution: "4K", ports: ["USB-C"] },
+    requiredSpecs: [{ name: "Resolution", value: "4K", mandatory: true }, { name: "Ports", value: "USB-C", mandatory: true }],
+    createdAt: new Date().toISOString(),
     version: 1,
     isLocked: true,
   };
@@ -177,7 +179,6 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
       passed: false,
       mandateVersion: 1,
       invariants: [],
-      results: [],
       verifiedRoot: session.merkleRoot!,
     };
     sessionStore.saveSession(session);
@@ -219,7 +220,6 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
       passed: false,
       mandateVersion: 1,
       invariants: [],
-      results: [],
       verifiedRoot: session.merkleRoot!,
     };
     sessionStore.saveSession(session);
@@ -242,7 +242,6 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
       passed: false,
       mandateVersion: 1,
       invariants: [],
-      results: [],
       verifiedRoot: session.merkleRoot!,
     };
     sessionStore.saveSession(session);
@@ -269,7 +268,6 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
       passed: false,
       mandateVersion: 1,
       invariants: [],
-      results: [],
       verifiedRoot: session.merkleRoot!,
     };
     session.status = "AUDIT_FAILED";
@@ -461,7 +459,6 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
       passed: true,
       mandateVersion: 0, // Old version
       invariants: [],
-      results: [],
       verifiedRoot: "0".repeat(64),
     };
     const eligibility = evaluateSettlementEligibility(session);
@@ -482,7 +479,6 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
       passed: true,
       mandateVersion: 1,
       invariants: [],
-      results: [],
       verifiedRoot: session.merkleRoot!,
     };
     const eligibility = evaluateSettlementEligibility(session);
@@ -504,7 +500,6 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
       passed: true,
       mandateVersion: 1, // Stale version 1
       invariants: [],
-      results: [],
       verifiedRoot: session.merkleRoot!,
     };
     const eligibility = evaluateSettlementEligibility(session);
@@ -598,7 +593,6 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
       passed: true,
       mandateVersion: 1,
       invariants: [],
-      results: [],
       verifiedRoot: session.merkleRoot,
     };
 
@@ -621,7 +615,6 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
       passed: true,
       mandateVersion: 1,
       invariants: [],
-      results: [],
       verifiedRoot: session.merkleRoot!,
     };
     // No FX quote yet
@@ -668,7 +661,6 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
       passed: true,
       mandateVersion: 1,
       invariants: [],
-      results: [],
       verifiedRoot: session.merkleRoot!,
     };
     // Create FX record with tampered target amount
@@ -751,6 +743,7 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
         vendorId: baseQuote.vendorId,
         actor: "BUYER",
         message: "Proposing initial offer",
+        timestamp: new Date().toISOString(),
         proposedOffer: {
           unitPrice: 25000,
           quantity: 25,

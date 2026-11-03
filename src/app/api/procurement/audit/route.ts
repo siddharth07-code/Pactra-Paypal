@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { sessionStore } from "@/lib/session-store";
+import { applyAuditCertificate, canRunCommercialAudit } from "@/lib/settlement-lifecycle";
 import { AcworldAuditor } from "@/lib/acworld-auditor";
 import { defaultRateLimiter } from "@/lib/rate-limiter";
 
@@ -35,50 +36,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const session = sessionStore.getSession(sessionId);
-    if (!session) {
-      return NextResponse.json(
-        { error: `Session ${sessionId} not found in authoritative store.` },
-        { status: 404 }
-      );
-    }
-
-    if (!session.finalOffer || !session.selectedQuote) {
-      return NextResponse.json(
-        { error: `Session ${sessionId} has no final agreed offer or selected quote to audit.` },
-        { status: 422 }
-      );
-    }
-
-    const auditor = new AcworldAuditor();
-    const auditCertificate = auditor.audit({ session });
-
-    // Preserve historical audit certificate before updating authoritative outcome
-    if (session.auditCertificate && session.auditCertificate.certificateId !== auditCertificate.certificateId) {
-      session.auditHistory = session.auditHistory || [];
-      if (!session.auditHistory.some((c) => c.certificateId === session.auditCertificate!.certificateId)) {
-        session.auditHistory.push(session.auditCertificate);
+    if (!sessionStore.acquireLock(sessionId)) return NextResponse.json({ error: "Session operation already in progress." }, { status: 409 });
+    try {
+      const session = sessionStore.getSession(sessionId);
+      if (!session) {
+        return NextResponse.json(
+          { error: `Session ${sessionId} not found in authoritative store.` },
+          { status: 404 }
+        );
       }
-    }
 
-    session.auditCertificate = auditCertificate;
-    if (auditCertificate.passed) {
-      if (session.status === "AUDIT_FAILED" || session.status === "AUDIT_PENDING") {
-        session.status = "AUDIT_PASSED";
+      if (!session.finalOffer || !session.selectedQuote) {
+        return NextResponse.json(
+          { error: `Session ${sessionId} has no final agreed offer or selected quote to audit.` },
+          { status: 422 }
+        );
       }
-    } else {
-      session.status = "AUDIT_FAILED";
-    }
 
-    sessionStore.saveSession(session);
+      if (!canRunCommercialAudit(session)) return NextResponse.json({ error: "Re-audit prohibited in current settlement lifecycle." }, { status: 409 });
+      const auditor = new AcworldAuditor();
+      const auditCertificate = auditor.audit({ session });
 
-    return NextResponse.json({
-      success: true,
-      sessionId,
-      auditCertificate,
-      status: session.status,
-      session,
-    });
+      applyAuditCertificate(session, auditCertificate);
+
+      sessionStore.saveSession(session);
+
+      return NextResponse.json({
+        success: true,
+        sessionId,
+        auditCertificate,
+        status: session.status,
+        session,
+      });
+    } finally { sessionStore.releaseLock(sessionId); }
   } catch {
     return NextResponse.json(
       { error: "Internal server error occurred while performing ACWORLD audit." },

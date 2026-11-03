@@ -440,6 +440,7 @@ describe("PACTUM End-to-End Procurement Workflow Journeys", () => {
     };
     session.preSettlementRoot = "d".repeat(64);
     session.status = "AUDIT_PENDING";
+    session.paypalOrderId = "ORDER-MOCK-FAIL";
     sessionStore.saveSession(session);
 
     // ACWORLD Auditor must detect failure
@@ -452,6 +453,7 @@ describe("PACTUM End-to-End Procurement Workflow Journeys", () => {
 
     // SettlementService must strictly fail closed and block payment capture
     const mockPayPal = new PayPalClient();
+    vi.spyOn(mockPayPal, "getOrder").mockResolvedValue({ id: "ORDER-MOCK-FAIL", status: "APPROVED", intent: "AUTHORIZE", purchase_units: [{ amount: { currency_code: "USD", value: "8150.00" }, custom_id: `VERIPAY_ROOT:${session.preSettlementRoot};SESSION:${session.id}` }] });
     const captureSpy = vi.spyOn(mockPayPal, "capturePayment");
 
     const service = new SettlementService({ auditor, paypalClient: mockPayPal });
@@ -702,6 +704,7 @@ describe("PACTUM End-to-End Procurement Workflow Journeys", () => {
       intent: "AUTHORIZE",
       purchase_units: [
         {
+          custom_id: `VERIPAY_ROOT:${session.preSettlementRoot ?? session.merkleRoot};SESSION:${session.id}`,
           amount: { currency_code: "USD", value: "8150.00" },
           payments: {
             captures: [

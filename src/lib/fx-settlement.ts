@@ -26,6 +26,37 @@ import type {
 export const DEFAULT_DEMO_INR_PER_USD = "83.5000";
 export const DEFAULT_QUOTE_TTL_SECONDS = 900; // 15 minutes
 
+/** Only INR -> USD is implemented. Expiry bounds new financial submission, not historical evidence. */
+export function assertSupportedFxPair(source: string, target: string): void {
+  if (source !== "INR" || target !== "USD") throw new Error("Unsupported FX pair: only INR -> USD is supported.");
+}
+
+export function validateFxQuote(record: FXConversionRecord, allowExpired = false): void {
+  assertSupportedFxPair(record.sourceCurrency, record.targetCurrency);
+  if (record.commitmentVersion !== 2) throw new Error("Legacy FX commitment requires explicit re-quotation; locked rates are never silently refreshed.");
+  for (const amount of [record.sourceAmountMinor, record.targetAmountMinor]) {
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("FX monetary minor units must be positive safe integers.");
+  }
+  const quoted = Date.parse(record.quotedAt);
+  const expires = Date.parse(record.expiresAt);
+  if (!Number.isFinite(quoted) || !Number.isFinite(expires) || new Date(quoted).toISOString() !== record.quotedAt || new Date(expires).toISOString() !== record.expiresAt || expires <= quoted || quoted > Date.now()) {
+    throw new Error("Invalid FX timestamps or expired interval.");
+  }
+  if (!allowExpired && Date.now() >= expires) throw new Error("FX quote has expired; locked rates cannot be silently refreshed.");
+  if (computeConversionHash(record) !== record.conversionHash) throw new Error("FX conversionHash integrity mismatch: quote has been mutated.");
+}
+
+/** Update mutable lifecycle and history without changing the immutable conversion commitment. */
+export function consumeFxRecord(session: ProcurementSession): void {
+  if (!session.fxRecord) return;
+  validateFxQuote(session.fxRecord, true);
+  if (!["LOCKED", "CONSUMED"].includes(session.fxRecord.status)) throw new Error("Cannot consume an unlocked FX quote.");
+  session.fxRecord = { ...session.fxRecord, status: "CONSUMED" };
+  const record = session.fxRecord;
+  const history = session.fxQuoteHistory ?? [];
+  session.fxQuoteHistory = history.some(q => q.id === record.id) ? history.map(q => q.id === record.id ? { ...record } : q) : [...history, { ...record }];
+}
+
 export interface RationalRate {
   numerator: bigint;
   denominator: bigint;
@@ -86,12 +117,8 @@ export function computeFxConversion(
   rateConvention: FXRateConvention = "INR_PER_USD",
   roundingMode: FXRoundingMode = "HALF_UP"
 ): number {
-  if (!Number.isInteger(sourceAmountMinor) || sourceAmountMinor < 0) {
+  if (!Number.isSafeInteger(sourceAmountMinor) || sourceAmountMinor < 0) {
     throw new Error(`Invalid sourceAmountMinor: ${sourceAmountMinor}. Must be a non-negative integer.`);
-  }
-
-  if (sourceAmountMinor === 0) {
-    return 0;
   }
 
   if (rateConvention !== "INR_PER_USD") {
@@ -126,18 +153,7 @@ export function computeFxConversion(
  * Computes deterministic SHA-256 hash of an authoritative AgreementRecord.
  */
 export function computeAgreementHash(agreement: AgreementRecord): string {
-  const canonicalFields = {
-    agreementId: agreement.agreementId,
-    sessionId: agreement.sessionId,
-    vendorId: agreement.vendorId,
-    vendorName: agreement.vendorName,
-    sku: agreement.sku,
-    agreedPrice: agreement.agreedPrice,
-    totalCost: agreement.totalCost,
-    currency: (agreement.currency || "INR").toUpperCase(),
-    round: agreement.round,
-    mandateVersion: agreement.mandateVersion,
-  };
+  const canonicalFields = { ...agreement, currency: (agreement.currency || "INR").toUpperCase() };
 
   return crypto
     .createHash("sha256")
@@ -167,7 +183,7 @@ export function computeConversionHash(
     quotedAt: record.quotedAt,
     expiresAt: record.expiresAt,
     roundingMode: record.roundingMode,
-    status: record.status,
+    commitmentVersion: record.commitmentVersion ?? 2,
   };
 
   return crypto
@@ -204,6 +220,7 @@ export class DeterministicDemoFXProvider implements FXRateProvider {
   }
 
   public async getQuote(req: FXQuoteRequest): Promise<FXConversionRecord> {
+    assertSupportedFxPair(req.sourceCurrency, req.targetCurrency);
     const id = `fxq_${crypto.randomBytes(8).toString("hex")}`;
     const quotedAt = new Date().toISOString();
     const ttlMs = (req.ttlSeconds ?? DEFAULT_QUOTE_TTL_SECONDS) * 1000;
@@ -218,6 +235,7 @@ export class DeterministicDemoFXProvider implements FXRateProvider {
 
     const recordWithoutHash: Omit<FXConversionRecord, "conversionHash"> = {
       id,
+      commitmentVersion: 2,
       sessionId: req.sessionId,
       agreementHash: req.agreementHash,
       agreementId: req.agreementId,
@@ -302,6 +320,7 @@ export class LiveFXProvider implements FXRateProvider {
 
     const recordWithoutHash: Omit<FXConversionRecord, "conversionHash"> = {
       id,
+      commitmentVersion: 2,
       sessionId: req.sessionId,
       agreementHash: req.agreementHash,
       agreementId: req.agreementId,
@@ -332,6 +351,9 @@ export class LiveFXProvider implements FXRateProvider {
  * Returns the requested FX rate provider without silent fallbacks.
  */
 export function getFXRateProvider(source?: FXRateSource): FXRateProvider {
+  if (source !== undefined && source !== "LIVE_PROVIDER" && source !== "DETERMINISTIC_DEMO") {
+    throw new Error("Unsupported FX rate source.");
+  }
   if (source === "LIVE_PROVIDER") {
     return new LiveFXProvider();
   }
@@ -346,6 +368,7 @@ export function lockFXQuote(
   quote: FXConversionRecord,
   agreement: AgreementRecord
 ): FXConversionRecord {
+  validateFxQuote(quote);
   if (quote.status === "LOCKED") {
     // Idempotent: If already locked with matching agreement, return the immutable record
     const expectedAgreementHash = computeAgreementHash(agreement);
@@ -363,7 +386,7 @@ export function lockFXQuote(
 
   const now = Date.now();
   const expiresAt = new Date(quote.expiresAt).getTime();
-  if (now > expiresAt) {
+  if (now >= expiresAt) {
     throw new Error(
       `Cannot lock FX quote: Quote has expired at ${quote.expiresAt} (current time: ${new Date(now).toISOString()}). Request a refreshed quote.`
     );
@@ -418,6 +441,7 @@ export interface FXSettlementAuditResult {
 export function auditFxSettlement(params: {
   session: ProcurementSession;
   fxRecord: FXConversionRecord;
+  historical?: boolean; // Only for already submitted/captured remote evidence.
   expectedPayPalOrder?: {
     currency: string;
     amountMinor: number;
@@ -425,6 +449,11 @@ export function auditFxSettlement(params: {
 }): FXSettlementAuditResult {
   const { session, fxRecord, expectedPayPalOrder } = params;
   const checks: FXVerificationCheck[] = [];
+  try {
+    validateFxQuote(fxRecord, params.historical === true || fxRecord.status === "CONSUMED" || Boolean(session.captureIntent && ["CAPTURE_SUBMITTED", "UNCERTAIN", "CAPTURED"].includes(session.captureIntent.status)));
+  } catch (error) {
+    checks.push({ name: "FX_COMMITMENT_VALID", passed: false, reason: error instanceof Error ? error.message : "Invalid FX quote" });
+  }
   const auditTimestamp = new Date().toISOString();
 
   // 1. Agreement exists

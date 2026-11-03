@@ -1,4 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { PayPalClient } from "@/lib/paypal-client";
+import { completedOrder } from "@/test/helpers/payment-fixtures";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { POST as settleHandler } from "./settle/route";
 import { POST as webhookHandler } from "./webhook/route";
 import { POST as checkoutHandler } from "./checkout/route";
@@ -11,6 +13,7 @@ import type { ProcurementSession } from "@/types/pactum";
 
 describe("PayPal API Routes Integration Tests", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     sessionStore.clear();
     defaultRateLimiter.resetAll();
   });
@@ -149,6 +152,7 @@ describe("PayPal API Routes Integration Tests", () => {
       };
       sessionStore.saveSession(sessionWithOrder);
 
+      vi.spyOn(PayPalClient.prototype, "getOrder").mockResolvedValue({ id: "ORDER_ROUTE_PASS", status: "APPROVED", intent: "AUTHORIZE", purchase_units: [{ amount: { currency_code: "USD", value: "8150.00" }, custom_id: `VERIPAY_ROOT:${sessionWithOrder.preSettlementRoot ?? sessionWithOrder.merkleRoot};SESSION:${sessionWithOrder.id}` }] });
       const req = new NextRequest("http://localhost:3000/api/paypal/capture", {
         method: "POST",
         body: JSON.stringify({
@@ -253,6 +257,10 @@ describe("PayPal API Routes Integration Tests", () => {
         status: "AUDIT_PASSED",
       });
 
+      validSession.status = "AUDIT_PASSED";
+      validSession.paypalOrderId = "ORDER-WEBHOOK-CONFIRMED";
+      sessionStore.saveSession(validSession);
+      vi.spyOn(PayPalClient.prototype, "getOrder").mockResolvedValue(completedOrder(validSession, "CAPTURE_123", "8150.00"));
       const req = new NextRequest("http://localhost:3000/api/paypal/webhook", {
         method: "POST",
         headers: {
@@ -263,6 +271,7 @@ describe("PayPal API Routes Integration Tests", () => {
           event_type: "PAYMENT.CAPTURE.COMPLETED",
           resource: {
             id: "CAPTURE_123",
+            amount: { currency_code: "USD", value: "8150.00" },
             custom_id: `VERIPAY_ROOT:c0ffee;SESSION:${validSession.id}`,
           },
         }),

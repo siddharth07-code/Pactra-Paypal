@@ -1,3 +1,4 @@
+import { completedOrder } from "@/test/helpers/payment-fixtures";
 /**
  * PACTUM — Phase 3 Adversarial Regression Tests
  *
@@ -350,7 +351,7 @@ describe("Phase 3: Security, Reliability & Adversarial Hardening Suite", () => {
       const result = await service.reconcileSettlement({ sessionId: session.id });
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe("Currency mismatch");
+      expect(result.error).toMatch(/currency mismatch/i);
       expect(result.message).toContain("currency mismatch");
       // Session status must remain in CAPTURE_PENDING_RECONCILIATION
       expect(sessionStore.getSession(session.id)!.status).toBe("CAPTURE_PENDING_RECONCILIATION");
@@ -392,8 +393,8 @@ describe("Phase 3: Security, Reliability & Adversarial Hardening Suite", () => {
       const result = await service.reconcileSettlement({ sessionId: session.id });
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe("Lineage mismatch");
-      expect(result.message).toContain("custom_id mismatch");
+      expect(result.error).toMatch(/lineage mismatch/i);
+      expect(result.message).toMatch(/custom_id.*mismatch/i);
       expect(sessionStore.getSession(session.id)!.status).toBe("CAPTURE_PENDING_RECONCILIATION");
     });
 
@@ -409,6 +410,10 @@ describe("Phase 3: Security, Reliability & Adversarial Hardening Suite", () => {
       session.status = "CAPTURE_PENDING_RECONCILIATION";
       sessionStore.saveSession(session);
 
+      session.preSettlementRoot = "a".repeat(64);
+      session.paypalOrderId = "ORDER-WEBHOOK-CONFIRMED";
+      sessionStore.saveSession(session);
+      vi.spyOn(PayPalClient.prototype, "getOrder").mockResolvedValue(completedOrder(session, "CAP-REMOTE-99", "8100.00"));
       const webhookPayload = {
         id: "WH-EVT-1",
         event_type: "PAYMENT.CAPTURE.COMPLETED",
