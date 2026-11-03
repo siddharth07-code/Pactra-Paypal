@@ -13,7 +13,9 @@ export function verifyFxCommercialSession(session: ProcurementSession): string |
   if (!freshness.valid) return freshness.reason;
   if (session.flightRecord) {
     const events = session.flightRecord.events;
-    if (session.flightRecord.sessionId !== session.id || !events.some((_, index) => verifyFlightRecorderChain(events.slice(0, index + 1), session.id, certificate.verifiedRoot).valid)) {
+    const matchesChain = events.some((_, index) => verifyFlightRecorderChain(events.slice(0, index + 1), session.id, certificate.verifiedRoot).valid);
+    const matchesMerkle = certificate.verifiedRoot === session.merkleRoot || certificate.verifiedRoot === session.preSettlementRoot;
+    if (session.flightRecord.sessionId !== session.id || (!matchesChain && !matchesMerkle)) {
       return "Commercial certificate root is not part of the authoritative evidence history.";
     }
   }

@@ -268,7 +268,7 @@ export function SourcingScreen({
           if (m.maxTotalBudget) setBudget(m.maxTotalBudget);
           if (m.maxDeliveryDays) setMaxDelivery(m.maxDeliveryDays);
           if (m.minReturnDays !== undefined) setMinReturn(m.minReturnDays);
-          if (m.currency && (m.currency === "USD" || m.currency === "EUR" || m.currency === "GBP")) {
+          if (m.currency && (m.currency === "USD" || m.currency === "EUR" || m.currency === "GBP" || m.currency === "INR")) {
             setCurrency(m.currency as CurrencyCode);
           }
           setErrors({});

@@ -961,7 +961,11 @@ export function SettlementCenterScreen({
                           </span>
                         </div>
                         <p className="text-[12px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
-                          {session.fxRecord.status === "LOCKED" ? "The locked quote expired. It will not be refreshed automatically; explicit review is required." : "The settlement quote expired before it was locked. Request a new quote to continue."}
+                          {session?.status === "CANCELLED" || (session?.status as string) === "SETTLED" || session?.status === "DISPUTED"
+                            ? `This session is ${session.status.toLowerCase()} and cannot request or refresh FX quotes.`
+                            : session.fxRecord.status === "LOCKED"
+                            ? "The locked quote expired. It will not be refreshed automatically; explicit review is required."
+                            : "The settlement quote expired before it was locked. Request a new quote to continue."}
                         </p>
                         {fxError && (
                           <p className="text-[11.5px] text-[#dc2626] dark:text-[#f87171]">
@@ -970,7 +974,14 @@ export function SettlementCenterScreen({
                         )}
                         <PrimaryButton
                           onClick={handleGetFxQuote}
-                          disabled={isFetchingQuote || session.fxRecord.status === "LOCKED"}
+                          disabled={
+                            isFetchingQuote ||
+                            session.fxRecord.status === "LOCKED" ||
+                            session?.status === "CANCELLED" ||
+                            (session?.status as string) === "SETTLED" ||
+                            session?.status === "DISPUTED" ||
+                            !isAuditPassed
+                          }
                           className="w-full flex items-center justify-center gap-2"
                         >
                           {isFetchingQuote ? (

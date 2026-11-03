@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sessionStore } from "@/lib/session-store";
 import { applyAuditCertificate, canRunCommercialAudit } from "@/lib/settlement-lifecycle";
 import { AcworldAuditor } from "@/lib/acworld-auditor";
+import { CryptographicFlightRecorder } from "@/lib/flight-recorder";
 import { defaultRateLimiter } from "@/lib/rate-limiter";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +55,14 @@ export async function POST(req: NextRequest) {
       }
 
       if (!canRunCommercialAudit(session)) return NextResponse.json({ error: "Re-audit prohibited in current settlement lifecycle." }, { status: 409 });
+
+      if (!session.flightRecord) {
+        const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
+        session.flightRecord = recorder.exportFlightRecord();
+        session.preSettlementRoot = recorder.getRootHash();
+        session.merkleRoot = recorder.getRootHash();
+      }
+
       const auditor = new AcworldAuditor();
       const auditCertificate = auditor.audit({ session });
 

@@ -150,6 +150,10 @@ export default function Home() {
         const data = await res.json();
         const loaded: ProcurementSession[] = data.sessions || [];
         setSessions(loaded);
+        setActiveSession((current) => {
+          if (!current) return current;
+          return loaded.find((s) => s.id === current.id) || current;
+        });
         return loaded;
       }
     } catch (err) {
@@ -160,6 +164,22 @@ export default function Home() {
 
   const navigateToScreen = useCallback((screen: NavScreen, sessionId?: string) => {
     setCurrentScreen(screen);
+    // When intentionally navigating to sourcing without an explicit sessionId, start fresh
+    if (screen === "sourcing" && !sessionId) {
+      setActiveSession(undefined);
+      setArenaSessionId(undefined);
+      setArenaMandate(undefined);
+      setArenaQuotes([]);
+      setStreamEvents([]);
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("screen", screen);
+        url.searchParams.delete("sessionId");
+        window.history.replaceState({}, "", url.toString());
+      }
+      return;
+    }
+
     const targetSessionId = sessionId || arenaSessionId || activeSession?.id;
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
@@ -193,7 +213,8 @@ export default function Home() {
       if (sessionParam) {
         matchedSession = loaded.find((s) => s.id === sessionParam);
       }
-      if (!matchedSession && loaded.length > 0) {
+      // Only default to first session if not intentionally on sourcing screen
+      if (!matchedSession && loaded.length > 0 && screenParam !== "sourcing") {
         matchedSession = loaded[0];
       }
 
@@ -475,12 +496,14 @@ export default function Home() {
       )}
 
       {currentScreen === "vault" && (
-        <EvidenceVaultScreen session={activeSession || (sessions.length > 0 ? sessions[0] : undefined)} />
+        <EvidenceVaultScreen
+          session={activeSession || (arenaSessionId ? sessions.find((s) => s.id === arenaSessionId) : undefined) || (sessions.length > 0 ? sessions[0] : undefined)}
+        />
       )}
 
       {currentScreen === "settlement" && (
         <SettlementCenterScreen
-          session={activeSession || (sessions.length > 0 ? sessions[0] : undefined)}
+          session={activeSession || (arenaSessionId ? sessions.find((s) => s.id === arenaSessionId) : undefined) || (sessions.length > 0 ? sessions[0] : undefined)}
           onRefreshSession={refreshSessions}
           onStartNewNegotiation={() => navigateToScreen("sourcing")}
           onSelectSessionHistory={() => navigateToScreen("history")}

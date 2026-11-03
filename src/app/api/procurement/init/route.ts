@@ -96,8 +96,8 @@ export async function POST(req: NextRequest) {
         if (!Number.isInteger(r) || r < 0) errors.push("minReturnDays must be an integer >= 0");
 
         const curr = (rawMandate.currency || currency || "USD").toUpperCase();
-        if (curr !== "USD" && curr !== "EUR" && curr !== "GBP") {
-          errors.push(`Unsupported currency '${curr}'. Must be USD, EUR, or GBP.`);
+        if (curr !== "USD" && curr !== "EUR" && curr !== "GBP" && curr !== "INR") {
+          errors.push(`Unsupported currency '${curr}'. Must be USD, INR, EUR, or GBP.`);
         }
 
         if (errors.length > 0) {

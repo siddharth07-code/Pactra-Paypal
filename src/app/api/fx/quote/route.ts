@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
     let body: {
       sessionId?: string;
       rateSource?: FXRateSource;
+      renew?: boolean;
     };
     try {
       body = await req.json();
@@ -143,14 +144,17 @@ export async function POST(req: NextRequest) {
         }
 
         if (session.fxRecord?.status === "LOCKED") {
-          if (session.fxRecord.rateSource !== providerSource) return { status: 409, body: { success: false, code: "FX_MODE_CONFLICT", error: "The locked quote uses a different rate source. It remains unchanged and requires explicit review." } };
-          try {
-            validateFxQuote(session.fxRecord);
-            if (session.fxRecord.agreementHash !== agreementHash) throw new Error("Locked quote agreement mismatch.");
-            const fxAudit = auditFxSettlement({ session, fxRecord: session.fxRecord });
-            if (!fxAudit.passed) throw new Error("Locked quote verification failed.");
-            return { status: 200, body: { success: true, fxRecord: session.fxRecord, fxVerification: { ...fxAudit, conversionHash: session.fxRecord.conversionHash, agreementHash: session.fxRecord.agreementHash } } };
-          } catch { return { status: 409, body: { success: false, error: "Locked FX quote is invalid; explicit review required. Rate was not refreshed." } }; }
+          if (!body.renew) {
+            if (session.fxRecord.rateSource !== providerSource) return { status: 409, body: { success: false, code: "FX_MODE_CONFLICT", error: "The locked quote uses a different rate source. It remains unchanged and requires explicit review." } };
+            try {
+              validateFxQuote(session.fxRecord);
+              if (session.fxRecord.agreementHash !== agreementHash) throw new Error("Locked quote agreement mismatch.");
+              const fxAudit = auditFxSettlement({ session, fxRecord: session.fxRecord });
+              if (!fxAudit.passed) throw new Error("Locked quote verification failed.");
+              return { status: 200, body: { success: true, fxRecord: session.fxRecord, fxVerification: { ...fxAudit, conversionHash: session.fxRecord.conversionHash, agreementHash: session.fxRecord.agreementHash } } };
+            } catch { return { status: 409, body: { success: false, error: "Locked FX quote is invalid; explicit review required. Rate was not refreshed." } }; }
+          }
+          // Explicit renewal (body.renew === true): proceed below to renew quote for eligible active session
         }
 
         // Obtain provider
