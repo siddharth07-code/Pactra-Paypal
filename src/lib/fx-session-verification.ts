@@ -12,10 +12,12 @@ export function verifyFxCommercialSession(session: ProcurementSession): string |
   const freshness = AcworldAuditor.verifyCertificateFreshness(certificate, session, certificate.verifiedRoot);
   if (!freshness.valid) return freshness.reason;
   if (session.flightRecord) {
+    if (session.flightRecord.sessionId !== session.id) {
+      return "Commercial certificate root is not part of the authoritative evidence history.";
+    }
     const events = session.flightRecord.events;
     const matchesChain = events.some((_, index) => verifyFlightRecorderChain(events.slice(0, index + 1), session.id, certificate.verifiedRoot).valid);
-    const matchesMerkle = certificate.verifiedRoot === session.merkleRoot || certificate.verifiedRoot === session.preSettlementRoot;
-    if (session.flightRecord.sessionId !== session.id || (!matchesChain && !matchesMerkle)) {
+    if (!matchesChain) {
       return "Commercial certificate root is not part of the authoritative evidence history.";
     }
   }
