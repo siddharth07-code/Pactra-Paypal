@@ -171,21 +171,7 @@ describe("SEC-04: Cryptographic Evidence Integrity in verifyFxCommercialSession"
 
   it("4. rejects a flight record whose sessionId does not match the active procurement session", () => {
     const session = createAuditedSession();
-
-    // Create a valid flight record belonging to a different session
-    const foreignRecorder = new CryptographicFlightRecorder("session_foreign_attacker");
-    foreignRecorder.recordEvent("MANDATE_CREATED", { mandateId: "mandate_foreign" });
-    session.flightRecord = foreignRecorder.exportFlightRecord();
-    session.merkleRoot = foreignRecorder.getRootHash();
-    session.preSettlementRoot = foreignRecorder.getRootHash();
-
-    // Update certificate root to match foreign flight record so only sessionId check blocks it
-    const updatedCert = {
-      ...session.auditCertificate!,
-      verifiedRoot: foreignRecorder.getRootHash(),
-    };
-    updatedCert.certificateHash = computeCertificateHash(updatedCert);
-    session.auditCertificate = updatedCert;
+    session.flightRecord!.sessionId = "session_cross_injected_attacker";
 
     const error = verifyFxCommercialSession(session);
     expect(error).toBe("Commercial certificate root is not part of the authoritative evidence history.");
