@@ -16,6 +16,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronSecret, defaultCronCoordinator } from "@/lib/cron-coordinator";
 import { defaultRateLimiter } from "@/lib/rate-limiter";
+import { database } from "@/lib/db/client";
+import { authFailure } from "@/lib/auth/http";
 import { sessionStore } from "@/lib/session-store";
 import { settlementLogger } from "@/lib/settlement-logger";
 
@@ -37,6 +39,12 @@ async function handleHealthCheck(req: NextRequest) {
     );
   }
 
+  if (process.env.NODE_ENV !== "test" || process.env.PACTUM_DATABASE_TESTS === "1") {
+    try {
+      const rows = await database(true).$queryRaw<{ status: string; total: bigint }[]>`SELECT * FROM pactum.operational_health()`;
+      return NextResponse.json({ success: true, persistence: { adapter: "PostgreSQL" }, sessionsByStatus: Object.fromEntries(rows.map(row => [row.status, row.total.toString()])) }, { headers: { "Cache-Control": "no-store" } });
+    } catch (error) { return authFailure(error); }
+  }
   // 3. Compile safe operational report without external AI calls
   const report = defaultCronCoordinator.getHealthReport();
   const persistenceAdapter = sessionStore.getAdapter().constructor.name;
