@@ -1,3 +1,4 @@
+import { withBusinessRoute } from "@/lib/db/business-route";
 import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — PayPal Cancel API Route
@@ -10,7 +11,7 @@ import { NextRequest } from "next/server";
 import { SettlementService } from "@/lib/settlement-service";
 import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const accessDenied = await requireBusinessAccess(req);
   if (accessDenied) return accessDenied;
 
@@ -60,3 +61,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withBusinessRoute("payment.cancel", handlePOST);
