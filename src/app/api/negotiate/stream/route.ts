@@ -1,3 +1,4 @@
+import { withBusinessRoute } from "@/lib/db/business-route";
 import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — Server-Sent Events (SSE) Negotiation Stream Route
@@ -31,7 +32,7 @@ const activeRunningSessions = new Set<string>();
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const accessDenied = await requireBusinessAccess(req);
   if (accessDenied) return accessDenied;
 
@@ -344,3 +345,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withBusinessRoute("negotiation.start", handlePOST);
