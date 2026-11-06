@@ -14,6 +14,8 @@
  */
 
 import crypto from "crypto";
+import { minor } from "./db/codec";
+import { requestScope } from "./persistence/request-scope";
 import { sessionStore } from "./session-store";
 import { CryptographicFlightRecorder } from "./flight-recorder";
 import type {
@@ -470,8 +472,14 @@ export class DisputeService {
           }
 
           const captured = targetSession.captureAmount;
-          const agreed = agreement.totalCost;
-          if (captured !== undefined && Math.abs(captured - agreed) > 0.01) {
+          const agreed = targetSession.fxRecord ? targetSession.fxRecord.targetAmountMinor / 100 : agreement.totalCost;
+          if (captured === undefined) {
+            claimEvaluation = "INSUFFICIENT_EVIDENCE"; resolutionStatus = "INSUFFICIENT_EVIDENCE"; recommendedAction = "REQUIRE_HUMAN_REVIEW";
+            rationale = "No verified capture amount exists; missing evidence cannot establish settlement equality.";
+            invariants.push({ invariant: "CAPTURE_AMOUNT_EQUALITY", passed: false, details: "Capture amount missing." });
+            break;
+          }
+          if (minor(captured) !== minor(agreed)) {
             claimEvaluation = "BREACH_VERIFIED";
             resolutionStatus = "VERIFIED";
             recommendedAction = "RECOMMEND_FULL_REFUND";
@@ -525,6 +533,14 @@ export class DisputeService {
       }
     }
 
+    // API observations are assertions, not independently authenticated supplier/carrier facts.
+    // Existing offline domain simulations remain available; database-mode decisions require provenance.
+    if (requestScope() && externalEvidence && Object.keys(externalEvidence).length && !["SETTLEMENT_MISMATCH", "EVIDENCE_INTEGRITY_FAILURE"].includes(dispute.category)) {
+      claimEvaluation = "INSUFFICIENT_EVIDENCE"; resolutionStatus = "INSUFFICIENT_EVIDENCE";
+      recommendedAction = "REQUIRE_HUMAN_REVIEW";
+      rationale = "Caller-supplied observations have not been independently verified. Local evidence packaging does not authenticate real-world facts.";
+      invariants.splice(0, invariants.length, { invariant: "EXTERNAL_PROVENANCE", passed: false, details: "Unverified caller observation; human review required." });
+    }
     if (claimEvaluation === "INSUFFICIENT_EVIDENCE" && evidenceIntegrity === "VALID") {
       evidenceIntegrity = "INSUFFICIENT";
     }

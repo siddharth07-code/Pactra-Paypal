@@ -5,6 +5,7 @@ import type { ProcurementSession } from "@/types/pactum";
 
 /** The commercial certificate may predate appended FX events, but must commit to a verified prefix. */
 export function verifyFxCommercialSession(session: ProcurementSession): string | undefined {
+  if (session.flightRecord && session.flightRecord.sessionId !== session.id) return "Commercial certificate root is not part of the authoritative evidence history.";
   const eligibility = evaluateSettlementEligibility(session, { requireFx: false });
   if (!eligibility.eligible) return eligibility.blockers.join("; ");
   if (!session.agreementRecord || !session.auditCertificate) return "A current authoritative agreement and commercial certificate are required.";
