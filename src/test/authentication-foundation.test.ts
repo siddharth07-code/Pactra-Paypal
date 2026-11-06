@@ -276,6 +276,43 @@ describe("private pages and independent machine endpoints", () => {
     expect((await middleware(request(path))).headers.get("x-middleware-next")).toBe("1");
     expect(createServerClient).not.toHaveBeenCalled();
   });
+  it("serves a friendly HTML error page for browser navigation when authentication is not configured", async () => {
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
+    const htmlReq = new NextRequest("https://pactum.example/", {
+      headers: { Accept: "text/html,application/xhtml+xml" },
+    });
+    const response = await middleware(htmlReq);
+    expect(response.status).toBe(503);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    const text = await response.text();
+    expect(text).toContain("PACTUM");
+    expect(text).toContain("AUTH_NOT_CONFIGURED");
+  });
+  it("serves raw JSON for non-HTML/API callers when authentication is not configured", async () => {
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
+    const jsonReq = new NextRequest("https://pactum.example/", {
+      headers: { Accept: "application/json" },
+    });
+    const response = await middleware(jsonReq);
+    expect(response.status).toBe(503);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    const json = await response.json();
+    expect(json.error.code).toBe("AUTH_NOT_CONFIGURED");
+  });
+});
+
+describe("configuration resilience and normalization", () => {
+  it("normalizes quoted environment variables and handles NEXT_PUBLIC fallbacks", () => {
+    const config = authConfiguration({
+      NEXT_PUBLIC_SUPABASE_URL: '"https://project.supabase.co/rest/v1/"',
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: '"sb_publishable_quoted_fallback_key"',
+      NODE_ENV: "development",
+    });
+    expect(config.url).toBe("https://project.supabase.co");
+    expect(config.key).toBe("sb_publishable_quoted_fallback_key");
+    expect(config.origin).toBe("http://localhost:3000");
+    expect(config.secure).toBe(false);
+  });
 });
 
 describe("business APIs fail closed independently of middleware", () => {
