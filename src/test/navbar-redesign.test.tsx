@@ -94,27 +94,53 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     );
   });
 
-  it("does not display a fake Live indicator when isNegotiating is false", () => {
-    renderNavbar("arena", false);
+  it("does not render decorative LIVE badge in the navigation bar", () => {
+    renderNavbar("arena", true);
 
-    // Should not have "Live" indicator
     expect(screen.queryByText("Live")).not.toBeInTheDocument();
     expect(
       screen.queryByLabelText(/Active autonomous negotiation streaming/i)
     ).not.toBeInTheDocument();
   });
 
-  it("displays real Live status indicator when isNegotiating is true", () => {
-    renderNavbar("arena", true);
-
-    // Live status badge should be present and accessible
-    const liveBadges = screen.getAllByText("Live");
-    expect(liveBadges.length).toBeGreaterThanOrEqual(1);
-
-    const liveIndicator = screen.getByLabelText(
-      /Active autonomous negotiation streaming/i
+  it("does not render session ID or budget in the header", () => {
+    render(
+      <ThemeProvider>
+        <AppShell
+          currentScreen="overview"
+          onNavigate={onNavigateMock}
+          activeSessionId="proc_sess_12345"
+          activeBudgetString="$8,500.00"
+        >
+          <div>Content</div>
+        </AppShell>
+      </ThemeProvider>
     );
-    expect(liveIndicator).toBeInTheDocument();
+    expect(screen.queryByText("proc_sess_12345")).not.toBeInTheDocument();
+    expect(screen.queryByText("$8,500.00")).not.toBeInTheDocument();
+  });
+
+  it("does not render thick orange underline for active navigation items", () => {
+    const { container } = renderNavbar("overview");
+    const orangeUnderline = container.querySelector(".bg-ember-orange.rounded-full");
+    expect(orangeUnderline).not.toBeInTheDocument();
+  });
+
+  it("renders functional account control menu with dismissal", () => {
+    renderNavbar("overview");
+    const accountBtn = screen.getByRole("button", { name: /Account and organization menu/i });
+    expect(accountBtn).toBeInTheDocument();
+    expect(accountBtn).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(accountBtn);
+    expect(accountBtn).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("menu", { name: /Account options/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Account & Workspace/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Sign out/i })).toBeInTheDocument();
+
+    // Dismiss with Escape key
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("menu", { name: /Account options/i })).not.toBeInTheDocument();
   });
 
   it("integrates compact interactive ThemeToggle switching between Light and Dark", () => {
