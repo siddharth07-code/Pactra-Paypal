@@ -4,7 +4,7 @@ import { SettlementService } from "@/lib/settlement-service";
 import { sessionStore } from "@/lib/session-store";
 import type { ProcurementSession } from "@/types/pactum";
 
-if (typeof process.loadEnvFile === "function") {
+if (process.env.PACTUM_LIVE_TESTS === "1" && typeof process.loadEnvFile === "function") {
   try {
     process.loadEnvFile();
   } catch {
@@ -13,7 +13,7 @@ if (typeof process.loadEnvFile === "function") {
 }
 
 describe("Live PayPal Sandbox Integration Tests", () => {
-  const hasCredentials = Boolean(
+  const hasCredentials = process.env.PACTUM_LIVE_TESTS === "1" && Boolean(
     process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET
   );
 
