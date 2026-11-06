@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle, BackToTopButton } from "./SharedUI";
 import Link from "next/link";
+import { useOrganization } from "./OrganizationBoundary";
 
 export type NavScreen =
   | "overview"
@@ -62,6 +63,7 @@ export function AppShell({
     };
   }, [mobileMenuOpen]);
 
+  const organization = useOrganization();
   const navItems = [
     { id: "overview", label: "Overview", icon: Compass },
     { id: "sourcing", label: "Sourcing", icon: Search },
@@ -69,7 +71,10 @@ export function AppShell({
     { id: "vault", label: "Evidence Vault", icon: ShieldCheck },
     { id: "settlement", label: "Settlement Center", icon: CreditCard },
     { id: "history", label: "Procurement History", icon: Clock },
-  ];
+  ].filter(item => !organization || item.id === "overview" || item.id === "history" ||
+    ((item.id === "sourcing" || item.id === "arena") && organization.permissions.includes("session.write")) ||
+    (item.id === "vault" && organization.permissions.includes("evidence.read")) ||
+    (item.id === "settlement" && organization.permissions.includes("payment.checkout")));
 
   return (
     <div className="min-h-screen flex flex-col bg-page-bg text-text-primary font-sans transition-colors duration-150">

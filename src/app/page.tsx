@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { OrganizationBoundary } from "@/components/OrganizationBoundary";
 import { AppShell, NavScreen } from "@/components/AppShell";
 import { OverviewScreen } from "@/components/OverviewScreen";
 import { SourcingScreen } from "@/components/SourcingScreen";
@@ -128,7 +129,7 @@ function convertSessionTurnsToStreamEvents(session: ProcurementSession): StreamE
   return events;
 }
 
-export default function Home() {
+function Home() {
   const [currentScreen, setCurrentScreen] = useState<NavScreen>("overview");
   const [sessions, setSessions] = useState<ProcurementSession[]>([]);
   const [activeSession, setActiveSession] = useState<ProcurementSession | undefined>(undefined);
@@ -521,3 +522,5 @@ export default function Home() {
     </AppShell>
   );
 }
+
+export default function Page() { return <OrganizationBoundary><Home /></OrganizationBoundary>; }
