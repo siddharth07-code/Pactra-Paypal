@@ -1,3 +1,7 @@
+// This suite exercises domain behavior; real authentication/RLS boundaries have separate adversarial tests.
+vi.mock("@/lib/db/business-route", () => ({ withBusinessRoute: (_permission: unknown, handler: unknown) => handler }));
+vi.mock("@/lib/auth/business-access", () => ({ requireBusinessAccess: vi.fn().mockResolvedValue(null) }));
+import { vi } from "vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { POST } from "./route";
 import { NextRequest } from "next/server";

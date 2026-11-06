@@ -1,3 +1,4 @@
+import { withBusinessRoute } from "@/lib/db/business-route";
 import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — Mandate Parse, Intelligence & Sourcing Route
@@ -21,7 +22,7 @@ import type { ProcurementMandate, CurrencyCode } from "@/types/pactum";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const accessDenied = await requireBusinessAccess(req);
   if (accessDenied) return accessDenied;
 
@@ -244,3 +245,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withBusinessRoute("session.write", handlePOST);
