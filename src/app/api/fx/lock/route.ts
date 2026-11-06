@@ -1,3 +1,4 @@
+import { withBusinessRoute } from "@/lib/db/business-route";
 import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — FX Settlement Lock Route
@@ -21,7 +22,7 @@ import {
 } from "@/lib/idempotency";
 import { CryptographicFlightRecorder } from "@/lib/flight-recorder";
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const accessDenied = await requireBusinessAccess(req);
   if (accessDenied) return accessDenied;
 
@@ -274,3 +275,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withBusinessRoute("fx.manage", handlePOST);
