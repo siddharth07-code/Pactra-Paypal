@@ -1,4 +1,5 @@
 import "server-only";
+import { projectVerifiedLocalIdentity } from "@/lib/auth/local-identity";
 import type { AuthContext } from "@/lib/auth/supabase-server";
 import { requireAuthenticatedUser, type AuthenticatedPrincipal } from "@/lib/auth/principal";
 import { AuthError, authConfiguration, providerError } from "@/lib/auth/config";
@@ -15,7 +16,9 @@ export async function requireVerifiedSession(context: AuthContext): Promise<Veri
   providerError(error);
   const claims = data?.claims;
   if (!claims || claims.sub !== principal.userId || claims.iss !== `${authConfiguration().url}/auth/v1` || claims.aud !== "authenticated" || !isUuid(claims.session_id)) throw new AuthError(401, "AUTH_REQUIRED", "A verified authentication session is required.");
-  return Object.freeze({ ...principal, authSessionId: claims.session_id });
+  const verified = Object.freeze({ ...principal, authSessionId: claims.session_id });
+  await projectVerifiedLocalIdentity(verified, claims.exp);
+  return verified;
 }
 
 export async function identityContext(tx: Transaction, principal: VerifiedPrincipal) {
