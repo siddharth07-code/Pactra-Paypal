@@ -7,15 +7,29 @@ export class AuthError extends Error {
   }
 }
 
+function cleanEnv(val: string | undefined): string | undefined {
+  if (typeof val !== "string") return undefined;
+  const trimmed = val.trim();
+  if (!trimmed) return undefined;
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1).trim() || undefined;
+  }
+  return trimmed;
+}
+
 export function authConfiguration(env: Record<string, string | undefined> = process.env) {
   try {
-    const url = new URL(env.SUPABASE_URL ?? "");
-    const origin = new URL(env.APP_ORIGIN ?? "");
-    const key = env.SUPABASE_PUBLISHABLE_KEY ?? "";
+    const rawUrl = cleanEnv(env.SUPABASE_URL) ?? cleanEnv(env.NEXT_PUBLIC_SUPABASE_URL) ?? "";
+    const rawOrigin = cleanEnv(env.APP_ORIGIN) ?? (env.NODE_ENV !== "production" ? "http://localhost:3000" : "");
+    const rawKey = cleanEnv(env.SUPABASE_PUBLISHABLE_KEY) ?? cleanEnv(env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) ?? "";
+
+    const url = new URL(rawUrl);
+    const origin = new URL(rawOrigin);
+    const key = rawKey;
     const local = (value: URL) => env.NODE_ENV !== "production" &&
       value.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(value.hostname);
     if ((url.protocol !== "https:" && !local(url)) || (origin.protocol !== "https:" && !local(origin)) ||
-      url.username || url.password || url.search || url.hash || url.pathname !== "/" ||
+      url.username || url.password || url.search || url.hash ||
       origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash ||
       !/^sb_publishable_[A-Za-z0-9_-]{10,}$/.test(key)) throw new Error();
     return { url: url.origin, origin: origin.origin, key, secure: origin.protocol === "https:" };
