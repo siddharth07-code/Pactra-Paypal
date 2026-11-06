@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { ThemeToggle, BackToTopButton } from "./SharedUI";
+import Link from "next/link";
 
 export type NavScreen =
   | "overview"
@@ -177,6 +178,7 @@ export function AppShell({
 
           {/* ZONE 3 — RIGHT: CONTEXT PILL & CONTROLS */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            <Link href="/account" className="text-xs text-secondary hover:underline">Account</Link>
             {/* Active Session Indicator Pill if active */}
             {activeSessionId && (
               <div

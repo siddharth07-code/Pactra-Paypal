@@ -1,3 +1,4 @@
+import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — Server-Sent Events (SSE) Negotiation Stream Route
  * Endpoint: /api/negotiate/stream
@@ -31,6 +32,9 @@ const activeRunningSessions = new Set<string>();
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const accessDenied = await requireBusinessAccess(req);
+  if (accessDenied) return accessDenied;
+
   // Enforce rate limiting before opening the SSE stream
   const rateLimit = await defaultRateLimiter.check(req, "NEGOTIATION_STREAM");
   if (!rateLimit.allowed) {

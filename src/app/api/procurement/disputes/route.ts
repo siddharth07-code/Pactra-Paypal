@@ -1,3 +1,4 @@
+import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — Disputes API Route
  * Endpoint: /api/procurement/disputes
@@ -16,6 +17,9 @@ import type { DisputeCategory } from "@/types/pactum";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const accessDenied = await requireBusinessAccess(req);
+  if (accessDenied) return accessDenied;
+
   const rateLimit = await defaultRateLimiter.checkLimit(req, "DISPUTE_OPS");
   if (!rateLimit.allowed) {
     return createRateLimitResponse(rateLimit);
@@ -65,6 +69,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const accessDenied = await requireBusinessAccess(req);
+  if (accessDenied) return accessDenied;
+
   const rateLimit = await defaultRateLimiter.checkLimit(req, "DISPUTE_OPS");
   if (!rateLimit.allowed) {
     return createRateLimitResponse(rateLimit);

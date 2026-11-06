@@ -5,6 +5,8 @@
  * Follows GEMINI.md Section 10, 13, SECURITY.md Section 1, 3, and Phase 5 specifications.
  */
 
+import { authConfiguration } from "./auth/config";
+
 export interface ConfigValidationResult {
   valid: boolean;
   isValid: boolean;
@@ -67,6 +69,9 @@ export function validateConfiguration(
 
   // Production security checks
   if (environment === "production") {
+    try { authConfiguration(env); } catch {
+      errors.push("SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, and HTTPS APP_ORIGIN must be configured for production authentication.");
+    }
     if (!paypalConfigured) {
       errors.push("PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET must be configured with authentic provider credentials in production (placeholder or mock credentials are prohibited).");
     }

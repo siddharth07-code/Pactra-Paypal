@@ -1,3 +1,4 @@
+import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — PayPal Cancel API Route
  * Endpoint: POST /api/paypal/cancel
@@ -10,6 +11,9 @@ import { SettlementService } from "@/lib/settlement-service";
 import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
 
 export async function POST(req: NextRequest) {
+  const accessDenied = await requireBusinessAccess(req);
+  if (accessDenied) return accessDenied;
+
   const rateLimit = await defaultRateLimiter.checkLimit(req, "PAYPAL_SETTLEMENT");
   if (!rateLimit.allowed) {
     return createRateLimitResponse(rateLimit);

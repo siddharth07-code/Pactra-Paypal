@@ -1,3 +1,4 @@
+import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — FX Settlement Quote Route
  * Endpoint: POST /api/fx/quote
@@ -27,6 +28,9 @@ import { configuredFxSource, FXProviderError } from "@/lib/fx-provider-config";
 import type { FXRateSource } from "@/types/pactum";
 
 export async function POST(req: NextRequest) {
+  const accessDenied = await requireBusinessAccess(req);
+  if (accessDenied) return accessDenied;
+
   const rateLimit = await defaultRateLimiter.checkLimit(req, "PAYPAL_SETTLEMENT");
   if (!rateLimit.allowed) {
     return createRateLimitResponse(rateLimit);

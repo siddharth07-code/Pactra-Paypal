@@ -1,3 +1,4 @@
+import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — PayPal Settlement Reconciliation API Route
  * Endpoint: POST /api/paypal/reconcile
@@ -13,6 +14,9 @@ import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter"
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const accessDenied = await requireBusinessAccess(req);
+  if (accessDenied) return accessDenied;
+
   const rateLimit = await defaultRateLimiter.checkLimit(req, "PAYPAL_SETTLEMENT");
   if (!rateLimit.allowed) {
     return createRateLimitResponse(rateLimit);

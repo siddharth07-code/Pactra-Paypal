@@ -1,3 +1,4 @@
+import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — Mandate Parse, Intelligence & Sourcing Route
  * Endpoint: POST /api/procurement/init
@@ -21,6 +22,9 @@ import type { ProcurementMandate, CurrencyCode } from "@/types/pactum";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const accessDenied = await requireBusinessAccess(req);
+  if (accessDenied) return accessDenied;
+
   try {
     const body = await req.json().catch(() => ({}));
     const { prompt, currency, rawMandate, analyzeOnly } = body;

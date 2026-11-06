@@ -1,3 +1,4 @@
+import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — Merkle Evidence Inspection Route
  * Endpoint: GET /api/procurement/evidence
@@ -13,6 +14,9 @@ import { defaultRateLimiter } from "@/lib/rate-limiter";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const accessDenied = await requireBusinessAccess(req);
+  if (accessDenied) return accessDenied;
+
   const rateLimit = await defaultRateLimiter.check(req, "EVIDENCE_READ");
   if (!rateLimit.allowed) {
     return rateLimit.response!;

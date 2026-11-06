@@ -1,4 +1,8 @@
 import "@testing-library/jest-dom";
+import { vi } from "vitest";
+
+// Next.js enforces this boundary in builds; Vitest must be able to exercise server modules.
+vi.mock("server-only", () => ({}));
 
 if (typeof window !== "undefined" && !window.matchMedia) {
   Object.defineProperty(window, "matchMedia", {

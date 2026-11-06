@@ -1,3 +1,4 @@
+import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — Procurement Sessions Read API Route
  * Endpoint: GET /api/procurement/sessions
@@ -12,6 +13,9 @@ import { defaultRateLimiter } from "@/lib/rate-limiter";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const accessDenied = await requireBusinessAccess(req);
+  if (accessDenied) return accessDenied;
+
   const rateLimit = await defaultRateLimiter.check(req, "EVIDENCE_READ");
   if (!rateLimit.allowed) {
     return rateLimit.response!;
@@ -37,6 +41,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const accessDenied = await requireBusinessAccess(req);
+  if (accessDenied) return accessDenied;
+
   const rateLimit = await defaultRateLimiter.check(req, "MANDATE_ANALYZE");
   if (!rateLimit.allowed) {
     return rateLimit.response!;

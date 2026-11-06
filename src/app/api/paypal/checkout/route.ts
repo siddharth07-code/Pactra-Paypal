@@ -1,3 +1,4 @@
+import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — PayPal Checkout Initiation Route
  * Endpoint: POST /api/paypal/checkout
@@ -16,6 +17,9 @@ import {
 } from "@/lib/idempotency";
 
 export async function POST(req: NextRequest) {
+  const accessDenied = await requireBusinessAccess(req);
+  if (accessDenied) return accessDenied;
+
   const rateLimit = await defaultRateLimiter.checkLimit(req, "PAYPAL_SETTLEMENT");
   if (!rateLimit.allowed) {
     return createRateLimitResponse(rateLimit);

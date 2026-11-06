@@ -22,6 +22,9 @@ export interface RateLimitPolicy {
 }
 
 export type RateLimitPolicyName =
+  | "AUTH_REGISTER"
+  | "AUTH_LOGIN"
+  | "AUTH_SESSION"
   | "SESSION_CREATE"
   | "MANDATE_ANALYZE"
   | "NEGOTIATION_STREAM"
@@ -34,6 +37,9 @@ export type RateLimitPolicyName =
 export type RateLimitOperation = RateLimitPolicyName;
 
 export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> = {
+  AUTH_REGISTER: { name: "AUTH_REGISTER", limit: 5, windowSeconds: 60, description: "Authentication registration" },
+  AUTH_LOGIN: { name: "AUTH_LOGIN", limit: 10, windowSeconds: 60, description: "Authentication login, logout, and confirmation" },
+  AUTH_SESSION: { name: "AUTH_SESSION", limit: 60, windowSeconds: 60, description: "Verified authentication session retrieval" },
   SESSION_CREATE: {
     name: "SESSION_CREATE",
     limit: 10,

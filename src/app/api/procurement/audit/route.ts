@@ -1,3 +1,4 @@
+import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — Independent ACWORLD Audit API Route
  * Endpoint: POST /api/procurement/audit
@@ -15,6 +16,9 @@ import { defaultRateLimiter } from "@/lib/rate-limiter";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const accessDenied = await requireBusinessAccess(req);
+  if (accessDenied) return accessDenied;
+
   const rateLimit = await defaultRateLimiter.check(req, "EVIDENCE_READ");
   if (!rateLimit.allowed) {
     return rateLimit.response!;

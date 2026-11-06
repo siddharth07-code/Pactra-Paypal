@@ -388,7 +388,7 @@ The interface should accurately represent the underlying application state rathe
 
 Install the following tools:
 
-- Node.js compatible with the project's dependencies
+- Node.js 22 or newer (required by the installed Supabase authentication SDK)
 - npm
 - Git
 
@@ -449,6 +449,19 @@ A command should only be run if the corresponding script exists in the repositor
 ---
 
 ## Environment Configuration
+
+### Stage 2B authentication foundation
+
+Configure `SUPABASE_URL`, a **publishable** `SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_...`), and the canonical `APP_ORIGIN`. Production requires HTTPS. Local development may use `http://localhost:3000`. Do not use a Supabase service-role or secret key. These settings are server-side; no browser Supabase auth client or localStorage token storage is used.
+
+In the Supabase dashboard, enable email confirmation, set Site URL to `APP_ORIGIN`, and allow `${APP_ORIGIN}/auth/callback` as a redirect. Keep the standard confirmation-link flow that returns a PKCE `code`; open confirmation links in the same browser used for registration so the HttpOnly PKCE verifier is available. Token-hash, OAuth, password-reset, and administrative invitation flows are not implemented in this stage.
+
+Use `/register`, `/login`, and `/account` (including logout). The server owns HttpOnly, host-only, SameSite=Lax cookies; Secure is required for HTTPS deployments. Verified session retrieval refreshes expiring tokens through the SSR SDK and propagates cookie updates. Authenticated responses are private and non-cacheable. POST authentication requests require a matching Origin and JSON body, with a 4096-byte limit. Registration requires a 12–128 character password. Authentication provider outages return 503 rather than false authentication success.
+
+**Business API access is intentionally disabled until tenant authorization is implemented.** Every procurement, negotiation, evidence, FX, dispute, and buyer PayPal handler independently rejects requests. A verified identity receives `TENANT_AUTHORIZATION_UNAVAILABLE`; it receives no organization or financial privileges. There is no development bypass or enable flag. PayPal webhooks and cron retain their own authentication and do not require user cookies. Do not expose existing live-enabled Sandbox test commands as part of routine authentication verification.
+
+This stage verifies identity with the Supabase Auth server; it does not implement the Stage 2A database-backed session-revocation check, application user provisioning, memberships, or RBAC. Those checks must be in place before enabling financial access. Configure trusted ingress/rate-limit identity and distributed limiting before a public deployment; existing anonymous rate-limit fallback behavior remains unchanged.
+
 
 The following names are illustrative. Always use the actual variable names defined in `.env.example` and referenced by the source code.
 
