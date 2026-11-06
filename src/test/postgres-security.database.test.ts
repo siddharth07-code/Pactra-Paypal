@@ -58,8 +58,8 @@ async function organization() {
   });
   return context;
 }
-function draft() {
-  return new AuthoritativeSessionStore(new MemorySessionPersistenceAdapter()).createSession({ id: randomUUID(), rawPrompt: "Buy monitors", itemQuery: "Monitors", quantity: 2, maxTotalBudget: 1000, maxDeliveryDays: 5, minReturnDays: 14, requiredSpecs: [], currency: "USD", createdAt: new Date().toISOString() });
+function draft(currency: "USD" | "INR" = "USD") {
+  return new AuthoritativeSessionStore(new MemorySessionPersistenceAdapter()).createSession({ id: randomUUID(), rawPrompt: "Buy monitors", itemQuery: "Monitors", quantity: 2, maxTotalBudget: 1000, maxDeliveryDays: 5, minReturnDays: 14, requiredSpecs: [], currency, createdAt: new Date().toISOString() });
 }
 async function member(context: OrganizationContext, role: Role) {
   const principal = await actor();
@@ -150,11 +150,11 @@ describe("restricted PostgreSQL roles and tenant transactions", () => {
   });
 });
 
-function agreementSession() {
-  const s = draft(), now = new Date().toISOString();
-  s.selectedQuote = { vendorId: "v", vendorName: "Vendor", sku: "MON", productTitle: "Monitor", initialUnitAsk: 500, currentUnitBid: 400, shippingCost: 0, deliveryDays: 3, returnDays: 30, condition: "NEW", status: "ACCEPTED", dataSource: "MOCK_CATALOG", currency: "USD" };
-  s.finalOffer = { unitPrice: 400, quantity: 2, shippingCost: 0, deliveryDays: 3, returnDays: 30, currency: "USD" };
-  s.agreementRecord = { agreementId: `agr_${s.id}`, sessionId: s.id, vendorId: "v", vendorName: "Vendor", sku: "MON", agreedPrice: 400, agreedOffer: { ...s.finalOffer }, totalCost: 800, currency: "USD", agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER", acceptingParty: "VENDOR", acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER", round: 3, mandateVersion: 1, acceptedAt: now };
+function agreementSession(currency: "USD" | "INR" = "USD") {
+  const s = draft(currency), now = new Date().toISOString();
+  s.selectedQuote = { vendorId: "v", vendorName: "Vendor", sku: "MON", productTitle: "Monitor", initialUnitAsk: 500, currentUnitBid: 400, shippingCost: 0, deliveryDays: 3, returnDays: 30, condition: "NEW", status: "ACCEPTED", dataSource: "MOCK_CATALOG", currency };
+  s.finalOffer = { unitPrice: 400, quantity: 2, shippingCost: 0, deliveryDays: 3, returnDays: 30, currency };
+  s.agreementRecord = { agreementId: `agr_${s.id}`, sessionId: s.id, vendorId: "v", vendorName: "Vendor", sku: "MON", agreedPrice: 400, agreedOffer: { ...s.finalOffer }, totalCost: 800, currency, agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER", acceptingParty: "VENDOR", acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER", round: 3, mandateVersion: 1, acceptedAt: now };
   s.mandate.minReturnDays = 30;
   const recorder = CryptographicFlightRecorder.getOrReconstitute(s); s.flightRecord = recorder.exportFlightRecord();
   s.merkleRoot = s.preSettlementRoot = recorder.getRootHash();
@@ -309,6 +309,18 @@ describe("capture concurrency and crash boundary", () => {
     expect(CryptographicFlightRecorder.fromSerialized(saved.flightRecord!).verifyIntegrity().valid).toBe(true);
     const rows = await admin.query('SELECT "amountMinor",currency,"captureId" FROM pactum."Settlement" WHERE "organizationId"=$1', [context.organizationId]);
     expect(rows.rows[0]).toMatchObject({ amountMinor: "80000", currency: "USD", captureId: responseId });
+    const verifier = vi.spyOn(authorization, "requireVerifiedSession").mockResolvedValue(context.principal);
+    try {
+      const { POST: open } = await import("@/app/api/procurement/disputes/route");
+      const { POST: packageEvidence } = await import("@/app/api/paypal/dispute/route");
+      const request = (route: string, body: unknown) => new NextRequest(`https://pactum.example${route}`, { method: "POST", headers: { "x-organization-id": context.organizationId, origin: "https://pactum.example", "content-type": "application/json" }, body: JSON.stringify(body) });
+      const opened = await open(request("/api/procurement/disputes", { sessionId: session.id, category: "SETTLEMENT_MISMATCH", description: "Verify local evidence packaging", refundRequested: false }));
+      expect(opened.status).toBe(201); const disputeId = (await opened.json()).dispute.disputeId;
+      const packaged = await packageEvidence(request("/api/paypal/dispute", { disputeId, submitToPayPal: true }));
+      expect(packaged.status).toBe(200); const body = await packaged.json();
+      expect(body.submissionStatus).toBe("EVIDENCE_PACKAGED_LOCAL_ONLY"); expect(body.paypalResponse.acknowledged).toBe(false);
+    } finally { verifier.mockRestore(); }
+
   });
   it("leaves a committed intent recoverable when persistence fails after provider success", async () => {
     const context = await organization(), session = agreementSession(), repo = new PrismaSessionRepository(context, "session.write"); await repo.save(session, null);
@@ -392,4 +404,73 @@ describe("legacy import tool against a disposable database", () => {
       expect(rows.rows).toHaveLength(1); expect(rows.rows[0].originalBytes.equals(bytes)).toBe(true);
     } finally { await rm(directory, { recursive: true, force: true }); }
   }, 30000);
+});
+
+describe("database-backed organization and INR procurement workflows", () => {
+  const request = (path: string, organizationId: string, body?: unknown) => new NextRequest(`https://pactum.example${path}`, { method: body ? "POST" : "GET", headers: { "x-organization-id": organizationId, origin: "https://pactum.example", "content-type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
+  it("onboards and switches organizations through the actual HTTP handlers", async () => {
+    const principal = await actor(), verifier = vi.spyOn(authorization, "requireVerifiedSession").mockResolvedValue(principal);
+    try {
+      const { POST: create, GET: list } = await import("@/app/api/organizations/route");
+      const { POST: select } = await import("@/app/api/organizations/switch/route");
+      const created = await create(request("/api/organizations", "", { name: "HTTP local workflow" }));
+      expect(created.status).toBe(201); const id = (await created.json()).organization.id;
+      const switched = await select(request("/api/organizations/switch", "", { organizationId: id }));
+      expect(switched.status).toBe(200); expect(switched.headers.get("set-cookie")).toContain("HttpOnly");
+      expect((await (await list(request("/api/organizations", id))).json()).active.role).toBe("OWNER");
+      expect((await select(request("/api/organizations/switch", "", { organizationId: randomUUID() }))).status).toBe(404);
+    } finally { verifier.mockRestore(); }
+  });
+  it("persists a new sourced procurement and mandate lock through HTTP", async () => {
+    const context = await organization(), verifier = vi.spyOn(authorization, "requireVerifiedSession").mockResolvedValue(context.principal);
+    const { Channel3Client, DETERMINISTIC_FIXTURE_QUOTES } = await import("@/lib/channel3-client");
+    const source = vi.spyOn(Channel3Client.prototype, "sourceQuotes").mockResolvedValue({ quotes: structuredClone(DETERMINISTIC_FIXTURE_QUOTES), isFixture: true, dataSource: "MOCK_CATALOG" });
+    try {
+      const { POST: init } = await import("@/app/api/procurement/init/route");
+      const { POST: mutate } = await import("@/app/api/procurement/sessions/route");
+      const response = await init(request("/api/procurement/init", context.organizationId, { rawMandate: { itemQuery: "monitors", quantity: 2, maxTotalBudget: 1000, currency: "USD", maxDeliveryDays: 5, minReturnDays: 14 } }));
+      expect(response.status).toBe(200); const body = await response.json();
+      const repo = new PrismaSessionRepository(context, "session.read");
+      expect((await repo.load(body.sessionId))[0].session.status).toBe("SOURCING");
+      const locked = await mutate(request("/api/procurement/sessions", context.organizationId, { sessionId: body.sessionId, action: "lock" }));
+      expect(locked.status).toBe(200); expect((await repo.load(body.sessionId))[0].session.mandate.isLocked).toBe(true);
+    } finally { verifier.mockRestore(); source.mockRestore(); }
+  });
+  it("persists INR FX quote, lock, authoritative verification and unchanged Merkle evidence", async () => {
+    vi.stubEnv("FX_PROVIDER", "DETERMINISTIC_DEMO");
+    const context = await organization(), session = agreementSession("INR"), repo = new PrismaSessionRepository(context, "session.write");
+    await repo.save(session, null);
+    const verifier = vi.spyOn(authorization, "requireVerifiedSession").mockResolvedValue(context.principal);
+    try {
+      const { POST: quote } = await import("@/app/api/fx/quote/route"); const { POST: lock } = await import("@/app/api/fx/lock/route");
+      const quoted = await quote(request("/api/fx/quote", context.organizationId, { sessionId: session.id }));
+      expect(quoted.status).toBe(200);
+      const [before] = await repo.load(session.id); expect(before.session.fxRecord?.status).toBe("QUOTED");
+      const hash = before.session.fxRecord!.conversionHash;
+      const locked = await lock(request("/api/fx/lock", context.organizationId, { sessionId: session.id, quoteId: before.session.fxRecord!.id }));
+      expect(locked.status).toBe(200);
+      const saved = (await repo.load(session.id))[0].session;
+      expect(saved.fxRecord?.conversionHash).toBe(hash); expect(saved.fxRecord?.status).toBe("LOCKED"); expect(saved.fxVerification?.passed).toBe(true);
+      expect(saved.agreementRecord?.currency).toBe("INR"); expect(CryptographicFlightRecorder.fromSerialized(saved.flightRecord!).verifyIntegrity().valid).toBe(true);
+      const { GET: evidence } = await import("@/app/api/procurement/evidence/route");
+      expect((await evidence(request(`/api/procurement/evidence?sessionId=${session.id}`, context.organizationId))).status).toBe(200);
+    } finally { verifier.mockRestore(); vi.unstubAllEnvs(); }
+  });
+});
+
+describe("negotiation checkpoint persistence", () => {
+  it("persists deterministic negotiation checkpoints without Gemini or long-running database transactions", async () => {
+    const context = await organization(), session = draft(), repo = new PrismaSessionRepository(context, "session.write");
+    const { DETERMINISTIC_FIXTURE_QUOTES } = await import("@/lib/channel3-client");
+    const { GeminiNegotiationClient } = await import("@/lib/gemini-client");
+    const { NegotiationOrchestrator } = await import("@/lib/negotiation-orchestrator");
+    session.quotes = structuredClone(DETERMINISTIC_FIXTURE_QUOTES); session.status = "SOURCING";
+    await repo.save(session, null);
+    const scope = workspaceScope(context, "negotiation.start", await repo.load(session.id));
+    const orchestrator = new NegotiationOrchestrator({ geminiClient: new GeminiNegotiationClient({ apiKey: "" }), maxRounds: 2 });
+    await withRequestScope(scope, () => orchestrator.runNegotiation(session.mandate, session.quotes, session.id));
+    const saved = (await repo.load(session.id))[0].session;
+    expect(saved.version).toBeGreaterThan(session.version!); expect(saved.turns.length).toBeGreaterThan(0);
+    expect(CryptographicFlightRecorder.fromSerialized(saved.flightRecord!).verifyIntegrity().valid).toBe(true);
+  });
 });
