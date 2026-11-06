@@ -4,6 +4,7 @@ import { defaultRateLimiter } from "@/lib/rate-limiter";
 import { AuthError, authConfiguration, providerError, safeDestination } from "./config";
 import { authFailure, boundedJson, credentials, requireSameOrigin } from "./http";
 import { createAuthContext, type AuthContext } from "./supabase-server";
+import { localIdentityProjectionEnabled, revokeVerifiedLocalIdentity } from "./local-identity";
 import { requireAuthenticatedUser } from "./principal";
 
 type AuthAction = "register" | "login" | "logout" | "session";
@@ -40,6 +41,10 @@ export async function handleAuth(request: NextRequest, action: AuthAction): Prom
       return context.finish(NextResponse.json({ success: true, principal, redirectTo: destination }));
     }
     if (action === "logout") {
+      if (localIdentityProjectionEnabled()) {
+        const { requireVerifiedSession } = await import("@/lib/db/authorization");
+        await revokeVerifiedLocalIdentity(await requireVerifiedSession(context));
+      }
       const { error } = await context.client.auth.signOut({ scope: "local" });
       providerError(error);
       context.clearCookies();
