@@ -1,15 +1,412 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  output = "../src/generated/prisma"
 }
-
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  schemas = ["pactum"]
+  url = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  PROCUREMENT_MANAGER
+  FINANCE_MANAGER
+  VIEWER
+  @@schema("pactum")
+}
+
+enum MembershipStatus {
+  ACTIVE
+  REVOKED
+  @@schema("pactum")
+}
+
+enum SessionStatus {
+  MANDATE_PENDING
+  SOURCING
+  NEGOTIATING
+  AUDIT_PENDING
+  AUDIT_PASSED
+  AUDIT_FAILED
+  AWAITING_PAYPAL_APPROVAL
+  PAYPAL_AUTHORIZED
+  PAYPAL_CAPTURED
+  SETTLED
+  CANCELLED
+  CAPTURE_PENDING_RECONCILIATION
+  DISPUTED
+  @@schema("pactum")
+}
+
+enum OperationStatus {
+  INTENT_RECORDED
+  SUBMITTING
+  SUCCEEDED
+  FAILED
+  UNCERTAIN
+  @@schema("pactum")
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  QUARANTINED
+  @@schema("pactum")
+}
+
+enum FxStatus {
+  QUOTED
+  LOCKED
+  EXPIRED
+  CONSUMED
+  @@schema("pactum")
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  authId String @unique @db.Uuid
+  disabledAt DateTime? @db.Timestamptz(6)
+  memberships OrganizationMembership[]
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+
+  @@schema("pactum")
+}
+
+model Organization {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  createdBy String? @db.Uuid
+  slug String @unique
+  suspendedAt DateTime? @db.Timestamptz(6)
+  organizationMemberships OrganizationMembership[]
+  organizationInvitations OrganizationInvitation[]
+  procurementSessions ProcurementSession[]
+  idempotencyRecords IdempotencyRecord[]
+  webhookEvents WebhookEvent[]
+  migrationSourceRecords MigrationSourceRecord[]
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+
+  @@schema("pactum")
+}
+
+model OrganizationMembership {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  userId String @db.Uuid
+  role OrganizationRole
+  status MembershipStatus @default(ACTIVE)
+  revokedAt DateTime? @db.Timestamptz(6)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+  @@schema("pactum")
+}
+
+model OrganizationInvitation {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  email String
+  role OrganizationRole
+  tokenHash String @unique @db.VarChar(64)
+  invitedBy String @db.Uuid
+  acceptedBy String? @db.Uuid
+  expiresAt DateTime @db.Timestamptz(6)
+  acceptedAt DateTime? @db.Timestamptz(6)
+  revokedAt DateTime? @db.Timestamptz(6)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@index([organizationId, email, expiresAt])
+  @@schema("pactum")
+}
+
+model ProcurementSession {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  publicId String @unique
+  createdBy String? @db.Uuid
+  status SessionStatus
+  snapshot Bytes
+  financialBlockReason String?
+  preSettlementRoot String? @db.VarChar(64)
+  postAuditRoot String? @db.VarChar(64)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  mandateRevisions MandateRevision[]
+  agreements Agreement[]
+  fxCommitments FxCommitment[]
+  financialOperations FinancialOperation[]
+  settlements Settlement[]
+  disputes Dispute[]
+  webhookEvents WebhookEvent[]
+  evidenceRecords EvidenceRecord[]
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@unique([id, organizationId])
+  @@unique([publicId, organizationId])
+  @@index([organizationId, updatedAt, id])
+  @@index([organizationId, status])
+  @@schema("pactum")
+}
+
+model MandateRevision {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  sessionId String @db.Uuid
+  session ProcurementSession @relation(fields: [sessionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  revision Int
+  currency String @db.VarChar(3)
+  budgetMinor BigInt
+  quantity BigInt
+  canonicalBytes Bytes
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@unique([sessionId, organizationId, revision])
+  @@schema("pactum")
+}
+
+model Agreement {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  sessionId String @db.Uuid
+  session ProcurementSession @relation(fields: [sessionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  publicId String @unique
+  mandateRevision Int
+  currency String @db.VarChar(3)
+  unitPriceMinor BigInt
+  shippingMinor BigInt
+  totalMinor BigInt
+  quantity BigInt
+  agreementHash String @db.VarChar(64)
+  canonicalBytes Bytes
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@unique([id, organizationId, sessionId])
+  @@schema("pactum")
+}
+
+model FxCommitment {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  sessionId String @db.Uuid
+  session ProcurementSession @relation(fields: [sessionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  publicId String @unique
+  agreementId String @db.Uuid
+  commitmentVersion Int
+  sourceCurrency String @db.VarChar(3)
+  targetCurrency String @db.VarChar(3)
+  sourceAmountMinor BigInt
+  targetAmountMinor BigInt
+  rate Decimal @db.Decimal(24,12)
+  rateText String
+  rateConvention String
+  rateSource String
+  provider String?
+  providerUpdatedAt DateTime? @db.Timestamptz(6)
+  retrievedAt DateTime? @db.Timestamptz(6)
+  quotedAt DateTime @db.Timestamptz(6)
+  expiresAt DateTime @db.Timestamptz(6)
+  canonicalBytes Bytes
+  conversionHash String @db.VarChar(64)
+  status FxStatus
+  lockedAt DateTime? @db.Timestamptz(6)
+  consumedAt DateTime? @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@unique([sessionId, organizationId, conversionHash])
+  @@index([organizationId, sessionId, status])
+  @@schema("pactum")
+}
+
+model FinancialOperation {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  sessionId String @db.Uuid
+  session ProcurementSession @relation(fields: [sessionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  kind String
+  logicalKey String
+  status OperationStatus @default(INTENT_RECORDED)
+  provider String @default("PAYPAL")
+  environment String @default("SANDBOX")
+  merchantId String
+  providerRequestId String
+  providerResourceId String?
+  authorizationId String?
+  amountMinor BigInt?
+  currency String? @db.VarChar(3)
+  agreementHash String @db.VarChar(64)
+  fxConversionHash String? @db.VarChar(64)
+  evidenceRoot String @db.VarChar(64)
+  requestedBy String? @db.Uuid
+  request Bytes
+  response Bytes?
+  leaseToken String? @db.Uuid
+  leaseExpiresAt DateTime? @db.Timestamptz(6)
+  lastErrorCode String?
+  attemptCount Int @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@unique([organizationId, sessionId, kind, logicalKey])
+  @@unique([provider, environment, merchantId, providerRequestId])
+  @@index([status, leaseExpiresAt])
+  @@schema("pactum")
+}
+
+model Settlement {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  sessionId String @db.Uuid
+  session ProcurementSession @relation(fields: [sessionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  provider String @default("PAYPAL")
+  environment String @default("SANDBOX")
+  merchantId String
+  orderId String
+  authorizationId String?
+  captureId String?
+  amountMinor BigInt
+  currency String @db.VarChar(3)
+  status SessionStatus
+  fxConversionHash String? @db.VarChar(64)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@unique([provider, environment, merchantId, orderId])
+  @@unique([provider, environment, merchantId, authorizationId])
+  @@unique([provider, environment, merchantId, captureId])
+  @@schema("pactum")
+}
+
+model Dispute {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  sessionId String @db.Uuid
+  session ProcurementSession @relation(fields: [sessionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  publicId String @unique
+  status String
+  evidenceRoot String @db.VarChar(64)
+  record Bytes
+  financialDisposition String @default("UNEXECUTED")
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@index([organizationId, sessionId, status])
+  @@schema("pactum")
+}
+
+model EvidenceRecord {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  sessionId String @db.Uuid
+  session ProcurementSession @relation(fields: [sessionId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  kind String
+  evidenceKey String
+  sequence Int?
+  schemaVersion Int
+  canonicalBytes Bytes
+  payloadHash String @db.VarChar(64)
+  rootHash String? @db.VarChar(64)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@unique([sessionId, organizationId, kind, evidenceKey])
+  @@unique([sessionId, organizationId, sequence])
+  @@schema("pactum")
+}
+
+model IdempotencyRecord {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  scope String
+  key String
+  fingerprint String @db.VarChar(64)
+  status String
+  responseStatus Int?
+  response Bytes?
+  executionId String @db.Uuid
+  leaseExpiresAt DateTime @db.Timestamptz(6)
+  expiresAt DateTime @db.Timestamptz(6)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@unique([organizationId, scope, key])
+  @@index([status, leaseExpiresAt])
+  @@schema("pactum")
+}
+
+model WebhookEvent {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String? @db.Uuid
+  sessionPublicId String?
+  provider String @default("PAYPAL")
+  environment String @default("SANDBOX")
+  merchantId String
+  providerEventId String
+  eventType String
+  payload Bytes
+  payloadHash String @db.VarChar(64)
+  verifiedAt DateTime @db.Timestamptz(6)
+  status WebhookStatus @default(RECEIVED)
+  leaseToken String? @db.Uuid
+  leaseExpiresAt DateTime? @db.Timestamptz(6)
+  processedAt DateTime? @db.Timestamptz(6)
+  session ProcurementSession? @relation(fields: [sessionPublicId, organizationId], references: [publicId, organizationId], onDelete: Restrict)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@unique([provider, environment, merchantId, providerEventId])
+  @@index([status, leaseExpiresAt])
+  @@schema("pactum")
+}
+
+model MigrationBatch {
+  id String @id @default(uuid()) @db.Uuid
+  sourceDigest String @unique @db.VarChar(64)
+  manifestDigest String @db.VarChar(64)
+  status String
+  report Json
+  records MigrationSourceRecord[]
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+
+  @@schema("pactum")
+}
+
+model MigrationSourceRecord {
+  id String @id @default(uuid()) @db.Uuid
+  batchId String @db.Uuid
+  sourceType String
+  sourceKey String
+  sourceDigest String @db.VarChar(64)
+  organizationId String? @db.Uuid
+  importedId String? @db.Uuid
+  status String
+  originalBytes Bytes
+  batch MigrationBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  version Int @default(1)
+  @@unique([batchId, sourceType, sourceKey])
+  @@schema("pactum")
 }
