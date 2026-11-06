@@ -424,7 +424,7 @@ describe("database-backed organization and INR procurement workflows", () => {
   it("persists a new sourced procurement and mandate lock through HTTP", async () => {
     const context = await organization(), verifier = vi.spyOn(authorization, "requireVerifiedSession").mockResolvedValue(context.principal);
     const { Channel3Client, DETERMINISTIC_FIXTURE_QUOTES } = await import("@/lib/channel3-client");
-    const source = vi.spyOn(Channel3Client.prototype, "sourceQuotes").mockResolvedValue({ quotes: structuredClone(DETERMINISTIC_FIXTURE_QUOTES), isFixture: true, dataSource: "MOCK_CATALOG" });
+    const source = vi.spyOn(Channel3Client.prototype, "sourceQuotes").mockResolvedValue({ quotes: structuredClone(DETERMINISTIC_FIXTURE_QUOTES), isFixture: true, dataSource: "MOCK_CATALOG", timestamp: new Date().toISOString() });
     try {
       const { POST: init } = await import("@/app/api/procurement/init/route");
       const { POST: mutate } = await import("@/app/api/procurement/sessions/route");
@@ -459,18 +459,41 @@ describe("database-backed organization and INR procurement workflows", () => {
 });
 
 describe("negotiation checkpoint persistence", () => {
+  const request = (path: string, organizationId: string, body?: unknown) => new NextRequest(`https://pactum.example${path}`, { method: body ? "POST" : "GET", headers: { "x-organization-id": organizationId, origin: "https://pactum.example", "content-type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
   it("persists deterministic negotiation checkpoints without Gemini or long-running database transactions", async () => {
     const context = await organization(), session = draft(), repo = new PrismaSessionRepository(context, "session.write");
     const { DETERMINISTIC_FIXTURE_QUOTES } = await import("@/lib/channel3-client");
     const { GeminiNegotiationClient } = await import("@/lib/gemini-client");
     const { NegotiationOrchestrator } = await import("@/lib/negotiation-orchestrator");
     session.quotes = structuredClone(DETERMINISTIC_FIXTURE_QUOTES); session.status = "SOURCING";
+    session.merchantAttestation = {
+      merchantUrl: "https://vendor.example.com",
+      returnPolicyText: "30-day return policy",
+      timestamp: new Date().toISOString(),
+    };
     await repo.save(session, null);
     const scope = workspaceScope(context, "negotiation.start", await repo.load(session.id));
-    const orchestrator = new NegotiationOrchestrator({ geminiClient: new GeminiNegotiationClient({ apiKey: "" }), maxRounds: 2 });
-    await withRequestScope(scope, () => orchestrator.runNegotiation(session.mandate, session.quotes, session.id));
+    const orchestrator = new NegotiationOrchestrator({ geminiClient: new GeminiNegotiationClient({ apiKey: "" }), maxRounds: 4 });
+    const result = await withRequestScope(scope, () => orchestrator.runNegotiation(session.mandate, session.quotes, session.id));
+    expect(result.completed).toBe(true);
+
     const saved = (await repo.load(session.id))[0].session;
-    expect(saved.version).toBeGreaterThan(session.version!); expect(saved.turns.length).toBeGreaterThan(0);
-    expect(CryptographicFlightRecorder.fromSerialized(saved.flightRecord!).verifyIntegrity().valid).toBe(true);
+    expect(saved.version).toBeGreaterThan(session.version!);
+    expect(saved.merkleRoot).toBe(result.merkleTree.getRootHash());
+    expect(saved.turns.length).toBe(result.session.turns.length);
+    expect(saved.turns.length).toBeGreaterThan(0);
+
+    const verifier = vi.spyOn(authorization, "requireVerifiedSession").mockResolvedValue(context.principal);
+    try {
+      const { POST: audit } = await import("@/app/api/procurement/audit/route");
+      const auditRes = await audit(request("/api/procurement/audit", context.organizationId, { sessionId: session.id }));
+      expect(auditRes.status).toBe(200);
+
+      const audited = (await repo.load(session.id))[0].session;
+      expect(audited.auditCertificate?.passed).toBe(true);
+      expect(CryptographicFlightRecorder.fromSerialized(audited.flightRecord!).verifyIntegrity().valid).toBe(true);
+    } finally {
+      verifier.mockRestore();
+    }
   });
 });
