@@ -1,3 +1,4 @@
+import { withBusinessRoute } from "@/lib/db/business-route";
 import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — PayPal Settlement Reconciliation API Route
@@ -13,7 +14,7 @@ import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter"
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const accessDenied = await requireBusinessAccess(req);
   if (accessDenied) return accessDenied;
 
@@ -61,3 +62,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withBusinessRoute("payment.reconcile", handlePOST);

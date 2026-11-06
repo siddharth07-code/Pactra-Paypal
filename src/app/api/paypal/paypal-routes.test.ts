@@ -1,3 +1,8 @@
+// Provider-domain tests inject the HTTP persistence boundary; PostgreSQL replay/RLS tests use the real wrapper.
+vi.mock("@/lib/db/webhook-route", () => ({ withWebhookRoute: (handler: unknown) => handler }));
+// This suite exercises domain behavior; real authentication/RLS boundaries have separate adversarial tests.
+vi.mock("@/lib/db/business-route", () => ({ withBusinessRoute: (_permission: unknown, handler: unknown) => handler }));
+vi.mock("@/lib/auth/business-access", () => ({ requireBusinessAccess: vi.fn().mockResolvedValue(null) }));
 import { PayPalClient } from "@/lib/paypal-client";
 import { completedOrder } from "@/test/helpers/payment-fixtures";
 import { describe, it, expect, beforeEach, vi } from "vitest";
