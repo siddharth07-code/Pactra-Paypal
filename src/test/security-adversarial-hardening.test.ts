@@ -1,3 +1,5 @@
+// Provider-domain tests inject the HTTP persistence boundary; PostgreSQL replay/RLS tests use the real wrapper.
+vi.mock("@/lib/db/webhook-route", () => ({ withWebhookRoute: (handler: unknown) => handler }));
 import { completedOrder } from "@/test/helpers/payment-fixtures";
 /**
  * PACTUM — Phase 3 Adversarial Regression Tests
