@@ -9,6 +9,7 @@ import fs from "fs";
 import path from "path";
 import { canonicalJson } from "./veripay-merkle";
 import type { IdempotencyRecord } from "../types/pactum";
+import { requestScope } from "./persistence/request-scope";
 
 export interface IdempotencyEnvelope {
   schemaVersion: number;
@@ -205,6 +206,8 @@ export class DurableIdempotencyStore {
   public async executeIdempotent<TReq, TRes>(
     options: IdempotentExecuteOptions<TReq, TRes>
   ): Promise<{ status: number; body: TRes; isReplay: boolean }> {
+    if (requestScope()) return (await import("./db/idempotency")).executeDatabaseIdempotency(options);
+    if (process.env.NODE_ENV !== "test") throw new Error("An authorized database scope is required for idempotency.");
     const { scope, key, payload, ttlMs, execute } = options;
     const progress = this.recordInProgress(scope, key, payload, ttlMs);
 
@@ -350,7 +353,7 @@ const globalForIdempotency = globalThis as unknown as {
 };
 
 export const defaultIdempotencyStore =
-  globalForIdempotency.pactumAuthoritativeIdempotencyStore ?? new DurableIdempotencyStore();
+  globalForIdempotency.pactumAuthoritativeIdempotencyStore ?? new DurableIdempotencyStore({ filePath: null });
 
 if (process.env.NODE_ENV !== "production") {
   globalForIdempotency.pactumAuthoritativeIdempotencyStore = defaultIdempotencyStore;
