@@ -109,7 +109,7 @@ export const getSessionLifecycleConfig = (session: ProcurementSession) => {
       return {
         status: "warning" as const,
         label: "Disputed",
-        nextAction: "Dispute evidence submitted to PayPal: Awaiting resolution.",
+        nextAction: "Review dispute evidence. PayPal submission is not confirmed.",
       };
     default:
       return {

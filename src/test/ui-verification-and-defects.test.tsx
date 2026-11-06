@@ -77,6 +77,12 @@ function createMockSession(overrides: Partial<ProcurementSession> = {}): Procure
 }
 
 describe("OverviewScreen Financial Metrics Verification", () => {
+  it("does not infer PayPal evidence submission from a disputed session", () => {
+    render(<OverviewScreen sessions={[createMockSession({ status: "DISPUTED" })]} onStartNew={vi.fn()} onOpenSession={vi.fn()} />);
+    expect(screen.getByText("Review dispute evidence. PayPal submission is not confirmed.")).toBeInTheDocument();
+    expect(screen.queryByText(/Dispute evidence submitted to PayPal/i)).not.toBeInTheDocument();
+  });
+
   it("does not mix currencies when calculating mandate volume", () => {
     const usdSession = createMockSession({
       id: "sess-usd",

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Malformed JSON payload." }, { status: 400 });
     }
 
-    const { disputeId, submitToPayPal = false } = body;
+    const { disputeId } = body;
 
     if (!disputeId || typeof disputeId !== "string") {
       return NextResponse.json({ error: "Field 'disputeId' is required." }, { status: 400 });
@@ -39,29 +39,15 @@ export async function POST(req: NextRequest) {
 
     const evidencePackage = disputeService.preparePayPalDisputeEvidence(disputeId);
 
-    // If caller requests submission to live PayPal Disputes API and credentials exist
-    let submissionStatus = "PREPARED_FOR_SUBMISSION";
-    let paypalResponse: Record<string, unknown> | undefined;
-
-    if (submitToPayPal) {
-      if (process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET) {
-        // In sandbox, we acknowledge evidence preparation and simulated submission
-        submissionStatus = "SUBMITTED_TO_PAYPAL_SANDBOX";
-        paypalResponse = {
-          acknowledged: true,
-          evidenceRoot: evidencePackage.evidenceRoot,
-          proofCount: evidencePackage.inclusionProofs.length,
-          timestamp: new Date().toISOString(),
-        };
-      } else {
-        submissionStatus = "SIMULATED_LOCAL_SUBMISSION";
-        paypalResponse = {
-          acknowledged: true,
-          notice: "PayPal credentials not configured. Evidence packaged in standard PayPal format.",
-          timestamp: new Date().toISOString(),
-        };
-      }
-    }
+    // submitToPayPal remains accepted for compatibility. No provider submission is implemented.
+    // Credentials and local packaging never constitute a PayPal acknowledgment.
+    const submissionStatus = "EVIDENCE_PACKAGED_LOCAL_ONLY";
+    const paypalResponse = {
+      acknowledged: false,
+      evidenceRoot: evidencePackage.evidenceRoot,
+      proofCount: evidencePackage.inclusionProofs.length,
+      notice: "Evidence packaged locally only. Evidence has not been submitted to PayPal.",
+    };
 
     return NextResponse.json({
       success: true,
