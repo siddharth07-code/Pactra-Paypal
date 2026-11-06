@@ -1,3 +1,4 @@
+import { withBusinessRoute } from "@/lib/db/business-route";
 import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — Merkle Evidence Inspection Route
@@ -13,7 +14,7 @@ import { defaultRateLimiter } from "@/lib/rate-limiter";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const accessDenied = await requireBusinessAccess(req);
   if (accessDenied) return accessDenied;
 
@@ -184,3 +185,5 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const GET = withBusinessRoute("evidence.read", handleGET);

@@ -1,3 +1,4 @@
+import { withBusinessRoute } from "@/lib/db/business-route";
 import { requireBusinessAccess } from "@/lib/auth/business-access";
 /**
  * PACTUM — Disputes API Route
@@ -16,7 +17,7 @@ import type { DisputeCategory } from "@/types/pactum";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const accessDenied = await requireBusinessAccess(req);
   if (accessDenied) return accessDenied;
 
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const accessDenied = await requireBusinessAccess(req);
   if (accessDenied) return accessDenied;
 
@@ -104,3 +105,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 404 });
   }
 }
+
+export const POST = withBusinessRoute("dispute.open", handlePOST);
+
+export const GET = withBusinessRoute("dispute.read", handleGET);
