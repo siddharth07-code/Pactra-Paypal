@@ -14,8 +14,11 @@ import { settlementLogger } from "@/lib/settlement-logger";
 import { fromMinorUnits } from "@/lib/currency";
 import { orderEvidenceError, paymentAmountError } from "@/lib/payment-evidence";
 import { auditFxSettlement, consumeFxRecord, computeAgreementHash } from "@/lib/fx-settlement";
+import { withWebhookRoute } from "@/lib/db/webhook-route";
+import { requestScope } from "@/lib/persistence/request-scope";
+import { canonicalBytes, digest } from "@/lib/db/codec";
 
-export async function POST(req: NextRequest) {
+async function handleWebhook(req: NextRequest) {
   const rateLimit = await defaultRateLimiter.checkLimit(req, "PAYPAL_SETTLEMENT");
   if (!rateLimit.allowed) {
     return createRateLimitResponse(rateLimit);
@@ -63,7 +66,7 @@ export async function POST(req: NextRequest) {
     const webhookId = process.env.PAYPAL_WEBHOOK_ID ?? "";
 
     // Verify webhook authenticity
-    const isAuthentic = await paypalClient.verifyWebhookSignature({
+    const isAuthentic = requestScope()?.worker?.verifiedEventHash === digest(canonicalBytes(event)) || await paypalClient.verifyWebhookSignature({
       authAlgo,
       certUrl,
       transmissionId,
@@ -99,7 +102,7 @@ export async function POST(req: NextRequest) {
     // Process supported events and safely update session state
     const customId = (event.resource.custom_id as string) ?? "";
     const sessionMatch = customId.match(/SESSION:([a-zA-Z0-9_-]+)/);
-    const sessionId = sessionMatch ? sessionMatch[1] : undefined;
+    const sessionId = requestScope()?.worker?.boundSessionId ?? (sessionMatch ? sessionMatch[1] : undefined);
 
     if (sessionId) {
       // Concurrency lock: serialize webhook state updates against active captures and reconciliations
@@ -274,3 +277,5 @@ export async function POST(req: NextRequest) {
     });
   }
 }
+
+export const POST = withWebhookRoute(handleWebhook);
