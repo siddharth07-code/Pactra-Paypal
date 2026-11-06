@@ -56,3 +56,6 @@ next-env.d.ts
 # Legacy financial ledgers remain sensitive during database cutover
 .pactum-idempotency.json
 .pactum-webhooks.json
+
+# Dedicated local PostgreSQL cluster and private migration credentials
+/.pactum-local/
