@@ -1,3 +1,5 @@
+// Provider-domain tests inject the HTTP persistence boundary; PostgreSQL replay/RLS tests use the real wrapper.
+vi.mock("@/lib/db/webhook-route", () => ({ withWebhookRoute: (handler: unknown) => handler }));
 import { completedOrder } from "@/test/helpers/payment-fixtures";
 /**
  * PACTUM — Phase 6.8 Verifiable FX Settlement Bridge Test Suite
@@ -1469,6 +1471,7 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
     });
 
     it("55. Evidence Vault exposes conversion evidence", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: "No committed evidence in UI fixture" }) }));
       const session = createTestINRSession();
       const provider = new DeterministicDemoFXProvider();
       const quote = await provider.getQuote({
