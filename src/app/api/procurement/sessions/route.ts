@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { sessionStore } from "@/lib/session-store";
+import { MandateLockError, sessionStore } from "@/lib/session-store";
 import { defaultRateLimiter } from "@/lib/rate-limiter";
 
 export const dynamic = "force-dynamic";
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
       } catch (err: unknown) {
         return NextResponse.json(
           { error: err instanceof Error ? err.message : "Failed to lock mandate." },
-          { status: 404 }
+          { status: err instanceof MandateLockError ? err.status : 500 }
         );
       }
     }

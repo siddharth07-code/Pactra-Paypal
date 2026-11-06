@@ -22,6 +22,13 @@ import type {
 
 export { CorruptPersistenceError };
 
+export class MandateLockError extends Error {
+  constructor(message: string, public readonly status: 404 | 409) {
+    super(message);
+    this.name = "MandateLockError";
+  }
+}
+
 export class OptimisticConcurrencyError extends Error {
   public readonly sessionId: string;
   public readonly expectedVersion?: number;
@@ -323,16 +330,27 @@ export class AuthoritativeSessionStore {
    * Locks the mandate for the active session when negotiation begins.
    */
   public lockMandate(sessionId: string): ProcurementSession {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      throw new Error(`Session ${sessionId} not found.`);
+    if (!this.acquireLock(sessionId)) {
+      throw new MandateLockError("Session operation already in progress.", 409);
     }
+    try {
+      const session = this.getSession(sessionId);
+      if (!session) {
+        throw new MandateLockError(`Session ${sessionId} not found.`, 404);
+      }
+      if (!ALLOWED_SESSION_TRANSITIONS[session.status]?.includes("NEGOTIATING")) {
+        throw new MandateLockError(`Cannot lock mandate for session ${sessionId} in status '${session.status}'.`, 409);
+      }
 
-    session.mandate.isLocked = true;
-    session.status = "NEGOTIATING";
-    session.updatedAt = new Date().toISOString();
-    this.saveToDisk();
-    return JSON.parse(JSON.stringify(session));
+      // Mutate only a detached snapshot; saveSession enforces OCC and rolls back failed writes.
+      session.mandate.isLocked = true;
+      session.status = "NEGOTIATING";
+      session.updatedAt = new Date().toISOString();
+      this.saveSession(session, session.version);
+      return session;
+    } finally {
+      this.releaseLock(sessionId);
+    }
   }
 
   /**
