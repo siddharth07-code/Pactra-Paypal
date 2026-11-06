@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAuthContext, type AuthContext } from "@/lib/auth/supabase-server";
 import { requireAuthenticatedUser } from "@/lib/auth/principal";
 import { AuthError, authConfiguration } from "@/lib/auth/config";
-import { authFailure } from "@/lib/auth/http";
+import { authFailure, authErrorPage } from "@/lib/auth/http";
 
 export async function middleware(request: NextRequest) {
   // Explicit defense even when invoked without the matcher (tests and future configuration edits).
@@ -16,10 +16,14 @@ export async function middleware(request: NextRequest) {
   } catch (error) {
     if (error instanceof AuthError && error.status === 401) {
       context?.clearCookies();
-      const response = NextResponse.redirect(new URL("/login", authConfiguration().origin));
+      const origin = (() => {
+        try { return authConfiguration().origin; } catch { return request.nextUrl.origin; }
+      })();
+      const response = NextResponse.redirect(new URL("/login", origin));
       return context ? context.finish(response) : response;
     }
-    const response = authFailure(error);
+    const isHtmlRequest = request.headers.get("accept")?.includes("text/html");
+    const response = isHtmlRequest ? authErrorPage(error) : authFailure(error);
     return context ? context.finish(response) : response;
   }
 }
