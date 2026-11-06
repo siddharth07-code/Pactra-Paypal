@@ -45,7 +45,7 @@ async function locked(s: ProcurementSession) {
   s.fxQuoteHistory = [{ ...s.fxRecord }];
   sessionStore.saveSession(s);
 }
-beforeEach(() => { vi.restoreAllMocks(); sessionStore.clear(); defaultRateLimiter.resetAll(); defaultWebhookLedger.clear(); });
+beforeEach(() => { vi.restoreAllMocks(); sessionStore.clear(); defaultRateLimiter.resetAll(); defaultWebhookLedger.clear(); vi.spyOn(PayPalClient.prototype, "verifyWebhookSignature").mockResolvedValue(true); });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("Phase 6.8.2 financial integrity", () => {

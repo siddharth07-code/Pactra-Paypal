@@ -399,6 +399,7 @@ describe("Phase 3: Security, Reliability & Adversarial Hardening Suite", () => {
     });
 
     it("webhook PAYMENT.CAPTURE.COMPLETED resolves CAPTURE_PENDING_RECONCILIATION but cannot downgrade SETTLED", async () => {
+      vi.spyOn(PayPalClient.prototype, "verifyWebhookSignature").mockResolvedValue(true);
       const session = sessionStore.createSession(validMandate, fixtureQuotes);
       session.finalOffer = {
         unitPrice: 320,
@@ -461,6 +462,7 @@ describe("Phase 3: Security, Reliability & Adversarial Hardening Suite", () => {
     });
 
     it("webhook rejects capture events when amount or currency does not match agreed terms", async () => {
+      vi.spyOn(PayPalClient.prototype, "verifyWebhookSignature").mockResolvedValue(true);
       const session = sessionStore.createSession(validMandate, fixtureQuotes);
       session.finalOffer = {
         unitPrice: 320,
@@ -506,7 +508,7 @@ describe("Phase 3: Security, Reliability & Adversarial Hardening Suite", () => {
           "Content-Type": "application/json",
           "paypal-transmission-sig": "short", // Invalid signature
         },
-        body: JSON.stringify({ event_type: "PAYMENT.CAPTURE.COMPLETED", resource: {} }),
+        body: JSON.stringify({ id: "WH-INVALID-SIGNATURE", event_type: "PAYMENT.CAPTURE.COMPLETED", resource: {} }),
       });
 
       const res = await webhookPost(req);

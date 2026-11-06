@@ -6,7 +6,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { PayPalClient } from "@/lib/paypal-client";
+import { PayPalClient, WebhookVerificationUnavailableError } from "@/lib/paypal-client";
 import { sessionStore } from "@/lib/session-store";
 import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
 import { defaultWebhookLedger } from "@/lib/webhook-deduplication";
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     return createRateLimitResponse(rateLimit);
   }
 
-  let webhookEvent: { id?: string; event_type?: string; resource?: Record<string, unknown> } | undefined;
+  let claimedEventId: string | undefined;
 
   try {
     const authAlgo = req.headers.get("paypal-auth-algo") ?? "";
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     const transmissionSig = req.headers.get("paypal-transmission-sig") ?? "";
     const transmissionTime = req.headers.get("paypal-transmission-time") ?? "";
 
+    let webhookEvent: unknown;
     try {
       webhookEvent = await req.json();
     } catch {
@@ -41,9 +42,11 @@ export async function POST(req: NextRequest) {
 
     if (
       !webhookEvent ||
-      typeof webhookEvent.event_type !== "string" ||
-      !webhookEvent.resource ||
-      typeof webhookEvent.resource !== "object"
+      typeof webhookEvent !== "object" || Array.isArray(webhookEvent) ||
+      !("id" in webhookEvent) || typeof webhookEvent.id !== "string" || !webhookEvent.id.trim() ||
+      !("event_type" in webhookEvent) || typeof webhookEvent.event_type !== "string" || !webhookEvent.event_type.trim() ||
+      !("resource" in webhookEvent) || !webhookEvent.resource ||
+      typeof webhookEvent.resource !== "object" || Array.isArray(webhookEvent.resource)
     ) {
       return new Response(JSON.stringify({ error: "Invalid webhook payload structure." }), {
         status: 400,
@@ -51,36 +54,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const event = {
-      id: webhookEvent.id,
-      event_type: webhookEvent.event_type,
-      resource: webhookEvent.resource,
+    // Preserve every signed field, including provider fields unknown to this handler.
+    const event = webhookEvent as Record<string, unknown> & {
+      id: string; event_type: string; resource: Record<string, unknown>;
     };
 
-    // Deduplication check: protect against duplicate replays of previously processed events
-    if (event.id) {
-      if (defaultWebhookLedger.isProcessed(event.id)) {
-        settlementLogger.info("WEBHOOK_DEDUPLICATED", `Duplicate webhook event ${event.id} ignored`, {
-          metadata: { eventId: event.id, eventType: event.event_type },
-        });
-        return new Response(
-          JSON.stringify({ received: true, deduplicated: true, eventId: event.id }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      if (defaultWebhookLedger.isProcessing(event.id)) {
-        settlementLogger.warn("WEBHOOK_CONCURRENT_PROCESSING", `Concurrent webhook delivery for event ${event.id} is already in progress`, {
-          metadata: { eventId: event.id, eventType: event.event_type },
-        });
-        return new Response(
-          JSON.stringify({ error: "Concurrent webhook processing in progress.", eventId: event.id }),
-          { status: 409, headers: { "Content-Type": "application/json" } }
-        );
-      }
-    }
-
     const paypalClient = new PayPalClient();
-    const webhookId = process.env.PAYPAL_WEBHOOK_ID ?? "MOCK_WEBHOOK_ID";
+    const webhookId = process.env.PAYPAL_WEBHOOK_ID ?? "";
 
     // Verify webhook authenticity
     const isAuthentic = await paypalClient.verifyWebhookSignature({
@@ -90,7 +70,7 @@ export async function POST(req: NextRequest) {
       transmissionSig,
       transmissionTime,
       webhookId,
-      webhookEvent: event as unknown as Record<string, unknown>,
+      webhookEvent: event,
     });
 
     if (!isAuthentic) {
@@ -100,9 +80,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (event.id) {
-      defaultWebhookLedger.recordProcessing(event.id, event.event_type);
+    // Claim synchronously AFTER authentication; no check/await/claim race.
+    if (!defaultWebhookLedger.recordProcessing(event.id, event.event_type)) {
+      if (defaultWebhookLedger.isProcessed(event.id)) {
+        settlementLogger.info("WEBHOOK_DEDUPLICATED", `Duplicate webhook event ${event.id} ignored`, {
+          metadata: { eventId: event.id, eventType: event.event_type },
+        });
+        return new Response(JSON.stringify({ received: true, deduplicated: true, eventId: event.id }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ error: "Concurrent webhook processing in progress.", eventId: event.id }), {
+        status: 409, headers: { "Content-Type": "application/json" },
+      });
     }
+    claimedEventId = event.id;
 
     // Process supported events and safely update session state
     const customId = (event.resource.custom_id as string) ?? "";
@@ -263,9 +255,18 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err: unknown) {
+    if (err instanceof WebhookVerificationUnavailableError) {
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: 503, headers: { "Content-Type": "application/json", "Retry-After": "5" },
+      });
+    }
     const errMsg = err instanceof Error ? err.message : String(err);
-    if (webhookEvent?.id) {
-      defaultWebhookLedger.recordFailed(webhookEvent.id, errMsg);
+    if (claimedEventId) {
+      try {
+        defaultWebhookLedger.recordFailed(claimedEventId, errMsg);
+      } catch {
+        return new Response(JSON.stringify({ error: "Webhook ledger persistence failed. Retry delivery." }), { status: 503 });
+      }
     }
     return new Response(JSON.stringify({ error: "Internal webhook processing error.", detail: errMsg }), {
       status: 500,

@@ -1180,6 +1180,9 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
   // SECTION 5: WEBHOOKS (Proofs 43–46)
   // ==========================================
   describe("Webhooks (Proofs 43–46)", () => {
+    beforeEach(() => {
+      vi.spyOn(PayPalClient.prototype, "verifyWebhookSignature").mockResolvedValue(true);
+    });
     it("43. FX-backed capture webhook validates target currency", async () => {
       const session = createTestINRSession();
       const provider = new DeterministicDemoFXProvider();
@@ -1261,6 +1264,7 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
     });
 
     it("45. Existing signature verification remains enforced", async () => {
+      vi.spyOn(PayPalClient.prototype, "verifyWebhookSignature").mockResolvedValue(false);
       const webhookPayload = {
         id: "WH-EVT-NOSIG",
         event_type: "PAYMENT.CAPTURE.COMPLETED",

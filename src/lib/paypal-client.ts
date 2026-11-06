@@ -121,6 +121,13 @@ export interface WebhookVerificationParams {
   webhookEvent: Record<string, unknown>;
 }
 
+export class WebhookVerificationUnavailableError extends Error {
+  constructor() {
+    super("PayPal webhook verification is temporarily unavailable. Retry delivery.");
+    this.name = "WebhookVerificationUnavailableError";
+  }
+}
+
 function getFetchSignal(timeoutMs: number): AbortSignal | undefined {
   if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
     return undefined;
@@ -596,9 +603,8 @@ export class PayPalClient {
    * Verifies an incoming PayPal webhook event signature.
    */
   public async verifyWebhookSignature(params: WebhookVerificationParams): Promise<boolean> {
-    if (!this.clientId || !this.clientSecret) {
-      // Deterministic simulation verification for test suites
-      return params.transmissionSig.length > 10;
+    if (!this.clientId.trim() || !this.clientSecret.trim() || !params.webhookId.trim()) {
+      return false;
     }
 
     try {
@@ -623,11 +629,15 @@ export class PayPalClient {
 
       if (response.ok) {
         const data = (await response.json()) as { verification_status: string };
-        return data.verification_status === "SUCCESS";
+        if (data.verification_status === "SUCCESS") return true;
+        if (data.verification_status === "FAILURE") return false;
+        throw new WebhookVerificationUnavailableError();
       }
-      return false;
+      if (response.status === 401 || response.status === 403) return false;
+      throw new WebhookVerificationUnavailableError();
     } catch {
-      return false;
+      // Do not turn timeouts, outages, or malformed provider responses into signature failures.
+      throw new WebhookVerificationUnavailableError();
     }
   }
 }

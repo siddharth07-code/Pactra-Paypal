@@ -2,6 +2,11 @@
  * PACTUM — Webhook Deduplication & Replay Protection Ledger
  * Prevents duplicate webhook delivery from executing redundant state transitions.
  * Follows GEMINI.md Section 9, 11, SECURITY.md Section 8, and Phase 5 specifications.
+ * Claims serialize one process only. Independent instances do not share locks or fresh snapshots.
+ * Session writes and ledger completion are separate commits: a crash between them may replay work.
+ * PostgreSQL unique event IDs and a transaction coupling event claims, session/evidence updates,
+ * and completion are required for cross-instance/crash-atomic replay safety. File checksums are
+ * not currently validated on load; they do not provide authenticated or transactional storage.
  */
 
 import fs from "fs";
@@ -28,6 +33,8 @@ export interface WebhookLedgerEnvelope {
 
 export class WebhookDeduplicationLedger {
   private entries = new Map<string, WebhookLedgerEntry>();
+  // Never expire a live handler's claim. The timeout only recovers claims loaded after restart.
+  private activeClaims = new Set<string>();
   private filePath: string | null;
   public readonly processingTimeoutMs: number;
 
@@ -54,6 +61,7 @@ export class WebhookDeduplicationLedger {
   }
 
   public isProcessing(eventId: string): boolean {
+    if (this.activeClaims.has(eventId)) return true;
     const entry = this.entries.get(eventId);
     if (!entry || entry.status !== "PROCESSING") return false;
     const age = Date.now() - new Date(entry.receivedAt).getTime();
@@ -72,6 +80,7 @@ export class WebhookDeduplicationLedger {
       return false; // Currently active concurrent processing
     }
 
+    const previous = this.entries.get(eventId);
     this.entries.set(eventId, {
       eventId,
       eventType,
@@ -80,31 +89,50 @@ export class WebhookDeduplicationLedger {
       receivedAt: new Date().toISOString(),
     });
 
-    this.saveToDisk();
+    this.activeClaims.add(eventId);
+    try {
+      this.saveToDisk();
+    } catch (error) {
+      if (previous) this.entries.set(eventId, previous);
+      else this.entries.delete(eventId);
+      this.activeClaims.delete(eventId);
+      throw error;
+    }
     return true;
   }
 
   public recordProcessed(eventId: string): void {
     const entry = this.entries.get(eventId);
     if (entry) {
-      entry.status = "PROCESSED";
-      entry.completedAt = new Date().toISOString();
-      this.saveToDisk();
+      this.entries.set(eventId, { ...entry, status: "PROCESSED", completedAt: new Date().toISOString() });
+      try {
+        this.saveToDisk();
+      } catch (error) {
+        this.entries.set(eventId, entry);
+        throw error;
+      }
+      this.activeClaims.delete(eventId);
     }
   }
 
   public recordFailed(eventId: string, error: string): void {
     const entry = this.entries.get(eventId);
     if (entry) {
-      entry.status = "FAILED";
-      entry.error = error;
-      entry.completedAt = new Date().toISOString();
-      this.saveToDisk();
+      this.entries.set(eventId, { ...entry, status: "FAILED", error, completedAt: new Date().toISOString() });
+      try {
+        this.saveToDisk();
+      } catch (persistError) {
+        this.entries.set(eventId, entry);
+        throw persistError;
+      } finally {
+        this.activeClaims.delete(eventId);
+      }
     }
   }
 
   public clear(): void {
     this.entries.clear();
+    this.activeClaims.clear();
     if (this.filePath && fs.existsSync(this.filePath)) {
       try {
         fs.unlinkSync(this.filePath);
@@ -156,7 +184,13 @@ export class WebhookDeduplicationLedger {
       }
 
       const tempPath = `${this.filePath}.tmp.${Date.now()}.${Math.random().toString(36).substring(2, 8)}`;
-      fs.writeFileSync(tempPath, JSON.stringify(envelope, null, 2), "utf-8");
+      const fd = fs.openSync(tempPath, "w", 0o600);
+      try {
+        fs.writeFileSync(fd, JSON.stringify(envelope, null, 2), "utf-8");
+        fs.fsyncSync(fd);
+      } finally {
+        fs.closeSync(fd);
+      }
       fs.renameSync(tempPath, this.filePath);
       try {
         const dirFd = fs.openSync(dir, "r");
@@ -169,7 +203,7 @@ export class WebhookDeduplicationLedger {
         // Ignored on filesystems or OS that restrict directory fsync
       }
     } catch {
-      // Background write failure ignored
+      throw new Error("Webhook ledger persistence failed.");
     }
   }
 }

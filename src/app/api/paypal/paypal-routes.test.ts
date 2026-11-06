@@ -252,6 +252,7 @@ describe("PayPal API Routes Integration Tests", () => {
     });
 
     it("accepts valid webhook event and updates session state", async () => {
+      vi.spyOn(PayPalClient.prototype, "verifyWebhookSignature").mockResolvedValue(true);
       sessionStore.saveSession({
         ...validSession,
         status: "AUDIT_PASSED",
