@@ -11,6 +11,9 @@
  */
 
 import crypto from "crypto";
+import { durablePayPalCall, providerRequestId } from "./db/financial-operations";
+import { requestScope } from "./persistence/request-scope";
+import { recordVerifiedOrder } from "./db/provider-evidence";
 import { assertValidConfiguration } from "./env-validator";
 import { isPayPalSupportedCurrency } from "./currency";
 
@@ -53,6 +56,7 @@ export interface PayPalOrderDetails {
   intent: "AUTHORIZE" | "CAPTURE";
   purchase_units?: Array<{
     reference_id?: string;
+    payee?: { merchant_id?: string };
     custom_id?: string;
     amount?: {
       currency_code: string;
@@ -213,6 +217,10 @@ export class PayPalClient {
    * and custom_id bound to VERIPAY_ROOT:<merkle_root>;SESSION:<sessionId>.
    */
   public async createAuthorizedOrder(params: CreateOrderParams): Promise<CreateOrderResponse> {
+    if (requestScope() && (!this.clientId || !this.clientSecret)) throw new Error("PayPal credentials are required.");
+    return durablePayPalCall("CREATE_ORDER", params.sessionId, params, () => this.performCreateAuthorizedOrder(params), result => this.getOrder(result.id));
+  }
+  private async performCreateAuthorizedOrder(params: CreateOrderParams): Promise<CreateOrderResponse> {
     if (!isPayPalSupportedCurrency(params.currency)) {
       throw new Error(
         `Automated PayPal settlement is unavailable for ${params.currency} in the configured PayPal environment. Domestic and international PayPal merchant checkout requires a supported settlement currency (e.g., USD, EUR, GBP). Internal procurement negotiation and Merkle attestation remain valid, but automated PayPal capture is unavailable for ${params.currency}.`
@@ -340,6 +348,7 @@ export class PayPalClient {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
+        ...(providerRequestId() ? { "PayPal-Request-Id": providerRequestId()! } : {}),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
@@ -367,6 +376,13 @@ export class PayPalClient {
    * Retrieves order details from PayPal Orders v2 API.
    */
   public async getOrder(orderId: string): Promise<PayPalOrderDetails> {
+    const scope = requestScope();
+    if (scope?.worker && scope.orders.has(orderId)) return scope.orders.get(orderId)!;
+    const order = await this.performGetOrder(orderId);
+    recordVerifiedOrder(order);
+    return order;
+  }
+  private async performGetOrder(orderId: string): Promise<PayPalOrderDetails> {
     if (!this.clientId || !this.clientSecret) {
       const stored = PayPalClient.mockOrders.get(orderId);
       if (stored) {
@@ -408,6 +424,10 @@ export class PayPalClient {
    * Returns the newly created authorization ID.
    */
   public async authorizeOrder(orderId: string): Promise<AuthorizeOrderResponse> {
+    if (requestScope() && (!this.clientId || !this.clientSecret)) throw new Error("PayPal credentials are required.");
+    return durablePayPalCall("AUTHORIZE", orderId, { orderId }, () => this.performAuthorizeOrder(orderId), () => this.getOrder(orderId));
+  }
+  private async performAuthorizeOrder(orderId: string): Promise<AuthorizeOrderResponse> {
     if (!this.clientId || !this.clientSecret) {
       return {
         id: orderId,
@@ -421,6 +441,7 @@ export class PayPalClient {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
+        ...(providerRequestId() ? { "PayPal-Request-Id": providerRequestId()! } : {}),
         "Content-Type": "application/json",
       },
       body: "{}",
@@ -461,6 +482,14 @@ export class PayPalClient {
     authorizationOrOrderId: string,
     amount: { currency: string; value: number }
   ): Promise<CaptureOrderResponse> {
+    if (requestScope() && (!this.clientId || !this.clientSecret)) throw new Error("PayPal credentials are required.");
+    return durablePayPalCall("CAPTURE", authorizationOrOrderId, { authorizationOrOrderId, amount }, () => this.performCapturePayment(authorizationOrOrderId, amount), () => {
+      const session = requestScope()!.store.getAllSessions().find(s => s.paypalAuthorizationId === authorizationOrOrderId);
+      if (!session?.paypalOrderId) throw new Error("Missing order binding.");
+      return this.getOrder(session.paypalOrderId);
+    });
+  }
+  private async performCapturePayment(authorizationOrOrderId: string, amount: { currency: string; value: number }): Promise<CaptureOrderResponse> {
     if (!this.clientId || !this.clientSecret) {
       return {
         id: `MOCK_CAPTURE_${crypto.randomBytes(6).toString("hex").toUpperCase()}`,
@@ -480,7 +509,7 @@ export class PayPalClient {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          "PayPal-Request-Id": `capture-${authorizationOrOrderId}`,
+          "PayPal-Request-Id": providerRequestId() ?? `capture-${authorizationOrOrderId}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -512,6 +541,10 @@ export class PayPalClient {
    * Creates a B2B negotiated invoice using PayPal Invoicing API.
    */
   public async createNegotiatedInvoice(params: CreateInvoiceParams): Promise<CreateInvoiceResponse> {
+    if (requestScope() && (!this.clientId || !this.clientSecret)) throw new Error("PayPal credentials are required.");
+    return durablePayPalCall("CREATE_INVOICE", params.sessionId, params, () => this.performCreateNegotiatedInvoice(params));
+  }
+  private async performCreateNegotiatedInvoice(params: CreateInvoiceParams): Promise<CreateInvoiceResponse> {
     if (!isPayPalSupportedCurrency(params.currency)) {
       throw new Error(
         `Automated PayPal settlement is unavailable for ${params.currency} invoices in the configured PayPal environment. Must use a supported settlement currency (e.g., USD, EUR, GBP).`
@@ -579,6 +612,7 @@ export class PayPalClient {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
+        ...(providerRequestId() ? { "PayPal-Request-Id": providerRequestId()! } : {}),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
