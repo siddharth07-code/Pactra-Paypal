@@ -13,6 +13,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { canonicalJson } from "./veripay-merkle";
+import { requestScope } from "./persistence/request-scope";
 
 export interface WebhookLedgerEntry {
   eventId: string;
@@ -56,11 +57,13 @@ export class WebhookDeduplicationLedger {
   }
 
   public isProcessed(eventId: string): boolean {
+    if (requestScope()?.worker) return false;
     const entry = this.entries.get(eventId);
     return entry !== undefined && entry.status === "PROCESSED";
   }
 
   public isProcessing(eventId: string): boolean {
+    if (requestScope()?.worker) return false;
     if (this.activeClaims.has(eventId)) return true;
     const entry = this.entries.get(eventId);
     if (!entry || entry.status !== "PROCESSING") return false;
@@ -73,6 +76,12 @@ export class WebhookDeduplicationLedger {
   }
 
   public recordProcessing(eventId: string, eventType: string, resourceId?: string): boolean {
+    const worker = requestScope()?.worker;
+    if (worker) {
+      if (eventId !== worker.eventId || worker.claimEntered) return false;
+      worker.claimEntered = true; return true;
+    }
+    if (process.env.NODE_ENV !== "test") throw new Error("A PostgreSQL webhook claim is required.");
     if (this.isProcessed(eventId)) {
       return false; // Already processed
     }
@@ -102,6 +111,8 @@ export class WebhookDeduplicationLedger {
   }
 
   public recordProcessed(eventId: string): void {
+    const worker = requestScope()?.worker;
+    if (worker) { if (worker.eventId !== eventId) throw new Error("Wrong event claim."); worker.outcome = "PROCESSED"; return; }
     const entry = this.entries.get(eventId);
     if (entry) {
       this.entries.set(eventId, { ...entry, status: "PROCESSED", completedAt: new Date().toISOString() });
@@ -116,6 +127,8 @@ export class WebhookDeduplicationLedger {
   }
 
   public recordFailed(eventId: string, error: string): void {
+    const worker = requestScope()?.worker;
+    if (worker) { if (worker.eventId !== eventId) throw new Error("Wrong event claim."); worker.outcome = "FAILED"; return; }
     const entry = this.entries.get(eventId);
     if (entry) {
       this.entries.set(eventId, { ...entry, status: "FAILED", error, completedAt: new Date().toISOString() });
@@ -214,7 +227,7 @@ const globalForWebhookLedger = globalThis as unknown as {
 };
 
 export const defaultWebhookLedger =
-  globalForWebhookLedger.pactumAuthoritativeWebhookLedger ?? new WebhookDeduplicationLedger();
+  globalForWebhookLedger.pactumAuthoritativeWebhookLedger ?? new WebhookDeduplicationLedger({ filePath: null });
 
 if (process.env.NODE_ENV !== "production") {
   globalForWebhookLedger.pactumAuthoritativeWebhookLedger = defaultWebhookLedger;

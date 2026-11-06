@@ -12,7 +12,7 @@ import { createAuthContext } from "@/lib/auth/supabase-server";
 import { requireAuthenticatedUser } from "@/lib/auth/principal";
 
 const mocks = vi.hoisted(() => ({
-  getUser: vi.fn(), signUp: vi.fn(), signInWithPassword: vi.fn(), signOut: vi.fn(), exchangeCodeForSession: vi.fn(),
+  getUser: vi.fn(), getClaims: vi.fn(), signUp: vi.fn(), signInWithPassword: vi.fn(), signOut: vi.fn(), exchangeCodeForSession: vi.fn(),
   limit: vi.fn(),
 }));
 vi.mock("@supabase/ssr", () => ({ createServerClient: vi.fn() }));
@@ -49,6 +49,8 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("External requests forbidden")));
   mocks.limit.mockResolvedValue({ allowed: true });
   mocks.getUser.mockResolvedValue({ data: { user }, error: null });
+  mocks.getClaims.mockResolvedValue({ data: { claims: { sub: user.id, session_id: "12345678-1234-1234-1234-123456789abd", aud: "authenticated", iss: "https://project.supabase.co/auth/v1" } }, error: null });
+  vi.stubEnv("DATABASE_URL", "");
   mocks.signUp.mockResolvedValue({ data: { user: null, session: null }, error: null });
   mocks.signInWithPassword.mockImplementation(async () => { writeCookies(); return { data: {}, error: null }; });
   mocks.signOut.mockResolvedValue({ error: null });
@@ -307,6 +309,6 @@ describe("business APIs fail closed independently of middleware", () => {
     expect((await route[method](request(`/api/${path}`, method === "POST" ? { sessionId: "victim", organizationId: "forged" } : undefined))).status).toBe(401);
     const response = await route[method](request(`/api/${path}`, method === "POST" ? {} : undefined));
     expect(response.status).toBe(503);
-    expect((await response.json()).error.code).toBe("TENANT_AUTHORIZATION_UNAVAILABLE");
+    expect((await response.json()).error.code).toBe("DATABASE_UNAVAILABLE");
   });
 });
