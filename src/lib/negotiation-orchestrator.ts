@@ -31,7 +31,7 @@ import {
 import { VeriPayMerkleTree } from "./veripay-merkle";
 import { GeminiNegotiationClient } from "./gemini-client";
 import { AcworldAuditor } from "./acworld-auditor";
-import { sessionStore } from "./session-store";
+import { sessionStore, saveSessionCheckpoint } from "./session-store";
 import {
   calculateSimulatedVendorCounteroffer,
   getVendorSimulationProfile,
@@ -226,7 +226,7 @@ export class NegotiationOrchestrator {
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    sessionStore.saveSession(initialSession);
+    await saveSessionCheckpoint(initialSession);
 
     const turns: NegotiationTurn[] = [];
 
@@ -854,7 +854,7 @@ export class NegotiationOrchestrator {
           updatedAt: new Date().toISOString(),
         };
 
-        sessionStore.saveSession(session);
+        await saveSessionCheckpoint(session);
 
         await this.emit({
           type: "NEGOTIATION_COMPLETED",
@@ -942,7 +942,7 @@ export class NegotiationOrchestrator {
       };
 
       // Persist final session state to authoritative store
-      sessionStore.saveSession(session);
+      await saveSessionCheckpoint(session);
 
       await this.emit({
         type: "NEGOTIATION_COMPLETED",
