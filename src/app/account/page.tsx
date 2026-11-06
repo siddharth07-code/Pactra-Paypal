@@ -1,4 +1,6 @@
 "use client";
+import Link from "next/link";
+import { OrganizationMembers } from "@/components/OrganizationMembers";
 import { useEffect, useState } from "react";
 
 export default function AccountPage() {
@@ -28,7 +30,9 @@ export default function AccountPage() {
     <section className="max-w-lg space-y-5 rounded-xl border border-smoke p-8">
       <p className="font-mono text-ember-orange">PACTUM</p><h1 className="text-2xl font-semibold">Your account</h1>
       <p>{email ? `Signed in as ${email}` : "Checking your verified session…"}</p>
-      <p>Organization authorization is not available yet. Procurement, evidence, and settlement APIs are disabled until organization access is implemented.</p>
+      <p>Select an organization to access procurement and settlement. Your active membership and permissions are verified by the server for every operation.</p>
+      <Link href="/">Open organization workspace</Link>
+      <OrganizationMembers />
       {error && <p role="alert">{error}</p>}
       <button disabled={busy} onClick={logout} className="rounded bg-ember-orange p-3 text-white disabled:opacity-50">{busy ? "Signing out…" : "Sign out"}</button>
     </section>

@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (process.env.NODE_ENV !== "test" || process.env.PACTUM_DATABASE_TESTS === "1") return NextResponse.json({ error: "DATABASE_RETENTION_NOT_ENABLED", message: "Database financial records are retained; legacy file cleanup is disabled." }, { status: 503 });
   // 3. Acquire distributed concurrency lock (or local memory with auto-expiration)
   const lock = await defaultCronCoordinator.acquireLockAsync("cleanup", 60000);
   if (!lock.acquired) {
@@ -102,6 +103,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  if (process.env.NODE_ENV !== "test" || process.env.PACTUM_DATABASE_TESTS === "1") return NextResponse.json({ error: "DATABASE_RETENTION_NOT_ENABLED", message: "Database financial records are retained; legacy file cleanup is disabled." }, { status: 503 });
   const { searchParams } = new URL(req.url);
   const queryRetention = searchParams.get("retentionDays");
   const retentionDays = queryRetention ? parseInt(queryRetention, 10) : undefined;
