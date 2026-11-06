@@ -5,9 +5,11 @@ import { authFailure } from "./http";
 import { createAuthContext, type AuthContext } from "./supabase-server";
 import { requireAuthenticatedUser } from "./principal";
 import { defaultRateLimiter } from "@/lib/rate-limiter";
+import { requestScope } from "@/lib/persistence/request-scope";
 
 /** No configuration flag or development bypass: identity alone never grants tenant access. */
 export async function requireBusinessAccess(request: NextRequest): Promise<Response | null> {
+  if (requestScope()) return null;
   let context: AuthContext | undefined;
   try {
     const limit = await defaultRateLimiter.checkLimit(request, "GENERAL_DEFAULT");

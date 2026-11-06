@@ -27,12 +27,12 @@ export function requireSameOrigin(request: NextRequest): void {
   }
 }
 
-export async function boundedJson(request: NextRequest): Promise<Record<string, unknown>> {
+export async function boundedJson(request: Request, maxBytes = 4096): Promise<Record<string, unknown>> {
   if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") {
     throw new AuthError(415, "AUTH_CONTENT_TYPE", "Content-Type must be application/json.");
   }
   const declared = request.headers.get("content-length");
-  if (declared && (!/^\d+$/.test(declared) || Number(declared) > 4096)) {
+  if (declared && (!/^\d+$/.test(declared) || Number(declared) > maxBytes)) {
     throw new AuthError(413, "AUTH_BODY_TOO_LARGE", "Authentication request exceeds 4096 bytes.");
   }
   if (!request.body) throw new AuthError(400, "AUTH_INVALID_BODY", "A JSON object is required.");
@@ -46,7 +46,7 @@ export async function boundedJson(request: NextRequest): Promise<Record<string, 
         const { done, value } = await reader.read();
         if (done) break;
         size += value.byteLength;
-        if (size > 4096) throw new AuthError(413, "AUTH_BODY_TOO_LARGE", "Authentication request exceeds 4096 bytes.");
+        if (size > maxBytes) throw new AuthError(413, "AUTH_BODY_TOO_LARGE", "Request exceeds its allowed size.");
         chunks.push(value);
       }
       const bytes = new Uint8Array(size);
