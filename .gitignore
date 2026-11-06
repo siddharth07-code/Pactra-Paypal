@@ -52,3 +52,7 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Legacy financial ledgers remain sensitive during database cutover
+.pactum-idempotency.json
+.pactum-webhooks.json
