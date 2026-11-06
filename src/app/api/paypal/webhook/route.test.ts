@@ -1,3 +1,5 @@
+// Provider-domain tests inject the HTTP persistence boundary; PostgreSQL replay/RLS tests use the real wrapper.
+vi.mock("@/lib/db/webhook-route", () => ({ withWebhookRoute: (handler: unknown) => handler }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { PayPalClient, WebhookVerificationUnavailableError } from "@/lib/paypal-client";
@@ -73,11 +75,12 @@ describe("webhook authenticity and replay safety", () => {
 
   it.each(["development", "production"])("fails closed with missing credentials in %s", async mode => {
     const { session, event } = fixture();
+    const adapter = sessionStore.getAdapter();
     vi.stubEnv("NODE_ENV", mode);
     const response = await POST(request(event));
     expect(response.status).toBeGreaterThanOrEqual(400);
     expect(defaultWebhookLedger.getEntry(event.id)).toBeUndefined();
-    expect(sessionStore.getSession(session.id)).toEqual(session);
+    expect(adapter.load().sessions.find(s => s.id === session.id)).toEqual(session);
     expect(fetch).not.toHaveBeenCalled();
   });
 
