@@ -11,7 +11,13 @@
     "test": "vitest run",
     "test:database": "node scripts/database/test-runner.mjs",
     "db:validate": "prisma validate",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "db:local": "node scripts/database/local-postgres.mjs",
+    "db:local:status": "node scripts/database/local-prisma.mjs migrate status",
+    "db:local:migrate": "node scripts/database/local-prisma.mjs migrate deploy",
+    "db:local:validate": "node scripts/database/local-prisma.mjs validate",
+    "db:local:generate": "node scripts/database/local-prisma.mjs generate",
+    "db:local:verify": "node scripts/database/local-verify.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",
