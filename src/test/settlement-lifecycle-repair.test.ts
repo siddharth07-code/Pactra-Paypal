@@ -1,3 +1,6 @@
+// This suite exercises domain behavior; real authentication/RLS boundaries have separate adversarial tests.
+vi.mock("@/lib/db/business-route", () => ({ withBusinessRoute: (_permission: unknown, handler: unknown) => handler }));
+vi.mock("@/lib/auth/business-access", () => ({ requireBusinessAccess: vi.fn().mockResolvedValue(null) }));
 /**
  * PACTUM — Phase 6.9.1 Regression Suite
  * Settlement Lifecycle Repair & FX Integrity Verification
