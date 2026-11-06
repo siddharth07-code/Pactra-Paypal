@@ -9,7 +9,7 @@ import crypto from "crypto";
 import { orderEvidenceError, paymentAmountError } from "./payment-evidence";
 import { AcworldAuditor } from "./acworld-auditor";
 import { PayPalClient } from "./paypal-client";
-import { sessionStore } from "./session-store";
+import { sessionStore, saveSessionCheckpoint } from "./session-store";
 import { VeriPayMerkleTree } from "./veripay-merkle";
 import { CryptographicFlightRecorder } from "./flight-recorder";
 import { settlementLogger } from "./settlement-logger";
@@ -372,7 +372,7 @@ export class SettlementService {
       session.preSettlementRoot = preAuditCert.verifiedRoot;
       session.merkleRoot = preAuditCert.verifiedRoot;
     }
-    sessionStore.saveSession(session);
+    await saveSessionCheckpoint(session);
 
     // Pre-flight check against mandate constraints
     if (totalAmount > session.mandate.maxTotalBudget) {
@@ -518,7 +518,7 @@ export class SettlementService {
       session.paypalOrderId = orderResult.id;
       session.paypalApprovalUrl = orderResult.approvalUrl;
       session.status = "AWAITING_PAYPAL_APPROVAL";
-      sessionStore.saveSession(session);
+      await saveSessionCheckpoint(session);
 
       return {
         success: true,
@@ -776,7 +776,7 @@ export class SettlementService {
         authorizationId = authRes.authorizationId;
         session.paypalAuthorizationId = authorizationId;
         session.status = "PAYPAL_AUTHORIZED";
-        sessionStore.saveSession(session);
+        await saveSessionCheckpoint(session);
       } else if (!authorizationId) {
         authorizationId =
           orderDetails.purchase_units?.[0]?.payments?.authorizations?.find(a => a.status === "CREATED")?.id;
@@ -794,7 +794,7 @@ export class SettlementService {
       // FAIL-CLOSED GATE CHECK: If audit fails, strictly block capture
       if (!auditCertificate.passed) {
         session.status = "AUDIT_FAILED";
-        sessionStore.saveSession(session);
+        await saveSessionCheckpoint(session);
 
         const failedInvariants = auditCertificate.invariants
           .filter((inv) => !inv.passed)
@@ -813,7 +813,7 @@ export class SettlementService {
       }
 
       session.status = "AUDIT_PASSED";
-      sessionStore.saveSession(session);
+      await saveSessionCheckpoint(session);
 
       // 3.5 INDEPENDENT ACWORLD FX SETTLEMENT VERIFICATION GATE
       if (session.fxRecord) {
@@ -829,7 +829,7 @@ export class SettlementService {
         session.fxVerification = { ...fxAuditResult, conversionHash: session.fxRecord.conversionHash, agreementHash: session.fxRecord.agreementHash };
         if (!fxAuditResult.passed) {
           session.status = "AUDIT_FAILED";
-          sessionStore.saveSession(session);
+          await saveSessionCheckpoint(session);
 
           return {
             success: false,
@@ -853,12 +853,12 @@ export class SettlementService {
 
       if (completedCapture && (existingCaptures?.length !== 1 || !completedCapture.id || paymentAmountError(completedCapture.amount, expectedCurrency, expectedAmount))) {
         session.status = "CAPTURE_PENDING_RECONCILIATION";
-        sessionStore.saveSession(session);
+        await saveSessionCheckpoint(session);
         return { success: false, sessionId, auditCertificate, error: "Existing capture amount mismatch or incomplete capture evidence.", uncertain: true, blockedAtGate: true };
       }
       if (!completedCapture && (existingCaptures?.length || !authorizationId || ["CAPTURE_SUBMITTED", "UNCERTAIN", "CAPTURED"].includes(session.captureIntent?.status ?? ""))) {
         session.status = "CAPTURE_PENDING_RECONCILIATION";
-        sessionStore.saveSession(session);
+        await saveSessionCheckpoint(session);
         return { success: false, sessionId, auditCertificate, error: "Capture evidence remains uncertain; reconciliation required.", uncertain: true, blockedAtGate: true };
       }
 
@@ -883,7 +883,7 @@ export class SettlementService {
         updatedAt: new Date().toISOString(),
       };
       session.captureIntent = captureIntent;
-      sessionStore.saveSession(session);
+      await saveSessionCheckpoint(session);
 
       settlementLogger.info("CAPTURE_INTENT_CREATED", "Capture intent record persisted", {
         correlationId: sessionId,
@@ -906,7 +906,7 @@ export class SettlementService {
           captureIntent.status = "CAPTURE_SUBMITTED";
           captureIntent.updatedAt = new Date().toISOString();
           session.captureIntent = captureIntent;
-          sessionStore.saveSession(session);
+          await saveSessionCheckpoint(session);
 
           settlementLogger.info("CAPTURE_SUBMITTED", "PayPal capture requested", {
             correlationId: sessionId,
@@ -926,7 +926,7 @@ export class SettlementService {
             captureIntent.lastError = `PayPal capture returned non-completed status: ${captureResult.status}`;
             captureIntent.updatedAt = new Date().toISOString();
             session.captureIntent = captureIntent;
-            sessionStore.saveSession(session);
+            await saveSessionCheckpoint(session);
 
             settlementLogger.error("CAPTURE_FAILED", `PayPal capture returned non-completed status: ${captureResult.status}`, {
               correlationId: sessionId,
@@ -961,7 +961,7 @@ export class SettlementService {
           captureIntent.updatedAt = new Date().toISOString();
           session.captureIntent = captureIntent;
           session.status = "CAPTURE_PENDING_RECONCILIATION";
-          sessionStore.saveSession(session);
+          await saveSessionCheckpoint(session);
           settlementLogger.error("CAPTURE_OUTCOME_UNCERTAIN", "Capture outcome requires authoritative reconciliation.", {
             correlationId: sessionId, sessionId, orderId: effectiveOrderId, metadata: { intentId: captureIntentId },
           });
@@ -977,7 +977,7 @@ export class SettlementService {
       session.captureAmount = expectedAmount;
       session.status = "PAYPAL_CAPTURED";
       consumeFxRecord(session);
-      sessionStore.saveSession(session);
+      await saveSessionCheckpoint(session);
 
       // 5. Post-Audit & Settlement Merkle Event Commitment
       if (session.flightRecord) {
@@ -1062,7 +1062,7 @@ export class SettlementService {
       }
 
       session.status = "SETTLED";
-      sessionStore.saveSession(session);
+      await saveSessionCheckpoint(session);
 
       return {
         success: true,
@@ -1370,7 +1370,7 @@ export class SettlementService {
         }
         session.status = "PAYPAL_CAPTURED";
         session.updatedAt = new Date().toISOString();
-        sessionStore.saveSession(session);
+        await saveSessionCheckpoint(session);
 
         settlementLogger.info("RECONCILIATION_RESOLVED", `Authoritative reconciliation confirmed remote capture ${completedCapture.id} completed on PayPal.`, {
           correlationId: sessionId,
@@ -1401,7 +1401,7 @@ export class SettlementService {
           session.captureIntent.updatedAt = new Date().toISOString();
         }
         session.updatedAt = new Date().toISOString();
-        sessionStore.saveSession(session);
+        await saveSessionCheckpoint(session);
 
         return {
           success: true,
@@ -1424,7 +1424,7 @@ export class SettlementService {
         session.captureIntent.status = "UNCERTAIN";
         session.captureIntent.updatedAt = new Date().toISOString();
         session.updatedAt = new Date().toISOString();
-        sessionStore.saveSession(session);
+        await saveSessionCheckpoint(session);
 
         settlementLogger.warn(
           "RECONCILIATION_STILL_PENDING",
@@ -1460,7 +1460,7 @@ export class SettlementService {
         session.captureIntent.updatedAt = new Date().toISOString();
       }
       session.updatedAt = new Date().toISOString();
-      sessionStore.saveSession(session);
+      await saveSessionCheckpoint(session);
 
       settlementLogger.info("RECONCILIATION_RESOLVED", "Reconciliation verified no capture was ever submitted. Status reset to PAYPAL_AUTHORIZED.", {
         correlationId: sessionId,

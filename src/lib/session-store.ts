@@ -7,6 +7,7 @@
 
 import fs from "fs";
 import crypto from "crypto";
+import { requestScope } from "./persistence/request-scope";
 import {
   SessionPersistenceAdapter,
   DurableFilePersistenceAdapter,
@@ -512,9 +513,25 @@ const globalForSessionStore = globalThis as unknown as {
   pactumAuthoritativeSessionStore?: AuthoritativeSessionStore;
 };
 
-export const sessionStore =
-  globalForSessionStore.pactumAuthoritativeSessionStore ?? new AuthoritativeSessionStore();
+const legacySessionStore = globalForSessionStore.pactumAuthoritativeSessionStore ?? new AuthoritativeSessionStore(new MemorySessionPersistenceAdapter());
+// Runtime callers must enter a database-authorized request scope. Maps are detached workspaces,
+// never an alternative financial source when PostgreSQL is unavailable.
+export const sessionStore = new Proxy(legacySessionStore, {
+  get(target, property) {
+    const scope = requestScope();
+    if (!scope && process.env.NODE_ENV !== "test") throw new Error("An authorized database session scope is required.");
+    const store = scope?.store ?? target;
+    const value: unknown = Reflect.get(store, property);
+    return value;
+  },
+});
+
+export async function saveSessionCheckpoint(session: ProcurementSession): Promise<void> {
+  sessionStore.saveSession(session);
+  const scope = requestScope();
+  if (scope) await scope.persist(session);
+}
 
 if (process.env.NODE_ENV !== "production") {
-  globalForSessionStore.pactumAuthoritativeSessionStore = sessionStore;
+  globalForSessionStore.pactumAuthoritativeSessionStore = legacySessionStore;
 }
