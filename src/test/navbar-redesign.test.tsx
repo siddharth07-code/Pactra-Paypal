@@ -29,7 +29,7 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     );
   };
 
-  it("renders PACTUM brand lockup with monogram, wordmark, and VERIPAY secondary identifier", () => {
+  it("renders PACTUM brand lockup without a secondary product label", () => {
     renderNavbar("overview");
 
     // Monogram 'P'
@@ -42,8 +42,7 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     expect(brandBtn).toBeInTheDocument();
     expect(brandBtn).toHaveTextContent("PACTUM");
 
-    // VERIPAY secondary product identifier
-    expect(screen.getByText("VeriPay")).toBeInTheDocument();
+    expect(screen.queryByText("VeriPay", { selector: "header *" })).not.toBeInTheDocument();
 
     // Clicking brand triggers navigation to Overview
     fireEvent.click(brandBtn);
@@ -56,16 +55,32 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     const expectedDestinations = [
       "Overview",
       "Sourcing",
-      "Negotiation Arena",
-      "Evidence Vault",
-      "Settlement Center",
-      "Procurement History",
+      "Negotiations",
+      "Evidence",
+      "Settlements",
+      "History",
     ];
 
     expectedDestinations.forEach((label) => {
       const btn = screen.getByRole("button", { name: new RegExp(`^${label}$`, "i") });
       expect(btn).toBeInTheDocument();
     });
+  });
+
+  it("keeps the desktop navigation behind a roomy breakpoint and 40px targets", () => {
+    const { container } = renderNavbar("overview");
+    const nav = screen.getByRole("navigation", { name: "Primary navigation" });
+    const menuTrigger = screen.getByRole("button", { name: /Open navigation menu/i });
+    const accountTrigger = screen.getByRole("button", { name: /Account menu for Account/i });
+    const overview = screen.getByRole("button", { name: /^Overview$/i });
+
+    expect(nav.className).toContain("min-[1240px]:flex");
+    expect(menuTrigger.className).toContain("min-[1240px]:hidden");
+    expect(accountTrigger.className).toContain("h-10");
+    expect(overview.className).toContain("h-10");
+    expect(container.querySelector("header > div")?.className).toContain(
+      "grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+    );
   });
 
   it("sets aria-current='page' on the active navigation destination", () => {
@@ -128,7 +143,7 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
 
   it("renders functional account control menu with dismissal", () => {
     renderNavbar("overview");
-    const accountBtn = screen.getByRole("button", { name: /Account and organization menu/i });
+    const accountBtn = screen.getByRole("button", { name: /Account menu for Account/i });
     expect(accountBtn).toBeInTheDocument();
     expect(accountBtn).toHaveAttribute("aria-expanded", "false");
 
@@ -154,7 +169,7 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     expect(toggle).toBeInTheDocument();
     expect(toggle).toHaveAttribute("title", "Switch to dark mode");
     expect(toggle.className).toContain("w-[50px]");
-    expect(toggle.className).toContain("h-[32px]");
+    expect(toggle.className).toContain("h-10");
 
     // Click to switch to dark
     fireEvent.click(toggle);
@@ -198,7 +213,7 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     expect(header?.className).toContain("z-40");
 
     const headerInner = header?.querySelector("div");
-    expect(headerInner?.className).toContain("h-[64px]");
+    expect(headerInner?.className).toContain("h-16");
   });
 
   it("handles mobile menu open, link selection, and Escape key dismissal", () => {

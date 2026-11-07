@@ -74,10 +74,10 @@ export function AppShell({
   const navItems = [
     { id: "overview", label: "Overview", icon: Compass },
     { id: "sourcing", label: "Sourcing", icon: Search },
-    { id: "arena", label: "Negotiation Arena", icon: Zap },
-    { id: "vault", label: "Evidence Vault", icon: ShieldCheck },
-    { id: "settlement", label: "Settlement Center", icon: CreditCard },
-    { id: "history", label: "Procurement History", icon: Clock },
+    { id: "arena", label: "Negotiations", icon: Zap },
+    { id: "vault", label: "Evidence", icon: ShieldCheck },
+    { id: "settlement", label: "Settlements", icon: CreditCard },
+    { id: "history", label: "History", icon: Clock },
   ].filter(
     (item) =>
       !organization ||
@@ -101,14 +101,14 @@ export function AppShell({
 
       {/* Persistent Single-Row Institutional Fintech Header */}
       <header className="w-full bg-paper-white dark:bg-[#121214] border-b border-smoke dark:border-[#27272a] sticky top-0 z-40 transition-colors">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 h-[64px] flex items-center justify-between gap-4">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 h-16 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
           
           {/* ZONE 1 — LEFT: BRAND IDENTITY */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="min-w-0 justify-self-start flex items-center">
             <button
               type="button"
               onClick={() => onNavigate("overview")}
-              className="group flex items-center gap-2.5 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#121214] rounded-[6px] p-0.5"
+              className="group h-10 flex items-center gap-2.5 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#121214] rounded-[6px] px-1"
               aria-label="PACTUM Home — Return to Overview"
             >
               {/* Brand Monogram */}
@@ -124,24 +124,11 @@ export function AppShell({
               </span>
             </button>
 
-            {/* Subtle Vertical Divider */}
-            <span
-              className="h-3.5 w-px bg-smoke dark:bg-[#27272a] hidden sm:block shrink-0"
-              aria-hidden="true"
-            />
-
-            {/* VeriPay Secondary Product Identifier */}
-            <span
-              className="hidden sm:inline-block text-[11px] font-mono-token font-medium tracking-[0.05em] text-secondary uppercase select-none"
-              title="VeriPay Cryptographic Verification Engine"
-            >
-              VeriPay
-            </span>
           </div>
 
           {/* ZONE 2 — CENTER: PRIMARY NAVIGATION */}
           <nav
-            className="hidden xl:flex items-center h-full gap-1"
+            className="hidden min-[1240px]:flex min-w-0 justify-self-center items-center h-full gap-1.5"
             aria-label="Primary navigation"
           >
             {navItems.map((item) => {
@@ -153,7 +140,7 @@ export function AppShell({
                   type="button"
                   onClick={() => onNavigate(item.id as NavScreen)}
                   aria-current={isActive ? "page" : undefined}
-                  className={`h-8 px-3 rounded-[6px] text-[13px] font-medium tracking-[-0.01em] transition-colors cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#121214] ${
+                  className={`h-10 px-3 rounded-[6px] text-[13px] font-medium tracking-[-0.01em] transition-colors cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#121214] ${
                     isActive
                       ? "bg-smoke/60 dark:bg-[#222226] text-obsidian dark:text-white"
                       : "text-secondary hover:text-obsidian dark:hover:text-[#f4f4f5] hover:bg-smoke/30 dark:hover:bg-[#1b1b1f]"
@@ -166,7 +153,7 @@ export function AppShell({
           </nav>
 
           {/* ZONE 3 — RIGHT: THEME TOGGLE & ACCOUNT CONTROL */}
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          <div className="min-w-0 justify-self-end flex items-center justify-end gap-2">
             {/* Theme Toggle */}
             <ThemeToggle className="shrink-0" />
 
@@ -178,7 +165,7 @@ export function AppShell({
               ref={menuTriggerRef}
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="xl:hidden p-1.5 rounded-[6px] text-obsidian dark:text-[#f4f4f5] hover:bg-smoke/40 dark:hover:bg-[#1e1e22] border border-smoke dark:border-[#27272a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors shrink-0"
+              className="min-[1240px]:hidden h-10 w-10 flex items-center justify-center rounded-[6px] text-obsidian dark:text-[#f4f4f5] hover:bg-smoke/40 dark:hover:bg-[#1e1e22] border border-smoke dark:border-[#27272a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors shrink-0"
               aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-nav-drawer"
@@ -197,7 +184,7 @@ export function AppShell({
           <>
             {/* Backdrop */}
             <div
-              className="fixed inset-0 top-[64px] bg-black/50 dark:bg-black/70 z-40 xl:hidden transition-opacity"
+              className="fixed inset-0 top-[64px] bg-black/50 dark:bg-black/70 z-40 min-[1240px]:hidden transition-opacity"
               onClick={() => setMobileMenuOpen(false)}
               aria-hidden="true"
             />
@@ -208,7 +195,7 @@ export function AppShell({
               role="dialog"
               aria-modal="true"
               aria-label="Mobile Navigation Menu"
-              className="fixed top-[64px] inset-x-0 bg-paper-white dark:bg-[#141416] border-b border-smoke dark:border-[#27272a] z-50 p-4 space-y-1.5 shadow-xl xl:hidden max-h-[calc(100vh-64px)] overflow-y-auto"
+              className="fixed top-[64px] inset-x-0 bg-paper-white dark:bg-[#141416] border-b border-smoke dark:border-[#27272a] z-50 p-4 space-y-1.5 shadow-xl min-[1240px]:hidden max-h-[calc(100vh-64px)] overflow-y-auto"
             >
               <div className="px-3 py-1.5 pb-2 text-[11px] font-mono-token uppercase tracking-wider text-secondary border-b border-smoke/70 dark:border-[#222226]">
                 Navigation
@@ -227,7 +214,7 @@ export function AppShell({
                       setMobileMenuOpen(false);
                     }}
                     aria-current={isActive ? "page" : undefined}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[6px] text-[13.5px] tracking-[-0.01em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors ${
+                    className={`h-10 w-full flex items-center gap-3 px-3 rounded-[6px] text-[13.5px] tracking-[-0.01em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors ${
                       isActive
                         ? "bg-smoke/60 dark:bg-[#222226] text-obsidian dark:text-white font-medium"
                         : "text-secondary hover:text-obsidian dark:hover:text-white hover:bg-smoke/30 dark:hover:bg-[#1b1b1f]"
@@ -243,7 +230,7 @@ export function AppShell({
                 <Link
                   href="/account"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-[6px] text-[13.5px] text-secondary hover:text-obsidian dark:hover:text-white hover:bg-smoke/30 dark:hover:bg-[#1b1b1f] transition-colors"
+                  className="h-10 flex items-center gap-3 px-3 rounded-[6px] text-[13.5px] text-secondary hover:text-obsidian dark:hover:text-white hover:bg-smoke/30 dark:hover:bg-[#1b1b1f] transition-colors"
                 >
                   <Settings className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span>Account &amp; Settings</span>
@@ -370,13 +357,7 @@ function AccountControl() {
   }, []);
 
   // Derive initial for display
-  const initial = user?.email
-    ? user.email[0].toUpperCase()
-    : activeOrg?.name
-    ? activeOrg.name[0].toUpperCase()
-    : "A";
-
-  const displayName = activeOrg?.name || user?.email?.split("@")[0] || "Account";
+  const displayName = activeOrg?.name || "Account";
 
   return (
     <div className="relative">
@@ -386,23 +367,12 @@ function AccountControl() {
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="Account and organization menu"
-        className="h-8 px-2.5 rounded-[6px] border border-smoke dark:border-[#27272a] bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202024] text-obsidian dark:text-[#f4f4f5] text-[12.5px] font-medium flex items-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer select-none"
+        aria-label={`Account menu for ${displayName}`}
+        className="h-10 max-w-[220px] px-3 rounded-[6px] hover:bg-smoke/30 dark:hover:bg-[#202024] text-obsidian dark:text-[#f4f4f5] text-[13px] font-medium flex items-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer select-none"
       >
-        <span
-          className="w-5 h-5 rounded-[4px] bg-smoke/80 dark:bg-[#27272a] flex items-center justify-center text-[11px] font-mono-token font-semibold uppercase text-secondary shrink-0"
-          aria-hidden="true"
-        >
-          {initial}
-        </span>
-        <span className="max-w-[130px] truncate hidden sm:inline text-left">
+        <span className="max-w-[170px] truncate text-left">
           {displayName}
         </span>
-        {activeOrg?.role && (
-          <span className="text-[10px] font-mono-token text-secondary uppercase hidden md:inline px-1 py-0.2 rounded bg-smoke/40 dark:bg-[#27272a] shrink-0">
-            {activeOrg.role}
-          </span>
-        )}
         <ChevronDown
           className={`w-3.5 h-3.5 text-secondary shrink-0 transition-transform duration-150 ${
             open ? "rotate-180" : ""
@@ -419,14 +389,14 @@ function AccountControl() {
           aria-label="Account options"
           className="absolute right-0 top-[calc(100%+6px)] w-64 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] shadow-xl z-50 p-2 space-y-1 text-[13px] animate-in fade-in duration-100"
         >
-          {/* User Identity Section */}
-          <div className="px-2.5 py-2 border-b border-smoke/70 dark:border-[#27272a] select-none">
-            <p className="text-[11px] font-mono-token uppercase tracking-wider text-secondary">
-              Signed in
-            </p>
-            <p className="font-medium text-obsidian dark:text-[#f4f4f5] truncate">
-              {user?.email || "Authenticated Session"}
-            </p>
+          {/* User identity, avatar and permission context belong inside the menu. */}
+          <div className="flex items-center gap-3 px-2.5 py-3 border-b border-smoke/70 dark:border-[#27272a] select-none">
+            <span className="h-10 w-10 rounded-full bg-smoke/80 dark:bg-[#27272a] flex items-center justify-center font-semibold text-secondary shrink-0" aria-hidden="true">{user?.email?.[0]?.toUpperCase() ?? "A"}</span>
+            <div className="min-w-0">
+              <p className="text-[11px] text-secondary">Signed in</p>
+              <p className="font-medium text-obsidian dark:text-[#f4f4f5] truncate">{user?.email || "Authenticated Session"}</p>
+              {activeOrg?.role && <p className="text-[11px] text-secondary">{activeOrg.role.replaceAll("_", " ")}</p>}
+            </div>
           </div>
 
           {/* Active Organization Section */}
@@ -457,7 +427,7 @@ function AccountControl() {
                       void orgControl.switchOrganization(e.target.value);
                       setOpen(false);
                     }}
-                    className="w-full text-[12px] p-1.5 rounded-[4px] border border-smoke dark:border-[#27272a] bg-paper-white dark:bg-[#121214] text-obsidian dark:text-[#f4f4f5] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange cursor-pointer"
+                    className="h-10 w-full text-[12px] px-2 rounded-[4px] border border-smoke dark:border-[#27272a] bg-paper-white dark:bg-[#121214] text-obsidian dark:text-[#f4f4f5] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange cursor-pointer"
                   >
                     {organizations.map((org) => (
                       <option key={org.id} value={org.id}>
@@ -476,7 +446,7 @@ function AccountControl() {
               href="/account"
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-[5px] text-secondary hover:text-obsidian dark:hover:text-[#f4f4f5] hover:bg-smoke/30 dark:hover:bg-[#222227] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+              className="h-10 flex items-center gap-2.5 px-2.5 py-1.5 rounded-[5px] text-secondary hover:text-obsidian dark:hover:text-[#f4f4f5] hover:bg-smoke/30 dark:hover:bg-[#222227] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
             >
               <Settings className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>Account &amp; Workspace</span>
@@ -487,7 +457,7 @@ function AccountControl() {
                 href="/account"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-[5px] text-secondary hover:text-obsidian dark:hover:text-[#f4f4f5] hover:bg-smoke/30 dark:hover:bg-[#222227] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+                className="h-10 flex items-center gap-2.5 px-2.5 py-1.5 rounded-[5px] text-secondary hover:text-obsidian dark:hover:text-[#f4f4f5] hover:bg-smoke/30 dark:hover:bg-[#222227] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
               >
                 <Shield className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>Manage Members</span>
@@ -502,7 +472,7 @@ function AccountControl() {
               role="menuitem"
               disabled={loggingOut}
               onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-[5px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-500 disabled:opacity-50"
+              className="h-10 w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-[5px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-500 disabled:opacity-50"
             >
               <LogOut className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>{loggingOut ? "Signing out…" : "Sign out"}</span>

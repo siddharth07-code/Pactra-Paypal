@@ -443,7 +443,7 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
       onClick={handleToggle}
       aria-label={label}
       title={label}
-      className={`relative w-[50px] h-[32px] rounded-[8px] border transition-colors motion-reduce:transition-none cursor-pointer flex items-center justify-center shrink-0 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111114] ${
+      className={`relative w-[50px] h-10 rounded-[8px] border transition-colors motion-reduce:transition-none cursor-pointer flex items-center justify-center shrink-0 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111114] ${
         isDark
           ? "bg-[#18181b] border-[#27272a] text-[#dedad4] hover:bg-[#222227] hover:border-[#383842] shadow-2xs"
           : "bg-warm-cream/90 border-smoke/90 text-obsidian hover:bg-paper-white hover:border-smoke shadow-2xs"
