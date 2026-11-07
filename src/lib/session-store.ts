@@ -527,9 +527,19 @@ export const sessionStore = new Proxy(legacySessionStore, {
 });
 
 export async function saveSessionCheckpoint(session: ProcurementSession): Promise<void> {
-  sessionStore.saveSession(session);
   const scope = requestScope();
-  if (scope) await scope.persist(session);
+  const previous = scope?.store.getAdapter().load();
+  try {
+    sessionStore.saveSession(session);
+    if (scope) await scope.persist(session);
+  } catch (error) {
+    if (scope && previous) {
+      const restored = new MemorySessionPersistenceAdapter();
+      restored.save(previous);
+      scope.store.setAdapter(restored);
+    }
+    throw error;
+  }
 }
 
 if (process.env.NODE_ENV !== "production") {
