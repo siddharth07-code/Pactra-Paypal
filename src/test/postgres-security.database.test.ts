@@ -459,6 +459,49 @@ describe("database-backed organization and INR procurement workflows", () => {
 });
 
 describe("negotiation checkpoint persistence", () => {
+  it("isolates sourcing idempotency keys and durable replays across organizations", async () => {
+    const a = await organization(), b = await organization();
+    const execute = vi.fn(async () => ({ status: 200, body: { marker: randomUUID() } }));
+    const submit = async (context: OrganizationContext) => {
+      const scope = workspaceScope(context, "session.write", []);
+      return withRequestScope(scope, async () => {
+        const result = await executeDatabaseIdempotency({ scope: "SESSION_CREATE", key: "same-key-in-two-tenants", payload: { request: "same sourcing input" }, execute });
+        await scope.flush(); return result;
+      });
+    };
+    const firstA = await submit(a), firstB = await submit(b);
+    expect(firstA.body).not.toEqual(firstB.body);
+    expect((await submit(a)).body).toEqual(firstA.body);
+    expect((await submit(b)).body).toEqual(firstB.body);
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves exact agreement amounts, failed-run history and checkpoint rollback", async () => {
+    const context = await organization(), session = draft(), repo = new PrismaSessionRepository(context, "session.write");
+    const { DETERMINISTIC_FIXTURE_QUOTES } = await import("@/lib/channel3-client");
+    const { GeminiNegotiationClient } = await import("@/lib/gemini-client");
+    const { NegotiationOrchestrator } = await import("@/lib/negotiation-orchestrator");
+    session.mandate.quantity = 25; session.mandate.maxTotalBudget = 8500; session.mandate.maxDeliveryDays = 5; session.mandate.minReturnDays = 30;
+    session.quotes = [structuredClone(DETERMINISTIC_FIXTURE_QUOTES[2])]; session.status = "SOURCING";
+    await repo.save(session, null);
+    const client = new GeminiNegotiationClient({ apiKey: "" });
+    vi.spyOn(client, "generateBuyerOffer").mockResolvedValue({ unitPrice: 273.6, deliveryDays: 1, returnDays: 60, message: "Test offer", tacticalRationale: "Offline test", generator: "DETERMINISTIC_FALLBACK" });
+    const scope = workspaceScope(context, "negotiation.start", await repo.load(session.id));
+    const persist = scope.persist.bind(scope);
+    scope.persist = async candidate => { if (candidate.agreementRecord) throw new Error("Injected final checkpoint failure"); return persist(candidate); };
+    const events: string[] = [];
+    await expect(withRequestScope(scope, () => new NegotiationOrchestrator({ geminiClient: client, onEvent: event => { events.push(event.type); } }).runNegotiation(session.mandate, session.quotes, session.id))).rejects.toThrow("Injected final checkpoint failure");
+    const failed = (await repo.load(session.id))[0].session;
+    expect(failed.status).toBe("NEGOTIATING"); expect(failed.turns.length).toBeGreaterThan(0); expect(failed.agreementRecord).toBeUndefined(); expect(failed.negotiationFailure?.reference).toBeTruthy();
+    expect(scope.store.getSession(session.id)?.agreementRecord).toBeUndefined(); expect(events).not.toContain("NEGOTIATION_COMPLETED");
+    const retry = workspaceScope(context, "negotiation.start", await repo.load(session.id));
+    await withRequestScope(retry, () => new NegotiationOrchestrator({ geminiClient: client }).runNegotiation(failed.mandate, failed.quotes, session.id));
+    const saved = (await repo.load(session.id))[0].session;
+    const { minor } = await import("@/lib/db/codec");
+    const agreement = saved.agreementRecord!;
+    expect(minor(agreement.totalCost)).toBe(minor(agreement.agreedOffer.unitPrice) * BigInt(agreement.agreedOffer.quantity) + minor(agreement.agreedOffer.shippingCost));
+    expect(saved.negotiationFailure).toBeUndefined(); expect(saved.negotiationHistory?.at(-1)?.turns).toEqual(failed.turns);
+  });
   const request = (path: string, organizationId: string, body?: unknown) => new NextRequest(`https://pactum.example${path}`, { method: body ? "POST" : "GET", headers: { "x-organization-id": organizationId, origin: "https://pactum.example", "content-type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
   it("persists deterministic negotiation checkpoints without Gemini or long-running database transactions", async () => {
     const context = await organization(), session = draft(), repo = new PrismaSessionRepository(context, "session.write");
