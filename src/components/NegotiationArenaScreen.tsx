@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import type { VendorQuote, ProcurementMandate, ProcurementSession } from "@/types/pactum";
 import { formatCurrency } from "@/lib/currency";
+import { negotiationFailureMessage } from "@/lib/negotiation-failure";
+import { GhostButton } from "./SharedUI";
 
 export interface StreamEventItem {
   id: string;
@@ -71,10 +73,14 @@ export function NegotiationArenaScreen({
     return max;
   }, 1);
 
-  const completedEvent = events.find((ev) => ev.type === "NEGOTIATION_COMPLETED");
-  const failed = events.some((ev) => ev.type === "NEGOTIATION_FAILED");
+  const terminal = events.filter(event => ["NEGOTIATION_COMPLETED", "NEGOTIATION_FAILED", "NEGOTIATION_ABORTED"].includes(event.type)).at(-1);
+  const completedEvent = terminal?.type === "NEGOTIATION_COMPLETED" ? terminal : undefined;
+  const failed = terminal?.type === "NEGOTIATION_FAILED" || (!terminal && !isStreaming && Boolean(session?.negotiationFailure));
+  const stopped = terminal?.type === "NEGOTIATION_ABORTED";
+  const failureCode = String(terminal?.payload.code ?? session?.negotiationFailure?.code ?? "NEGOTIATION_UNEXPECTED");
+  const failureReference = terminal?.payload.reference ?? session?.negotiationFailure?.reference;
 
-  const isNoDeal = Boolean(
+  const isNoDeal = !failed && !stopped && Boolean(
     (completedEvent &&
       (completedEvent.payload.outcome === "NO_DEAL" ||
         (!completedEvent.payload.selectedVendor &&
@@ -83,7 +89,7 @@ export function NegotiationArenaScreen({
       Boolean(session?.turns && session.turns.length > 0 && !session.agreementRecord && session.status === "AUDIT_FAILED")
   );
 
-  const isConsensusDeal = Boolean(
+  const isConsensusDeal = !failed && !stopped && Boolean(
     (completedEvent &&
       completedEvent.payload.outcome !== "NO_DEAL" &&
       (completedEvent.payload.selectedVendor ||
@@ -114,14 +120,15 @@ export function NegotiationArenaScreen({
             {isStreaming && (
               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-ember-orange/10 dark:bg-ember-orange/15 text-ember-orange text-[11.5px] font-medium border border-ember-orange/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-ember-orange animate-pulse" />
-                Live Turn
+                Negotiation running
               </span>
             )}
             {isConsensusDeal && <StatusBadge status="verified" label="Consensus Reached" />}
             {isNoDeal && <StatusBadge status="warning" label="No Deal Reached" />}
             {failed && <StatusBadge status="failure" label="Negotiation Halted" />}
-            {!isStreaming && !isConsensusDeal && !isNoDeal && !failed && (
-              <StatusBadge status="neutral" label="Active Workspace" />
+            {stopped && <StatusBadge status="warning" label="Negotiation stopped" />}
+            {!isStreaming && !isConsensusDeal && !isNoDeal && !failed && !stopped && (
+              <StatusBadge status="neutral" label="Saved negotiation" />
             )}
           </div>
 
@@ -153,12 +160,21 @@ export function NegotiationArenaScreen({
           </div>
         </div>
 
-        {isConsensusDeal && onProceedToSettlement && (
+        {isConsensusDeal && !isStreaming && onProceedToSettlement && (
           <PrimaryButton onClick={onProceedToSettlement} className="self-start md:self-auto shrink-0">
             Proceed to Settlement Gate
           </PrimaryButton>
         )}
       </div>
+      {failed && <section role="alert" className="rounded-[6px] border border-border-primary bg-surface-primary p-5 space-y-3">
+        <h2 className="text-lg font-semibold">Negotiation could not complete</h2>
+        <p className="text-sm">{negotiationFailureMessage(failureCode)}</p>
+        <p className="text-sm text-text-secondary">Review the saved history before starting another attempt.</p>
+        {failureReference && <p className="text-xs text-text-secondary">Diagnostic reference: {String(failureReference)}</p>}
+        <GhostButton onClick={() => window.location.reload()}>Reload saved session</GhostButton>
+      </section>}
+      {stopped && <p role="status" className="border border-border-primary rounded-[6px] p-4 text-sm">{String(terminal?.payload.reason ?? terminal?.payload.error ?? "Negotiation stopped because the session no longer meets the requirements to proceed.")}</p>}
+      {events.some(event => event.payload.generator === "DETERMINISTIC_FALLBACK") && <p role="status" className="text-sm text-text-secondary">Some proposals used the deterministic fallback. They are not live model results.</p>}
 
       {/* 2. WORKSPACE GRID: Supplier Comparison (Left) & Execution Feed (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -433,7 +449,7 @@ export function NegotiationArenaScreen({
                       <div className="flex items-center justify-between text-[12px]">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
-                            Buyer Agent (Gemini) → {String(p.vendorName || p.vendorId)}
+                            Buyer proposal ({p.generator === "GEMINI_LIVE" ? "Gemini" : p.generator === "DETERMINISTIC_FALLBACK" ? "deterministic fallback" : "source not recorded"}) → {String(p.vendorName || p.vendorId)}
                           </span>
                           <span className="text-[#737373] dark:text-[#a3a3a3]">
                             (Round {String(p.round)})
@@ -645,6 +661,7 @@ export function NegotiationArenaScreen({
 
                 // 6. NEGOTIATION COMPLETED
                 if (ev.type === "NEGOTIATION_COMPLETED") {
+                  if (failed || stopped) return <p key={ev.id} className="text-sm text-text-secondary">An earlier completion event was superseded. Reload the saved session to confirm its state.</p>;
                   const isDealTurn =
                     p.outcome !== "NO_DEAL" &&
                     Boolean(p.selectedVendor || p.winningVendor || p.winningVendorId);
@@ -711,7 +728,7 @@ export function NegotiationArenaScreen({
                         <span>Agreement Accepted: Mutual agreement recorded and committed to pre-settlement Merkle tree.</span>
                       </div>
 
-                      {onProceedToSettlement && (
+                      {onProceedToSettlement && !failed && !stopped && !isStreaming && (
                         <div className="pt-1">
                           <button
                             type="button"
