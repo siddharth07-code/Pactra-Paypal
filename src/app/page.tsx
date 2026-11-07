@@ -472,6 +472,13 @@ function Home() {
 
       {currentScreen === "sourcing" && (
         <SourcingScreen
+          key={activeSession?.id ?? "new"}
+          session={activeSession}
+          onSessionCreated={sessionId => {
+            setArenaSessionId(sessionId);
+            navigateToScreen("sourcing", sessionId);
+            void refreshSessions();
+          }}
           onStartNegotiation={handleStartNegotiation}
           isLoading={isStreaming}
         />
