@@ -100,7 +100,7 @@ export function AppShell({
       </a>
 
       {/* Persistent Single-Row Institutional Fintech Header */}
-      <header className="w-full bg-paper-white dark:bg-[#121214] border-b border-smoke dark:border-[#27272a] sticky top-0 z-40 transition-colors">
+      <header className="w-full bg-surface-primary border-b border-border-primary sticky top-0 z-40 transition-colors">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center">
           {/* Brand stays anchored in the same natural row as navigation. */}
           <button
@@ -115,7 +115,7 @@ export function AppShell({
             >
               P
             </span>
-            <span className="text-[16px] font-semibold tracking-[-0.02em] text-obsidian dark:text-[#f4f4f5] select-none">
+            <span className="hidden min-[400px]:inline text-[16px] font-semibold tracking-[-0.02em] text-text-primary select-none">
               PACTUM
             </span>
           </button>
@@ -253,13 +253,7 @@ export function AppShell({
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-secondary">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-obsidian dark:text-[#f4f4f5]">PACTUM</span>
-            <span aria-hidden="true" className="text-secondary/40">/</span>
-            <span>Autonomous Procurement &amp; Verifiable Settlement</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-4 text-[12px] font-mono-token">
-            <span>PayPal Orders v2</span>
-            <span>Boulware β=3.0</span>
-            <span className="text-secondary">SHA-256 Merkle Engine</span>
+            <span>Procurement operations</span>
           </div>
         </div>
       </footer>
@@ -352,7 +346,7 @@ function AccountControl() {
   const displayName = activeOrg?.name || "Account";
 
   return (
-    <div className="relative shrink-0">
+    <div className="relative shrink-0 h-16 flex items-center">
       <button
         ref={triggerRef}
         type="button"
@@ -366,9 +360,9 @@ function AccountControl() {
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`Account menu for ${displayName}`}
-        className="h-10 max-w-[220px] px-3 rounded-[6px] hover:bg-smoke/30 dark:hover:bg-[#202024] text-obsidian dark:text-[#f4f4f5] text-[13px] font-medium flex items-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer select-none"
+        className="h-10 max-w-[120px] sm:max-w-[220px] px-3 rounded-[6px] hover:bg-surface-secondary text-text-primary text-[13px] font-medium flex items-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer select-none"
       >
-        <span className="max-w-[170px] truncate text-left">
+        <span className="min-w-0 max-w-[170px] truncate text-left">
           {displayName}
         </span>
         <ChevronDown
@@ -395,7 +389,7 @@ function AccountControl() {
             const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + (event.key === "ArrowUp" ? -1 : 1) + items.length) % items.length;
             items[next].focus();
           }}
-          className="absolute right-0 top-[calc(100%+8px)] w-[320px] max-w-[calc(100vw-32px)] shrink-0 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] shadow-xl z-50 p-2 space-y-1 text-[13px] animate-in fade-in duration-100"
+          className="fixed right-4 top-[72px] sm:absolute sm:right-0 sm:top-[calc(100%+8px)] w-[320px] max-w-[calc(100vw-32px)] max-h-[calc(100dvh-88px)] overflow-y-auto shrink-0 rounded-[8px] bg-surface-primary border border-border-primary shadow-xl z-50 p-2 space-y-1 text-[13px]"
         >
           {/* User identity, avatar and permission context belong inside the menu. */}
           <div className="flex items-center gap-3 px-2.5 py-3 border-b border-smoke/70 dark:border-[#27272a] select-none">
@@ -414,9 +408,6 @@ function AccountControl() {
                 <span className="flex items-center gap-1.5">
                   <Building2 className="w-3 h-3" aria-hidden="true" />
                   Organization
-                </span>
-                <span className="px-1 py-0.2 rounded bg-smoke/60 dark:bg-[#27272a] text-secondary">
-                  {activeOrg.role}
                 </span>
               </div>
               <p className="font-medium text-obsidian dark:text-[#f4f4f5] truncate">
