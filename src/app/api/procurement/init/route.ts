@@ -12,6 +12,8 @@ import { extractProcurementMandate } from "@/lib/mandate-parser";
 import { Channel3Client } from "@/lib/channel3-client";
 import { SourcingEvaluator } from "@/lib/sourcing-evaluator";
 import { sessionStore } from "@/lib/session-store";
+import { requestScope } from "@/lib/persistence/request-scope";
+import { executeDatabaseIdempotency } from "@/lib/db/idempotency";
 import { defaultRateLimiter } from "@/lib/rate-limiter";
 import {
   defaultIdempotencyStore,
@@ -202,7 +204,11 @@ async function handlePOST(req: NextRequest) {
 
     if (idempotencyKey) {
       try {
-        const { status, body: resBody, isReplay } = await defaultIdempotencyStore.executeIdempotent({
+        // Resolve database authority from this request, not a process-retained store instance.
+        const execute = requestScope()
+          ? executeDatabaseIdempotency
+          : defaultIdempotencyStore.executeIdempotent.bind(defaultIdempotencyStore);
+        const { status, body: resBody, isReplay } = await execute({
           scope: "SESSION_CREATE",
           key: idempotencyKey,
           payload: body,
