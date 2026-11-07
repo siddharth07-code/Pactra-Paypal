@@ -101,34 +101,28 @@ export function AppShell({
 
       {/* Persistent Single-Row Institutional Fintech Header */}
       <header className="w-full bg-paper-white dark:bg-[#121214] border-b border-smoke dark:border-[#27272a] sticky top-0 z-40 transition-colors">
-        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 h-16 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
-          
-          {/* ZONE 1 — LEFT: BRAND IDENTITY */}
-          <div className="min-w-0 justify-self-start flex items-center">
-            <button
-              type="button"
-              onClick={() => onNavigate("overview")}
-              className="group h-10 flex items-center gap-2.5 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#121214] rounded-[6px] px-1"
-              aria-label="PACTUM Home — Return to Overview"
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center">
+          {/* Brand stays anchored in the same natural row as navigation. */}
+          <button
+            type="button"
+            onClick={() => onNavigate("overview")}
+            className="group h-10 shrink-0 flex items-center gap-2.5 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#121214] rounded-[6px] px-1"
+            aria-label="PACTUM Home — Return to Overview"
+          >
+            <span
+              className="w-7 h-7 rounded-[5px] bg-ember-orange text-white font-semibold text-[13.5px] flex items-center justify-center shrink-0 select-none shadow-xs"
+              aria-hidden="true"
             >
-              {/* Brand Monogram */}
-              <div
-                className="w-7 h-7 rounded-[5px] bg-ember-orange text-white font-semibold text-[13.5px] flex items-center justify-center shrink-0 select-none shadow-xs"
-                aria-hidden="true"
-              >
-                P
-              </div>
-              {/* Brand Wordmark */}
-              <span className="text-[16px] font-semibold tracking-[-0.02em] text-obsidian dark:text-[#f4f4f5] select-none">
-                PACTUM
-              </span>
-            </button>
+              P
+            </span>
+            <span className="text-[16px] font-semibold tracking-[-0.02em] text-obsidian dark:text-[#f4f4f5] select-none">
+              PACTUM
+            </span>
+          </button>
 
-          </div>
-
-          {/* ZONE 2 — CENTER: PRIMARY NAVIGATION */}
+          {/* Navigation follows the brand and collapses before the row gets tight. */}
           <nav
-            className="hidden min-[1240px]:flex min-w-0 justify-self-center items-center h-full gap-1.5"
+            className="hidden min-[1180px]:flex shrink-0 items-center h-full gap-1 ml-8"
             aria-label="Primary navigation"
           >
             {navItems.map((item) => {
@@ -152,20 +146,17 @@ export function AppShell({
             })}
           </nav>
 
-          {/* ZONE 3 — RIGHT: THEME TOGGLE & ACCOUNT CONTROL */}
-          <div className="min-w-0 justify-self-end flex items-center justify-end gap-2">
-            {/* Theme Toggle */}
+          <div className="flex-1 min-w-4" aria-hidden="true" />
+
+          {/* Theme and account controls remain a compact right-aligned group. */}
+          <div className="shrink-0 flex items-center gap-3">
             <ThemeToggle className="shrink-0" />
-
-            {/* Functional Institutional Account Control */}
             <AccountControl />
-
-            {/* Mobile Navigation Trigger Button */}
             <button
               ref={menuTriggerRef}
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="min-[1240px]:hidden h-10 w-10 flex items-center justify-center rounded-[6px] text-obsidian dark:text-[#f4f4f5] hover:bg-smoke/40 dark:hover:bg-[#1e1e22] border border-smoke dark:border-[#27272a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors shrink-0"
+              className="min-[1180px]:hidden h-10 w-10 flex items-center justify-center rounded-[6px] text-obsidian dark:text-[#f4f4f5] hover:bg-smoke/40 dark:hover:bg-[#1e1e22] border border-smoke dark:border-[#27272a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors shrink-0"
               aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-nav-drawer"
@@ -184,7 +175,7 @@ export function AppShell({
           <>
             {/* Backdrop */}
             <div
-              className="fixed inset-0 top-[64px] bg-black/50 dark:bg-black/70 z-40 min-[1240px]:hidden transition-opacity"
+              className="fixed inset-0 top-[64px] bg-black/50 dark:bg-black/70 z-40 min-[1180px]:hidden transition-opacity"
               onClick={() => setMobileMenuOpen(false)}
               aria-hidden="true"
             />
@@ -195,7 +186,7 @@ export function AppShell({
               role="dialog"
               aria-modal="true"
               aria-label="Mobile Navigation Menu"
-              className="fixed top-[64px] inset-x-0 bg-paper-white dark:bg-[#141416] border-b border-smoke dark:border-[#27272a] z-50 p-4 space-y-1.5 shadow-xl min-[1240px]:hidden max-h-[calc(100vh-64px)] overflow-y-auto"
+              className="fixed top-[64px] inset-x-0 bg-paper-white dark:bg-[#141416] border-b border-smoke dark:border-[#27272a] z-50 p-4 space-y-1.5 shadow-xl min-[1180px]:hidden max-h-[calc(100vh-64px)] overflow-y-auto"
             >
               <div className="px-3 py-1.5 pb-2 text-[11px] font-mono-token uppercase tracking-wider text-secondary border-b border-smoke/70 dark:border-[#222226]">
                 Navigation
@@ -315,6 +306,7 @@ function AccountControl() {
   // Dismiss menu on click outside
   useEffect(() => {
     if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>('select, [role="menuitem"]')?.focus();
     const handleClickOutside = (e: MouseEvent) => {
       if (
         menuRef.current &&
@@ -360,11 +352,17 @@ function AccountControl() {
   const displayName = activeOrg?.name || "Account";
 
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((prev) => !prev)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setOpen(true);
+          }
+        }}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`Account menu for ${displayName}`}
@@ -387,7 +385,17 @@ function AccountControl() {
           ref={menuRef}
           role="menu"
           aria-label="Account options"
-          className="absolute right-0 top-[calc(100%+6px)] w-64 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] shadow-xl z-50 p-2 space-y-1 text-[13px] animate-in fade-in duration-100"
+          onKeyDown={(event) => {
+            if (event.target instanceof HTMLSelectElement) return;
+            if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+            const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('select, [role="menuitem"]:not([disabled])'));
+            if (!items.length) return;
+            event.preventDefault();
+            const index = items.indexOf(document.activeElement as HTMLElement);
+            const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + (event.key === "ArrowUp" ? -1 : 1) + items.length) % items.length;
+            items[next].focus();
+          }}
+          className="absolute right-0 top-[calc(100%+8px)] w-[320px] max-w-[calc(100vw-32px)] shrink-0 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] shadow-xl z-50 p-2 space-y-1 text-[13px] animate-in fade-in duration-100"
         >
           {/* User identity, avatar and permission context belong inside the menu. */}
           <div className="flex items-center gap-3 px-2.5 py-3 border-b border-smoke/70 dark:border-[#27272a] select-none">
@@ -446,7 +454,7 @@ function AccountControl() {
               href="/account"
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="h-10 flex items-center gap-2.5 px-2.5 py-1.5 rounded-[5px] text-secondary hover:text-obsidian dark:hover:text-[#f4f4f5] hover:bg-smoke/30 dark:hover:bg-[#222227] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+              className="h-10 flex items-center gap-2.5 whitespace-nowrap px-2.5 py-1.5 rounded-[5px] text-secondary hover:text-obsidian dark:hover:text-[#f4f4f5] hover:bg-smoke/30 dark:hover:bg-[#222227] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
             >
               <Settings className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>Account &amp; Workspace</span>
@@ -457,7 +465,7 @@ function AccountControl() {
                 href="/account"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="h-10 flex items-center gap-2.5 px-2.5 py-1.5 rounded-[5px] text-secondary hover:text-obsidian dark:hover:text-[#f4f4f5] hover:bg-smoke/30 dark:hover:bg-[#222227] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+                className="h-10 flex items-center gap-2.5 whitespace-nowrap px-2.5 py-1.5 rounded-[5px] text-secondary hover:text-obsidian dark:hover:text-[#f4f4f5] hover:bg-smoke/30 dark:hover:bg-[#222227] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
               >
                 <Shield className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>Manage Members</span>
@@ -472,7 +480,7 @@ function AccountControl() {
               role="menuitem"
               disabled={loggingOut}
               onClick={handleLogout}
-              className="h-10 w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-[5px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-500 disabled:opacity-50"
+              className="h-10 w-full flex items-center gap-2.5 whitespace-nowrap px-2.5 py-1.5 rounded-[5px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-500 disabled:opacity-50"
             >
               <LogOut className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>{loggingOut ? "Signing out…" : "Sign out"}</span>
