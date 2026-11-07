@@ -1,1102 +1,213 @@
 "use client";
 
-import React, { useState, useId } from "react";
-import {
-  PrimaryButton,
-  GhostButton,
-  FormInput,
-  CurrencyDisplay,
-  StatusBadge,
-  SectionHeader,
-} from "./SharedUI";
-import {
-  AlertCircle,
-  Truck,
-  RotateCcw,
-  Package,
-  Layers,
-  Sparkles,
-  HelpCircle,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  Info,
-} from "lucide-react";
-import type {
-  VendorQuote,
-  CurrencyCode,
-  ProcurementMandate,
-  MandateStatus,
-  QuoteEvaluation,
-} from "@/types/pactum";
+import React, { useEffect, useRef, useState } from "react";
+import { PrimaryButton, GhostButton, FormInput, CurrencyDisplay } from "./SharedUI";
+import { OperationsPanel, DataMessage, LedgerTable } from "./OperationsUI";
+import { useOrganization } from "./OrganizationBoundary";
 import { evaluateNegotiationCandidate } from "@/lib/sourcing-evaluator";
+import { INTERNAL_SUPPORTED_CURRENCIES, toMinorUnits } from "@/lib/currency";
+import type { CurrencyCode, ProcurementMandate, ProcurementSession, QuoteEvaluation, VendorQuote } from "@/types/pactum";
 
 interface SourcingScreenProps {
-  onStartNegotiation: (
-    prompt: string,
-    currency: string,
-    rawMandate?: Partial<ProcurementMandate>,
-    sessionId?: string
-  ) => void;
+  onStartNegotiation: (prompt: string, currency: string, rawMandate?: Partial<ProcurementMandate>, sessionId?: string) => void | Promise<void>;
+  onSessionCreated?: (sessionId: string) => void;
+  session?: ProcurementSession;
   isLoading?: boolean;
 }
+interface Fields { itemQuery: string; quantity: string; budget: string; delivery: string; returns: string; currency: CurrencyCode }
+type Errors = Partial<Record<keyof Fields | "description", string>>;
+interface SourcedRequest { sessionId: string; mandate: ProcurementMandate; quotes: VendorQuote[]; evaluations: Record<string, QuoteEvaluation> }
+const editableStates = new Set(["SOURCING", "MANDATE_PENDING"]);
 
-interface ValidationErrors {
-  itemQuery?: string;
-  quantity?: string;
-  budget?: string;
-  maxDelivery?: string;
-  minReturn?: string;
-  prompt?: string;
+function initialFields(session?: ProcurementSession): Fields {
+  const m = session?.mandate;
+  return { itemQuery: m?.itemQuery ?? "", quantity: m ? String(m.quantity) : "", budget: m ? String(m.maxTotalBudget) : "", delivery: m ? String(m.maxDeliveryDays) : "", returns: m ? String(m.minReturnDays) : "", currency: m?.currency ?? "USD" };
+}
+function validate(fields: Fields): Errors {
+  const errors: Errors = {};
+  if (!fields.itemQuery.trim()) errors.itemQuery = "Describe the product you need.";
+  if (!/^\d+$/.test(fields.quantity) || !Number.isSafeInteger(Number(fields.quantity)) || Number(fields.quantity) < 1) errors.quantity = "Enter a whole number of units, at least 1.";
+  if (!/^\d+(\.\d{1,2})?$/.test(fields.budget) || Number(fields.budget) <= 0 || !Number.isSafeInteger(toMinorUnits(Number(fields.budget)))) errors.budget = "Enter a positive budget with up to two decimal places.";
+  if (!/^\d+$/.test(fields.delivery) || !Number.isSafeInteger(Number(fields.delivery)) || Number(fields.delivery) < 1) errors.delivery = "Enter a whole number of days, at least 1.";
+  if (!/^\d+$/.test(fields.returns) || !Number.isSafeInteger(Number(fields.returns))) errors.returns = "Enter a whole number of days, 0 or more.";
+  return errors;
+}
+function errorMessage(data: { error?: string | { message?: string } }, fallback: string) {
+  return typeof data.error === "string" ? data.error : data.error?.message || fallback;
 }
 
-export function SourcingScreen({
-  onStartNegotiation,
-  isLoading = false,
-}: SourcingScreenProps) {
-  const promptInputId = useId();
-  const currencySelectId = useId();
+export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, isLoading = false }: SourcingScreenProps) {
+  const organization = useOrganization();
+  const allowed = Boolean(organization?.permissions.includes("session.write"));
+  const canNegotiate = Boolean(organization?.permissions.includes("negotiation.start"));
+  const [fields, setFields] = useState<Fields>(() => initialFields(session));
+  const [description, setDescription] = useState("");
+  const [descriptionDirty, setDescriptionDirty] = useState(false);
+  const [errors, setErrors] = useState<Errors>({});
+  const [message, setMessage] = useState("");
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [analysisBlocked, setAnalysisBlocked] = useState(false);
+  const [requirements, setRequirements] = useState(() => ({ requiredSpecs: session?.mandate.requiredSpecs ?? [], requiredCondition: session?.mandate.requiredCondition ?? "NEW" as const }));
+  const [result, setResult] = useState<SourcedRequest | null>(() => session && editableStates.has(session.status) ? { sessionId: session.id, mandate: session.mandate, quotes: session.quotes ?? [], evaluations: session.quoteEvaluations ?? {} } : null);
+  const [pending, setPending] = useState<"analysis" | "source" | "negotiation" | null>(null);
+  const requestActive = useRef(false);
+  const controller = useRef<AbortController | null>(null);
+  const mounted = useRef(true);
+  const requestIdentity = useRef<{ payload: string; key: string } | null>(null);
+  const firstInput = useRef<HTMLFormElement>(null);
+  const busy = pending !== null || isLoading;
 
-  // Dynamic Mandate Form State
-  const [prompt, setPrompt] = useState(
-    "Purchase 25 4K USB-C monitors under an $8,500 total budget, with delivery within five days and a minimum 30-day return policy."
-  );
-  const [currency, setCurrency] = useState<CurrencyCode>("USD");
-  const [itemQuery, setItemQuery] = useState("4K USB-C monitors");
-  const [quantity, setQuantity] = useState<number>(25);
-  const [budget, setBudget] = useState<number>(8500);
-  const [maxDelivery, setMaxDelivery] = useState<number>(5);
-  const [minReturn, setMinReturn] = useState<number>(30);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; controller.current?.abort(); };
+  }, [organization?.id]);
 
-  // Mandate Intelligence State
-  const [mandateStatus, setMandateStatus] = useState<MandateStatus | null>("READY");
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [clarificationQuestions, setClarificationQuestions] = useState<string[]>([]);
-  const [contradictions, setContradictions] = useState<string[]>([]);
-  const [missingFieldsList, setMissingFieldsList] = useState<string[]>([]);
-
-  // Validation errors
-  const [errors, setErrors] = useState<ValidationErrors>({});
-
-  // Sourced quotes preview & session reuse
-  const [sourcedQuotes, setSourcedQuotes] = useState<VendorQuote[] | null>(null);
-  const [quoteEvaluations, setQuoteEvaluations] = useState<Record<string, QuoteEvaluation> | null>(null);
-  const [previewedSessionId, setPreviewedSessionId] = useState<string | null>(null);
-  const [isSourcing, setIsSourcing] = useState(false);
-  const [sourcingError, setSourcingError] = useState<string | null>(null);
-
-  // Helper to format synchronized natural prompt
-  const formatSynchronizedPrompt = (
-    q: number,
-    item: string,
-    b: number,
-    curr: CurrencyCode,
-    d: number,
-    r: number
-  ) => {
-    const sym = curr === "INR" ? "₹" : curr === "EUR" ? "€" : curr === "GBP" ? "£" : "$";
-    return `Purchase ${q} ${item} under an ${sym}${b.toLocaleString()} total budget, with delivery within ${d} days and a minimum ${r}-day return policy.`;
-  };
-
-  // Field validation logic
-  const validateFieldValues = (
-    item: string,
-    qty: number,
-    b: number,
-    d: number,
-    r: number
-  ): ValidationErrors => {
-    const errs: ValidationErrors = {};
-    if (!item.trim()) {
-      errs.itemQuery = "Product description is required.";
+  function change(name: keyof Fields, value: string) {
+    if (requestActive.current || isLoading) return;
+    setFields(previous => ({ ...previous, [name]: value }));
+    setResult(null);
+    setErrors(previous => ({ ...previous, [name]: undefined }));
+    setAnalysisBlocked(false);
+    setQuestions([]);
+    setMessage("");
+  }
+  function validateAndFocus() {
+    const next = validate(fields);
+    setErrors(next);
+    if (Object.keys(next).length) {
+      const name = Object.keys(next)[0];
+      firstInput.current?.querySelector<HTMLElement>(`[id="sourcing-${name}"]`)?.focus();
+      return false;
     }
-    if (isNaN(qty) || qty < 1 || !Number.isInteger(qty)) {
-      errs.quantity = "Quantity must be an integer of 1 or more.";
-    }
-    if (isNaN(b) || b <= 0) {
-      errs.budget = "Total budget must be a positive amount greater than 0.";
-    }
-    if (isNaN(d) || d < 1 || !Number.isInteger(d)) {
-      errs.maxDelivery = "Delivery SLA must be at least 1 day.";
-    }
-    if (isNaN(r) || r < 0 || !Number.isInteger(r)) {
-      errs.minReturn = "Return policy must be 0 days or more.";
-    }
-    return errs;
-  };
-
-  const clearIntelligenceIfValid = () => {
-    setMandateStatus("READY");
-    setContradictions([]);
-    setClarificationQuestions([]);
-    setMissingFieldsList([]);
-    setQuoteEvaluations(null);
-  };
-
-  const handleItemQueryChange = (val: string) => {
-    setItemQuery(val);
-    setPreviewedSessionId(null);
-    setSourcedQuotes(null);
-    clearIntelligenceIfValid();
-    const newErrs = validateFieldValues(val, quantity, budget, maxDelivery, minReturn);
-    setErrors(newErrs);
-    setPrompt(formatSynchronizedPrompt(quantity, val, budget, currency, maxDelivery, minReturn));
-  };
-
-  const handleQuantityChange = (val: number) => {
-    setQuantity(val);
-    setPreviewedSessionId(null);
-    setSourcedQuotes(null);
-    clearIntelligenceIfValid();
-    const newErrs = validateFieldValues(itemQuery, val, budget, maxDelivery, minReturn);
-    setErrors(newErrs);
-    setPrompt(formatSynchronizedPrompt(val, itemQuery, budget, currency, maxDelivery, minReturn));
-  };
-
-  const handleBudgetChange = (val: number) => {
-    setBudget(val);
-    setPreviewedSessionId(null);
-    setSourcedQuotes(null);
-    clearIntelligenceIfValid();
-    const newErrs = validateFieldValues(itemQuery, quantity, val, maxDelivery, minReturn);
-    setErrors(newErrs);
-    setPrompt(formatSynchronizedPrompt(quantity, itemQuery, val, currency, maxDelivery, minReturn));
-  };
-
-  const handleCurrencyChange = (val: CurrencyCode) => {
-    setCurrency(val);
-    setPreviewedSessionId(null);
-    setSourcedQuotes(null);
-    clearIntelligenceIfValid();
-
-    let updatedBudget = budget;
-    if (val === "INR" && currency !== "INR" && budget === 8500 && itemQuery === "4K USB-C monitors") {
-      updatedBudget = 750000;
-      setBudget(750000);
-    } else if (val === "USD" && currency === "INR" && budget === 750000 && itemQuery === "4K USB-C monitors") {
-      updatedBudget = 8500;
-      setBudget(8500);
-    }
-
-    setPrompt(formatSynchronizedPrompt(quantity, itemQuery, updatedBudget, val, maxDelivery, minReturn));
-  };
-
-  const handleDeliveryChange = (val: number) => {
-    setMaxDelivery(val);
-    setPreviewedSessionId(null);
-    setSourcedQuotes(null);
-    clearIntelligenceIfValid();
-    const newErrs = validateFieldValues(itemQuery, quantity, budget, val, minReturn);
-    setErrors(newErrs);
-    setPrompt(formatSynchronizedPrompt(quantity, itemQuery, budget, currency, val, minReturn));
-  };
-
-  const handleReturnChange = (val: number) => {
-    setMinReturn(val);
-    setPreviewedSessionId(null);
-    setSourcedQuotes(null);
-    clearIntelligenceIfValid();
-    const newErrs = validateFieldValues(itemQuery, quantity, budget, maxDelivery, val);
-    setErrors(newErrs);
-    setPrompt(formatSynchronizedPrompt(quantity, itemQuery, budget, currency, maxDelivery, val));
-  };
-
-  // Scenario presets
-  const applyPreset = (
-    q: number,
-    item: string,
-    b: number,
-    d: number,
-    r: number,
-    curr: CurrencyCode = "USD"
-  ) => {
-    setItemQuery(item);
-    setQuantity(q);
-    setBudget(b);
-    setCurrency(curr);
-    setMaxDelivery(d);
-    setMinReturn(r);
-    setErrors({});
-    setPreviewedSessionId(null);
-    setSourcedQuotes(null);
-    setQuoteEvaluations(null);
-    setSourcingError(null);
-    setMandateStatus("READY");
-    setClarificationQuestions([]);
-    setContradictions([]);
-    setMissingFieldsList([]);
-    setPrompt(formatSynchronizedPrompt(q, item, b, curr, d, r));
-  };
-
-  // Analyze Prompt with Mandate Intelligence
-  const handleAnalyzePrompt = async () => {
-    if (!prompt.trim()) {
-      setErrors({ prompt: "Please enter a procurement prompt to analyze." });
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setSourcingError(null);
-    setClarificationQuestions([]);
-    setContradictions([]);
-    setMissingFieldsList([]);
-
+    return true;
+  }
+  function rawMandate(): Partial<ProcurementMandate> {
+    return { itemQuery: fields.itemQuery.trim(), quantity: Number(fields.quantity), maxTotalBudget: Number(fields.budget), maxDeliveryDays: Number(fields.delivery), minReturnDays: Number(fields.returns), currency: fields.currency, ...requirements };
+  }
+  function synchronizedPrompt() {
+    return `Purchase ${fields.quantity} ${fields.itemQuery.trim()} with a total budget of ${fields.currency} ${fields.budget}, delivery within ${fields.delivery} days and a minimum ${fields.returns}-day return window.`;
+  }
+  async function request(kind: "analysis" | "source") {
+    if (!allowed || requestActive.current || isLoading) return;
+    if (kind === "analysis" && !description.trim()) { setErrors({ description: "Enter a written request to extract." }); return; }
+    if (kind === "source" && (!validateAndFocus() || descriptionDirty || analysisBlocked || result)) return;
+    requestActive.current = true;
+    setPending(kind);
+    setMessage("");
+    setQuestions([]);
+    controller.current = new AbortController();
+    const timeout = setTimeout(() => controller.current?.abort(), 45000);
     try {
-      const res = await fetch("/api/procurement/init", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          currency,
-          analyzeOnly: true,
-        }),
+      const payload = JSON.stringify(kind === "analysis" ? { prompt: description.trim(), currency: fields.currency, analyzeOnly: true } : { prompt: synchronizedPrompt(), currency: fields.currency, rawMandate: rawMandate() });
+      if (kind === "source" && requestIdentity.current?.payload !== payload) requestIdentity.current = { payload, key: crypto.randomUUID() };
+      const response = await fetch("/api/procurement/init", {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "Content-Type": "application/json", ...(kind === "source" ? { "Idempotency-Key": requestIdentity.current!.key } : {}) },
+        body: payload, signal: controller.current.signal,
       });
-
-      const data = await res.json();
-      const intel = data.mandateIntelligence;
-
-      if (intel) {
-        setMandateStatus(intel.status);
-        setClarificationQuestions(intel.clarificationQuestions || []);
-        setContradictions(intel.contradictions || []);
-        setMissingFieldsList(intel.missingFields || []);
-
-        if (intel.status === "READY" && intel.extractedMandate) {
-          const m = intel.extractedMandate;
-          if (m.itemQuery) setItemQuery(m.itemQuery);
-          if (m.quantity) setQuantity(m.quantity);
-          if (m.maxTotalBudget) setBudget(m.maxTotalBudget);
-          if (m.maxDeliveryDays) setMaxDelivery(m.maxDeliveryDays);
-          if (m.minReturnDays !== undefined) setMinReturn(m.minReturnDays);
-          if (m.currency && (m.currency === "USD" || m.currency === "EUR" || m.currency === "GBP" || m.currency === "INR")) {
-            setCurrency(m.currency as CurrencyCode);
-          }
-          setErrors({});
-        } else if (intel.status === "INVALID") {
-          setSourcingError(
-            intel.contradictions && intel.contradictions.length > 0
-              ? `Mandate contradiction: ${intel.contradictions[0]}`
-              : "Mandate contains contradictory constraints. Please resolve them."
-          );
-        } else if (intel.status === "NEEDS_CLARIFICATION" && intel.extractedMandate) {
-          // Partially populate what was extracted to assist user
-          const m = intel.extractedMandate;
-          if (m.itemQuery) setItemQuery(m.itemQuery);
-          if (m.quantity) setQuantity(m.quantity);
-          if (m.maxTotalBudget) setBudget(m.maxTotalBudget);
-          if (m.maxDeliveryDays) setMaxDelivery(m.maxDeliveryDays);
-          if (m.minReturnDays !== undefined) setMinReturn(m.minReturnDays);
-        }
-      } else if (!res.ok) {
-        throw new Error(data.error || "Failed to analyze prompt.");
+      const data = await response.json().catch(() => { throw new Error("The server returned an unreadable response. Please try again."); });
+      if (!mounted.current) return;
+      if (!response.ok) throw new Error(errorMessage(data, "The request could not be completed. Please try again."));
+      if (kind === "analysis") {
+        if (!["READY", "NEEDS_CLARIFICATION", "INVALID"].includes(data.status)) throw new Error("The extracted requirements could not be read. Complete the fields manually or try again.");
+        const extracted = data.mandate ?? data;
+        setFields(previous => ({
+          itemQuery: typeof extracted.itemQuery === "string" ? extracted.itemQuery : previous.itemQuery,
+          quantity: extracted.quantity != null ? String(extracted.quantity) : previous.quantity,
+          budget: extracted.maxTotalBudget != null ? String(extracted.maxTotalBudget) : previous.budget,
+          delivery: extracted.maxDeliveryDays != null ? String(extracted.maxDeliveryDays) : previous.delivery,
+          returns: extracted.minReturnDays != null ? String(extracted.minReturnDays) : previous.returns,
+          currency: INTERNAL_SUPPORTED_CURRENCIES.includes(extracted.currency) ? extracted.currency : previous.currency,
+        }));
+        if (Array.isArray(extracted.requiredSpecs)) setRequirements(previous => ({ ...previous, requiredSpecs: extracted.requiredSpecs }));
+        setQuestions([...(data.contradictions ?? []), ...(data.clarificationQuestions ?? [])]);
+        setAnalysisBlocked(data.status === "INVALID");
+        setDescriptionDirty(false);
+        setErrors({});
+        if (data.status === "INVALID") setMessage("The written request contains conflicting requirements. Review and correct the fields below.");
+        else if (data.status === "NEEDS_CLARIFICATION" && !data.clarificationQuestions?.length) setQuestions(["Complete the missing requirements below before finding suppliers."]);
+      } else {
+        if (typeof data.sessionId !== "string" || !data.sessionId || !data.mandate || !Array.isArray(data.quotes)) throw new Error("The saved request could not be confirmed. Retry with the same requirements to recover it safely.");
+        setResult({ sessionId: data.sessionId, mandate: data.mandate, quotes: data.quotes, evaluations: data.evaluations ?? {} });
+        onSessionCreated?.(data.sessionId);
       }
-    } catch (err: unknown) {
-      setSourcingError(err instanceof Error ? err.message : "Error analyzing prompt.");
+    } catch (error) {
+      if (mounted.current) setMessage(error instanceof Error && error.name !== "AbortError" ? error.message : "The request timed out. Try again; the same submission identity will be reused.");
     } finally {
-      setIsAnalyzing(false);
+      clearTimeout(timeout);
+      if (mounted.current) setPending(null);
+      requestActive.current = false;
     }
-  };
+  }
+  const candidates = result?.quotes.filter(quote => evaluateNegotiationCandidate(result.mandate, quote, result.evaluations[quote.vendorId]).isCandidate) ?? [];
+  async function startNegotiation() {
+    if (!allowed || !canNegotiate || !result || !candidates.length || requestActive.current || isLoading) return;
+    requestActive.current = true;
+    setPending("negotiation");
+    setMessage("");
+    try { await onStartNegotiation(result.mandate.rawPrompt, result.mandate.currency ?? fields.currency, result.mandate, result.sessionId); }
+    catch { if (mounted.current) setMessage("Negotiation could not be opened. Your saved procurement request is unchanged."); }
+    finally { if (mounted.current) setPending(null); requestActive.current = false; }
+  }
 
-  // Sourcing preview via /api/procurement/init
-  const handleSourcePreview = async () => {
-    if (mandateStatus === "INVALID") {
-      setSourcingError("Cannot source wholesale quotes for an invalid or contradictory mandate. Please resolve constraints first.");
-      return;
-    }
+  if (!allowed) return <OperationsPanel title="Sourcing"><DataMessage title="Procurement access required">An active organization membership with procurement permission is required.</DataMessage></OperationsPanel>;
+  if (session && !editableStates.has(session.status)) return <OperationsPanel title="Procurement request"><DataMessage title="This request is no longer in sourcing">Open the record from History to continue at its current stage.</DataMessage></OperationsPanel>;
 
-    if (mandateStatus === "NEEDS_CLARIFICATION" && missingFieldsList.length > 0) {
-      setSourcingError("Mandate requires clarification. Please complete the highlighted missing or ambiguous constraints before sourcing.");
-      return;
-    }
-
-    const errs = validateFieldValues(itemQuery, quantity, budget, maxDelivery, minReturn);
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
-    }
-
-    setIsSourcing(true);
-    setSourcingError(null);
-
-    try {
-      const res = await fetch("/api/procurement/init", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          currency,
-          rawMandate: {
-            itemQuery,
-            quantity,
-            maxTotalBudget: budget,
-            maxDeliveryDays: maxDelivery,
-            minReturnDays: minReturn,
-            currency,
-          },
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.mandateIntelligence) {
-          setMandateStatus(data.mandateIntelligence.status);
-          setContradictions(data.mandateIntelligence.contradictions || []);
-          setClarificationQuestions(data.mandateIntelligence.clarificationQuestions || []);
-          setMissingFieldsList(data.mandateIntelligence.missingFields || []);
-        }
-        throw new Error(data.error || "Failed to query Channel3 catalog.");
-      }
-
-      setSourcedQuotes(data.quotes || []);
-      setQuoteEvaluations(data.evaluations || null);
-      setPreviewedSessionId(data.sessionId || null);
-      if (data.mandateIntelligence) {
-        setMandateStatus(data.mandateIntelligence.status);
-      }
-    } catch (err: unknown) {
-      setSourcingError(err instanceof Error ? err.message : "Error querying suppliers.");
-    } finally {
-      setIsSourcing(false);
-    }
-  };
-
-  const currentMandateForEval: ProcurementMandate = {
-    id: previewedSessionId || "mandate_current",
-    rawPrompt: prompt,
-    itemQuery: itemQuery.trim() || "4K USB-C monitors",
-    quantity: Number.isInteger(quantity) && quantity >= 1 ? quantity : 25,
-    maxTotalBudget: Number.isFinite(budget) && budget > 0 ? budget : 8500,
-    maxDeliveryDays: Number.isInteger(maxDelivery) && maxDelivery >= 1 ? maxDelivery : 5,
-    minReturnDays: Number.isInteger(minReturn) && minReturn >= 0 ? minReturn : 30,
-    currency,
-    requiredSpecs: [],
-    requiredCondition: "NEW",
-    createdAt: new Date().toISOString(),
-    version: 1,
-    isLocked: false,
-  };
-
-  const negotiationCandidates = sourcedQuotes
-    ? sourcedQuotes.filter((q) =>
-        evaluateNegotiationCandidate(currentMandateForEval, q, quoteEvaluations?.[q.vendorId]).isCandidate
-      )
-    : [];
-
-  const someQuotesAboveBudget =
-    sourcedQuotes !== null &&
-    negotiationCandidates.length > 0 &&
-    negotiationCandidates.some((q) => {
-      const evalRes = quoteEvaluations?.[q.vendorId];
-      const landed = evalRes ? evalRes.financials.landedCost : (q.initialUnitAsk * quantity + q.shippingCost);
-      return landed > budget;
-    });
-
-  const canEnterArena =
-    !isLoading &&
-    !isSourcing &&
-    mandateStatus !== "INVALID" &&
-    (sourcedQuotes === null || negotiationCandidates.length > 0);
-
-  const handleEnterArena = () => {
-    if (mandateStatus === "INVALID") {
-      setSourcingError("Cannot enter negotiation arena with contradictory constraints. Please resolve constraints first.");
-      return;
-    }
-
-    if (mandateStatus === "NEEDS_CLARIFICATION" && missingFieldsList.length > 0) {
-      setSourcingError("Cannot enter negotiation arena while mandate requires clarification. Please resolve highlighted missing fields.");
-      return;
-    }
-
-    if (sourcedQuotes !== null && negotiationCandidates.length === 0) {
-      setSourcingError("Cannot enter negotiation arena: No retrieved vendor quotes satisfy mandatory specifications or SLA bounds.");
-      return;
-    }
-
-    const errs = validateFieldValues(itemQuery, quantity, budget, maxDelivery, minReturn);
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
-    }
-
-    onStartNegotiation(
-      prompt,
-      currency,
-      {
-        itemQuery,
-        quantity,
-        maxTotalBudget: budget,
-        maxDeliveryDays: maxDelivery,
-        minReturnDays: minReturn,
-        currency,
-      },
-      previewedSessionId || undefined
-    );
-  };
-
-  const currencyPrefix = currency === "INR" ? "₹" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-200">
-      {/* Header */}
-      <SectionHeader
-        title="Procurement Mandate & Sourcing"
-        subtitle="Define authoritative constraints and source competing baseline quotes from wholesale suppliers."
-      />
-
-      {/* Benchmark Presets */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 pt-1">
-        <span className="text-[12px] font-sans font-medium text-[#737373] dark:text-[#a3a3a3] shrink-0">
-          Preset Scenarios:
-        </span>
-        <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={() => applyPreset(25, "4K USB-C monitors", 8500, 5, 30, "USD")}
-            className={`w-full sm:w-auto min-h-[36px] sm:min-h-[32px] px-3.5 py-1.5 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange text-center ${
-              itemQuery === "4K USB-C monitors" && budget === 8500 && quantity === 25 && currency === "USD"
-                ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white font-semibold"
-                : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
-            }`}
-          >
-            Scenario A ($8.5k / 25 4K Monitors)
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset(10, "Ergonomic Standing Desks", 4500, 7, 14, "USD")}
-            className={`w-full sm:w-auto min-h-[36px] sm:min-h-[32px] px-3.5 py-1.5 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange text-center ${
-              itemQuery === "Ergonomic Standing Desks" && budget === 4500 && quantity === 10 && currency === "USD"
-                ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white font-semibold"
-                : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
-            }`}
-          >
-            Scenario B ($4.5k / 10 Desks)
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset(4, "Enterprise Rack Servers", 15000, 5, 30, "USD")}
-            className={`w-full sm:w-auto min-h-[36px] sm:min-h-[32px] px-3.5 py-1.5 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange text-center ${
-              itemQuery === "Enterprise Rack Servers" && budget === 15000 && quantity === 4 && currency === "USD"
-                ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white font-semibold"
-                : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
-            }`}
-          >
-            Scenario C ($15.0k / 4 Servers)
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset(25, "4K USB-C monitors", 750000, 5, 30, "INR")}
-            className={`w-full sm:w-auto min-h-[36px] sm:min-h-[32px] px-3.5 py-1.5 rounded-[6px] text-[12px] font-medium border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange text-center ${
-              itemQuery === "4K USB-C monitors" && budget === 750000 && quantity === 25 && currency === "INR"
-                ? "bg-smoke/60 dark:bg-[#27272a] border-ember-orange/60 text-obsidian dark:text-white font-semibold"
-                : "bg-paper-white dark:bg-[#18181b] hover:bg-smoke/30 dark:hover:bg-[#202025] border-smoke dark:border-[#27272a] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f5f3ef]"
-            }`}
-          >
-            Scenario INR (₹750k / 25 4K Monitors)
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Mandate Configuration Form */}
-        <div className="lg:col-span-5 bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] shadow-2xs space-y-5 transition-colors">
-          <div className="flex items-center justify-between pb-3.5 border-b border-smoke/80 dark:border-[#27272a]">
-            <h2 className="text-[16px] font-semibold text-obsidian dark:text-[#f5f3ef] tracking-tight">
-              Authoritative Mandate
-            </h2>
-            <StatusBadge
-              status={
-                mandateStatus === "INVALID"
-                  ? "failure"
-                  : mandateStatus === "NEEDS_CLARIFICATION"
-                  ? "warning"
-                  : Object.keys(errors).length > 0
-                  ? "failure"
-                  : previewedSessionId
-                  ? "verified"
-                  : "neutral"
-              }
-              label={
-                mandateStatus === "INVALID"
-                  ? "Contradictory Mandate"
-                  : mandateStatus === "NEEDS_CLARIFICATION"
-                  ? "Needs Clarification"
-                  : Object.keys(errors).length > 0
-                  ? "Validation Required"
-                  : previewedSessionId
-                  ? "Catalog Sourced"
-                  : "Authoritative Mandate"
-              }
-            />
-          </div>
-
-          {/* Natural Language Prompt with Sync */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label
-                htmlFor={promptInputId}
-                className="block text-[13px] font-medium text-obsidian dark:text-[#f6f4f0] tracking-tight"
-              >
-                Natural Language Mandate Prompt
-              </label>
-              <span className="text-[11px] text-[#6e6e78] dark:text-[#8e8a83]">
-                Bidirectionally synced
-              </span>
+  return <div className="space-y-6">
+    <header className="space-y-2"><h1 className="text-[28px] sm:text-[32px] font-semibold leading-tight tracking-[-0.03em]">Source a procurement request</h1><p className="text-sm text-text-secondary">Define your requirements, compare available offers and begin negotiation.</p></header>
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+      <OperationsPanel title="Requirements">
+        <form noValidate aria-label="Procurement requirements" onSubmit={event => { event.preventDefault(); void request("source"); }} className="p-5 sm:p-6 space-y-6" ref={firstInput}>
+          <p className="text-xs text-text-secondary">Complete every field below. Finding suppliers saves a procurement request for this organization.</p>
+          <details className="border-b border-border-primary pb-5">
+            <summary className="font-medium text-sm rounded focus-visible:outline-2 focus-visible:outline-ember-orange">Use a written request (optional)</summary>
+            <div className="mt-4 space-y-3">
+              <label htmlFor="sourcing-description" className="block text-sm font-medium">Written request</label>
+              <textarea id="sourcing-description" rows={3} value={description} disabled={busy} aria-invalid={Boolean(errors.description)} aria-describedby="sourcing-description-help sourcing-description-error" onChange={event => { setDescription(event.target.value); setDescriptionDirty(Boolean(event.target.value.trim())); setResult(null); setMessage(""); setErrors({}); }} className="w-full rounded-[6px] border border-border-primary bg-surface-primary p-3 text-sm leading-relaxed focus-visible:outline-2 focus-visible:outline-ember-orange disabled:opacity-50" />
+              <p id="sourcing-description-help" className="text-xs leading-relaxed text-text-secondary">Extract this text to fill the fields below, then review the values. Only the reviewed fields are submitted.</p>
+              <p id="sourcing-description-error" className="text-sm text-red-700 dark:text-red-300">{errors.description}</p>
+              <div className="flex flex-wrap gap-3"><GhostButton onClick={() => void request("analysis")} disabled={busy || !description.trim()}>{pending === "analysis" ? "Extracting requirements…" : "Extract requirements"}</GhostButton><GhostButton disabled={busy || !description} onClick={() => { setDescription(""); setDescriptionDirty(false); setErrors({}); setAnalysisBlocked(false); setQuestions([]); setMessage(""); }}>Discard text</GhostButton></div>
             </div>
-            <textarea
-              id={promptInputId}
-              rows={3}
-              value={prompt}
-              onChange={(e) => {
-                setPrompt(e.target.value);
-                setPreviewedSessionId(null);
-              }}
-              className="w-full bg-paper-white dark:bg-[#18181b] rounded-[8px] p-3 text-[14px] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange transition-colors resize-none leading-relaxed"
-              placeholder="Enter procurement prompt..."
-            />
-            <p className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3]">
-              Type prompt naturally or update structured inputs below — values synchronize bidirectionally.
-            </p>
-
-            <div className="flex items-center justify-between pt-1">
-              <button
-                type="button"
-                onClick={handleAnalyzePrompt}
-                disabled={isAnalyzing || !prompt.trim()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-[12.5px] font-medium bg-smoke/50 dark:bg-[#25252b] hover:bg-smoke dark:hover:bg-[#303038] border border-smoke dark:border-[#27272a] text-obsidian dark:text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Sparkles className={`w-3.5 h-3.5 text-ember-orange ${isAnalyzing ? "animate-spin" : ""}`} />
-                <span>{isAnalyzing ? "Extracting Mandate..." : "Extract Mandate (AI)"}</span>
-              </button>
-              {mandateStatus === "READY" && (
-                <span className="inline-flex items-center gap-1 text-[11.5px] text-[#006840] dark:text-[#4ade80] font-medium">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Schema Verified
-                </span>
-              )}
-            </div>
-
-            {/* Clarification Box */}
-            {mandateStatus === "NEEDS_CLARIFICATION" && (
-              <div className="p-3.5 rounded-[8px] bg-amber-500/10 dark:bg-amber-950/20 border border-amber-500/30 text-[12.5px] space-y-1.5 animate-in fade-in duration-150">
-                <div className="flex items-center gap-2 font-semibold text-amber-700 dark:text-amber-400">
-                  <HelpCircle className="w-4 h-4 shrink-0" />
-                  <span>Mandate Clarification Needed</span>
-                </div>
-                {missingFieldsList.length > 0 && (
-                  <div className="text-[#4a4a52] dark:text-[#b8b5af]">
-                    <span className="font-medium text-obsidian dark:text-[#f6f4f0]">Missing required fields: </span>
-                    <span className="font-mono-token text-[11.5px]">{missingFieldsList.join(", ")}</span>
-                  </div>
-                )}
-                {clarificationQuestions.length > 0 && (
-                  <ul className="list-disc pl-4 space-y-1 text-obsidian dark:text-[#f6f4f0]">
-                    {clarificationQuestions.map((q, idx) => (
-                      <li key={idx}>{q}</li>
-                    ))}
-                  </ul>
-                )}
-                <p className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83] pt-0.5">
-                  Refine the prompt above or complete the structured fields below to resolve.
-                </p>
-              </div>
-            )}
-
-            {/* Contradiction Box */}
-            {mandateStatus === "INVALID" && (
-              <div className="p-3.5 rounded-[8px] bg-rose-500/10 dark:bg-rose-950/20 border border-rose-500/30 text-[12.5px] space-y-1.5 animate-in fade-in duration-150">
-                <div className="flex items-center gap-2 font-semibold text-rose-700 dark:text-rose-400">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>Contradictory Requirements Detected</span>
-                </div>
-                {contradictions.length > 0 && (
-                  <ul className="list-disc pl-4 space-y-1 text-obsidian dark:text-[#f6f4f0]">
-                    {contradictions.map((c, idx) => (
-                      <li key={idx}>{c}</li>
-                    ))}
-                  </ul>
-                )}
-                <p className="text-[11.5px] text-[#6e6e78] dark:text-[#8e8a83] pt-0.5">
-                  Conflicting budget, quantity, or SLA constraints must be reconciled before sourcing.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Structured Fields */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <FormInput
-              id="mandate-item-query"
-              label="Item Query"
-              value={itemQuery}
-              onChange={(e) => handleItemQueryChange(e.target.value)}
-              placeholder="e.g. 4K Monitors"
-              error={errors.itemQuery}
-            />
-            <FormInput
-              id="mandate-quantity"
-              label="Quantity"
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 0)}
-              error={errors.quantity}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <FormInput
-              id="mandate-budget"
-              label="Max Total Budget"
-              type="number"
-              min={1}
-              prefix={currencyPrefix}
-              value={budget}
-              onChange={(e) => handleBudgetChange(parseFloat(e.target.value) || 0)}
-              error={errors.budget}
-            />
-            <div className="space-y-1.5">
-              <label
-                htmlFor={currencySelectId}
-                className="block text-[13px] font-medium text-obsidian dark:text-[#f6f4f0] tracking-tight"
-              >
-                Currency
-              </label>
-              <select
-                id={currencySelectId}
-                value={currency}
-                onChange={(e) => handleCurrencyChange(e.target.value as CurrencyCode)}
-                className="w-full h-10 bg-paper-white dark:bg-[#18181b] rounded-[8px] px-3 py-2 text-[14px] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a] hover:border-obsidian/30 dark:hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange transition-colors cursor-pointer font-medium"
-              >
-                <option value="USD">USD ($)</option>
-                <option value="INR">INR (₹)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="GBP">GBP (£)</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <FormInput
-              id="mandate-delivery-days"
-              label="Delivery SLA (Days)"
-              type="number"
-              min={1}
-              value={maxDelivery}
-              onChange={(e) => handleDeliveryChange(parseInt(e.target.value) || 0)}
-              error={errors.maxDelivery}
-            />
-            <FormInput
-              id="mandate-return-days"
-              label="Return Window (Days)"
-              type="number"
-              min={0}
-              value={minReturn}
-              onChange={(e) => handleReturnChange(parseInt(e.target.value) || 0)}
-              error={errors.minReturn}
-            />
-          </div>
-
-          {sourcingError && (
-            <div
-              role="alert"
-              className="p-3.5 rounded-[6px] bg-[#feeef0] dark:bg-[#2b1012] text-[13px] text-[#dc2626] dark:text-[#f87171] flex items-center gap-2 border border-[#ef4444]/25"
-            >
-              <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>{sourcingError}</span>
-            </div>
-          )}
-
-          {previewedSessionId && (
-            <div className="p-3 rounded-[6px] bg-mint-whisper dark:bg-[#10211a] border border-lichen-green/30 text-[12.5px] text-[#006840] dark:text-[#4ade80] flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-lichen-green shrink-0" />
-              <span>Wholesale quotes previewed & locked in active session. Ready to negotiate.</span>
-            </div>
-          )}
-
-          {/* Informational Banner: Baseline Asking Prices Exceed Budget */}
-          {sourcedQuotes !== null && someQuotesAboveBudget && (
-            <div className="p-3 rounded-[6px] bg-amber-500/[0.08] dark:bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-[12.5px] text-amber-800 dark:text-amber-300">
-              <Info className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" aria-hidden="true" />
-              <div className="space-y-0.5">
-                <span className="font-semibold block">Negotiation Required for Budget Compliance</span>
-                <span>Some supplier asking prices exceed your budget. Enter negotiation to seek compliant offers.</span>
-              </div>
-            </div>
-          )}
-
-          <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
-            <GhostButton
-              onClick={handleSourcePreview}
-              disabled={isSourcing || isLoading}
-              className="flex-1"
-            >
-              {isSourcing ? "Querying Suppliers..." : "Preview Wholesale"}
-            </GhostButton>
-            <PrimaryButton
-              onClick={handleEnterArena}
-              disabled={!canEnterArena}
-              className="flex-1"
-            >
-              Enter Arena
-            </PrimaryButton>
-          </div>
-          {sourcedQuotes !== null && negotiationCandidates.length === 0 && (
-            <p className="text-[11.5px] text-rose-600 dark:text-rose-400 text-center pt-1 font-medium">
-              Cannot enter arena: 0 retrieved vendor quotes are eligible for negotiation
-            </p>
-          )}
-        </div>
-
-        {/* Right Column: Wholesale Vendor Quotes Comparison */}
-        <div className="lg:col-span-7 bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] flex flex-col justify-between shadow-2xs transition-colors">
-          <div>
-            <div className="pb-3.5 border-b border-smoke dark:border-[#27272a] flex items-center justify-between">
-              <div>
-                <h2 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-                  {sourcedQuotes && sourcedQuotes.length > 0 && sourcedQuotes[0]?.dataSource === "MOCK_CATALOG"
-                    ? "Wholesale Catalog (Deterministic Fixtures)"
-                    : "Channel3 Wholesale Catalog"}
-                </h2>
-                <p className="text-[13px] text-[#737373] dark:text-[#a3a3a3] mt-0.5">
-                  Multi-vendor competing baselines loaded for game-theoretic negotiation
-                </p>
-              </div>
-              <StatusBadge
-                status={
-                  !sourcedQuotes
-                    ? "neutral"
-                    : sourcedQuotes.length === 0
-                    ? "warning"
-                    : negotiationCandidates.length > 0
-                    ? "verified"
-                    : "failure"
-                }
-                label={
-                  !sourcedQuotes
-                    ? "Awaiting Preview"
-                    : sourcedQuotes.length === 0
-                    ? "No Matching Quotes"
-                    : quoteEvaluations
-                    ? `${sourcedQuotes.length} Quotes (${negotiationCandidates.length} Negotiable)`
-                    : `${sourcedQuotes.length} Quotes Loaded`
-                }
-              />
-            </div>
-
-            {quoteEvaluations && sourcedQuotes && sourcedQuotes.length > 0 && negotiationCandidates.length === 0 && (
-              <div className="mt-4 p-3 rounded-[6px] bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 text-[12.5px] text-rose-800 dark:text-rose-300 flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold">All Sourced Quotes Disqualified from Negotiation</div>
-                  <div className="text-[12px] opacity-90 mt-0.5">
-                    None of the {sourcedQuotes.length} supplier quotes satisfy mandatory specifications, condition, or SLA requirements. Review individual failure reasons below or adjust constraints before entering negotiation.
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {sourcedQuotes && sourcedQuotes.length > 0 ? (
-              <div className="pt-4">
-                {/* Desktop Table View */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-left text-[13px] border-collapse">
-                    <thead>
-                      <tr className="border-b border-smoke dark:border-[#27272a] type-table-header text-[#737373] dark:text-[#a3a3a3]">
-                        <th scope="col" className="pb-3 font-semibold">Supplier &amp; SKU</th>
-                        <th scope="col" className="pb-3 px-3 font-semibold">
-                          <span>Supplier Claimed SLAs</span>
-                          <span className="block text-[10.5px] font-normal text-[#8e8a83]">(Unverified Baseline)</span>
-                        </th>
-                        <th scope="col" className="pb-3 px-3 font-semibold text-right">Unit / Ship</th>
-                        <th scope="col" className="pb-3 px-3 font-semibold text-right">Landed Cost</th>
-                        <th scope="col" className="pb-3 pl-3 text-right font-semibold">Evaluation &amp; Rank</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-smoke dark:divide-[#27272a]">
-                      {sourcedQuotes.map((quote) => {
-                        const evalResult = quoteEvaluations ? quoteEvaluations[quote.vendorId] : undefined;
-                        const landedTotal = evalResult ? evalResult.financials.landedCost : quote.initialUnitAsk * quantity + quote.shippingCost;
-                        const isFeasible = evalResult ? evalResult.financials.withinBudget : landedTotal <= budget;
-                        const candEval = evaluateNegotiationCandidate(currentMandateForEval, quote, evalResult);
-
-                        // Find ranking index among eligible offers
-                        const eligibleQuotesSorted = sourcedQuotes
-                          .filter((q) => quoteEvaluations?.[q.vendorId]?.status === "ELIGIBLE")
-                          .sort((a, b) => (quoteEvaluations?.[b.vendorId]?.rankingScore || 0) - (quoteEvaluations?.[a.vendorId]?.rankingScore || 0));
-                        const rankIndex = eligibleQuotesSorted.findIndex((q) => q.vendorId === quote.vendorId);
-                        const rankNumber = rankIndex >= 0 ? rankIndex + 1 : undefined;
-
-                        const badgeStatus = evalResult
-                          ? evalResult.status === "ELIGIBLE"
-                            ? "verified"
-                            : candEval.isCandidate && candEval.isAboveBudgetBaseline
-                            ? "warning"
-                            : evalResult.status === "NEEDS_REVIEW"
-                            ? "warning"
-                            : "failure"
-                          : isFeasible
-                          ? "verified"
-                          : "warning";
-
-                        const badgeLabel = evalResult
-                          ? evalResult.status === "ELIGIBLE"
-                            ? rankNumber
-                              ? `Eligible • Rank #${rankNumber} (${evalResult.rankingScore} pts)`
-                              : "Eligible"
-                            : candEval.isCandidate && candEval.isAboveBudgetBaseline
-                            ? "Above Budget (Negotiable)"
-                            : evalResult.status === "NEEDS_REVIEW"
-                            ? "Needs Review"
-                            : "Hard Ineligible"
-                          : isFeasible
-                          ? "Within Budget"
-                          : "Above Budget (Negotiable)";
-
-                        return (
-                          <tr
-                            key={quote.vendorId}
-                            className="hover:bg-warm-cream/30 dark:hover:bg-[#1f1f23] transition-colors"
-                          >
-                            <td className="py-3.5 pr-3">
-                              <div className="font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-                                {quote.vendorName}
-                              </div>
-                              <div className="text-[12px] text-[#6e6e78] dark:text-[#8e8a83] line-clamp-1 max-w-[220px]">
-                                {quote.productTitle}
-                              </div>
-                              <div className="flex items-center gap-1.5 pt-1">
-                                <span className="text-[10.5px] font-mono-token text-architect-violet dark:text-[#a78bfa] bg-smoke/40 dark:bg-[#202025] px-1.5 py-0.5 rounded border border-smoke dark:border-[#27272a] font-medium">
-                                  {quote.sku}
-                                </span>
-                                <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3]">
-                                  {quote.condition}
-                                </span>
-                                <span className="text-[10px] font-mono-token px-1.5 py-0.5 rounded bg-smoke/30 dark:bg-[#1a1a1e] text-[#737373] dark:text-[#a3a3a3] border border-smoke/60 dark:border-[#27272a]">
-                                  {quote.dataSource === "MOCK_CATALOG" ? "Simulated Fixture" : "Channel3 Wholesale"}
-                                </span>
-                              </div>
-                              {evalResult && evalResult.disqualificationReasons.length > 0 && (
-                                <div className="pt-2 text-[11px] text-rose-600 dark:text-rose-400 space-y-0.5">
-                                  {evalResult.disqualificationReasons.map((reason, idx) => (
-                                    <div key={idx} className="flex items-start gap-1">
-                                      <XCircle className="w-3 h-3 shrink-0 mt-0.5" />
-                                      <span>{reason}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              {evalResult && evalResult.reviewReasons.length > 0 && (
-                                <div className="pt-2 text-[11px] text-amber-600 dark:text-amber-400 space-y-0.5">
-                                  {evalResult.reviewReasons.map((reason, idx) => (
-                                    <div key={idx} className="flex items-start gap-1">
-                                      <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
-                                      <span>{reason}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              {evalResult && evalResult.status === "ELIGIBLE" && evalResult.rankingExplanation && (
-                                <div className="pt-1.5 text-[11px] text-[#065f46] dark:text-[#34d399] flex items-center gap-1">
-                                  <CheckCircle2 className="w-3 h-3 shrink-0" />
-                                  <span className="line-clamp-1">{evalResult.rankingExplanation}</span>
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-3 whitespace-nowrap">
-                              <div className="text-obsidian dark:text-[#f6f4f0] flex items-center gap-1">
-                                <Truck className="w-3.5 h-3.5 text-[#6e6e78] dark:text-[#8e8a83]" aria-hidden="true" />
-                                <span>
-                                  Claimed: {quote.deliveryDays}d delivery{" "}
-                                  {evalResult && !evalResult.sla.deliveryCompliant && (
-                                    <span className="text-rose-500 font-medium text-[11px]">(&gt;{maxDelivery}d)</span>
-                                  )}
-                                </span>
-                              </div>
-                              <div className="text-[#6e6e78] dark:text-[#8e8a83] text-[12px] flex items-center gap-1 mt-0.5">
-                                <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-                                <span>
-                                  Claimed: {quote.returnDays}d return{" "}
-                                  {evalResult && !evalResult.sla.returnCompliant && (
-                                    <span className="text-rose-500 font-medium text-[11px]">(&lt;{minReturn}d)</span>
-                                  )}
-                                </span>
-                              </div>
-                              {evalResult && (
-                                <div className="pt-1.5">
-                                  {evalResult.compatibility.overallCompatibility === "MATCH" && (
-                                    <span className="text-[10px] font-mono-token text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                                      Specs Match
-                                    </span>
-                                  )}
-                                  {evalResult.compatibility.overallCompatibility === "UNKNOWN" && (
-                                    <span className="text-[10px] font-mono-token text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-                                      Specs Unknown
-                                    </span>
-                                  )}
-                                  {evalResult.compatibility.overallCompatibility === "MISMATCH" && (
-                                    <span className="text-[10px] font-mono-token text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
-                                      Spec Mismatch
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-3 text-right whitespace-nowrap tabular-nums text-[#6e6e78] dark:text-[#8e8a83]">
-                              <div>{currencyPrefix}{quote.initialUnitAsk.toLocaleString()} / unit</div>
-                              <div className="text-[11.5px] mt-0.5">+{currencyPrefix}{quote.shippingCost} ship</div>
-                            </td>
-                            <td className="py-3.5 px-3 text-right whitespace-nowrap">
-                              <CurrencyDisplay amount={landedTotal} currency={currency} size="sm" />
-                              {evalResult && (
-                                <div className={`text-[11px] tabular-nums mt-0.5 ${evalResult.financials.budgetVariance <= 0 ? "text-[#065f46] dark:text-[#34d399]" : "text-rose-500"}`}>
-                                  {evalResult.financials.budgetVariance <= 0
-                                    ? `-${currencyPrefix}${Math.abs(evalResult.financials.budgetVariance).toLocaleString()} under`
-                                    : `+${currencyPrefix}${evalResult.financials.budgetVariance.toLocaleString()} over`}
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-3.5 pl-3 text-right whitespace-nowrap">
-                              <StatusBadge
-                                status={badgeStatus}
-                                label={badgeLabel}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile Breakdown */}
-                <div className="sm:hidden divide-y divide-smoke dark:divide-[#27272a]">
-                  {sourcedQuotes.map((quote) => {
-                    const evalResult = quoteEvaluations ? quoteEvaluations[quote.vendorId] : undefined;
-                    const landedTotal = evalResult ? evalResult.financials.landedCost : quote.initialUnitAsk * quantity + quote.shippingCost;
-                    const isFeasible = evalResult ? evalResult.financials.withinBudget : landedTotal <= budget;
-                    const candEval = evaluateNegotiationCandidate(currentMandateForEval, quote, evalResult);
-
-                    const eligibleQuotesSorted = sourcedQuotes
-                      .filter((q) => quoteEvaluations?.[q.vendorId]?.status === "ELIGIBLE")
-                      .sort((a, b) => (quoteEvaluations?.[b.vendorId]?.rankingScore || 0) - (quoteEvaluations?.[a.vendorId]?.rankingScore || 0));
-                    const rankIndex = eligibleQuotesSorted.findIndex((q) => q.vendorId === quote.vendorId);
-                    const rankNumber = rankIndex >= 0 ? rankIndex + 1 : undefined;
-
-                    const badgeStatus = evalResult
-                      ? evalResult.status === "ELIGIBLE"
-                        ? "verified"
-                        : candEval.isCandidate && candEval.isAboveBudgetBaseline
-                        ? "warning"
-                        : evalResult.status === "NEEDS_REVIEW"
-                        ? "warning"
-                        : "failure"
-                      : isFeasible
-                      ? "verified"
-                      : "warning";
-
-                    const badgeLabel = evalResult
-                      ? evalResult.status === "ELIGIBLE"
-                        ? rankNumber
-                          ? `Rank #${rankNumber} (${evalResult.rankingScore} pts)`
-                          : "Eligible"
-                        : candEval.isCandidate && candEval.isAboveBudgetBaseline
-                        ? "Above Budget (Negotiable)"
-                        : evalResult.status === "NEEDS_REVIEW"
-                        ? "Needs Review"
-                        : "Hard Ineligible"
-                      : isFeasible
-                      ? "Within Budget"
-                      : "Above Budget (Negotiable)";
-
-                    return (
-                      <div key={quote.vendorId} className="py-3.5 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
-                            {quote.vendorName}
-                          </span>
-                          <StatusBadge
-                            status={badgeStatus}
-                            label={badgeLabel}
-                          />
-                        </div>
-                        <div className="text-[12.5px] text-[#737373] dark:text-[#a3a3a3]">
-                          {quote.productTitle}
-                        </div>
-                        <div className="flex items-center justify-between text-[12px] text-[#737373] dark:text-[#a3a3a3]">
-                          <span>Claimed: {quote.deliveryDays}d Delivery • {quote.returnDays}d Return</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono-token text-[11px] text-architect-violet dark:text-[#a78bfa]">
-                              {quote.sku}
-                            </span>
-                            <span className="text-[9.5px] font-mono-token px-1 py-0.5 rounded bg-smoke/30 dark:bg-[#1a1a1e] text-[#737373] dark:text-[#a3a3a3] border border-smoke/60 dark:border-[#27272a]">
-                              {quote.dataSource === "MOCK_CATALOG" ? "Simulated Fixture" : "Live Channel3"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-[12px] text-[#737373] dark:text-[#a3a3a3]">
-                            {currencyPrefix}{quote.initialUnitAsk}/unit + {currencyPrefix}{quote.shippingCost}
-                          </span>
-                          <CurrencyDisplay amount={landedTotal} currency={currency} size="sm" />
-                        </div>
-                        {evalResult && evalResult.disqualificationReasons.length > 0 && (
-                          <div className="text-[11px] text-rose-600 dark:text-rose-400 space-y-0.5 pt-1">
-                            {evalResult.disqualificationReasons.map((reason, idx) => (
-                              <div key={idx} className="flex items-start gap-1">
-                                <XCircle className="w-3 h-3 shrink-0 mt-0.5" />
-                                <span>{reason}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {evalResult && evalResult.reviewReasons.length > 0 && (
-                          <div className="text-[11px] text-amber-600 dark:text-amber-400 space-y-0.5 pt-1">
-                            {evalResult.reviewReasons.map((reason, idx) => (
-                              <div key={idx} className="flex items-start gap-1">
-                                <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
-                                <span>{reason}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div className="py-16 text-center space-y-3">
-                <div className="w-10 h-10 rounded-full bg-smoke/40 dark:bg-[#202025] mx-auto flex items-center justify-center text-[#737373] dark:text-[#a3a3a3]">
-                  <Package className="w-5 h-5" aria-hidden="true" />
-                </div>
-                <div className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-                  {sourcedQuotes && sourcedQuotes.length === 0 ? "No Matching Wholesale Quotes" : "Wholesale Catalog Unloaded"}
-                </div>
-                <p className="text-[13px] text-[#737373] dark:text-[#a3a3a3] max-w-sm mx-auto leading-relaxed">
-                  {sourcedQuotes && sourcedQuotes.length === 0
-                    ? `No supplier catalog items matched category "${itemQuery}". Supported categories: 4K Monitors, Developer Laptops, Enterprise Rack Servers, Standing Desks, and Managed Switches.`
-                    : "Execute \"Preview Wholesale\" to query competing baseline quotes from Channel3 or \"Enter Arena\" to commence autonomous multi-agent negotiation."}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="pt-3.5 mt-5 border-t border-smoke dark:border-[#27272a] text-[12px] text-[#737373] dark:text-[#a3a3a3] flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5" aria-hidden="true" />
-              {sourcedQuotes && sourcedQuotes[0]?.dataSource === "MOCK_CATALOG"
-                ? "Catalog Feed: Deterministic Wholesale Fixtures"
-                : "Catalog Feed: Live Channel3 Wholesale API"}
-            </span>
-            <span className="text-[#737373] dark:text-[#a3a3a3] font-mono-token text-[11px]">
-              {sourcedQuotes && sourcedQuotes[0]?.dataSource === "MOCK_CATALOG"
-                ? "Simulated Baseline"
-                : "Live API Baseline"}
-            </span>
-          </div>
-        </div>
-      </div>
+          </details>
+          <fieldset disabled={busy} className="min-w-0 space-y-5">
+            <legend className="mb-4 font-medium">Product and budget</legend>
+            <FormInput required id="sourcing-itemQuery" label="Product description" value={fields.itemQuery} onChange={event => change("itemQuery", event.target.value)} error={errors.itemQuery} placeholder="Product type and essential specifications" />
+            <div className="grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_112px] gap-4"><FormInput required id="sourcing-quantity" label="Quantity (units)" type="number" min={1} value={fields.quantity} onChange={event => change("quantity", event.target.value)} error={errors.quantity} />
+              <FormInput required id="sourcing-budget" label={`Total budget (${fields.currency})`} type="number" min="0.01" step="0.01" value={fields.budget} onChange={event => change("budget", event.target.value)} error={errors.budget} />
+              <div className="space-y-1.5"><label htmlFor="sourcing-currency" className="block type-form-label">Commercial currency</label><select required id="sourcing-currency" value={fields.currency} onChange={event => change("currency", event.target.value)} aria-describedby="sourcing-currency-help" className="w-full h-10 rounded-[6px] border border-border-primary bg-surface-primary px-3 text-sm focus-visible:outline-2 focus-visible:outline-ember-orange">{INTERNAL_SUPPORTED_CURRENCIES.map(code => <option key={code} value={code}>{code}</option>)}</select></div></div>
+            <p id="sourcing-currency-help" className="text-xs leading-relaxed text-text-secondary">The total budget includes shipping. Changing currency does not convert your amount.</p>
+          </fieldset>
+          <fieldset disabled={busy} className="min-w-0 border-t border-border-primary pt-5 space-y-4"><legend className="font-medium pt-5">Delivery and returns</legend>
+            <div className="grid sm:grid-cols-2 gap-4"><FormInput required id="sourcing-delivery" label="Maximum delivery (days)" type="number" min={1} value={fields.delivery} onChange={event => change("delivery", event.target.value)} error={errors.delivery} /><FormInput required id="sourcing-returns" label="Minimum return window (days)" type="number" min={0} value={fields.returns} onChange={event => change("returns", event.target.value)} error={errors.returns} /></div>
+            <p className="text-xs leading-relaxed text-text-secondary">These limits are required. Enter 0 only if no return window is required. Product condition: {requirements.requiredCondition.toLowerCase()}.</p>
+            {requirements.requiredSpecs.length > 0 && <ul className="text-sm space-y-1">{requirements.requiredSpecs.map((spec, index) => <li key={index}>{spec.name}: {spec.value} ({spec.mandatory ? "required" : "preferred"})</li>)}</ul>}
+          </fieldset>
+          {questions.length > 0 && <div role="status" className="space-y-2 border-l-2 border-border-primary pl-4 text-sm"><p className="font-medium">Review extracted requirements</p><ul className="list-disc pl-4 space-y-1">{questions.map((question, index) => <li key={index}>{question}</li>)}</ul></div>}
+          {descriptionDirty && <p role="status" className="text-sm text-text-secondary">Extract or discard the written request before finding suppliers.</p>}
+          {message && <p role="alert" className="rounded-[6px] border border-red-300 dark:border-red-800 p-3 text-sm text-red-800 dark:text-red-200">{message}</p>}
+          {pending && <p role="status" className="text-sm text-text-secondary">{pending === "source" ? "Finding suppliers and saving your request…" : pending === "analysis" ? "Reading your written request…" : "Opening negotiation…"}</p>}
+          {result ? <p role="status" className="text-sm">Request saved. Edit a requirement to start a new search.</p> : <PrimaryButton type="submit" disabled={busy || descriptionDirty || analysisBlocked}>{pending === "source" ? "Finding suppliers…" : message && pending !== "analysis" ? "Try finding suppliers again" : "Find suppliers"}</PrimaryButton>}
+        </form>
+      </OperationsPanel>
+      <aside aria-label="Request review" className="min-w-0"><OperationsPanel title="Request review"><dl className="p-5 space-y-4 text-sm">
+        <div><dt className="text-text-secondary">Product</dt><dd className="mt-1 font-medium break-words">{fields.itemQuery.trim() || "Not specified"}</dd></div>
+        <div className="flex justify-between gap-3"><dt className="text-text-secondary">Quantity</dt><dd className="font-mono-token tabular-nums">{fields.quantity || "Not specified"}</dd></div>
+        <div><dt className="text-text-secondary">Total budget</dt><dd className="mt-1 break-words">{!validate(fields).budget ? <><CurrencyDisplay amount={Number(fields.budget)} currency={fields.currency} /> <span className="text-xs text-text-secondary">{fields.currency}</span></> : "Not specified"}</dd></div>
+        <div className="flex justify-between gap-3"><dt className="text-text-secondary">Delivery within</dt><dd>{fields.delivery ? `${fields.delivery} days` : "Not specified"}</dd></div>
+        <div className="flex justify-between gap-3"><dt className="text-text-secondary">Returns at least</dt><dd>{fields.returns !== "" ? `${fields.returns} days` : "Not specified"}</dd></div>
+      </dl><p className="border-t border-border-primary px-5 py-4 text-xs leading-relaxed text-text-secondary">Supplier asking prices may exceed the budget while negotiating. Final agreed terms must satisfy the budget and required constraints.</p></OperationsPanel></aside>
     </div>
-  );
+    <OperationsPanel title="Supplier comparison">
+      {pending === "source" ? <DataMessage title="Finding available suppliers…">Quotes and constraint checks will appear here.</DataMessage> : !result ? <DataMessage title="No supplier search yet">Complete your requirements and select Find suppliers to save the request and retrieve available quotes.</DataMessage> : result.quotes.length === 0 ? <DataMessage title="No suppliers returned">No quotes were returned for this product and currency. Edit your requirements to search again.</DataMessage> : <>
+        <div className="px-5 py-4 space-y-1 text-sm"><p>{result.quotes.length} supplier offers. {candidates.length} eligible to participate in negotiation.</p><p className="text-text-secondary">Negotiation includes all eligible suppliers shown below.</p>{result.quotes.some(quote => quote.dataSource === "MOCK_CATALOG") && <p className="text-text-secondary">Demonstration catalog: sample supplier quotes, not live commercial offers.</p>}<p className="sm:hidden text-xs text-text-secondary">Scroll the comparison horizontally to see all prices and eligibility checks.</p></div>
+        <LedgerTable label="Available supplier offers"><thead><tr><th scope="col">Supplier and product</th><th scope="col">Delivery / returns</th><th scope="col" className="text-right">Asking price</th><th scope="col" className="text-right">Total incl. shipping</th><th scope="col">Negotiation eligibility</th></tr></thead><tbody>{result.quotes.map(quote => {
+          const evaluation = result.evaluations[quote.vendorId];
+          const candidate = evaluateNegotiationCandidate(result.mandate, quote, evaluation);
+          const quoteCurrency = quote.currency ?? "USD";
+          return <tr key={quote.vendorId}><th scope="row" className="font-normal"><span className="block max-w-[300px] truncate font-medium" title={quote.vendorName}>{quote.vendorName}</span><span className="mt-1 block max-w-[300px] text-xs leading-relaxed text-text-secondary break-words">{quote.productTitle}</span><span className="mt-2 block text-xs text-text-secondary">{quote.dataSource === "MOCK_CATALOG" ? "Demonstration quote" : quote.dataSource === "CHANNEL3" ? "Channel3 quote" : "Source not specified"}</span></th><td className="whitespace-nowrap">{quote.deliveryDays} days delivery<br /><span className="text-text-secondary">{quote.returnDays} days returns</span></td><td className="text-right whitespace-nowrap"><CurrencyDisplay amount={quote.initialUnitAsk} currency={quoteCurrency} size="sm" /><span className="block mt-1 text-xs text-text-secondary">per unit · {quoteCurrency}</span><span className="block text-xs text-text-secondary">Shipping <CurrencyDisplay amount={quote.shippingCost} currency={quoteCurrency} size="sm" /></span></td><td className="text-right whitespace-nowrap">{evaluation ? <CurrencyDisplay amount={evaluation.financials.landedCost} currency={quoteCurrency} size="sm" /> : "Not evaluated"}</td><td><p className="font-medium">{candidate.isCandidate ? candidate.isAboveBudgetBaseline ? "Above budget; negotiable" : "Eligible" : "Not eligible"}</p>{candidate.hardDisqualificationReasons.length > 0 && <ul className="mt-2 max-w-[260px] list-disc pl-4 text-xs leading-relaxed text-text-secondary">{candidate.hardDisqualificationReasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}</td></tr>;
+        })}</tbody></LedgerTable>
+      </>}
+      {result && <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-border-primary p-5"><div className="text-sm text-text-secondary max-w-2xl">{!candidates.length ? "Negotiation is unavailable until at least one supplier meets the required constraints." : "Start negotiation using this saved request and its eligible suppliers. This does not authorize or capture a payment."}{!canNegotiate && <p>You do not have permission to start negotiation.</p>}</div><PrimaryButton onClick={() => void startNegotiation()} disabled={busy || !canNegotiate || !candidates.length}>{pending === "negotiation" ? "Opening negotiation…" : "Start negotiation"}</PrimaryButton></div>}
+    </OperationsPanel>
+  </div>;
 }
