@@ -26,6 +26,7 @@ import { SourcingEvaluator } from "@/lib/sourcing-evaluator";
 import { sessionStore } from "@/lib/session-store";
 import type { ProcurementMandate, VendorQuote } from "@/types/pactum";
 import { defaultRateLimiter } from "@/lib/rate-limiter";
+import { NegotiationRunError, negotiationFailureCode, negotiationFailureMessage } from "@/lib/negotiation-failure";
 
 // Active sessions set to prevent duplicate negotiation runs from repeated requests
 const activeRunningSessions = new Set<string>();
@@ -191,7 +192,7 @@ async function handlePOST(req: NextRequest) {
     }
 
     // Concurrency / Duplicate check
-    const runKey = clientSessionId ?? targetSessionId ?? mandate.id;
+    const runKey = targetSessionId ?? clientSessionId ?? mandate.id;
     if (activeRunningSessions.has(runKey)) {
       return new Response(
         JSON.stringify({ error: "Negotiation is already active for this session." }),
@@ -206,15 +207,20 @@ async function handlePOST(req: NextRequest) {
 
     // Listen for client disconnect
     req.signal.addEventListener("abort", () => {
-      activeRunningSessions.delete(runKey);
       abortController.abort();
     });
 
+    let currentSessionId = targetSessionId;
+    let closed = false;
+    let terminalSent = false;
     const stream = new ReadableStream({
       async start(controller) {
         function sendEvent(type: string, data: Record<string, unknown>) {
+          if (closed || abortController.signal.aborted) throw new Error("Negotiation connection closed.");
+          if (terminalSent) throw new Error("Negotiation emitted data after its terminal result.");
           const payload = `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
           controller.enqueue(encoder.encode(payload));
+          if (["NEGOTIATION_COMPLETED", "NEGOTIATION_ABORTED", "NEGOTIATION_FAILED"].includes(type)) terminalSent = true;
         }
 
         try {
@@ -239,7 +245,6 @@ async function handlePOST(req: NextRequest) {
           const evaluationResult = await evaluator.evaluateSourcedQuotes(mandate, quotes);
 
           // Ensure session is persisted with sourcing evaluation in authoritative store
-          let currentSessionId = targetSessionId;
           if (!currentSessionId) {
             const newSession = sessionStore.createSession(mandate, quotes);
             newSession.status = "SOURCING";
@@ -280,7 +285,8 @@ async function handlePOST(req: NextRequest) {
             const ineligibles = evaluationResult.summary.ineligibleCount;
             const reviews = evaluationResult.summary.reviewCount;
             const failureDetail = `Sourcing eligibility gate blocked negotiation: 0 of ${quotes.length} vendor quotes are valid negotiation candidates (${ineligibles} disqualified, ${reviews} require review).`;
-            sendEvent("NEGOTIATION_FAILED", {
+            sendEvent("NEGOTIATION_ABORTED", {
+              code: "SOURCING_POLICY_BLOCKED",
               sessionId: currentSessionId,
               error: "Sourcing gate failure: No eligible quotes satisfy the mandate.",
               detail: failureDetail,
@@ -296,36 +302,37 @@ async function handlePOST(req: NextRequest) {
             geminiClient,
             maxRounds: 4, // 4 rounds for hackathon demonstration
             onEvent: async (ev) => {
-              if (req.signal.aborted) return;
+              if (req.signal.aborted || abortController.signal.aborted) throw new Error("Negotiation connection closed.");
               sendEvent(ev.type, ev.payload);
             },
           });
 
           // Execute negotiation loop with negotiation candidate quotes, reusing existing session ID if available
-          const orchestrationResult = await orchestrator.runNegotiation(
+          await orchestrator.runNegotiation(
             mandate,
             candidates,
             currentSessionId,
             evaluationResult.evaluations
           );
-          if (orchestrationResult.session) {
-            orchestrationResult.session.quoteEvaluations = evaluationResult.evaluations;
-            orchestrationResult.session.sourcingSummary = evaluationResult.summary;
-            sessionStore.saveSession(orchestrationResult.session);
-          }
+          if (!terminalSent) throw new Error("Negotiation ended without a terminal result.");
         } catch (err: unknown) {
-          const errorMessage = err instanceof Error ? err.message : "Internal negotiation error";
+          if (closed || abortController.signal.aborted) return;
+          const code = negotiationFailureCode(err);
+          const reference = err instanceof NegotiationRunError ? err.reference : crypto.randomUUID();
+          console.error("negotiation.failure", { code, reference });
+          if (terminalSent) return;
           sendEvent("NEGOTIATION_FAILED", {
-            error: "Negotiation pipeline encountered an unrecoverable condition.",
-            detail: errorMessage,
+            sessionId: currentSessionId, code, reference,
+            error: negotiationFailureMessage(code),
+            historySaved: err instanceof NegotiationRunError && err.historySaved,
           });
         } finally {
           activeRunningSessions.delete(runKey);
-          controller.close();
+          if (!closed) { closed = true; controller.close(); }
         }
       },
       cancel() {
-        activeRunningSessions.delete(runKey);
+        closed = true;
         abortController.abort();
       },
     });
