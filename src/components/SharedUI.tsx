@@ -425,7 +425,7 @@ export function EmptyState({
 
 /**
  * Institutional Theme Toggle Button (Light / Dark)
- * Compact 50x32px interactive theme switch custom-designed for PACTUM.
+ * Compact 50x40px interactive theme switch custom-designed for PACTUM.
  */
 export function ThemeToggle({ className = "" }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
