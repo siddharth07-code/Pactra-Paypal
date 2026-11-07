@@ -3,8 +3,13 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AppShell, type NavScreen } from "@/components/AppShell";
 import { ThemeProvider } from "@/lib/theme-provider";
+import { readFileSync } from "node:fs";
 
 describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
+  it("does not redefine numeric Tailwind spacing utilities as pixel tokens", () => {
+    const css = readFileSync("src/app/globals.css", "utf8");
+    expect(css).not.toMatch(/--spacing-\d+\s*:/);
+  });
   const onNavigateMock = vi.fn();
 
   beforeEach(() => {
@@ -67,20 +72,22 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     });
   });
 
-  it("keeps the desktop navigation behind a roomy breakpoint and 40px targets", () => {
+  it("uses a single flex row with navigation after the brand and 40px targets", () => {
     const { container } = renderNavbar("overview");
     const nav = screen.getByRole("navigation", { name: "Primary navigation" });
     const menuTrigger = screen.getByRole("button", { name: /Open navigation menu/i });
     const accountTrigger = screen.getByRole("button", { name: /Account menu for Account/i });
     const overview = screen.getByRole("button", { name: /^Overview$/i });
+    const headerInner = container.querySelector("header > div");
 
-    expect(nav.className).toContain("min-[1240px]:flex");
-    expect(menuTrigger.className).toContain("min-[1240px]:hidden");
+    expect(headerInner?.className).toContain("h-16 flex items-center");
+    expect(headerInner?.className).not.toContain("grid-cols-");
+    expect(nav.className).toContain("min-[1180px]:flex");
+    expect(nav.className).toContain("ml-8");
+    expect(menuTrigger.className).toContain("min-[1180px]:hidden");
     expect(accountTrigger.className).toContain("h-10");
     expect(overview.className).toContain("h-10");
-    expect(container.querySelector("header > div")?.className).toContain(
-      "grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
-    );
+    expect(accountTrigger.parentElement?.parentElement?.className).toContain("gap-3");
   });
 
   it("sets aria-current='page' on the active navigation destination", () => {
@@ -156,6 +163,34 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     // Dismiss with Escape key
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("menu", { name: /Account options/i })).not.toBeInTheDocument();
+    expect(accountBtn).toHaveFocus();
+  });
+
+  it("opens visible account actions, toggles closed, and dismisses outside", () => {
+    renderNavbar();
+    const trigger = screen.getByRole("button", { name: /Account menu for Account/i });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("menu")).toBeVisible();
+    expect(screen.getByRole("menu").className).toContain("w-[320px]");
+    expect(screen.getByRole("menu").className).toContain("max-w-[calc(100vw-32px)]");
+    expect(screen.getByRole("menu").className).toContain("top-[calc(100%+8px)]");
+    expect(screen.getByRole("menuitem", { name: /Account & Workspace/i })).toHaveAttribute("href", "/account");
+    fireEvent.click(trigger);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    fireEvent.mouseDown(screen.getByTestId("page-content"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("supports keyboard opening and movement between account actions", () => {
+    renderNavbar();
+    const trigger = screen.getByRole("button", { name: /Account menu for Account/i });
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    expect(screen.getByRole("menuitem", { name: /Account & Workspace/i })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: "End" });
+    expect(screen.getByRole("menuitem", { name: /Sign out/i })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(trigger).toHaveFocus();
   });
 
   it("integrates compact interactive ThemeToggle switching between Light and Dark", () => {
