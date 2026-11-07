@@ -68,6 +68,7 @@ function convertSessionTurnsToStreamEvents(session: ProcurementSession): StreamE
             proposedOffer: turn.proposedOffer,
             utilityScore: turn.utilityScore,
             threshold: turn.boulwareThreshold,
+            generator: turn.generator,
           },
         });
       }
@@ -281,8 +282,10 @@ function Home() {
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Failed to establish negotiation stream (${res.status}).`);
+        const code = res.status === 401 ? "AUTH_REQUIRED" : res.status === 403 ? "PERMISSION_DENIED" : res.status === 409 ? "STALE_VERSION" : "SERVICE_UNAVAILABLE";
+        setStreamEvents(previous => [...previous, { id: `rejected_${Date.now()}`, type: "NEGOTIATION_FAILED", timestamp: new Date().toISOString(), payload: { code } }]);
+        void refreshSessions();
+        return;
       }
 
       if (!res.body) {
@@ -292,6 +295,7 @@ function Home() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let terminalReceived = false;
 
       while (true) {
         const { value, done } = await reader.read();
@@ -318,6 +322,7 @@ function Home() {
 
           try {
             const parsed = JSON.parse(eventData);
+            if (["NEGOTIATION_COMPLETED", "NEGOTIATION_FAILED", "NEGOTIATION_ABORTED"].includes(eventType)) terminalReceived = true;
             const streamItem: StreamEventItem = {
               id: `ev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
               type: eventType,
@@ -348,7 +353,7 @@ function Home() {
                     : q
                 )
               );
-            } else if (eventType === "NEGOTIATION_COMPLETED") {
+            } else if (["NEGOTIATION_COMPLETED", "NEGOTIATION_FAILED", "NEGOTIATION_ABORTED"].includes(eventType)) {
               // Refresh server-side sessions to pull authoritative completed session
               setTimeout(async () => {
                 const loaded = await refreshSessions();
@@ -365,16 +370,19 @@ function Home() {
           }
         }
       }
-    } catch (err: unknown) {
+      if (!terminalReceived && !abortController.signal.aborted) {
+        setStreamEvents(previous => [...previous, { id: `interrupted_${Date.now()}`, type: "NEGOTIATION_FAILED", timestamp: new Date().toISOString(), payload: { code: "STREAM_INTERRUPTED" } }]);
+        void refreshSessions();
+      }
+    } catch {
       if (!abortController.signal.aborted) {
-        const message = err instanceof Error ? err.message : "Negotiation stream error";
         setStreamEvents((prev) => [
           ...prev,
           {
             id: `err_${Date.now()}`,
             type: "NEGOTIATION_FAILED",
             timestamp: new Date().toISOString(),
-            payload: { error: message },
+            payload: { code: "STREAM_INTERRUPTED" },
           },
         ]);
       }
