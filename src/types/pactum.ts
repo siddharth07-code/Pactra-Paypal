@@ -582,6 +582,8 @@ export type ProcurementSessionStatus =
  * Authoritative procurement session
  */
 export interface ProcurementSession {
+  negotiationFailure?: { code: string; reference: string; occurredAt: string };
+  negotiationHistory?: { turns: NegotiationTurn[]; merkleRoot?: string; updatedAt: string }[];
   id: string;
   mandate: ProcurementMandate;
   quotes: VendorQuote[];
