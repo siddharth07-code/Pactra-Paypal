@@ -132,6 +132,8 @@ function convertSessionTurnsToStreamEvents(session: ProcurementSession): StreamE
 function Home() {
   const [currentScreen, setCurrentScreen] = useState<NavScreen>("overview");
   const [sessions, setSessions] = useState<ProcurementSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [sessionsError, setSessionsError] = useState("");
   const [activeSession, setActiveSession] = useState<ProcurementSession | undefined>(undefined);
 
   // Negotiation Stream State
@@ -145,6 +147,8 @@ function Home() {
 
   // Load authoritative sessions from backend
   const refreshSessions = useCallback(async (): Promise<ProcurementSession[]> => {
+    setSessionsLoading(true);
+    setSessionsError("");
     try {
       const res = await fetch("/api/procurement/sessions");
       if (res.ok) {
@@ -157,8 +161,12 @@ function Home() {
         });
         return loaded;
       }
+      setSessionsError("Procurement records could not be retrieved. Try again.");
     } catch (err) {
+      setSessionsError("Procurement records could not be retrieved. Check your connection and try again.");
       console.error("Failed to fetch sessions:", err);
+    } finally {
+      setSessionsLoading(false);
     }
     return [];
   }, []);
@@ -453,6 +461,9 @@ function Home() {
       {currentScreen === "overview" && (
         <OverviewScreen
           sessions={sessions}
+          loading={sessionsLoading}
+          error={sessionsError}
+          onRetry={() => void refreshSessions()}
           onStartNew={() => navigateToScreen("sourcing")}
           onOpenSession={handleOpenSession}
           onNavigateHistory={() => navigateToScreen("history")}
