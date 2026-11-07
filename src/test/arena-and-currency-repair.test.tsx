@@ -224,7 +224,7 @@ describe("Phase 6.6: Negotiation Arena Repair & INR Currency Support", () => {
       );
 
       expect(screen.getAllByText(/Round 1 of 4/i).length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText(/Buyer Agent \(Gemini\) → Apex Cloud Infrastructure/i)).toBeDefined();
+      expect(screen.getByText(/Buyer proposal \(source not recorded\) → Apex Cloud Infrastructure/i)).toBeDefined();
       expect(screen.getByText(/Utility: 0.820/i)).toBeDefined();
       expect(screen.getByText(/Unit Bid:/i)).toBeDefined();
     });
