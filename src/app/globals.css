@@ -96,23 +96,23 @@
      LIGHT THEME TOKENS (Institutional Lithic Precision)
      #F7F7F4 Canvas, #FFFFFF Surface, #171717 Primary Text
      ======================================================== */
-  --color-page-bg: #F7F7F4;
+  --color-page-bg: #F7F5F0;
   --color-surface-primary: #ffffff;
-  --color-surface-secondary: #f0f0ed;
+  --color-surface-secondary: #EFECE5;
   --color-surface-elevated: #ffffff;
   --color-surface-card: #ffffff;
-  --color-surface-panel: #f5f2fb;
+  --color-surface-panel: #EFECE5;
   --color-surface-whisper: #f0fdf4;
 
-  --color-text-primary: #171717;
-  --color-text-secondary: #737373;
-  --color-text-muted: #8e8e93;
+  --color-text-primary: #24231F;
+  --color-text-secondary: #625F57;
+  --color-text-muted: #625F57;
 
-  --color-border-primary: #E5E5E2;
-  --color-border-subtle: #EEEEEA;
+  --color-border-primary: #DCD8CE;
+  --color-border-subtle: #E8E4DB;
 
-  --color-ember-orange: #F97316;
-  --color-ember-hover: #EA580C;
+  --color-ember-orange: #B83E26;
+  --color-ember-hover: #9F321E;
   --color-architect-violet: #5C2999;
   --color-lavender-mist: #f6f1fe;
   --color-lichen-green: #16A34A;
@@ -120,11 +120,11 @@
   --color-sandstone: #aa8855;
   --color-bark-brown: #665233;
   --color-honey-bronze: #eec07a;
-  --color-obsidian: #171717;
+  --color-obsidian: #24231F;
   --color-paper-white: #ffffff;
-  --color-warm-cream: #F7F7F4;
+  --color-warm-cream: #F7F5F0;
   --color-ash-gray: #737373;
-  --color-smoke: #E5E5E2;
+  --color-smoke: #DCD8CE;
 
   /* Shadows — Restrained, crisp, no bloated glows */
   --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
@@ -141,23 +141,23 @@
   /* ========================================================
      DARK THEME TOKENS (Institutional Precision Darkroom)
      ======================================================== */
-  --color-page-bg: #111113;
-  --color-surface-primary: #18181B;
-  --color-surface-secondary: #1F1F23;
-  --color-surface-elevated: #27272A;
+  --color-page-bg: #151513;
+  --color-surface-primary: #1D1D1A;
+  --color-surface-secondary: #262622;
+  --color-surface-elevated: #262622;
   --color-surface-card: #18181B;
   --color-surface-panel: #221a2c;
   --color-surface-whisper: #10211a;
 
-  --color-text-primary: #F5F3EF;
-  --color-text-secondary: #A3A3A3;
-  --color-text-muted: #737373;
+  --color-text-primary: #F2EFE7;
+  --color-text-secondary: #B7B2A7;
+  --color-text-muted: #B7B2A7;
 
-  --color-border-primary: #27272A;
-  --color-border-subtle: #202024;
+  --color-border-primary: #3B3A34;
+  --color-border-subtle: #302F2A;
 
-  --color-ember-orange: #F97316;
-  --color-ember-hover: #FB923C;
+  --color-ember-orange: #B83E26;
+  --color-ember-hover: #9F321E;
   --color-architect-violet: #a78bfa;
   --color-lavender-mist: #2a1e3b;
   --color-lichen-green: #22C55E;
@@ -183,6 +183,20 @@
 
 html {
   scroll-padding-top: 72px;
+}
+
+@layer base {
+  button:not(:disabled), a[href], select:not(:disabled), summary, label[for] { cursor: pointer; }
+  button:disabled, input:disabled, select:disabled { cursor: not-allowed; }
+  :focus-visible { outline: 2px solid var(--color-ember-orange); outline-offset: 3px; }
+}
+
+.operations-table th, .operations-table td { padding: 16px 20px; vertical-align: middle; }
+.operations-table thead th { font-weight: 500; font-size: 12px; color: var(--color-text-secondary); background: var(--color-surface-secondary); }
+.operations-table tbody tr + tr { border-top: 1px solid var(--color-border-primary); }
+.operations-table tbody tr:focus-within { background: var(--color-surface-secondary); }
+@media (pointer: coarse) {
+  button, select, input, a[role="menuitem"] { min-height: 44px; }
 }
 
 html,
