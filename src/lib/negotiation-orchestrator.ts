@@ -38,6 +38,17 @@ import {
   type VendorSimulationProfile,
 } from "./vendor-simulator";
 import { formatCurrency } from "./currency";
+import { minor } from "./db/codec";
+import { NegotiationRunError, negotiationFailureCode } from "./negotiation-failure";
+
+function exactLandedCost(price: number, quantity: number, shipping: number): number {
+  if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Invalid monetary quantity.");
+  const cents = minor(price) * BigInt(quantity) + minor(shipping);
+  if (cents > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("Monetary value exceeds the supported safe-integer boundary.");
+  const amount = Number(cents) / 100;
+  if (minor(amount) !== cents) throw new Error("Monetary value cannot be represented exactly.");
+  return amount;
+}
 
 export interface OrchestratorOptions {
   geminiClient?: GeminiNegotiationClient;
@@ -134,6 +145,7 @@ export class NegotiationOrchestrator {
     }
     NegotiationOrchestrator.activeNegotiationLocks.add(sessionId);
 
+    try {
     // Strict currency validation: quotes must match mandate currency
     for (const q of initialQuotes) {
       if (q.currency && q.currency.toUpperCase() !== mandate.currency.toUpperCase()) {
@@ -143,7 +155,6 @@ export class NegotiationOrchestrator {
       }
     }
 
-    try {
       const merkleTree = new VeriPayMerkleTree();
 
       // 1. Commit MANDATE_LOCKED event
@@ -222,6 +233,8 @@ export class NegotiationOrchestrator {
       mandate: { ...(existing?.mandate || mandate), isLocked: true },
       quotes: activeQuotes,
       turns: [],
+      negotiationFailure: undefined,
+      negotiationHistory: [...(existing?.negotiationHistory ?? []), ...(existing?.turns.length ? [{ turns: structuredClone(existing.turns), merkleRoot: existing.merkleRoot, updatedAt: existing.updatedAt }] : [])],
       status: "NEGOTIATING",
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -550,7 +563,7 @@ export class NegotiationOrchestrator {
               offerReference: turnId,
               agreedPrice: vendorResponse.unitAsk,
               agreedOffer: { ...offer, unitPrice: vendorResponse.unitAsk, currency: mandate.currency },
-              totalCost: vendorResponse.unitAsk * mandate.quantity + vendor.shippingCost,
+              totalCost: exactLandedCost(vendorResponse.unitAsk, mandate.quantity, vendor.shippingCost),
               currency: mandate.currency,
               priceProvenance: vendor.priceProvenance || "NATIVE_DETERMINISTIC_FIXTURE",
               agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
@@ -633,6 +646,12 @@ export class NegotiationOrchestrator {
         timestamp: new Date().toISOString(),
       });
 
+      const checkpoint = sessionStore.getSession(sessionId)!;
+      if (checkpoint.status !== "NEGOTIATING" || (checkpoint.mandate.version ?? 1) !== (mandate.version ?? 1)) {
+        await this.emit({ type: "NEGOTIATION_ABORTED", payload: { sessionId, reason: "The session or mandate changed while negotiation was running." } });
+        return { session: checkpoint, merkleTree, completed: false };
+      }
+      await saveSessionCheckpoint({ ...checkpoint, turns: structuredClone(turns), quotes: structuredClone(activeQuotes), merkleRoot: merkleTree.getRootHash(), preSettlementRoot: merkleTree.getRootHash() });
       await this.emit({
         type: "ROUND_COMPLETED",
         payload: { sessionId, round, merkleRoot: merkleTree.getRootHash() },
@@ -645,7 +664,7 @@ export class NegotiationOrchestrator {
       const state = vendorState.get(vendor.vendorId)!;
       if (!state.agreement && state.previousBuyerOffer) {
         const finalAsk = state.currentVendorAsk;
-        const totalCost = finalAsk * mandate.quantity + vendor.shippingCost;
+        const totalCost = exactLandedCost(finalAsk, mandate.quantity, vendor.shippingCost);
         const withinBudget = totalCost <= mandate.maxTotalBudget;
         const deliveryCompliant = vendor.deliveryDays <= mandate.maxDeliveryDays;
         const returnCompliant = vendor.returnDays >= mandate.minReturnDays;
@@ -840,6 +859,7 @@ export class NegotiationOrchestrator {
       // If NO offer is acceptable/feasible, orchestrator produces an explicit no-deal outcome
       if (evaluatedCandidates.length === 0) {
         const session: ProcurementSession = {
+          ...sessionStore.getSession(sessionId),
           id: sessionId,
           mandate,
           quotes: activeQuotes,
@@ -850,7 +870,7 @@ export class NegotiationOrchestrator {
           status: "AUDIT_FAILED",
           merkleRoot: merkleTree.getRootHash(),
           preSettlementRoot: merkleTree.getRootHash(),
-          createdAt: new Date().toISOString(),
+          createdAt: initialSession.createdAt,
           updatedAt: new Date().toISOString(),
         };
 
@@ -920,12 +940,13 @@ export class NegotiationOrchestrator {
         status: "AUDIT_PENDING",
         merkleRoot: merkleTree.getRootHash(),
         preSettlementRoot: merkleTree.getRootHash(),
-        createdAt: new Date().toISOString(),
+        createdAt: initialSession.createdAt,
         updatedAt: new Date().toISOString(),
       };
       const auditCertificate: AuditCertificate = auditor.audit({ session: preAuditSession });
 
       const session: ProcurementSession = {
+        ...sessionStore.getSession(sessionId),
         id: sessionId,
         mandate,
         quotes: activeQuotes,
@@ -937,7 +958,7 @@ export class NegotiationOrchestrator {
         auditCertificate,
         merkleRoot: merkleTree.getRootHash(),
         preSettlementRoot: merkleTree.getRootHash(),
-        createdAt: new Date().toISOString(),
+        createdAt: initialSession.createdAt,
         updatedAt: new Date().toISOString(),
       };
 
@@ -965,6 +986,18 @@ export class NegotiationOrchestrator {
         savingsVsBaseline,
         completed: true,
       };
+    } catch (cause) {
+      const failure = new NegotiationRunError(negotiationFailureCode(cause), crypto.randomUUID(), cause);
+      const current = sessionStore.getSession(sessionId);
+      if (current?.status === "NEGOTIATING") {
+        try {
+          await saveSessionCheckpoint({ ...current, negotiationFailure: { code: failure.code, reference: failure.reference, occurredAt: new Date().toISOString() } });
+          failure.historySaved = true;
+        } catch (checkpointError) {
+          console.error("negotiation.failure_checkpoint", { reference: failure.reference, code: negotiationFailureCode(checkpointError) });
+        }
+      }
+      throw failure;
     } finally {
       NegotiationOrchestrator.activeNegotiationLocks.delete(sessionId);
     }
