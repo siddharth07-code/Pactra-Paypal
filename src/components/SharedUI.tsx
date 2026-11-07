@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Copy,
   Check,
@@ -45,7 +45,7 @@ export function PrimaryButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 h-10 rounded-[8px] bg-ember-orange hover:bg-ember-hover active:scale-[0.99] text-white font-medium text-[13.5px] tracking-[-0.01em] transition-colors shadow-2xs cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] select-none ${className}`}
+      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 h-10 rounded-[6px] bg-ember-orange hover:bg-ember-hover text-white font-medium text-[13.5px] tracking-[-0.01em] transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] select-none ${className}`}
     >
       <span>{children}</span>
       {showArrow && <ArrowRight className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" aria-hidden="true" />}
@@ -80,7 +80,7 @@ export function GhostButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 h-10 rounded-[8px] bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] hover:bg-smoke/40 dark:hover:bg-[#222227] text-obsidian dark:text-[#f5f3ef] font-medium text-[13.5px] tracking-[-0.01em] transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] select-none ${className}`}
+      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 h-10 rounded-[6px] bg-surface-primary border border-border-primary hover:bg-surface-secondary text-text-primary font-medium text-[13.5px] tracking-[-0.01em] transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 select-none ${className}`}
     >
       <span>{children}</span>
       {showArrow && <ArrowRight className="w-3.5 h-3.5 shrink-0 opacity-70" aria-hidden="true" />}
@@ -101,7 +101,7 @@ export function WarmFeatureCard({
 }) {
   return (
     <div
-      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] transition-colors ${className}`}
+      className={`bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary transition-colors ${className}`}
     >
       {children}
     </div>
@@ -120,7 +120,7 @@ export function LavenderFeaturePanel({
 }) {
   return (
     <div
-      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] transition-colors ${className}`}
+      className={`bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary transition-colors ${className}`}
     >
       {children}
     </div>
@@ -139,7 +139,7 @@ export function MintMetricCallout({
 }) {
   return (
     <div
-      className={`bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] transition-colors ${className}`}
+      className={`bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary transition-colors ${className}`}
     >
       {children}
     </div>
@@ -234,12 +234,12 @@ export function FormInput({
           disabled={disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`w-full h-10 bg-paper-white dark:bg-[#18181b] rounded-[8px] py-2 type-body text-obsidian dark:text-[#f6f4f0] border transition-colors disabled:opacity-50 placeholder:text-[#8e8a83] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange ${
+          className={`w-full h-10 bg-surface-primary rounded-[6px] py-2 type-body text-text-primary border transition-colors disabled:opacity-50 placeholder:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange ${
             prefix ? "pl-8 pr-3.5" : "px-3.5"
           } ${
             error
               ? "border-[#ef4444] bg-[#feeef0]/20 dark:bg-[#feeef0]/10"
-              : "border-smoke dark:border-[#27272a] hover:border-obsidian/30 dark:hover:border-white/30"
+              : "border-border-primary hover:border-text-secondary"
           }`}
         />
       </div>
@@ -497,10 +497,23 @@ export function ConfirmationModal({
   onConfirm: () => void;
   onCancel: () => void;
   }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    dialogRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
         onCancel();
+      }
+      if (e.key === "Tab") {
+        const controls = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), [tabindex="0"]');
+        if (!controls?.length) return;
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
     };
     if (isOpen) {
@@ -509,7 +522,8 @@ export function ConfirmationModal({
     }
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "unset";
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
     };
   }, [isOpen, onCancel]);
 
@@ -517,6 +531,7 @@ export function ConfirmationModal({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-modal-title"
