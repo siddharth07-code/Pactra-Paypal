@@ -191,6 +191,8 @@ export function FormInput({
   placeholder,
   error,
   min,
+  step,
+  required = false,
   prefix,
   disabled = false,
   className = "",
@@ -203,6 +205,8 @@ export function FormInput({
   placeholder?: string;
   error?: string;
   min?: number | string;
+  step?: number | string;
+  required?: boolean;
   prefix?: string;
   disabled?: boolean;
   className?: string;
@@ -228,6 +232,8 @@ export function FormInput({
           id={id}
           type={type}
           min={min}
+          step={step}
+          required={required}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
