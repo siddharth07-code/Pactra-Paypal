@@ -100,8 +100,8 @@ export function AppShell({
       </a>
 
       {/* Persistent Single-Row Institutional Fintech Header */}
-      <header className="w-full bg-surface-primary border-b border-border-primary sticky top-0 z-40 transition-colors">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center">
+      <header className="h-16 w-full bg-surface-primary border-b border-border-primary sticky top-0 z-40 transition-colors">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center">
           {/* Brand stays anchored in the same natural row as navigation. */}
           <button
             type="button"
@@ -149,7 +149,7 @@ export function AppShell({
           <div className="flex-1 min-w-4" aria-hidden="true" />
 
           {/* Theme and account controls remain a compact right-aligned group. */}
-          <div className="shrink-0 flex items-center gap-3">
+          <div className="h-full shrink-0 flex items-center gap-3">
             <ThemeToggle className="shrink-0" />
             <AccountControl />
             <button
@@ -346,7 +346,7 @@ function AccountControl() {
   const displayName = activeOrg?.name || "Account";
 
   return (
-    <div className="relative shrink-0 h-16 flex items-center">
+    <div className="relative shrink-0 h-full flex items-center">
       <button
         ref={triggerRef}
         type="button"
