@@ -80,7 +80,7 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     const overview = screen.getByRole("button", { name: /^Overview$/i });
     const headerInner = container.querySelector("header > div");
 
-    expect(headerInner?.className).toContain("h-16 flex items-center");
+    expect(headerInner?.className).toContain("h-full flex items-center");
     expect(headerInner?.className).not.toContain("grid-cols-");
     expect(nav.className).toContain("min-[1180px]:flex");
     expect(nav.className).toContain("ml-8");
@@ -248,7 +248,8 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     expect(header?.className).toContain("z-40");
 
     const headerInner = header?.querySelector("div");
-    expect(headerInner?.className).toContain("h-16");
+    expect(header?.className).toContain("h-16");
+    expect(headerInner?.className).toContain("h-full");
   });
 
   it("handles mobile menu open, link selection, and Escape key dismissal", () => {
