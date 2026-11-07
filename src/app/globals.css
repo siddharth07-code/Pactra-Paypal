@@ -64,17 +64,17 @@
   --text-caption-dense: 11px;
   --leading-caption-dense: 1.3;
 
-  /* Spacing */
-  --spacing-8: 8px;
-  --spacing-16: 16px;
-  --spacing-24: 24px;
-  --spacing-32: 32px;
-  --spacing-40: 40px;
-  --spacing-48: 48px;
-  --spacing-64: 64px;
-  --spacing-80: 80px;
-  --spacing-120: 120px;
-  --spacing-160: 160px;
+  /* Pixel design tokens must not override Tailwind numeric spacing utilities. */
+  --pactum-space-8: 8px;
+  --pactum-space-16: 16px;
+  --pactum-space-24: 24px;
+  --pactum-space-32: 32px;
+  --pactum-space-40: 40px;
+  --pactum-space-48: 48px;
+  --pactum-space-64: 64px;
+  --pactum-space-80: 80px;
+  --pactum-space-120: 120px;
+  --pactum-space-160: 160px;
 
   /* Border Radius */
   --radius-lg: 8px;
