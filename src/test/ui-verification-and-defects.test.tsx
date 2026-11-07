@@ -77,6 +77,35 @@ function createMockSession(overrides: Partial<ProcurementSession> = {}): Procure
 }
 
 describe("OverviewScreen Financial Metrics Verification", () => {
+  it("shows an honest empty workspace with a functioning new-mandate action", () => {
+    const start = vi.fn();
+    render(<OverviewScreen sessions={[]} onStartNew={start} onOpenSession={vi.fn()} />);
+    expect(screen.getByText("No mandates yet")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "New mandate" }));
+    expect(start).toHaveBeenCalledOnce();
+  });
+
+  it("distinguishes loading and failure from an empty organization and supports retry", () => {
+    const retry = vi.fn();
+    const props = { sessions: [], onStartNew: vi.fn(), onOpenSession: vi.fn(), onRetry: retry };
+    const { rerender } = render(<OverviewScreen {...props} loading />);
+    expect(screen.getByRole("status")).toHaveTextContent("Loading procurement records");
+    expect(screen.queryByText("No mandates yet")).not.toBeInTheDocument();
+    rerender(<OverviewScreen {...props} error="Records unavailable" />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Records unavailable");
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it("opens the selected record rather than treating the first record as active", () => {
+    const cancelled = createMockSession({ id: "closed", status: "CANCELLED" });
+    const active = createMockSession({ id: "active", status: "NEGOTIATING" });
+    const open = vi.fn();
+    render(<OverviewScreen sessions={[cancelled, active]} onStartNew={vi.fn()} onOpenSession={open} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open mandate active" }));
+    expect(open).toHaveBeenCalledWith(active);
+  });
   it("does not infer PayPal evidence submission from a disputed session", () => {
     render(<OverviewScreen sessions={[createMockSession({ status: "DISPUTED" })]} onStartNew={vi.fn()} onOpenSession={vi.fn()} />);
     expect(screen.getByText("Review dispute evidence. PayPal submission is not confirmed.")).toBeInTheDocument();
@@ -125,7 +154,9 @@ describe("OverviewScreen Financial Metrics Verification", () => {
     );
 
     // Should indicate multi-currency isolation and calculate primary volume as $5,000.00, not $9,000.00
-    expect(screen.getByText(/Primary \(USD\) • 2 currencies/i)).toBeDefined();
+    expect(screen.getByText("USD")).toBeDefined();
+    expect(screen.getByText("EUR")).toBeDefined();
+    expect(screen.queryByText("$9,000.00")).not.toBeInTheDocument();
     expect(screen.getAllByText("$5,000.00").length).toBeGreaterThan(0);
   });
 
@@ -146,14 +177,14 @@ describe("OverviewScreen Financial Metrics Verification", () => {
     );
 
     // Only s-active is active (1 active)
-    const activeLabel = screen.getByText("Active Mandate Runs");
+    const activeLabel = screen.getByText("Active mandates");
     expect(activeLabel).toBeDefined();
     // Cryptographically settled should count s-settled and s-captured (2 settled)
-    const settledLabel = screen.getByText("Cryptographically Settled");
+    const settledLabel = screen.getByText("Settled procurements");
     expect(settledLabel).toBeDefined();
   });
 
-  it("calculates verified realized savings strictly from settled or audit-passed agreements", () => {
+  it("does not present negotiated differences as realized savings", () => {
     // Settled session: baseline quote was 320*25 + 200 = 8200. Final offer was 300*25 + 200 = 7700. Savings = 500.
     const settledSession = createMockSession({
       id: "s-settled",
@@ -183,7 +214,8 @@ describe("OverviewScreen Financial Metrics Verification", () => {
     );
 
     // Savings should only be $500.00 from s-settled
-    expect(screen.getByText("$500.00")).toBeDefined();
+    expect(screen.queryByText("$500.00")).not.toBeInTheDocument();
+    expect(screen.queryByText(/realized savings/i)).not.toBeInTheDocument();
   });
 });
 
