@@ -268,11 +268,16 @@ describe("private pages and independent machine endpoints", () => {
     expect(response.headers.get("location")).toBe("https://pactum.example/login");
     expect(response.headers.get("cache-control")).toContain("no-store");
   });
-  it("rewrites unauthenticated root navigation to the welcome landing experience", async () => {
+  it("keeps the public home independent of authentication", async () => {
     mocks.getUser.mockResolvedValue({ data: { user: null }, error: { name: "AuthSessionMissingError" } });
     const response = await middleware(request("/"));
-    expect(response.headers.get("x-middleware-rewrite")).toBe("https://pactum.example/welcome");
-    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(createServerClient).not.toHaveBeenCalled();
+  });
+  it("protects the relocated workspace", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: { name: "AuthSessionMissingError" } });
+    const response = await middleware(request("/workspace"));
+    expect(response.headers.get("location")).toBe("https://pactum.example/login");
   });
   it("does not redirect provider outages as if credentials were invalid", async () => {
     mocks.getUser.mockResolvedValue({ data: { user: null }, error: { status: 503 } });
@@ -284,7 +289,7 @@ describe("private pages and independent machine endpoints", () => {
   });
   it("serves a friendly HTML error page for browser navigation when authentication is not configured", async () => {
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
-    const htmlReq = new NextRequest("https://pactum.example/", {
+    const htmlReq = new NextRequest("https://pactum.example/workspace", {
       headers: { Accept: "text/html,application/xhtml+xml" },
     });
     const response = await middleware(htmlReq);
@@ -296,7 +301,7 @@ describe("private pages and independent machine endpoints", () => {
   });
   it("serves raw JSON for non-HTML/API callers when authentication is not configured", async () => {
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
-    const jsonReq = new NextRequest("https://pactum.example/", {
+    const jsonReq = new NextRequest("https://pactum.example/workspace", {
       headers: { Accept: "application/json" },
     });
     const response = await middleware(jsonReq);
