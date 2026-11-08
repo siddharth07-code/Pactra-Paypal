@@ -38,6 +38,22 @@ function activeMotion() {
 }
 
 describe("Landing sculpture resource lifecycle", () => {
+  it("grounds the assembly on a bounded solid plinth with a shadow receiver", () => {
+    const { container } = render(<HeroSculptureCanvas />);
+    Object.defineProperties(container.firstElementChild!, { clientWidth: { value: 600 }, clientHeight: { value: 520 } });
+    act(() => state.resize?.());
+    const scene = state.renderers[0].render.mock.calls.at(-1)![0] as THREE.Scene;
+    const plinth = scene.getObjectByName("agreement-plinth") as THREE.Mesh;
+    plinth.geometry.computeBoundingBox();
+    const size = plinth.geometry.boundingBox!.getSize(new THREE.Vector3());
+    expect(size.x).toBeCloseTo(2.8);
+    expect(size.y).toBeCloseTo(.32);
+    expect(size.z).toBeCloseTo(1.65);
+    expect(plinth.castShadow).toBe(true);
+    const ground = scene.getObjectByName("contact-shadow-ground") as THREE.Mesh;
+    expect(ground.receiveShadow).toBe(true);
+    expect(ground.position.y).toBeLessThan(plinth.position.y - size.y / 2);
+  });
   it("uses one canvas and renders the reduced-motion pose on resize", () => {
     const { container } = render(<HeroSculptureCanvas />);
     expect(container.querySelectorAll("canvas")).toHaveLength(1);
