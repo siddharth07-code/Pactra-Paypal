@@ -77,7 +77,7 @@ export function NegotiationArenaScreen({ sessionId, mandate, quotes, events, isS
     <header className="space-y-4 border-b border-border-primary pb-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2 min-w-0">
-          <h1 className="text-[26px] sm:text-[30px] font-semibold tracking-tight leading-tight">Negotiation Arena</h1>
+          <h1 className="workspace-title">Negotiation Arena</h1>
           <p className="text-sm text-text-secondary">Compare supplier terms and review the recorded negotiation.</p>
         </div>
         <p role="status" className="text-sm font-medium py-2">{loading && !authoritativeMandate ? "Loading saved negotiation…" : state}{round > 0 && <> · Round {round}{typeof maxRounds === "number" ? ` of ${maxRounds}` : ""}</>}</p>
