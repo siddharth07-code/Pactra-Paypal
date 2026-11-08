@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, ChevronDown, ShieldCheck, Cpu } from "lucide-react";
 import gsap from "gsap";
 import { HeroSculptureCanvas } from "./HeroSculptureCanvas";
+import { LifecycleScrollSection } from "./LifecycleScrollSection";
 import "./landing.css";
 
 export function WelcomeHeroScreen() {
@@ -176,7 +177,7 @@ export function WelcomeHeroScreen() {
               </Link>
 
               <a
-                href="#baseline-rail"
+                href="#lifecycle-section"
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-mono uppercase tracking-wider text-[#5A5650] hover:text-[#111111] transition-colors"
               >
                 <span>Explore Architecture</span>
@@ -248,6 +249,9 @@ export function WelcomeHeroScreen() {
           </div>
         </div>
       </footer>
+
+      {/* 4. Cinematic Dark Editorial & 3D Lifecycle Section (DESIGN.md Sections 1, 5, 6) */}
+      <LifecycleScrollSection />
     </div>
   );
 }
