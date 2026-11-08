@@ -221,7 +221,7 @@ function ReturnContent() {
             <div className="pt-4 border-t border-border-primary flex flex-col sm:flex-row gap-3 justify-end">
               <button
                 type="button"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/workspace")}
                 className="px-5 py-2.5 rounded-[6px] border border-border-primary text-[13.5px] font-medium text-text-primary hover:bg-surface-secondary transition-colors cursor-pointer"
               >
                 Overview
@@ -230,8 +230,8 @@ function ReturnContent() {
                 type="button"
                 onClick={() =>
                   sessionId
-                    ? router.push(`/?screen=vault&sessionId=${sessionId}`)
-                    : router.push("/?screen=vault")
+                    ? router.push(`/workspace?screen=vault&sessionId=${sessionId}`)
+                    : router.push("/workspace?screen=vault")
                 }
                 className="px-5 py-2.5 rounded-[6px] bg-ember-orange text-white text-[13.5px] font-medium hover:bg-[#a3351f] transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
               >
@@ -285,7 +285,7 @@ function ReturnContent() {
             <div className="pt-4 border-t border-border-primary flex justify-end">
               <button
                 type="button"
-                onClick={() => router.push(`/?screen=settlement&sessionId=${sessionId}`)}
+                onClick={() => router.push(`/workspace?screen=settlement&sessionId=${sessionId}`)}
                 className="px-5 py-2.5 rounded-[6px] bg-ember-orange text-white text-[13.5px] font-medium hover:bg-[#a3351f] transition-colors cursor-pointer shadow-xs"
               >
                 Return to Mission Control
@@ -306,7 +306,7 @@ function ReturnContent() {
             <div className="pt-4">
               <button
                 type="button"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/workspace")}
                 className="px-5 py-2.5 rounded-[6px] bg-ember-orange text-white text-[13.5px] font-medium hover:bg-[#a3351f] transition-colors cursor-pointer shadow-xs"
               >
                 Return to Overview
