@@ -94,4 +94,23 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
     fireEvent.click(screen.getByRole("button", { name: "Resume motion" }));
     expect(screen.getByRole("button", { name: "Pause motion" })).toHaveAttribute("aria-pressed", "false");
   });
+  it("shows sample offers, a failed delivery check and draft terms requiring approval", () => {
+    render(<WelcomeHeroScreen />);
+    expect(screen.getByRole("list", { name: "Sample supplier offers" }).children).toHaveLength(2);
+    expect(screen.getByText(/All amounts and checks below are sample data/)).toBeVisible();
+    expect(screen.getByText(/Delivery exceeds the example limit/)).toBeVisible();
+    expect(screen.getByText("USD 3,700 · 8 days")).toBeVisible();
+    expect(screen.getByText(/Buyer approval remains required/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Create your procurement mandate" })).toHaveAttribute("href", "/workspace");
+  });
+  it("retains negotiation content when motion is paused and replayed", () => {
+    const scrollTo = vi.fn();
+    vi.stubGlobal("scrollTo", scrollTo);
+    render(<WelcomeHeroScreen />);
+    fireEvent.click(screen.getByRole("button", { name: "Pause motion" }));
+    expect(screen.getByRole("heading", { name: "Draft terms for buyer review" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Replay entrance" }));
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "instant" });
+    expect(screen.getByRole("button", { name: "Pause motion" })).toHaveAttribute("aria-pressed", "false");
+  });
 });

@@ -103,6 +103,33 @@
   .pactum-landing *, .pactum-landing *::before, .pactum-landing *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
+/* Lavender carries the mandate constraints forward; mint distinguishes draft terms from offers. */
+.pactum-cinema .cinema-negotiation { padding: 24px; border-top: 1px solid #d7d0c7; }
+.pactum-cinema .cinema-negotiation h3 { margin: 8px 0; font-size: clamp(24px, 2.5vw, 34px); }
+.pactum-cinema .cinema-negotiation .cinema-sub { max-width: 580px; }
+.pactum-cinema .cinema-policy { margin-top: 16px; padding: 12px 16px; background: var(--cinema-lavender); color: #584b69; border-radius: 7px; font-size: 13px; }
+.pactum-cinema .cinema-offers { list-style: none; margin: 16px 0; padding: 0; }
+.pactum-cinema .cinema-offer { padding: 12px 0; border-bottom: 1px solid #d7d0c7; font-size: 13px; }
+.pactum-cinema .cinema-offer > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; }
+.pactum-cinema .cinema-offer p { color: var(--landing-muted); margin-top: 4px; }
+.pactum-cinema .cinema-terms { padding: 16px; background: #dcefe2; color: #28543a; border-radius: 8px; }
+.pactum-cinema .cinema-terms h4 { margin: 4px 0 12px; font-size: 17px; font-weight: 600; }
+.pactum-cinema .cinema-terms dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 12px; font-size: 13px; }
+.pactum-cinema .cinema-terms dd { margin: 4px 0 0; font-weight: 600; }
+.pactum-cinema .cinema-terms > p:last-child, .pactum-cinema .cinema-review-note { font-size: 12px; }
+.pactum-cinema .cinema-review-note { color: var(--landing-muted); margin-top: 12px; }
+.pactum-cinema .cinema-negotiation-story { margin-top: 32px; }
+@media (min-width: 1000px) and (min-height: 900px) and (prefers-reduced-motion: no-preference) {
+  .pactum-cinema[data-enhanced="true"] .cinema-panels { display: grid; }
+  .pactum-cinema[data-enhanced="true"] .cinema-panels > * { grid-area: 1 / 1; }
+  .pactum-cinema[data-enhanced="true"] .cinema-negotiation { border-top: 0; }
+  .pactum-cinema[data-enhanced="true"] .cinema-negotiation-story { margin-top: 0; }
+}
+@media (max-width: 699px) {
+  .pactum-cinema .cinema-negotiation { padding: 16px; }
+  .pactum-cinema .cinema-terms dl { grid-template-columns: 1fr; }
+}
+
 /* Ivory keeps the brief readable; lavender groups the lifecycle; mint marks the sample's defined mandate. */
 .pactum-cinema { --landing-paper: #f6f3ed; --landing-ink: #25221e; --landing-muted: #68625d; --cinema-lavender: #e7dff3; }
 .pactum-cinema .landing-header { border-bottom: 1px solid #ded8cf; }
@@ -157,8 +184,8 @@
   .pactum-cinema .cinema-rail li { padding: 10px 8px; font-size: 12px; white-space: normal; }
   .pactum-cinema .cinema-rail-note { display: none; }
 }
-@media (min-width: 1000px) and (min-height: 720px) and (prefers-reduced-motion: no-preference) {
-  .pactum-cinema[data-enhanced="true"] .cinema-chapter { height: 180vh; padding-bottom: 0; }
+@media (min-width: 1000px) and (min-height: 900px) and (prefers-reduced-motion: no-preference) {
+  .pactum-cinema[data-enhanced="true"] .cinema-chapter { height: 320vh; padding-bottom: 0; }
   .pactum-cinema[data-enhanced="true"] .cinema-sticky { position: sticky; top: 0; min-height: 100vh; display: flex; flex-direction: column; justify-content: flex-start; padding-block: 32px; }
   .pactum-cinema[data-enhanced="true"] .cinema-story { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 35%; }
   .pactum-cinema[data-enhanced="true"] .cinema-story h2 { font-size: clamp(36px, 4vw, 60px); }
