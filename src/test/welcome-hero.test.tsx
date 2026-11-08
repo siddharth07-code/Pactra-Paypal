@@ -4,7 +4,7 @@ import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import { WelcomeHeroScreen } from "@/components/landing/WelcomeHeroScreen";
 
 // WebGL resources have a separate lifecycle suite; this suite exercises public content.
-vi.mock("next/dynamic", () => ({ default: () => () => <div data-testid="mock-sculpture-canvas" aria-hidden="true" /> }));
+vi.mock("next/dynamic", () => ({ default: () => ({ paused }: { paused: boolean }) => <div data-testid="mock-sculpture-canvas" data-paused={paused} aria-hidden="true" /> }));
 
 afterEach(() => {
   cleanup();
@@ -85,5 +85,24 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
       if (href.startsWith("#")) expect(container.querySelector(href)).not.toBeNull();
       else expect(["/login", "/register"]).toContain(href);
     }
+  });
+  it("pauses and resumes the sculpture without replacing its canvas", () => {
+    render(<WelcomeHeroScreen />);
+    const canvas = screen.getByTestId("mock-sculpture-canvas");
+    fireEvent.click(screen.getByRole("button", { name: "Pause sculpture motion" }));
+    expect(canvas).toHaveAttribute("data-paused", "true");
+    expect(screen.getByRole("button", { name: "Resume sculpture motion" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Resume sculpture motion" }));
+    expect(screen.getByTestId("mock-sculpture-canvas")).toBe(canvas);
+    expect(canvas).toHaveAttribute("data-paused", "false");
+  });
+  it("honors the system reduced-motion preference", () => {
+    const original = window.matchMedia;
+    vi.spyOn(window, "matchMedia").mockImplementation(query => ({ ...original(query), matches: query === "(prefers-reduced-motion: reduce)" }));
+    render(<WelcomeHeroScreen />);
+    expect(screen.getByText("Reduced motion enabled")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sculpture motion/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId("mock-sculpture-canvas")).toHaveAttribute("data-paused", "true");
+    vi.restoreAllMocks();
   });
 });
