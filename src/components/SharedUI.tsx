@@ -164,13 +164,13 @@ export function SectionHeader({
   return (
     <div className={`space-y-1.5 pb-2 ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="type-section-heading text-obsidian dark:text-[#f6f4f0]">
+        <h2 className="type-section-heading text-text-primary">
           {title}
         </h2>
         {badge && <div>{badge}</div>}
       </div>
       {subtitle && (
-        <p className="type-body text-[#4a4a52] dark:text-[#b8b5af] max-w-3xl">
+        <p className="type-body text-text-secondary max-w-3xl">
           {subtitle}
         </p>
       )}
@@ -333,14 +333,14 @@ export function CopyableHash({
   };
 
   return (
-    <div className="inline-flex items-center gap-2 bg-paper-white dark:bg-[#18181b] px-3 py-1 rounded-[6px] border border-smoke dark:border-[#27272a] text-[12px] font-mono-token shadow-2xs">
+    <div className="inline-flex items-center gap-2 bg-surface-primary px-3 py-1 rounded-[6px] border border-border-primary text-[12px] font-mono-token">
       {label && (
-        <span className="font-sans text-[#737373] dark:text-[#a3a3a3] font-medium">
+        <span className="font-sans text-text-secondary font-medium">
           {label}:
         </span>
       )}
       <span
-        className="text-obsidian dark:text-[#f6f4f0] select-all break-all"
+        className="text-text-primary select-all break-all"
         title={hash}
       >
         {displayHash}
@@ -348,11 +348,11 @@ export function CopyableHash({
       <button
         type="button"
         onClick={handleCopy}
-        className="p-1 rounded hover:bg-smoke/60 dark:hover:bg-[#25252b] text-ash-gray hover:text-ember-orange transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+        className="p-1 rounded hover:bg-surface-secondary text-text-secondary hover:text-ember-orange transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
         aria-label={`Copy hash ${hash}`}
       >
         {copied ? (
-          <Check className="w-3.5 h-3.5 text-lichen-green" aria-hidden="true" />
+          <Check className="w-3.5 h-3.5 text-[#16a34a]" aria-hidden="true" />
         ) : (
           <Copy className="w-3.5 h-3.5" aria-hidden="true" />
         )}
