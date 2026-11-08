@@ -274,27 +274,18 @@ export function StatusBadge({
   status: "verified" | "warning" | "failure" | "info" | "neutral";
   label: string;
 }) {
-  const dotColors = {
-    verified: "bg-[#00a86b] dark:bg-[#00cc88]",
-    warning: "bg-[#d97706] dark:bg-[#f59e0b]",
-    failure: "bg-[#dc2626] dark:bg-[#ef4444]",
-    info: "bg-architect-violet dark:bg-[#a78bfa]",
-    neutral: "bg-[#71717a] dark:bg-[#a1a1aa]",
-  };
-
   const textStyles = {
     verified: "text-[#065f46] dark:text-[#34d399]",
     warning: "text-[#92400e] dark:text-[#fbbf24]",
     failure: "text-[#991b1b] dark:text-[#f87171]",
-    info: "text-architect-violet dark:text-[#c4b5fd]",
+    info: "text-text-primary",
     neutral: "text-[#52525b] dark:text-[#a1a1aa]",
   };
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-[4px] px-2 py-0.5 border border-smoke/80 dark:border-[#27272a] bg-smoke/30 dark:bg-[#1f1f23] text-[11.5px] font-medium select-none tracking-[-0.01em]"
+      className="inline-flex items-center text-xs font-medium select-none tracking-[-0.01em]"
     >
-      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColors[status]}`} aria-hidden="true" />
       <span className={textStyles[status]}>{label}</span>
     </span>
   );
@@ -410,17 +401,11 @@ export function EmptyState({
   onAction?: () => void;
 }) {
   return (
-    <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-10 text-center flex flex-col items-center justify-center max-w-md mx-auto my-6 border border-smoke dark:border-[#27272a] shadow-2xs">
-      <div
-        className="w-10 h-10 rounded-full bg-warm-cream dark:bg-[#222227] border border-smoke dark:border-[#27272a] flex items-center justify-center mb-3 text-architect-violet dark:text-[#a78bfa] text-base font-sans font-medium"
-        aria-hidden="true"
-      >
-        ∅
-      </div>
+    <div className="py-10 flex flex-col items-start max-w-xl my-6">
       <h3 className="type-card-heading text-obsidian dark:text-[#f6f4f0] mb-1.5">
         {title}
       </h3>
-      <p className="type-body text-[#4a4a52] dark:text-[#b8b5af] mb-5 max-w-sm">
+      <p className="type-body text-text-secondary mb-5 max-w-sm">
         {description}
       </p>
       {actionLabel && onAction && (
