@@ -1,17 +1,10 @@
 import React from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import { WelcomeHeroScreen } from "@/components/landing/WelcomeHeroScreen";
 
-// Mock WebGL canvas component to isolate DOM/editorial layout and accessibility tests
-vi.mock("@/components/landing/HeroSculptureCanvas", () => ({
-  HeroSculptureCanvas: ({ onLoaded }: { onLoaded?: () => void }) => {
-    React.useEffect(() => {
-      onLoaded?.();
-    }, [onLoaded]);
-    return <div data-testid="mock-sculpture-canvas">Mock 3D Hero Sculpture</div>;
-  },
-}));
+// WebGL resources have a separate lifecycle suite; this suite exercises public content.
+vi.mock("next/dynamic", () => ({ default: () => () => <div data-testid="mock-sculpture-canvas" aria-hidden="true" /> }));
 
 afterEach(() => {
   cleanup();
@@ -19,30 +12,33 @@ afterEach(() => {
 });
 
 describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
-  it("renders the oversized headline with masked word spans", () => {
+  it("renders the product headline without an animation mask", () => {
     render(<WelcomeHeroScreen />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Engineered For Certainty.");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Procurement,with proof.");
+    expect(screen.getByRole("heading", { level: 1 }).className).not.toContain("opacity-0");
   });
 
   it("renders the high-contrast black pill CTA linking directly to /login", () => {
     render(<WelcomeHeroScreen />);
-    const ctas = screen.getAllByRole("link", { name: /enter workspace/i });
-    expect(ctas.length).toBeGreaterThanOrEqual(1);
+    const ctas = screen.getAllByRole("link", { name: /open workspace/i });
+    expect(ctas).toHaveLength(2);
     expect(ctas[0]).toHaveAttribute("href", "/login");
-    expect(ctas[0].className).toContain("pactum-pill-cta");
+    expect(ctas[0].className).toContain("landing-button");
   });
 
-  it("renders the technical baseline metadata rail", () => {
+  it("clearly labels the sandbox and avoids fabricated live attestations", () => {
     render(<WelcomeHeroScreen />);
-    expect(screen.getByText(/Architecture: SHA-256 Merkle Engine/i)).toBeInTheDocument();
-    expect(screen.getByText("PayPal Orders v2 • Audited Capture Gate")).toBeInTheDocument();
+    expect(screen.getByText(/A B2B procurement workspace with PayPal Sandbox settlement/)).toBeInTheDocument();
+    expect(screen.getByText(/sample offers, not live supplier commitments/)).toBeInTheDocument();
+    expect(screen.queryByText(/System Attestation|5\/5 invariants verified|3 Competing Vendors/)).not.toBeInTheDocument();
   });
 
   it("provides an accessible skip link for keyboard navigation", () => {
     render(<WelcomeHeroScreen />);
-    const skipLink = screen.getByText(/skip to primary workspace action/i);
+    const skipLink = screen.getByText(/skip to main content/i);
     expect(skipLink).toBeInTheDocument();
-    expect(skipLink).toHaveAttribute("href", "#hero-cta");
+    expect(skipLink).toHaveAttribute("href", "#welcome-main");
+    expect(screen.getByRole("main")).toHaveAttribute("id", "welcome-main");
   });
 
   it("includes the 3D sculpture component container without crashing", () => {
@@ -50,33 +46,44 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
     expect(screen.getByTestId("mock-sculpture-canvas")).toBeInTheDocument();
   });
 
-  it("renders the two-tone editorial thesis statement in the dark section", () => {
+  it("renders a readable product explanation in the dark section", () => {
     render(<WelcomeHeroScreen />);
     expect(
-      screen.getByText(/Autonomous procurement shouldn’t operate in the dark./i)
+      screen.getByRole("heading", { name: /One request. A traceable path./i })
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/We bind multi-vendor negotiation, SHA-256 Merkle proofs/i)
+      screen.getByText(/keep the commercial terms and the record behind them together/i)
     ).toBeInTheDocument();
   });
 
-  it("renders the 4 monolithic architectural pillars", () => {
+  it("renders four ordered stages without invented supplier examples", () => {
     render(<WelcomeHeroScreen />);
-    expect(screen.getByText("SOURCING")).toBeInTheDocument();
-    expect(screen.getByText("3 Competing Vendors")).toBeInTheDocument();
-    expect(screen.getByText("NEGOTIATE")).toBeInTheDocument();
-    expect(screen.getByText("Deterministic Guardrail")).toBeInTheDocument();
-    expect(screen.getByText("AUDIT")).toBeInTheDocument();
-    expect(screen.getByText("5 Invariant Proofs")).toBeInTheDocument();
-    expect(screen.getByText("SETTLE")).toBeInTheDocument();
-    expect(screen.getByText("Audited Capture Gate")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Procurement lifecycle" }).children).toHaveLength(4);
+    for (const stage of ["Source", "Negotiate", "Audit", "Settle"]) expect(screen.getByRole("heading", { name: stage })).toBeInTheDocument();
+    expect(screen.queryByText(/8,500|Dell P2723QE|LG 27UK850|Lenovo T27p/)).not.toBeInTheDocument();
   });
 
   it("renders the dark section finale headline and settlement CTA", () => {
     render(<WelcomeHeroScreen />);
-    expect(screen.getByRole("heading", { name: /Settle Verifiably./i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Start with a mandate./i })).toBeInTheDocument();
     const finaleCta = document.getElementById("lifecycle-cta");
     expect(finaleCta).toBeInTheDocument();
     expect(finaleCta).toHaveAttribute("href", "/login");
+  });
+  it("keeps technical explanations optional and distinguishes packaging from submission", () => {
+    render(<WelcomeHeroScreen />);
+    const summary = screen.getByText("How the checks work");
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(summary);
+    expect(screen.getByText(/Evidence packaged for a dispute remains local/)).toBeVisible();
+    expect(screen.getByText(/deterministic fallback proposals are identified separately/)).toBeVisible();
+  });
+  it("keeps every anchor local to a real section or existing authentication route", () => {
+    const { container } = render(<WelcomeHeroScreen />);
+    for (const anchor of container.querySelectorAll("a")) {
+      const href = anchor.getAttribute("href")!;
+      if (href.startsWith("#")) expect(container.querySelector(href)).not.toBeNull();
+      else expect(["/login", "/register"]).toContain(href);
+    }
   });
 });
