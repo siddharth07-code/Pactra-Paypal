@@ -612,7 +612,7 @@ export function ProcurementHistoryScreen({
                   setInspectedSession(null);
                   onSelectSession(s);
                 }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-ember-orange hover:bg-[#a3351f] text-white text-[13.5px] font-medium transition-colors cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-ember-orange hover:bg-ember-hover text-white text-[13.5px] font-medium transition-colors cursor-pointer shadow-xs"
               >
                 <span>Navigate to Live Session</span>
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
