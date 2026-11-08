@@ -160,6 +160,11 @@
 @media (min-width: 1000px) and (min-height: 900px) and (prefers-reduced-motion: no-preference) {
   .pactum-cinema[data-enhanced="true"] .cinema-panels { display: grid; }
   .pactum-cinema[data-enhanced="true"] .cinema-panels > * { grid-area: 1 / 1; }
+  .pactum-cinema[data-enhanced="true"] .cinema-panels > :not([data-scene="mandate"]) {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
   .pactum-cinema[data-enhanced="true"] .cinema-negotiation { border-top: 0; }
   .pactum-cinema[data-enhanced="true"] .cinema-negotiation-story { margin-top: 0; }
   .pactum-cinema[data-enhanced="true"] .cinema-audit { border-top: 0; }
@@ -230,6 +235,11 @@
   .pactum-cinema[data-enhanced="true"] .cinema-chapter { height: 720vh; padding-bottom: 0; }
   .pactum-cinema[data-enhanced="true"] .cinema-sticky { position: sticky; top: 0; min-height: 100vh; display: flex; flex-direction: column; justify-content: flex-start; padding-block: 32px; }
   .pactum-cinema[data-enhanced="true"] .cinema-story { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 35%; }
+  .pactum-cinema[data-enhanced="true"] .cinema-story:not([data-scene="mandate"]) {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
   .pactum-cinema[data-enhanced="true"] .cinema-story h2 { font-size: clamp(36px, 4vw, 60px); }
 }
 @media (prefers-reduced-motion: reduce) {
