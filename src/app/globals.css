@@ -389,6 +389,64 @@ body {
   background: var(--color-ember-orange);
 }
 
+/* Workspace inherits the landing's paper, ink and ruled-document language.
+   Scope these tokens so authentication and the WebGL landing stay independent. */
+.pactum-workspace {
+  --color-page-bg: #f5f3ef;
+  --color-surface-primary: #faf9f6;
+  --color-surface-secondary: #ece9e2;
+  --color-surface-card: #faf9f6;
+  --color-surface-panel: #ece9e2;
+  --color-text-primary: #111111;
+  --color-text-secondary: #5a5650;
+  --color-text-muted: #5a5650;
+  --color-border-primary: #d4d0c7;
+  --color-border-subtle: #e4e0d8;
+  --workspace-action: #111111;
+  --workspace-action-text: #f5f3ef;
+  --workspace-action-hover: #30302d;
+}
+
+.dark .pactum-workspace {
+  --color-page-bg: #111111;
+  --color-surface-primary: #191918;
+  --color-surface-secondary: #252420;
+  --color-surface-card: #191918;
+  --color-surface-panel: #252420;
+  --color-text-primary: #f5f3ef;
+  --color-text-secondary: #b5b0a7;
+  --color-text-muted: #b5b0a7;
+  --color-border-primary: #44413c;
+  --color-border-subtle: #302e2a;
+  --workspace-action: #f5f3ef;
+  --workspace-action-text: #111111;
+  --workspace-action-hover: #d4d0c7;
+}
+
+.workspace-title {
+  font-family: var(--font-sans);
+  font-size: clamp(30px, 3.2vw, 46px);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -.045em;
+  overflow-wrap: break-word;
+}
+
+/* Dark primary actions repeat the landing CTA; inputs retain compact geometry. */
+.pactum-workspace .workspace-primary {
+  border-radius: 999px;
+  padding-inline: 22px;
+  background-color: var(--workspace-action);
+  color: var(--workspace-action-text);
+}
+.pactum-workspace .workspace-primary:hover:not(:disabled) {
+  background-color: var(--workspace-action-hover);
+}
+
+.pactum-workspace .operations-table thead {
+  background: var(--color-surface-secondary);
+}
+
 /* Print Stylesheet (Section 17) */
 @media print {
   header,
