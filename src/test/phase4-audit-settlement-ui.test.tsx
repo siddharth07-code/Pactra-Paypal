@@ -136,7 +136,10 @@ describe("Phase 4: Evidence & Audit Presentation", () => {
     render(<EvidenceVaultScreen session={session} />);
 
     expect(screen.getByText("Awaiting Negotiation")).toBeInTheDocument();
-    expect(screen.getByText(/Uncommitted — Awaiting verified negotiation completion/i)).toBeInTheDocument();
+    expect(screen.getByText("Available after verified negotiation completion.")).toBeInTheDocument();
+    expect(screen.getAllByText("Not recorded")).toHaveLength(2);
+    expect(screen.queryByText("ACWORLD Certified")).not.toBeInTheDocument();
+    expect(screen.queryByText("PayPal custom_id bound")).not.toBeInTheDocument();
     expect(screen.getByText(/Pending ACWORLD final audit completion/i)).toBeInTheDocument();
   });
 });
