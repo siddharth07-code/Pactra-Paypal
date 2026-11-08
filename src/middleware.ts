@@ -19,6 +19,10 @@ export async function middleware(request: NextRequest) {
       const origin = (() => {
         try { return authConfiguration().origin; } catch { return request.nextUrl.origin; }
       })();
+      if (request.nextUrl.pathname === "/") {
+        const response = NextResponse.rewrite(new URL("/welcome", origin));
+        return context ? context.finish(response) : response;
+      }
       const response = NextResponse.redirect(new URL("/login", origin));
       return context ? context.finish(response) : response;
     }
