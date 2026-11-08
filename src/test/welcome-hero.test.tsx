@@ -130,4 +130,29 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
     expect(screen.getByRole("heading", { name: "A draft with a traceable record." })).toBeVisible();
     expect(screen.getByText(/Buyer approval and PayPal Sandbox settlement remain separate steps/)).toBeVisible();
   });
+  it("separates agreement approval, PayPal approval, authorization and capture", () => {
+    render(<WelcomeHeroScreen />);
+    expect(screen.getByRole("heading", { name: "Buyer approval / Pending in this example" })).toBeVisible();
+    const steps = screen.getByRole("list", { name: "Conditional PayPal payment sequence" });
+    expect(steps.children).toHaveLength(3);
+    expect(steps.children[0]).toHaveTextContent("Orders v2 order with AUTHORIZE intent");
+    expect(steps.children[0]).toHaveTextContent("buyer then approves it separately at PayPal");
+    expect(steps.children[1]).toHaveTextContent("does not capture them or confirm settlement");
+    expect(steps.children[2]).toHaveTextContent("Payments v2 capture uses the authorization ID");
+    expect(screen.getByText("Example status / Not authorized")).toBeVisible();
+    expect(screen.getByText("Example status / Not captured")).toBeVisible();
+    expect(screen.getByText(/Scrolling does not approve the agreement, open checkout or make a payment/)).toBeVisible();
+    expect(screen.getByText(/pending or failed result is not a completed payment/)).toBeVisible();
+    expect(screen.getByText(/After buyer approval at PayPal, the server requests authorization/)).toBeVisible();
+  });
+  it("retains the conditional settlement narrative when paused and replayed", () => {
+    vi.stubGlobal("scrollTo", vi.fn());
+    render(<WelcomeHeroScreen />);
+    fireEvent.click(screen.getByRole("button", { name: "Pause motion" }));
+    expect(screen.getByRole("heading", { name: "Settlement / Awaiting payment confirmation" })).toBeVisible();
+    expect(screen.getByText(/No funds move in this demonstration/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Review settlement in your workspace" })).toHaveAttribute("href", "/workspace");
+    fireEvent.click(screen.getByRole("button", { name: "Replay entrance" }));
+    expect(screen.getByText("Example status / Not started")).toBeVisible();
+  });
 });
