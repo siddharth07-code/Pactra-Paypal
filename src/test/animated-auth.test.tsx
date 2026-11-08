@@ -58,9 +58,9 @@ describe("AnimatedAuth Component", () => {
 
     // Login header
     expect(screen.getByRole("heading", { name: "Login", level: 2 })).toBeInTheDocument();
-    expect(screen.getByText("WELCOME BACK!")).toBeInTheDocument();
-    expect(screen.getByText("HELLO FRIEND!")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Login via Google/i })).toBeInTheDocument();
+    expect(screen.getByText("INSTITUTIONAL ACCESS")).toBeInTheDocument();
+    expect(screen.getByText("ENTERPRISE PROCUREMENT")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Google/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Forgot Password?" })).toBeInTheDocument();
   });
 
@@ -72,7 +72,7 @@ describe("AnimatedAuth Component", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Sign Up", level: 2 })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Signup via Google/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Google/i })).not.toBeInTheDocument();
   });
 
   it("switches to Sign Up mode when clicking Sign Up toggle link", async () => {
@@ -269,26 +269,14 @@ describe("AnimatedAuth Component", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Check your email to confirm registration");
   });
 
-  it("triggers Google OAuth flow via Supabase client", async () => {
+  it("does not offer unsupported Google OAuth provider", () => {
     render(
       <ThemeProvider>
         <AnimatedAuth initialMode="login" />
       </ThemeProvider>
     );
 
-    const googleBtn = screen.getByRole("button", { name: /Login via Google/i });
-    fireEvent.click(googleBtn);
-
-    await waitFor(() => {
-      expect(mockSignInWithOAuth).toHaveBeenCalledWith(
-        expect.objectContaining({
-          provider: "google",
-          options: expect.objectContaining({
-            redirectTo: expect.stringContaining("/auth/callback"),
-          }),
-        })
-      );
-    });
+    expect(screen.queryByRole("button", { name: /Google/i })).not.toBeInTheDocument();
   });
 
   it("triggers forgot password recovery flow", async () => {
