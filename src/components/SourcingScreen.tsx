@@ -157,7 +157,7 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
     <header className="space-y-3"><h1 className="workspace-title">Source a procurement request</h1><p className="text-sm text-text-secondary">Define your requirements, compare available offers and begin negotiation.</p></header>
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
       <OperationsPanel title="Requirements">
-        <form noValidate aria-label="Procurement requirements" onSubmit={event => { event.preventDefault(); void request("source"); }} className="p-5 sm:p-6 space-y-6" ref={firstInput}>
+        <form noValidate aria-label="Procurement requirements" onSubmit={event => { event.preventDefault(); void request("source"); }} className="pb-6 space-y-6" ref={firstInput}>
           <p className="text-xs text-text-secondary">Complete every field below. Finding suppliers saves a procurement request for this organization.</p>
           <details className="border-b border-border-primary pb-5">
             <summary className="font-medium text-sm rounded focus-visible:outline-2 focus-visible:outline-ember-orange">Use a written request (optional)</summary>
@@ -189,13 +189,13 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
           {result ? <p role="status" className="text-sm">Request saved. Edit a requirement to start a new search.</p> : <PrimaryButton type="submit" disabled={busy || descriptionDirty || analysisBlocked}>{pending === "source" ? "Finding suppliers…" : message && pending !== "analysis" ? "Try finding suppliers again" : "Find suppliers"}</PrimaryButton>}
         </form>
       </OperationsPanel>
-      <aside aria-label="Request review" className="min-w-0"><OperationsPanel title="Request review"><dl className="p-5 space-y-4 text-sm">
+      <aside aria-label="Request review" className="min-w-0"><OperationsPanel title="Request review"><dl className="pb-5 space-y-4 text-sm">
         <div><dt className="text-text-secondary">Product</dt><dd className="mt-1 font-medium break-words">{fields.itemQuery.trim() || "Not specified"}</dd></div>
         <div className="flex justify-between gap-3"><dt className="text-text-secondary">Quantity</dt><dd className="font-mono-token tabular-nums">{fields.quantity || "Not specified"}</dd></div>
         <div><dt className="text-text-secondary">Total budget</dt><dd className="mt-1 break-words">{!validate(fields).budget ? <><CurrencyDisplay amount={Number(fields.budget)} currency={fields.currency} /> <span className="text-xs text-text-secondary">{fields.currency}</span></> : "Not specified"}</dd></div>
         <div className="flex justify-between gap-3"><dt className="text-text-secondary">Delivery within</dt><dd>{fields.delivery ? `${fields.delivery} days` : "Not specified"}</dd></div>
         <div className="flex justify-between gap-3"><dt className="text-text-secondary">Returns at least</dt><dd>{fields.returns !== "" ? `${fields.returns} days` : "Not specified"}</dd></div>
-      </dl><p className="border-t border-border-primary px-5 py-4 text-xs leading-relaxed text-text-secondary">Supplier asking prices may exceed the budget while negotiating. Final agreed terms must satisfy the budget and required constraints.</p></OperationsPanel></aside>
+      </dl><p className="border-t border-border-primary py-4 text-xs leading-relaxed text-text-secondary">Supplier asking prices may exceed the budget while negotiating. Final agreed terms must satisfy the budget and required constraints.</p></OperationsPanel></aside>
     </div>
     <OperationsPanel title="Supplier comparison">
       {pending === "source" ? <DataMessage title="Finding available suppliers…">Quotes and constraint checks will appear here.</DataMessage> : !result ? <DataMessage title="No supplier search yet">Complete your requirements and select Find suppliers to save the request and retrieve available quotes.</DataMessage> : result.quotes.length === 0 ? <DataMessage title="No suppliers returned">No quotes were returned for this product and currency. Edit your requirements to search again.</DataMessage> : <>
