@@ -153,8 +153,9 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
     <div className="space-y-8 text-text-primary min-w-0">
       {/* Header */}
       <SectionHeader
+        pageTitle
         title="Evidence Vault"
-        subtitle="SHA-256 Merkle flight recorder committing procurement records and verifiable audit proofs."
+        subtitle="Review the records behind this agreement and verify their integrity."
         badge={
           <StatusBadge
             status={
@@ -176,15 +177,15 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       />
 
       {/* Merkle Roots: Clean Side-by-Side Panels */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary space-y-3.5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-y border-border-primary py-6">
+        <div className="min-w-0 space-y-3.5">
           <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
             <span className="text-[12px] font-sans font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5" aria-hidden="true" />
               Pre-Settlement Merkle Root
             </span>
             <span className="text-[11px] font-sans font-medium px-2 py-0.5 rounded-[4px] bg-surface-secondary text-text-primary border border-border-primary">
-              PayPal custom_id bound
+              {preRoot ? "Root recorded" : "Not recorded"}
             </span>
           </div>
           <div>
@@ -195,23 +196,23 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
               <CopyableHash hash={preRoot} truncate={false} />
             ) : (
               <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary text-[13px] text-text-secondary font-mono-token italic">
-                Uncommitted — Awaiting verified negotiation completion
+                Available after verified negotiation completion.
               </div>
             )}
           </div>
           <p className="text-[12.5px] text-text-secondary leading-relaxed pt-2.5 border-t border-border-primary">
-            Cryptographically commits the mandate requirements, Channel3 baseline quotes, and all approved negotiation rounds.
+            Covers the mandate, supplier quotes and approved negotiation rounds.
           </p>
         </div>
 
-        <div className="bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary space-y-3.5">
+        <div className="min-w-0 space-y-3.5">
           <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
             <span className="text-[12px] font-sans font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
               Post-Audit Settlement Root
             </span>
             <span className="text-[11px] font-sans font-medium px-2 py-0.5 rounded-[4px] bg-surface-secondary text-text-primary border border-border-primary">
-              ACWORLD Certified
+              {postRoot ? "Root recorded" : "Not recorded"}
             </span>
           </div>
           <div>
