@@ -136,8 +136,8 @@ export function AppShell({
                   aria-current={isActive ? "page" : undefined}
                   className={`h-10 px-3 rounded-[6px] text-[13px] font-medium tracking-[-0.01em] transition-colors cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#121214] ${
                     isActive
-                      ? "bg-smoke/60 dark:bg-[#222226] text-obsidian dark:text-white"
-                      : "text-secondary hover:text-obsidian dark:hover:text-[#f4f4f5] hover:bg-smoke/30 dark:hover:bg-[#1b1b1f]"
+                      ? "bg-surface-secondary text-text-primary border border-border-primary/60 font-semibold"
+                      : "text-text-secondary hover:text-text-primary hover:bg-surface-secondary/70"
                   }`}
                 >
                   {item.label}
@@ -156,7 +156,7 @@ export function AppShell({
               ref={menuTriggerRef}
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="min-[1180px]:hidden h-10 w-10 flex items-center justify-center rounded-[6px] text-obsidian dark:text-[#f4f4f5] hover:bg-smoke/40 dark:hover:bg-[#1e1e22] border border-smoke dark:border-[#27272a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors shrink-0"
+              className="min-[1180px]:hidden h-10 w-10 flex items-center justify-center rounded-[6px] text-text-primary hover:bg-surface-secondary border border-border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors shrink-0"
               aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-nav-drawer"
@@ -186,9 +186,9 @@ export function AppShell({
               role="dialog"
               aria-modal="true"
               aria-label="Mobile Navigation Menu"
-              className="fixed top-[64px] inset-x-0 bg-paper-white dark:bg-[#141416] border-b border-smoke dark:border-[#27272a] z-50 p-4 space-y-1.5 shadow-xl min-[1180px]:hidden max-h-[calc(100vh-64px)] overflow-y-auto"
+              className="fixed top-[64px] inset-x-0 bg-surface-primary border-b border-border-primary z-50 p-4 space-y-1.5 shadow-xl min-[1180px]:hidden max-h-[calc(100vh-64px)] overflow-y-auto"
             >
-              <div className="px-3 py-1.5 pb-2 text-[11px] font-mono-token uppercase tracking-wider text-secondary border-b border-smoke/70 dark:border-[#222226]">
+              <div className="px-3 py-1.5 pb-2 text-[11px] font-mono-token uppercase tracking-wider text-text-secondary border-b border-border-primary">
                 Navigation
               </div>
 
@@ -207,8 +207,8 @@ export function AppShell({
                     aria-current={isActive ? "page" : undefined}
                     className={`h-10 w-full flex items-center gap-3 px-3 rounded-[6px] text-[13.5px] tracking-[-0.01em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors ${
                       isActive
-                        ? "bg-smoke/60 dark:bg-[#222226] text-obsidian dark:text-white font-medium"
-                        : "text-secondary hover:text-obsidian dark:hover:text-white hover:bg-smoke/30 dark:hover:bg-[#1b1b1f]"
+                        ? "bg-surface-secondary text-text-primary font-medium border border-border-primary/60"
+                        : "text-text-secondary hover:text-text-primary hover:bg-surface-secondary/70"
                     }`}
                   >
                     <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -217,11 +217,11 @@ export function AppShell({
                 );
               })}
 
-              <div className="pt-2 border-t border-smoke/70 dark:border-[#222226]">
+              <div className="pt-2 border-t border-border-primary">
                 <Link
                   href="/account"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="h-10 flex items-center gap-3 px-3 rounded-[6px] text-[13.5px] text-secondary hover:text-obsidian dark:hover:text-white hover:bg-smoke/30 dark:hover:bg-[#1b1b1f] transition-colors"
+                  className="h-10 flex items-center gap-3 px-3 rounded-[6px] text-[13.5px] text-text-secondary hover:text-text-primary hover:bg-surface-secondary transition-colors"
                 >
                   <Settings className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span>Account &amp; Settings</span>
@@ -249,10 +249,10 @@ export function AppShell({
       <BackToTopButton />
 
       {/* Editorial Footer Bar */}
-      <footer className="w-full bg-paper-white dark:bg-[#141417] border-t border-smoke dark:border-[#27272a] mt-16 transition-colors no-print">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-secondary">
+      <footer className="w-full bg-surface-primary border-t border-border-primary mt-16 transition-colors no-print">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-text-secondary">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-obsidian dark:text-[#f4f4f5]">PACTUM</span>
+            <span className="font-semibold text-text-primary">PACTUM</span>
             <span>Procurement operations</span>
           </div>
         </div>
@@ -392,25 +392,25 @@ function AccountControl() {
           className="fixed right-4 top-[72px] sm:absolute sm:right-0 sm:top-[calc(100%+8px)] w-[320px] max-w-[calc(100vw-32px)] max-h-[calc(100dvh-88px)] overflow-y-auto shrink-0 rounded-[8px] bg-surface-primary border border-border-primary shadow-xl z-50 p-2 space-y-1 text-[13px]"
         >
           {/* User identity, avatar and permission context belong inside the menu. */}
-          <div className="flex items-center gap-3 px-2.5 py-3 border-b border-smoke/70 dark:border-[#27272a] select-none">
-            <span className="h-10 w-10 rounded-full bg-smoke/80 dark:bg-[#27272a] flex items-center justify-center font-semibold text-secondary shrink-0" aria-hidden="true">{user?.email?.[0]?.toUpperCase() ?? "A"}</span>
+          <div className="flex items-center gap-3 px-2.5 py-3 border-b border-border-primary select-none">
+            <span className="h-10 w-10 rounded-full bg-surface-secondary flex items-center justify-center font-semibold text-text-secondary shrink-0" aria-hidden="true">{user?.email?.[0]?.toUpperCase() ?? "A"}</span>
             <div className="min-w-0">
-              <p className="text-[11px] text-secondary">Signed in</p>
-              <p className="font-medium text-obsidian dark:text-[#f4f4f5] truncate">{user?.email || "Authenticated Session"}</p>
-              {activeOrg?.role && <p className="text-[11px] text-secondary">{activeOrg.role.replaceAll("_", " ")}</p>}
+              <p className="text-[11px] text-text-secondary">Signed in</p>
+              <p className="font-medium text-text-primary truncate">{user?.email || "Authenticated Session"}</p>
+              {activeOrg?.role && <p className="text-[11px] text-text-secondary">{activeOrg.role.replaceAll("_", " ")}</p>}
             </div>
           </div>
 
           {/* Active Organization Section */}
           {activeOrg && (
-            <div className="px-2.5 py-2 border-b border-smoke/70 dark:border-[#27272a] space-y-1.5">
-              <div className="flex items-center justify-between text-[11px] font-mono-token uppercase tracking-wider text-secondary">
+            <div className="px-2.5 py-2 border-b border-border-primary space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] font-mono-token uppercase tracking-wider text-text-secondary">
                 <span className="flex items-center gap-1.5">
                   <Building2 className="w-3 h-3" aria-hidden="true" />
                   Organization
                 </span>
               </div>
-              <p className="font-medium text-obsidian dark:text-[#f4f4f5] truncate">
+              <p className="font-medium text-text-primary truncate">
                 {activeOrg.name}
               </p>
 
@@ -426,7 +426,7 @@ function AccountControl() {
                       void orgControl.switchOrganization(e.target.value);
                       setOpen(false);
                     }}
-                    className="h-10 w-full text-[12px] px-2 rounded-[4px] border border-smoke dark:border-[#27272a] bg-paper-white dark:bg-[#121214] text-obsidian dark:text-[#f4f4f5] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange cursor-pointer"
+                    className="h-10 w-full text-[12px] px-2 rounded-[6px] border border-border-primary bg-surface-secondary text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange cursor-pointer"
                   >
                     {organizations.map((org) => (
                       <option key={org.id} value={org.id}>
@@ -445,7 +445,7 @@ function AccountControl() {
               href="/account"
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="h-10 flex items-center gap-2.5 whitespace-nowrap px-2.5 py-1.5 rounded-[5px] text-secondary hover:text-obsidian dark:hover:text-[#f4f4f5] hover:bg-smoke/30 dark:hover:bg-[#222227] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+              className="h-10 flex items-center gap-2.5 whitespace-nowrap px-2.5 py-1.5 rounded-[6px] text-text-secondary hover:text-text-primary hover:bg-surface-secondary transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
             >
               <Settings className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>Account &amp; Workspace</span>
@@ -456,7 +456,7 @@ function AccountControl() {
                 href="/account"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="h-10 flex items-center gap-2.5 whitespace-nowrap px-2.5 py-1.5 rounded-[5px] text-secondary hover:text-obsidian dark:hover:text-[#f4f4f5] hover:bg-smoke/30 dark:hover:bg-[#222227] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+                className="h-10 flex items-center gap-2.5 whitespace-nowrap px-2.5 py-1.5 rounded-[6px] text-text-secondary hover:text-text-primary hover:bg-surface-secondary transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
               >
                 <Shield className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>Manage Members</span>
@@ -465,13 +465,13 @@ function AccountControl() {
           </div>
 
           {/* Sign Out Action */}
-          <div className="pt-1 border-t border-smoke/70 dark:border-[#27272a]">
+          <div className="pt-1 border-t border-border-primary">
             <button
               type="button"
               role="menuitem"
               disabled={loggingOut}
               onClick={handleLogout}
-              className="h-10 w-full flex items-center gap-2.5 whitespace-nowrap px-2.5 py-1.5 rounded-[5px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-500 disabled:opacity-50"
+              className="h-10 w-full flex items-center gap-2.5 whitespace-nowrap px-2.5 py-1.5 rounded-[6px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-500 disabled:opacity-50"
             >
               <LogOut className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>{loggingOut ? "Signing out…" : "Sign out"}</span>
