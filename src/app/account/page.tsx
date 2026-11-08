@@ -43,7 +43,7 @@ export default function AccountPage() {
             </span>
           </div>
           <Link
-            href="/"
+            href="/workspace"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-text-primary px-3 py-1.5 rounded-[6px] border border-border-primary bg-surface-secondary transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
