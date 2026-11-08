@@ -31,14 +31,14 @@ export default function AccountPage() {
   }
 
   return (
-    <main className="min-h-screen bg-page-bg text-text-primary flex items-center justify-center p-4 sm:p-6">
+    <main className="pactum-workspace min-h-screen bg-page-bg text-text-primary flex items-center justify-center p-4 sm:p-6">
       <section className="max-w-xl w-full space-y-6 rounded-[6px] border border-border-primary bg-surface-primary p-6 sm:p-8">
         <div className="flex items-center justify-between gap-4 border-b border-border-primary pb-4">
           <div className="flex items-center gap-2">
             <span className="w-7 h-7 rounded-[5px] bg-ember-orange text-white font-semibold text-[13.5px] flex items-center justify-center shrink-0 select-none shadow-xs">
               P
             </span>
-            <span className="text-[14px] font-mono uppercase tracking-[0.08em] font-semibold text-text-primary">
+            <span className="text-[16px] tracking-[-0.02em] font-semibold text-text-primary">
               PACTUM
             </span>
           </div>
@@ -52,7 +52,7 @@ export default function AccountPage() {
         </div>
 
         <div className="space-y-1.5">
-          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+          <h1 className="workspace-title text-text-primary">
             Account &amp; Workspace
           </h1>
           <p className="text-sm text-text-secondary">
