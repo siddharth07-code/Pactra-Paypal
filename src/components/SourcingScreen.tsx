@@ -154,7 +154,7 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
   if (session && !editableStates.has(session.status)) return <OperationsPanel title="Procurement request"><DataMessage title="This request is no longer in sourcing">Open the record from History to continue at its current stage.</DataMessage></OperationsPanel>;
 
   return <div className="space-y-6">
-    <header className="space-y-2"><h1 className="text-[28px] sm:text-[32px] font-semibold leading-tight tracking-[-0.03em]">Source a procurement request</h1><p className="text-sm text-text-secondary">Define your requirements, compare available offers and begin negotiation.</p></header>
+    <header className="space-y-3"><h1 className="workspace-title">Source a procurement request</h1><p className="text-sm text-text-secondary">Define your requirements, compare available offers and begin negotiation.</p></header>
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
       <OperationsPanel title="Requirements">
         <form noValidate aria-label="Procurement requirements" onSubmit={event => { event.preventDefault(); void request("source"); }} className="p-5 sm:p-6 space-y-6" ref={firstInput}>
