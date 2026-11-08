@@ -77,7 +77,7 @@ function CancelContent() {
           <div className="pt-4 border-t border-border-primary flex flex-col sm:flex-row gap-3 justify-center">
             <button
               type="button"
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/workspace")}
               className="px-4 py-2.5 rounded-[6px] border border-border-primary text-[13.5px] font-medium text-text-primary hover:bg-surface-secondary transition-colors cursor-pointer"
             >
               Overview
@@ -86,8 +86,8 @@ function CancelContent() {
               type="button"
               onClick={() =>
                 sessionId
-                  ? router.push(`/?screen=settlement&sessionId=${sessionId}`)
-                  : router.push("/")
+                  ? router.push(`/workspace?screen=settlement&sessionId=${sessionId}`)
+                  : router.push("/workspace")
               }
               className="px-4 py-2.5 rounded-[6px] bg-ember-orange text-white text-[13.5px] font-medium hover:bg-[#a3351f] transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
             >
