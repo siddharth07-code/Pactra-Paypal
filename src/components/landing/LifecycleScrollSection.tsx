@@ -5,7 +5,7 @@ const stages = [
   { number: "01", title: "Source", description: "Define the product, quantity and buying limits. Compare available supplier quotes before negotiation.", record: "Mandate and supplier quotes" },
   { number: "02", title: "Negotiate", description: "A Gemini buyer proposes terms within the mandate’s constraints. Policy checks can block proposals; deterministic fallback proposals are identified separately.", record: "Offer history and policy decisions" },
   { number: "03", title: "Audit", description: "ACWORLD checks the agreement and its supporting evidence. A recorded agreement alone does not mean the audit has passed.", record: "ACWORLD certificate and VeriPay evidence" },
-  { number: "04", title: "Settle", description: "Buyer approval authorizes a PayPal Sandbox order. Capture is a separate operation, subject to server-side audit and settlement checks.", record: "Authorization and capture references" },
+  { number: "04", title: "Settle", description: "After buyer approval at PayPal, the server requests authorization of the Sandbox order. Capture is a separate operation, subject to server-side audit and settlement checks.", record: "Authorization and capture references" },
 ];
 
 export function LifecycleScrollSection() {
