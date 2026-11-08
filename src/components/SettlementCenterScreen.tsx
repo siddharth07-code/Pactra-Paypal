@@ -543,7 +543,7 @@ export function SettlementCenterScreen({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Column: Transaction Breakdown & Settlement Action */}
             <div className="lg:col-span-5 space-y-5">
-              <div className="bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary  space-y-5">
+              <div className="border-t border-border-primary pt-5 space-y-5">
                 <div className="flex justify-between items-start pb-3.5 border-b border-border-primary">
                   <div>
                     <h2 className="text-[17px] font-semibold text-text-primary tracking-tight">
@@ -1406,21 +1406,18 @@ export function SettlementCenterScreen({
             </div>
 
             {/* Right Column: ACWORLD Independent 5-Invariant Audit Gate */}
-            <div className="lg:col-span-7 bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary flex flex-col justify-between ">
+            <div className="lg:col-span-7 border-t border-border-primary pt-5 flex flex-col justify-between">
               <div>
                 <div className="pb-3.5 border-b border-border-primary flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h2 className="text-[17px] font-semibold text-text-primary tracking-tight">
-                      Independent ACWORLD Audit Gate
+                      ACWORLD audit
                     </h2>
                     <p className="text-[13px] text-text-secondary mt-0.5">
                       Five deterministic checks required before settlement.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11.5px] font-sans font-medium text-text-secondary bg-surface-secondary px-2.5 py-1 rounded-[4px] border border-border-primary">
-                      Pre-Settlement Gate
-                    </span>
                     <button
                       type="button"
                       onClick={handleRunAudit}
@@ -1611,10 +1608,9 @@ export function SettlementCenterScreen({
                 </div>
               </div>
 
-              <div className="pt-3.5 mt-5 border-t border-border-primary text-[12px] text-text-secondary flex items-center justify-between">
-                <span>Auditor Policy: Fail-Closed Protection</span>
-                <span className="text-[#006840] dark:text-[#4ade80] font-medium">Zero-Trust Settlement Gate</span>
-              </div>
+              <p className="pt-3.5 mt-5 border-t border-border-primary text-xs text-text-secondary">
+                All required checks must pass before payment can proceed.
+              </p>
             </div>
           </div>
         </div>
