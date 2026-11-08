@@ -54,7 +54,7 @@ function FXRateProvenance({ record }: { record: FXConversionRecord }) {
       </>}
       <div className="flex flex-wrap justify-between gap-2"><span>Quote Expires:</span><time dateTime={record.expiresAt}>{new Date(record.expiresAt).toLocaleString()}</time></div>
       <div className="flex flex-wrap justify-between gap-2"><span>Status:</span><span>{record.status !== "CONSUMED" && Date.parse(record.expiresAt) <= Date.now() ? "EXPIRED" : record.status}</span></div>
-      {record.rateSource === "LIVE_PROVIDER" && <p className="text-[#737373] dark:text-[#a3a3a3]">Periodically updated reference rate. Quote expiry is separate from provider updates. This is not a guaranteed executable market rate.</p>}
+      {record.rateSource === "LIVE_PROVIDER" && <p className="text-text-secondary">Periodically updated reference rate. Quote expiry is separate from provider updates. This is not a guaranteed executable market rate.</p>}
     </div>
   );
 }
@@ -457,7 +457,7 @@ export function SettlementCenterScreen({
   const isSessionNotFound = checkoutError?.includes("not found in authoritative store");
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
+    <div className="space-y-8 min-w-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <SectionHeader
@@ -467,14 +467,14 @@ export function SettlementCenterScreen({
         <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
           {isCrossCurrency ? (
             <>
-              <span className="text-[11.5px] font-sans font-medium px-2.5 py-1 rounded-[4px] bg-smoke/30 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a]">
+              <span className="text-[11.5px] font-sans font-medium px-2.5 py-1 rounded-[4px] bg-surface-secondary text-text-primary border border-border-primary">
                 PayPal Sandbox (FX Bridge)
               </span>
               <StatusBadge status={badgeConfig.status} label={badgeConfig.label} />
             </>
           ) : (
             <>
-              <span className="text-[11.5px] font-sans font-medium px-2.5 py-1 rounded-[4px] bg-smoke/30 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a]">
+              <span className="text-[11.5px] font-sans font-medium px-2.5 py-1 rounded-[4px] bg-surface-secondary text-text-primary border border-border-primary">
                 PayPal Sandbox
               </span>
               <StatusBadge status={badgeConfig.status} label={badgeConfig.label} />
@@ -484,12 +484,12 @@ export function SettlementCenterScreen({
       </div>
 
       {!session ? (
-        <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-8 sm:p-10 text-center text-[#737373] dark:text-[#a3a3a3] border border-smoke dark:border-[#27272a] space-y-4 shadow-2xs">
+        <div className="bg-surface-primary rounded-[6px] p-8 sm:p-10 text-center text-text-secondary border border-border-primary space-y-4 ">
           <CreditCard className="w-10 h-10 mx-auto text-ash-gray mb-1 opacity-70" aria-hidden="true" />
-          <h3 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0]">
+          <h3 className="text-[17px] font-semibold text-text-primary">
             No Authoritative Session Selected
           </h3>
-          <p className="text-[13.5px] text-[#737373] dark:text-[#a3a3a3] max-w-sm mx-auto leading-relaxed">
+          <p className="text-[13.5px] text-text-secondary max-w-sm mx-auto leading-relaxed">
             Please run a procurement negotiation in the Negotiation Arena to select a winning vendor offer before proceeding to settlement.
           </p>
           <div className="flex justify-center gap-2.5 pt-2">
@@ -511,13 +511,13 @@ export function SettlementCenterScreen({
         <div className="space-y-6">
           {/* Missing Session Recovery Alert */}
           {isSessionNotFound && (
-            <div className="p-4 rounded-[8px] bg-[#fff8eb] dark:bg-[#261a08] border border-ember-orange/35 space-y-2.5">
+            <div className="p-4 rounded-[6px] bg-[#fff8eb] dark:bg-[#261a08] border border-ember-orange/35 space-y-2.5">
               <div className="flex items-center gap-2 text-ember-orange font-semibold text-[14px]">
                 <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>Authoritative Session Not Found in Server Store</span>
               </div>
-              <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
-                The session <code className="font-mono-token text-architect-violet dark:text-[#a78bfa] bg-lavender-mist dark:bg-[#20182b] px-1.5 py-0.5 rounded text-[12px] font-medium">{session.id}</code> is not registered in the authoritative server store. This can happen if the server process restarted.
+              <p className="text-[13px] text-text-secondary leading-relaxed">
+                The session <code className="font-mono-token text-text-primary bg-lavender-mist dark:bg-[#20182b] px-1.5 py-0.5 rounded text-[12px] font-medium">{session.id}</code> is not registered in the authoritative server store. This can happen if the server process restarted.
               </p>
               <div className="flex flex-wrap items-center gap-2.5 pt-1">
                 {onStartNewNegotiation && (
@@ -542,19 +542,19 @@ export function SettlementCenterScreen({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Column: Transaction Breakdown & Settlement Action */}
             <div className="lg:col-span-5 space-y-5">
-              <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] shadow-2xs space-y-5">
-                <div className="flex justify-between items-start pb-3.5 border-b border-smoke dark:border-[#27272a]">
+              <div className="bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary  space-y-5">
+                <div className="flex justify-between items-start pb-3.5 border-b border-border-primary">
                   <div>
-                    <h2 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+                    <h2 className="text-[17px] font-semibold text-text-primary tracking-tight">
                       Agreed Transaction Terms
                     </h2>
-                    <p className="text-[12.5px] text-[#737373] dark:text-[#a3a3a3] mt-0.5">Authoritative procurement terms</p>
+                    <p className="text-[12.5px] text-text-secondary mt-0.5">Authoritative procurement terms</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleCopyText(session.id, "session")}
                     title="Click to copy full Authoritative Session ID"
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-warm-cream/50 dark:bg-[#202025] hover:bg-smoke/60 dark:hover:bg-[#282830] text-[11px] font-mono-token text-architect-violet dark:text-[#a78bfa] border border-smoke dark:border-[#27272a] transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-surface-secondary hover:bg-surface-secondary text-[11px] font-mono-token text-text-primary border border-border-primary transition-colors cursor-pointer"
                   >
                     <span>{session.id.slice(0, 14)}...</span>
                     {copiedKey === "session" ? <Check className="w-3 h-3 text-lichen-green" aria-hidden="true" /> : <Copy className="w-3 h-3 text-ash-gray" aria-hidden="true" />}
@@ -563,25 +563,25 @@ export function SettlementCenterScreen({
 
                 <div className="space-y-3 text-[13.5px]">
                   <div className="flex justify-between items-center">
-                    <span className="text-[#737373] dark:text-[#a3a3a3]">Selected Supplier:</span>
-                    <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">{supplierName}</span>
+                    <span className="text-text-secondary">Selected Supplier:</span>
+                    <span className="font-semibold text-text-primary">{supplierName}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#737373] dark:text-[#a3a3a3]">SKU / Product:</span>
+                    <span className="text-text-secondary">SKU / Product:</span>
                     {hasAgreement && sku !== "Not established" ? (
-                      <span className="font-mono-token text-[11.5px] text-architect-violet dark:text-[#a78bfa] bg-lavender-mist dark:bg-[#20182b] px-2 py-0.5 rounded border border-architect-violet/20">
+                      <span className="font-mono-token text-[11.5px] text-text-primary bg-lavender-mist dark:bg-[#20182b] px-2 py-0.5 rounded border border-architect-violet/20">
                         {sku}
                       </span>
                     ) : selectedQuote?.sku ? (
-                      <span className="font-mono-token text-[11.5px] text-[#737373] dark:text-[#a3a3a3] bg-smoke/40 dark:bg-[#202025] px-2 py-0.5 rounded border border-smoke dark:border-[#27272a]">
+                      <span className="font-mono-token text-[11.5px] text-text-secondary bg-surface-secondary px-2 py-0.5 rounded border border-border-primary">
                         {selectedQuote.sku} (Pending)
                       </span>
                     ) : (
-                      <span className="text-[#737373] dark:text-[#a3a3a3] italic">Not established</span>
+                      <span className="text-text-secondary italic">Not established</span>
                     )}
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#737373] dark:text-[#a3a3a3]">Agreed Unit Price:</span>
+                    <span className="text-text-secondary">Agreed Unit Price:</span>
                     {hasAgreement && unitPrice !== null ? (
                       <CurrencyDisplay
                         amount={unitPrice}
@@ -589,44 +589,44 @@ export function SettlementCenterScreen({
                         size="sm"
                       />
                     ) : (
-                      <span className="text-[#737373] dark:text-[#a3a3a3] italic">Not established</span>
+                      <span className="text-text-secondary italic">Not established</span>
                     )}
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#737373] dark:text-[#a3a3a3]">Quantity:</span>
-                    <span className="font-medium text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                    <span className="text-text-secondary">Quantity:</span>
+                    <span className="font-medium text-text-primary tabular-nums">
                       {quantity !== null ? `${quantity} units` : "Not established"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#737373] dark:text-[#a3a3a3]">Delivery SLA:</span>
+                    <span className="text-text-secondary">Delivery SLA:</span>
                     {hasAgreement && deliveryDays != null ? (
-                      <span className="text-obsidian dark:text-[#f6f4f0]">
+                      <span className="text-text-primary">
                         {formatDaysSLA(deliveryDays, mandate?.maxDeliveryDays, "max")}
                       </span>
                     ) : (
-                      <span className="text-[#737373] dark:text-[#a3a3a3] italic">
+                      <span className="text-text-secondary italic">
                         Not established {mandate?.maxDeliveryDays ? `(Mandate: ≤ ${mandate.maxDeliveryDays} days)` : ""}
                       </span>
                     )}
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#737373] dark:text-[#a3a3a3]">Return Policy Window:</span>
+                    <span className="text-text-secondary">Return Policy Window:</span>
                     {hasAgreement && returnDays != null ? (
-                      <span className="text-obsidian dark:text-[#f6f4f0]">
+                      <span className="text-text-primary">
                         {formatDaysSLA(returnDays, mandate?.minReturnDays, "min")}
                       </span>
                     ) : (
-                      <span className="text-[#737373] dark:text-[#a3a3a3] italic">
+                      <span className="text-text-secondary italic">
                         Not established {mandate?.minReturnDays ? `(Mandate: ≥ ${mandate.minReturnDays} days)` : ""}
                       </span>
                     )}
                   </div>
                   {agreementRecord && (
                     <div className="flex justify-between items-center">
-                      <span className="text-[#737373] dark:text-[#a3a3a3]">Agreement Record:</span>
+                      <span className="text-text-secondary">Agreement Record:</span>
                       <span
-                        className="font-mono-token text-[11px] text-architect-violet dark:text-[#a78bfa] bg-warm-cream dark:bg-[#1f1f25] px-2 py-0.5 rounded border border-architect-violet/20 font-medium"
+                        className="font-mono-token text-[11px] text-text-primary bg-surface-secondary px-2 py-0.5 rounded border border-architect-violet/20 font-medium"
                         title={agreementRecord.agreementId}
                       >
                         {agreementRecord.agreementId.slice(0, 18)}... (R{agreementRecord.round})
@@ -635,28 +635,28 @@ export function SettlementCenterScreen({
                   )}
 
                   {/* Financial Comparison: Budget Ceiling vs Negotiated Landed Total */}
-                  <div className="pt-3.5 border-t border-smoke dark:border-[#27272a] space-y-2">
+                  <div className="pt-3.5 border-t border-border-primary space-y-2">
                     <div className="flex justify-between items-center text-[13px]">
-                      <span className="text-[#737373] dark:text-[#a3a3a3]">Mandate Budget Ceiling:</span>
-                      <span className="type-financial text-obsidian dark:text-[#f6f4f0] font-medium">
+                      <span className="text-text-secondary">Mandate Budget Ceiling:</span>
+                      <span className="type-financial text-text-primary font-medium">
                         {formatCurrency(mandateBudget, mandate?.currency)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-[13px]">
-                      <span className="text-[#737373] dark:text-[#a3a3a3]">Agreed Landed Cost:</span>
+                      <span className="text-text-secondary">Agreed Landed Cost:</span>
                       {hasAgreement && agreedLandedCost !== null ? (
-                        <span className="type-financial text-obsidian dark:text-[#f6f4f0] font-semibold text-[15px]">
+                        <span className="type-financial text-text-primary font-semibold text-[15px]">
                           {formatCurrency(agreedLandedCost, mandate?.currency)}
                         </span>
                       ) : (
-                        <span className="text-[#737373] dark:text-[#a3a3a3] italic font-normal">
+                        <span className="text-text-secondary italic font-normal">
                           Not established
                         </span>
                       )}
                     </div>
                     {hasSavings && netSavings !== null && savingsPct !== null && (
                       <div className="flex justify-between items-center text-[13px] pt-1">
-                        <span className="text-[#737373] dark:text-[#a3a3a3]">Procurement Savings:</span>
+                        <span className="text-text-secondary">Procurement Savings:</span>
                         <span
                           className={`type-financial font-semibold ${
                             netSavings >= 0
@@ -705,7 +705,7 @@ export function SettlementCenterScreen({
                       <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
                       <span>Awaiting PayPal Sandbox Approval</span>
                     </div>
-                    <p className="text-[12px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
+                    <p className="text-[12px] text-text-secondary leading-relaxed">
                       Order #{session.paypalOrderId || "..."} has been initialized. Complete the authorization in the PayPal Sandbox popup or approval window.
                     </p>
                   </div>
@@ -714,13 +714,13 @@ export function SettlementCenterScreen({
                 {/* Primary Action Button (Contextual & Strictly Fail-Closed) */}
                 <div className="pt-1">
                   {session.status === "SETTLED" || session.status === "PAYPAL_CAPTURED" ? (
-                    <div className="p-3 bg-mint-whisper dark:bg-[#10211a] rounded-[8px] text-center text-[13px] text-[#006840] dark:text-[#4ade80] font-semibold flex items-center justify-center gap-2 border border-lichen-green/25">
+                    <div className="p-3 bg-mint-whisper dark:bg-[#10211a] rounded-[6px] text-center text-[13px] text-[#006840] dark:text-[#4ade80] font-semibold flex items-center justify-center gap-2 border border-lichen-green/25">
                       <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                       <span>PayPal Funds Captured &amp; Invoice Created</span>
                     </div>
                   ) : session.status === "CAPTURE_PENDING_RECONCILIATION" ? (
                     <div className="space-y-3">
-                      <div className="p-3 bg-amber-500/10 dark:bg-amber-500/15 rounded-[8px] text-center text-[13px] text-amber-800 dark:text-amber-300 font-semibold flex items-center justify-center gap-2 border border-amber-500/30">
+                      <div className="p-3 bg-amber-500/10 dark:bg-amber-500/15 rounded-[6px] text-center text-[13px] text-amber-800 dark:text-amber-300 font-semibold flex items-center justify-center gap-2 border border-amber-500/30">
                         <AlertCircle className="w-4 h-4" aria-hidden="true" />
                         <span>Blind Capture Retries Blocked — Reconciliation Required</span>
                       </div>
@@ -763,25 +763,25 @@ export function SettlementCenterScreen({
                   ) : session.status === "AWAITING_PAYPAL_APPROVAL" ? (
                     <div className="space-y-3">
                       {isCrossCurrency && session.fxRecord && (
-                        <div className="p-3.5 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a] space-y-1.5 text-[12px]">
+                        <div className="p-3.5 rounded-[6px] bg-surface-secondary border border-border-primary space-y-1.5 text-[12px]">
                           <div className="flex justify-between font-mono-token">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">PayPal Order:</span>
-                            <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">{session.paypalOrderId}</span>
+                            <span className="text-text-secondary">PayPal Order:</span>
+                            <span className="font-semibold text-text-primary">{session.paypalOrderId}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">Commercial Amount:</span>
-                            <span className="font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                            <span className="text-text-secondary">Commercial Amount:</span>
+                            <span className="font-semibold text-text-primary tabular-nums">
                               {formatCurrency(agreedLandedCost ?? 0, mandate?.currency || "INR")}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">PayPal Settlement:</span>
+                            <span className="text-text-secondary">PayPal Settlement:</span>
                             <span className="font-bold text-lichen-green tabular-nums">
                               {formatCurrency(session.fxRecord.targetAmountMinor / 100, "USD")}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">FX Conversion:</span>
+                            <span className="text-text-secondary">FX Conversion:</span>
                             <span className="text-[#006840] dark:text-[#4ade80] font-medium flex items-center gap-1">
                               <CheckCircle2 className="w-3.5 h-3.5" /> Locked &amp; Verified
                             </span>
@@ -813,19 +813,19 @@ export function SettlementCenterScreen({
                       </PrimaryButton>
                     </div>
                   ) : !hasAgreement ? (
-                    <div className="p-4 rounded-[8px] bg-smoke/25 dark:bg-[#1c1c20] border border-smoke dark:border-[#27272a] text-center space-y-2.5">
-                      <div className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-obsidian dark:text-[#f6f4f0]">
+                    <div className="p-4 rounded-[6px] bg-surface-secondary border border-border-primary text-center space-y-2.5">
+                      <div className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-text-primary">
                         <Lock className="w-3.5 h-3.5 text-ash-gray" aria-hidden="true" />
                         <span>Awaiting Accepted Agreement</span>
                       </div>
-                      <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed max-w-xs mx-auto">
+                      <p className="text-[12px] text-text-secondary leading-relaxed max-w-xs mx-auto">
                         Accept a vendor agreement to continue. Payment checkout unlocks once supplier terms are verified.
                       </p>
                       {onStartNewNegotiation && (
                         <button
                           type="button"
                           onClick={onStartNewNegotiation}
-                          className="mt-1 px-3.5 py-1.5 rounded-[6px] text-[12.5px] font-medium bg-paper-white dark:bg-[#25252b] hover:bg-smoke/60 dark:hover:bg-[#2d2d35] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a] transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
+                          className="mt-1 px-3.5 py-1.5 rounded-[6px] text-[12.5px] font-medium bg-surface-primary hover:bg-surface-secondary text-text-primary border border-border-primary transition-colors cursor-pointer inline-flex items-center gap-1.5 "
                         >
                           <PlusCircle className="w-3.5 h-3.5 text-ember-orange" aria-hidden="true" />
                           <span>Negotiation Arena</span>
@@ -851,7 +851,7 @@ export function SettlementCenterScreen({
                           </>
                         )}
                       </PrimaryButton>
-                      <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3] text-center font-medium">
+                      <p className="text-[12px] text-text-secondary text-center font-medium">
                         Audit Required: Run ACWORLD Pre-Checkout Audit before releasing PayPal authorization.
                       </p>
                     </div>
@@ -870,45 +870,45 @@ export function SettlementCenterScreen({
                     </div>
                   ) : isCrossCurrency ? (
                     !session.fxRecord ? (
-                      <div className="rounded-[8px] p-4 bg-warm-cream/40 dark:bg-[#141416] border border-smoke dark:border-[#27272a] space-y-3 overflow-hidden break-words">
-                        <div className="flex items-center justify-between pb-2 border-b border-smoke dark:border-[#27272a] text-[12px]">
-                          <div className="flex items-center gap-1.5 text-obsidian dark:text-[#f6f4f0] font-semibold">
-                            <ArrowRightLeft className="w-4 h-4 text-architect-violet dark:text-[#a78bfa]" />
+                      <div className="rounded-[6px] p-4 bg-surface-secondary border border-border-primary space-y-3 overflow-hidden break-words">
+                        <div className="flex items-center justify-between pb-2 border-b border-border-primary text-[12px]">
+                          <div className="flex items-center gap-1.5 text-text-primary font-semibold">
+                            <ArrowRightLeft className="w-4 h-4 text-text-primary" />
                             <span>CROSS-CURRENCY SETTLEMENT</span>
                           </div>
-                          <span className="font-mono-token text-[10.5px] px-2 py-0.5 rounded bg-architect-violet/10 text-architect-violet dark:text-[#a78bfa] font-medium border border-architect-violet/20">
+                          <span className="font-mono-token text-[10.5px] px-2 py-0.5 rounded bg-architect-violet/10 text-text-primary font-medium border border-architect-violet/20">
                             INR &rarr; USD Bridge
                           </span>
                         </div>
                         <div className="space-y-1.5 text-[12px]">
                           <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">Commercial Agreement:</span>
-                            <span className="font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                            <span className="text-text-secondary">Commercial Agreement:</span>
+                            <span className="font-semibold text-text-primary tabular-nums">
                               {formatCurrency(agreedLandedCost ?? 0, mandate?.currency || "INR")}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">Settlement Rail:</span>
-                            <span className="font-medium text-obsidian dark:text-[#f6f4f0]">PayPal Sandbox</span>
+                            <span className="text-text-secondary">Settlement Rail:</span>
+                            <span className="font-medium text-text-primary">PayPal Sandbox</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">Settlement Currency:</span>
-                            <span className="font-medium text-obsidian dark:text-[#f6f4f0]">USD</span>
+                            <span className="text-text-secondary">Settlement Currency:</span>
+                            <span className="font-medium text-text-primary">USD</span>
                           </div>
                         </div>
-                        <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
+                        <p className="text-[12px] text-text-secondary leading-relaxed">
                           An FX settlement quote is required before this INR agreement can be settled through PayPal. The server configuration supplies the default rate source.
                         </p>
                         <div className="flex items-center justify-between pt-1 text-[11.5px]">
-                          <span className="text-[#737373] dark:text-[#a3a3a3]">Rate Source:</span>
-                          <div className="inline-flex rounded-md border border-smoke dark:border-[#27272a] p-0.5 bg-paper-white dark:bg-[#1a1a1e]">
+                          <span className="text-text-secondary">Rate Source:</span>
+                          <div className="inline-flex rounded-md border border-border-primary p-0.5 bg-surface-primary">
                             <button
                               type="button"
                               onClick={() => setSelectedRateSource("DETERMINISTIC_DEMO")}
                               className={`px-2 py-0.5 rounded text-[10.5px] font-medium transition-colors cursor-pointer ${
                                 selectedRateSource === "DETERMINISTIC_DEMO"
                                   ? "bg-architect-violet text-white"
-                                  : "text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian"
+                                  : "text-text-secondary hover:text-text-primary"
                               }`}
                             >
                               Deterministic Demo FX
@@ -919,7 +919,7 @@ export function SettlementCenterScreen({
                               className={`px-2 py-0.5 rounded text-[10.5px] font-medium transition-colors cursor-pointer ${
                                 selectedRateSource === "LIVE_PROVIDER"
                                   ? "bg-architect-violet text-white"
-                                  : "text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian"
+                                  : "text-text-secondary hover:text-text-primary"
                               }`}
                             >
                               Live Provider
@@ -950,9 +950,9 @@ export function SettlementCenterScreen({
                         </PrimaryButton>
                       </div>
                     ) : isFxQuoteExpired ? (
-                      <div className="rounded-[8px] p-4 bg-amber-500/[0.06] dark:bg-amber-500/[0.08] border border-amber-500/30 space-y-3 overflow-hidden break-words">
+                      <div className="rounded-[6px] p-4 bg-amber-500/[0.06] dark:bg-amber-500/[0.08] border border-amber-500/30 space-y-3 overflow-hidden break-words">
                         <div className="flex items-center justify-between pb-2 border-b border-amber-500/20 text-[12px]">
-                          <div className="flex items-center gap-1.5 text-obsidian dark:text-[#f6f4f0] font-semibold">
+                          <div className="flex items-center gap-1.5 text-text-primary font-semibold">
                             <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                             <span>FX Quote Expired</span>
                           </div>
@@ -960,7 +960,7 @@ export function SettlementCenterScreen({
                             Expired
                           </span>
                         </div>
-                        <p className="text-[12px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
+                        <p className="text-[12px] text-text-secondary leading-relaxed">
                           {session?.status === "CANCELLED" || (session?.status as string) === "SETTLED" || session?.status === "DISPUTED"
                             ? `This session is ${session.status.toLowerCase()} and cannot request or refresh FX quotes.`
                             : session.fxRecord.status === "LOCKED"
@@ -998,36 +998,36 @@ export function SettlementCenterScreen({
                         </PrimaryButton>
                       </div>
                     ) : session.fxRecord.status === "QUOTED" ? (
-                      <div className="rounded-[8px] p-4 bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] space-y-3 overflow-hidden break-words">
-                        <div className="flex items-center justify-between pb-2 border-b border-smoke dark:border-[#27272a] text-[12px]">
-                          <div className="flex items-center gap-1.5 text-obsidian dark:text-[#f6f4f0] font-semibold">
-                            <ArrowRightLeft className="w-4 h-4 text-architect-violet dark:text-[#a78bfa]" />
+                      <div className="rounded-[6px] p-4 bg-surface-primary border border-border-primary space-y-3 overflow-hidden break-words">
+                        <div className="flex items-center justify-between pb-2 border-b border-border-primary text-[12px]">
+                          <div className="flex items-center gap-1.5 text-text-primary font-semibold">
+                            <ArrowRightLeft className="w-4 h-4 text-text-primary" />
                             <span>FX QUOTED</span>
                           </div>
                           <StatusBadge status="info" label="Quote Ready" />
                         </div>
                         <div className="space-y-1.5 text-[12px]">
                           <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">Commercial Amount:</span>
-                            <span className="font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                            <span className="text-text-secondary">Commercial Amount:</span>
+                            <span className="font-semibold text-text-primary tabular-nums">
                               {formatCurrency(agreedLandedCost ?? 0, mandate?.currency || "INR")}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">FX Rate:</span>
-                            <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">
+                            <span className="text-text-secondary">FX Rate:</span>
+                            <span className="font-mono-token font-medium text-text-primary">
                               1 USD = ₹{displayFxRate(session.fxRecord.rate)}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">USD Settlement Amount:</span>
+                            <span className="text-text-secondary">USD Settlement Amount:</span>
                             <span className="font-bold text-[13px] text-lichen-green tabular-nums">
                               {formatCurrency(session.fxRecord.targetAmountMinor / 100, "USD")}
                             </span>
                           </div>
                           <FXRateProvenance record={session.fxRecord} />
                         </div>
-                        <p className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
+                        <p className="text-[11.5px] text-text-secondary leading-relaxed">
                           Locking this quote fixes the USD settlement amount used for PayPal authorization.
                         </p>
                         {fxError && (
@@ -1054,9 +1054,9 @@ export function SettlementCenterScreen({
                         </PrimaryButton>
                       </div>
                     ) : (
-                      <div className="rounded-[8px] p-4 bg-paper-white dark:bg-[#18181b] border border-smoke dark:border-[#27272a] space-y-3 overflow-hidden break-words">
-                        <div className="flex items-center justify-between pb-2 border-b border-smoke dark:border-[#27272a] text-[12px]">
-                          <div className="flex items-center gap-1.5 text-obsidian dark:text-[#f6f4f0] font-semibold">
+                      <div className="rounded-[6px] p-4 bg-surface-primary border border-border-primary space-y-3 overflow-hidden break-words">
+                        <div className="flex items-center justify-between pb-2 border-b border-border-primary text-[12px]">
+                          <div className="flex items-center gap-1.5 text-text-primary font-semibold">
                             <ShieldCheck className="w-4 h-4 text-lichen-green" />
                             <span>FX LOCKED</span>
                           </div>
@@ -1064,19 +1064,19 @@ export function SettlementCenterScreen({
                         </div>
                         <div className="space-y-1.5 text-[12px]">
                           <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">Commercial Obligation:</span>
-                            <span className="font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                            <span className="text-text-secondary">Commercial Obligation:</span>
+                            <span className="font-semibold text-text-primary tabular-nums">
                               {formatCurrency(agreedLandedCost ?? 0, mandate?.currency || "INR")}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">Locked FX Rate:</span>
-                            <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">
+                            <span className="text-text-secondary">Locked FX Rate:</span>
+                            <span className="font-mono-token font-medium text-text-primary">
                               1 USD = ₹{displayFxRate(session.fxRecord.rate)}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3]">PayPal Settlement:</span>
+                            <span className="text-text-secondary">PayPal Settlement:</span>
                             <span className="font-bold text-[13px] text-lichen-green tabular-nums">
                               {formatCurrency(session.fxRecord.targetAmountMinor / 100, "USD")}
                             </span>
@@ -1133,9 +1133,9 @@ export function SettlementCenterScreen({
 
               {/* Transaction Artifacts Card */}
               {isCrossCurrency ? (
-                <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 border border-smoke dark:border-[#27272a] space-y-4 shadow-2xs">
-                  <div className="flex items-center justify-between pb-2.5 border-b border-smoke dark:border-[#27272a]">
-                    <h3 className="text-[12px] font-sans uppercase tracking-wider text-architect-violet dark:text-[#a78bfa] font-semibold">
+                <div className="bg-surface-primary rounded-[6px] p-5 border border-border-primary space-y-4 ">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
+                    <h3 className="text-[12px] font-sans uppercase tracking-wider text-text-primary font-semibold">
                       Cross-Currency Settlement Artifacts
                     </h3>
                     <span className="text-[11px] font-mono-token text-lichen-green">
@@ -1144,55 +1144,55 @@ export function SettlementCenterScreen({
                   </div>
 
                   <div className="space-y-3 text-[12.5px]">
-                    <div className="p-3 rounded-[6px] bg-smoke/25 dark:bg-[#202025] border border-smoke dark:border-[#27272a] space-y-1.5">
-                      <div className="text-[11px] font-sans uppercase tracking-wider font-semibold text-[#737373] dark:text-[#a3a3a3]">
+                    <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary space-y-1.5">
+                      <div className="text-[11px] font-sans uppercase tracking-wider font-semibold text-text-secondary">
                         1. Commercial Agreement
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[#737373] dark:text-[#a3a3a3]">Landed Cost:</span>
-                        <span className="font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
+                        <span className="text-text-secondary">Landed Cost:</span>
+                        <span className="font-semibold text-text-primary tabular-nums">
                           {formatCurrency(agreedLandedCost ?? 0, mandate?.currency || "INR")}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-[11.5px]">
-                        <span className="text-[#737373] dark:text-[#a3a3a3]">Commercial Status:</span>
+                        <span className="text-text-secondary">Commercial Status:</span>
                         <span className="text-lichen-green font-medium">Authoritative &amp; Audited</span>
                       </div>
                     </div>
 
                     {session.fxRecord ? (
-                      <div className="p-3 rounded-[6px] bg-smoke/25 dark:bg-[#202025] border border-smoke dark:border-[#27272a] space-y-1.5 font-mono-token text-[11.5px]">
-                        <div className="text-[11px] font-sans uppercase tracking-wider font-semibold text-architect-violet dark:text-[#a78bfa]">
+                      <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary space-y-1.5 font-mono-token text-[11.5px]">
+                        <div className="text-[11px] font-sans uppercase tracking-wider font-semibold text-text-primary">
                           2. Verifiable FX Quote
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">Locked FX Rate:</span>
-                          <span className="text-obsidian dark:text-[#f6f4f0]">1 USD = ₹{displayFxRate(session.fxRecord.rate)}</span>
+                          <span className="text-text-secondary font-sans">Locked FX Rate:</span>
+                          <span className="text-text-primary">1 USD = ₹{displayFxRate(session.fxRecord.rate)}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">Settlement Obligation:</span>
+                          <span className="text-text-secondary font-sans">Settlement Obligation:</span>
                           <span className="font-bold text-lichen-green">
                             {formatCurrency(session.fxRecord.targetAmountMinor / 100, "USD")}
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">Status:</span>
-                          <span className="text-obsidian dark:text-[#f6f4f0] font-sans uppercase text-[10.5px]">
+                          <span className="text-text-secondary font-sans">Status:</span>
+                          <span className="text-text-primary font-sans uppercase text-[10.5px]">
                             {session.fxRecord.status}
                           </span>
                         </div>
-                        <div className="pt-1 border-t border-smoke/70 dark:border-[#27272a]">
+                        <div className="pt-1 border-t border-border-primary">
                           <div className="flex items-center justify-between">
-                            <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">Conversion Hash:</span>
+                            <span className="text-text-secondary font-sans">Conversion Hash:</span>
                             <div className="flex items-center gap-1">
-                              <span className="text-[10.5px] text-obsidian dark:text-[#f6f4f0]" title={session.fxRecord.conversionHash}>
+                              <span className="text-[10.5px] text-text-primary" title={session.fxRecord.conversionHash}>
                                 {session.fxRecord.conversionHash.slice(0, 14)}...
                               </span>
                               <button
                                 type="button"
                                 onClick={() => handleCopyText(session.fxRecord!.conversionHash, "fxhash")}
                                 title="Copy Conversion Hash"
-                                className="p-0.5 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                                className="p-0.5 hover:text-text-primary dark:hover:text-white transition-colors cursor-pointer text-text-secondary"
                               >
                                 {copiedKey === "fxhash" ? <Check className="w-3 h-3 text-lichen-green" /> : <Copy className="w-3 h-3" />}
                               </button>
@@ -1201,59 +1201,59 @@ export function SettlementCenterScreen({
                         </div>
                       </div>
                     ) : (
-                      <div className="p-3 rounded-[6px] bg-smoke/25 dark:bg-[#202025] border border-smoke dark:border-[#27272a] text-[12px] text-[#737373] dark:text-[#a3a3a3]">
+                      <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary text-[12px] text-text-secondary">
                         FX Quote has not yet been requested.
                       </div>
                     )}
 
-                    <div className="p-3 rounded-[6px] bg-smoke/25 dark:bg-[#202025] border border-smoke dark:border-[#27272a] space-y-1.5 font-mono-token text-[11.5px]">
-                      <div className="text-[11px] font-sans uppercase tracking-wider font-semibold text-architect-violet dark:text-[#a78bfa]">
+                    <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary space-y-1.5 font-mono-token text-[11.5px]">
+                      <div className="text-[11px] font-sans uppercase tracking-wider font-semibold text-text-primary">
                         3. PayPal Orders v2 Rail
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">PayPal Order ID:</span>
+                        <span className="text-text-secondary font-sans">PayPal Order ID:</span>
                         {session.paypalOrderId ? (
                           <div className="flex items-center gap-1">
-                            <span className="text-obsidian dark:text-[#f6f4f0]">{session.paypalOrderId}</span>
+                            <span className="text-text-primary">{session.paypalOrderId}</span>
                             <button
                               type="button"
                               onClick={() => handleCopyText(session.paypalOrderId!, "order")}
-                              className="p-0.5 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                              className="p-0.5 hover:text-text-primary dark:hover:text-white transition-colors cursor-pointer text-text-secondary"
                             >
                               {copiedKey === "order" ? <Check className="w-3 h-3 text-lichen-green" /> : <Copy className="w-3 h-3" />}
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[#737373] dark:text-[#a3a3a3] font-sans italic">Not created</span>
+                          <span className="text-text-secondary font-sans italic">Not created</span>
                         )}
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">PayPal Capture ID:</span>
+                        <span className="text-text-secondary font-sans">PayPal Capture ID:</span>
                         {session.paypalCaptureId ? (
                           <div className="flex items-center gap-1">
-                            <span className="text-obsidian dark:text-[#f6f4f0]">{session.paypalCaptureId}</span>
+                            <span className="text-text-primary">{session.paypalCaptureId}</span>
                             <button
                               type="button"
                               onClick={() => handleCopyText(session.paypalCaptureId!, "capture")}
-                              className="p-0.5 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                              className="p-0.5 hover:text-text-primary dark:hover:text-white transition-colors cursor-pointer text-text-secondary"
                             >
                               {copiedKey === "capture" ? <Check className="w-3 h-3 text-lichen-green" /> : <Copy className="w-3 h-3" />}
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[#737373] dark:text-[#a3a3a3] font-sans italic">Not captured</span>
+                          <span className="text-text-secondary font-sans italic">Not captured</span>
                         )}
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[#737373] dark:text-[#a3a3a3] font-sans">Settlement Currency:</span>
-                        <span className="text-obsidian dark:text-[#f6f4f0] font-sans font-medium">USD</span>
+                        <span className="text-text-secondary font-sans">Settlement Currency:</span>
+                        <span className="text-text-primary font-sans font-medium">USD</span>
                       </div>
                     </div>
 
                     {session.merkleRoot && (
-                      <div className="pt-2 border-t border-smoke dark:border-[#27272a] space-y-1">
+                      <div className="pt-2 border-t border-border-primary space-y-1">
                         <div className="flex items-center justify-between text-[12px]">
-                          <span className="font-medium text-architect-violet dark:text-[#a78bfa]">
+                          <span className="font-medium text-text-primary">
                             Bound Merkle Root:
                           </span>
                           <div className="flex items-center gap-1.5 font-mono-token text-[11px]">
@@ -1261,7 +1261,7 @@ export function SettlementCenterScreen({
                             <button
                               type="button"
                               onClick={() => handleCopyText(session.merkleRoot!, "root")}
-                              className="p-0.5 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                              className="p-0.5 hover:text-text-primary dark:hover:text-white transition-colors cursor-pointer text-text-secondary"
                             >
                               {copiedKey === "root" ? <Check className="w-3 h-3 text-lichen-green" /> : <Copy className="w-3 h-3" />}
                             </button>
@@ -1272,105 +1272,105 @@ export function SettlementCenterScreen({
                   </div>
                 </div>
               ) : !hasAnyArtifact ? (
-                <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 border border-smoke dark:border-[#27272a] space-y-3 shadow-2xs">
-                  <div className="flex items-center justify-between pb-2.5 border-b border-smoke dark:border-[#27272a]">
-                    <h3 className="text-[12px] font-sans uppercase tracking-wider text-[#737373] dark:text-[#a3a3a3] font-semibold">
+                <div className="bg-surface-primary rounded-[6px] p-5 border border-border-primary space-y-3 ">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
+                    <h3 className="text-[12px] font-sans uppercase tracking-wider text-text-secondary font-semibold">
                       PayPal Transaction Artifacts
                     </h3>
-                    <span className="text-[11px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
+                    <span className="text-[11px] font-mono-token text-text-secondary">
                       intent: AUTHORIZE
                     </span>
                   </div>
                   <div className="py-4 text-center space-y-1">
-                    <p className="text-[13px] text-obsidian dark:text-[#f6f4f0] font-medium">
+                    <p className="text-[13px] text-text-primary font-medium">
                       No PayPal transaction has been created yet.
                     </p>
-                    <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3] max-w-xs mx-auto leading-relaxed">
+                    <p className="text-[12px] text-text-secondary max-w-xs mx-auto leading-relaxed">
                       Order authorization, capture references, and B2B invoices will appear here once checkout begins.
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 border border-smoke dark:border-[#27272a] space-y-3 shadow-2xs">
-                  <div className="flex items-center justify-between pb-2.5 border-b border-smoke dark:border-[#27272a]">
-                    <h3 className="text-[12px] font-sans uppercase tracking-wider text-architect-violet dark:text-[#a78bfa] font-semibold">
+                <div className="bg-surface-primary rounded-[6px] p-5 border border-border-primary space-y-3 ">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
+                    <h3 className="text-[12px] font-sans uppercase tracking-wider text-text-primary font-semibold">
                       PayPal Transaction Artifacts
                     </h3>
-                    <span className="text-[11px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
+                    <span className="text-[11px] font-mono-token text-text-secondary">
                       intent: AUTHORIZE
                     </span>
                   </div>
 
                   <div className="space-y-2.5 text-[13px]">
                     <div className="flex justify-between items-center">
-                      <span className="text-[#737373] dark:text-[#a3a3a3]">PayPal Order ID:</span>
+                      <span className="text-text-secondary">PayPal Order ID:</span>
                       {session.paypalOrderId ? (
                         <div className="flex items-center gap-1.5">
-                          <span className="font-mono-token text-[11.5px] text-obsidian dark:text-[#f6f4f0] bg-smoke/30 dark:bg-[#202025] px-2 py-0.5 rounded border border-smoke dark:border-[#27272a]">
+                          <span className="font-mono-token text-[11.5px] text-text-primary bg-surface-secondary px-2 py-0.5 rounded border border-border-primary">
                             {session.paypalOrderId}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleCopyText(session.paypalOrderId!, "order")}
                             title="Copy Order ID"
-                            className="p-1 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                            className="p-1 hover:text-text-primary dark:hover:text-white transition-colors cursor-pointer text-text-secondary"
                           >
                             {copiedKey === "order" ? <Check className="w-3 h-3 text-lichen-green" aria-hidden="true" /> : <Copy className="w-3 h-3" aria-hidden="true" />}
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[12px] text-[#737373] dark:text-[#a3a3a3] italic">Not created</span>
+                        <span className="text-[12px] text-text-secondary italic">Not created</span>
                       )}
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="text-[#737373] dark:text-[#a3a3a3]">PayPal Capture ID:</span>
+                      <span className="text-text-secondary">PayPal Capture ID:</span>
                       {session.paypalCaptureId ? (
                         <div className="flex items-center gap-1.5">
-                          <span className="font-mono-token text-[11.5px] text-obsidian dark:text-[#f6f4f0] bg-smoke/30 dark:bg-[#202025] px-2 py-0.5 rounded border border-smoke dark:border-[#27272a]">
+                          <span className="font-mono-token text-[11.5px] text-text-primary bg-surface-secondary px-2 py-0.5 rounded border border-border-primary">
                             {session.paypalCaptureId}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleCopyText(session.paypalCaptureId!, "capture")}
                             title="Copy Capture ID"
-                            className="p-1 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                            className="p-1 hover:text-text-primary dark:hover:text-white transition-colors cursor-pointer text-text-secondary"
                           >
                             {copiedKey === "capture" ? <Check className="w-3 h-3 text-lichen-green" aria-hidden="true" /> : <Copy className="w-3 h-3" aria-hidden="true" />}
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[12px] text-[#737373] dark:text-[#a3a3a3] italic">Not captured</span>
+                        <span className="text-[12px] text-text-secondary italic">Not captured</span>
                       )}
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="text-[#737373] dark:text-[#a3a3a3]">B2B Invoice ID:</span>
+                      <span className="text-text-secondary">B2B Invoice ID:</span>
                       {session.paypalInvoiceId ? (
                         <div className="flex items-center gap-1.5">
-                          <span className="font-mono-token text-[11.5px] text-obsidian dark:text-[#f6f4f0] bg-smoke/30 dark:bg-[#202025] px-2 py-0.5 rounded border border-smoke dark:border-[#27272a]">
+                          <span className="font-mono-token text-[11.5px] text-text-primary bg-surface-secondary px-2 py-0.5 rounded border border-border-primary">
                             {session.paypalInvoiceId}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleCopyText(session.paypalInvoiceId!, "invoice")}
                             title="Copy Invoice ID"
-                            className="p-1 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                            className="p-1 hover:text-text-primary dark:hover:text-white transition-colors cursor-pointer text-text-secondary"
                           >
                             {copiedKey === "invoice" ? <Check className="w-3 h-3 text-lichen-green" aria-hidden="true" /> : <Copy className="w-3 h-3" aria-hidden="true" />}
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[12px] text-[#737373] dark:text-[#a3a3a3] italic">Not generated</span>
+                        <span className="text-[12px] text-text-secondary italic">Not generated</span>
                       )}
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="text-[#737373] dark:text-[#a3a3a3]">Bound Merkle Root:</span>
+                      <span className="text-text-secondary">Bound Merkle Root:</span>
                       {session.merkleRoot ? (
                         <div className="flex items-center gap-1.5">
                           <span
-                            className="font-mono-token text-[11.5px] text-architect-violet dark:text-[#a78bfa] bg-smoke/30 dark:bg-[#202025] px-2 py-0.5 rounded border border-smoke dark:border-[#27272a]"
+                            className="font-mono-token text-[11.5px] text-text-primary bg-surface-secondary px-2 py-0.5 rounded border border-border-primary"
                             title={session.merkleRoot}
                           >
                             {session.merkleRoot.slice(0, 16)}...
@@ -1379,24 +1379,24 @@ export function SettlementCenterScreen({
                             type="button"
                             onClick={() => handleCopyText(session.merkleRoot!, "root")}
                             title="Copy Full Merkle Root"
-                            className="p-1 hover:text-obsidian dark:hover:text-white transition-colors cursor-pointer text-[#737373] dark:text-[#a3a3a3]"
+                            className="p-1 hover:text-text-primary dark:hover:text-white transition-colors cursor-pointer text-text-secondary"
                           >
                             {copiedKey === "root" ? <Check className="w-3 h-3 text-lichen-green" aria-hidden="true" /> : <Copy className="w-3 h-3" aria-hidden="true" />}
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[12px] text-[#737373] dark:text-[#a3a3a3] italic">Not sealed</span>
+                        <span className="text-[12px] text-text-secondary italic">Not sealed</span>
                       )}
                     </div>
                   </div>
 
                   {session.paypalInvoiceId && (
-                    <div className="pt-2.5 border-t border-smoke dark:border-[#27272a] flex items-center justify-between text-[12px]">
+                    <div className="pt-2.5 border-t border-border-primary flex items-center justify-between text-[12px]">
                       <span className="text-[#006840] dark:text-[#4ade80] flex items-center gap-1.5 font-medium">
                         <FileText className="w-3.5 h-3.5" aria-hidden="true" />
                         Invoice Generated in Sandbox
                       </span>
-                      <span className="font-sans text-[11px] font-medium uppercase tracking-wider text-[#737373] dark:text-[#a3a3a3]">
+                      <span className="font-sans text-[11px] font-medium uppercase tracking-wider text-text-secondary">
                         STATUS: {session.invoiceStatus || "SENT"}
                       </span>
                     </div>
@@ -1406,19 +1406,19 @@ export function SettlementCenterScreen({
             </div>
 
             {/* Right Column: ACWORLD Independent 5-Invariant Audit Gate */}
-            <div className="lg:col-span-7 bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] flex flex-col justify-between shadow-2xs">
+            <div className="lg:col-span-7 bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary flex flex-col justify-between ">
               <div>
-                <div className="pb-3.5 border-b border-smoke dark:border-[#27272a] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="pb-3.5 border-b border-border-primary flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+                    <h2 className="text-[17px] font-semibold text-text-primary tracking-tight">
                       Independent ACWORLD Audit Gate
                     </h2>
-                    <p className="text-[13px] text-[#737373] dark:text-[#a3a3a3] mt-0.5">
+                    <p className="text-[13px] text-text-secondary mt-0.5">
                       Five deterministic checks required before settlement.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11.5px] font-sans font-medium text-[#737373] dark:text-[#a3a3a3] bg-smoke/30 dark:bg-[#202025] px-2.5 py-1 rounded-[4px] border border-smoke dark:border-[#27272a]">
+                    <span className="text-[11.5px] font-sans font-medium text-text-secondary bg-surface-secondary px-2.5 py-1 rounded-[4px] border border-border-primary">
                       Pre-Settlement Gate
                     </span>
                     <button
@@ -1430,7 +1430,7 @@ export function SettlementCenterScreen({
                           ? "Audit unavailable: accept a vendor agreement first"
                           : "Run or re-evaluate the 5 independent ACWORLD invariants on the server"
                       }
-                      className="px-3 py-1 rounded-[6px] text-[12.5px] font-medium bg-paper-white dark:bg-[#202025] hover:bg-smoke/40 dark:hover:bg-[#292930] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a] transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
+                      className="px-3 py-1 rounded-[6px] text-[12.5px] font-medium bg-surface-primary hover:bg-surface-secondary text-text-primary border border-border-primary transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange"
                     >
                       {isRunningAudit ? (
                         <>
@@ -1455,24 +1455,24 @@ export function SettlementCenterScreen({
                 <div className="pt-5 space-y-3.5">
                   {/* Status Banner */}
                   {isRunningAudit ? (
-                    <div className="p-3.5 rounded-[8px] bg-smoke/40 dark:bg-[#1c1c20] border border-smoke dark:border-[#27272a] text-obsidian dark:text-[#f6f4f0] text-[12.5px] flex items-center gap-2.5">
+                    <div className="p-3.5 rounded-[6px] bg-surface-secondary border border-border-primary text-text-primary text-[12.5px] flex items-center gap-2.5">
                       <Loader2 className="w-4 h-4 animate-spin text-ember-orange shrink-0" aria-hidden="true" />
                       <span className="font-medium">Evaluating procurement invariants against authoritative evidence...</span>
                     </div>
                   ) : !hasAgreement ? (
-                    <div className="p-3.5 rounded-[8px] bg-smoke/25 dark:bg-[#1c1c20] border border-smoke dark:border-[#27272a] text-secondary text-[12.5px] flex items-center gap-2.5">
+                    <div className="p-3.5 rounded-[6px] bg-surface-secondary border border-border-primary text-secondary text-[12.5px] flex items-center gap-2.5">
                       <Lock className="w-4 h-4 shrink-0 text-ash-gray" aria-hidden="true" />
                       <div>
-                        <span className="font-semibold text-obsidian dark:text-[#f6f4f0] block">Audit Unavailable</span>
+                        <span className="font-semibold text-text-primary block">Audit Unavailable</span>
                         <span>Accept a vendor agreement first before running pre-checkout evaluation.</span>
                       </div>
                     </div>
                   ) : auditCert ? (
                     <div
-                      className={`p-3.5 rounded-[8px] border flex items-center justify-between ${
+                      className={`p-3.5 rounded-[6px] border flex items-center justify-between ${
                         auditCert.passed
-                          ? "bg-paper-white dark:bg-[#18181b] border-smoke dark:border-[#27272a] text-obsidian dark:text-[#f6f4f0]"
-                          : "bg-paper-white dark:bg-[#18181b] border-[#ef4444]/40 text-[#dc2626] dark:text-[#f87171]"
+                          ? "bg-surface-primary border-border-primary text-text-primary"
+                          : "bg-surface-primary border-[#ef4444]/40 text-[#dc2626] dark:text-[#f87171]"
                       }`}
                     >
                       <div className="flex items-center gap-2.5 font-semibold text-[13.5px]">
@@ -1487,12 +1487,12 @@ export function SettlementCenterScreen({
                             : `${failedInvariantsCount} of 5 checks failed — Checkout Blocked`}
                         </span>
                       </div>
-                      <span className="text-[11px] font-mono-token px-2 py-0.5 rounded-[4px] bg-smoke/30 dark:bg-[#202025] text-[#737373] dark:text-[#a3a3a3] border border-smoke dark:border-[#27272a]">
+                      <span className="text-[11px] font-mono-token px-2 py-0.5 rounded-[4px] bg-surface-secondary text-text-secondary border border-border-primary">
                         #{auditCert.certificateId.slice(-8)}
                       </span>
                     </div>
                   ) : (
-                    <div className="p-3.5 rounded-[8px] bg-amber-500/[0.08] dark:bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-[12.5px] flex items-center justify-between">
+                    <div className="p-3.5 rounded-[6px] bg-amber-500/[0.08] dark:bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-[12.5px] flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                         <div>
@@ -1504,7 +1504,7 @@ export function SettlementCenterScreen({
                         type="button"
                         onClick={handleRunAudit}
                         disabled={isRunningAudit || isSessionNotFound}
-                        className="px-3 py-1.5 rounded-[6px] bg-ember-orange text-white font-medium text-[12px] hover:bg-[#d95500] transition-colors cursor-pointer shrink-0 shadow-2xs"
+                        className="px-3 py-1.5 rounded-[6px] bg-ember-orange text-white font-medium text-[12px] hover:bg-[#d95500] transition-colors cursor-pointer shrink-0 "
                       >
                         Run Evaluation
                       </button>
@@ -1512,7 +1512,7 @@ export function SettlementCenterScreen({
                   )}
 
                   {/* Semantic Invariant Rows (Matched by key, never by array position) */}
-                  <div className="divide-y divide-smoke dark:divide-[#27272a] pt-1">
+                  <div className="divide-y divide-border-primary pt-1">
                     {REQUIRED_INVARIANTS.map((req) => {
                       const inv = auditCert?.invariants?.find((i) => i.name === req.key);
                       const isEvaluated = Boolean(inv);
@@ -1543,10 +1543,10 @@ export function SettlementCenterScreen({
                           className="py-3.5 flex items-start justify-between gap-4"
                         >
                           <div className="space-y-0.5">
-                            <div className="font-semibold text-[13.5px] text-obsidian dark:text-[#f6f4f0]">
+                            <div className="font-semibold text-[13.5px] text-text-primary">
                               {req.title}
                             </div>
-                            <div className="text-[12.5px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed">
+                            <div className="text-[12.5px] text-text-secondary leading-relaxed">
                               {descriptionText}
                             </div>
                           </div>
@@ -1563,13 +1563,13 @@ export function SettlementCenterScreen({
 
                   {/* Phase 7: ACWORLD FX Settlement Verification (Distinct Post-Commercial Transformation Check) */}
                   {isCrossCurrency && session.fxRecord && (
-                    <div className="pt-4 mt-2 border-t border-smoke dark:border-[#27272a] space-y-2.5">
+                    <div className="pt-4 mt-2 border-t border-border-primary space-y-2.5">
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="text-[12.5px] font-sans uppercase tracking-wider font-semibold text-architect-violet dark:text-[#a78bfa] block">
+                          <span className="text-[12.5px] font-sans uppercase tracking-wider font-semibold text-text-primary block">
                             ACWORLD FX Settlement Verification
                           </span>
-                          <span className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3]">
+                          <span className="text-[11.5px] text-text-secondary">
                             Post-commercial cross-currency audit gate
                           </span>
                         </div>
@@ -1578,31 +1578,31 @@ export function SettlementCenterScreen({
                           label={hasFxVerification ? (fxVerified ? `${fxVerification!.checks.filter(check => check.passed).length}/${fxVerification!.checks.length} CHECKS PASS` : "Verification Failed") : "Not Verified"}
                         />
                       </div>
-                      <div className="p-3.5 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a] space-y-1.5 text-[11.5px] font-mono-token">
+                      <div className="p-3.5 rounded-[6px] bg-surface-secondary border border-border-primary space-y-1.5 text-[11.5px] font-mono-token">
                         <div className="flex justify-between">
-                          <span className="text-[#737373] dark:text-[#a3a3a3]">Source Landed Cost:</span>
-                          <span className="text-obsidian dark:text-[#f6f4f0]">
+                          <span className="text-text-secondary">Source Landed Cost:</span>
+                          <span className="text-text-primary">
                             {session.fxRecord.sourceAmountMinor.toLocaleString()} paise (₹{formatCurrency(agreedLandedCost ?? 0, "INR").replace("₹", "")})
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-[#737373] dark:text-[#a3a3a3]">Rational Conversion:</span>
-                          <span className="text-obsidian dark:text-[#f6f4f0]">
+                          <span className="text-text-secondary">Rational Conversion:</span>
+                          <span className="text-text-primary">
                             ÷ {session.fxRecord.rate} ({session.fxRecord.roundingMode})
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-[#737373] dark:text-[#a3a3a3]">Target Settlement:</span>
+                          <span className="text-text-secondary">Target Settlement:</span>
                           <span className="text-lichen-green font-bold">
                             ${(session.fxRecord.targetAmountMinor / 100).toFixed(2)} USD ({session.fxRecord.targetAmountMinor} cents)
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-[#737373] dark:text-[#a3a3a3]">Agreement Hash Binding:</span>
+                          <span className="text-text-secondary">Agreement Hash Binding:</span>
                           <span className="text-[#006840] dark:text-[#4ade80] font-medium">Verified</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-[#737373] dark:text-[#a3a3a3]">Conversion Commitment:</span>
+                          <span className="text-text-secondary">Conversion Commitment:</span>
                           <span className="text-[#006840] dark:text-[#4ade80] font-medium">Verified</span>
                         </div>
                       </div>
@@ -1611,7 +1611,7 @@ export function SettlementCenterScreen({
                 </div>
               </div>
 
-              <div className="pt-3.5 mt-5 border-t border-smoke dark:border-[#27272a] text-[12px] text-[#737373] dark:text-[#a3a3a3] flex items-center justify-between">
+              <div className="pt-3.5 mt-5 border-t border-border-primary text-[12px] text-text-secondary flex items-center justify-between">
                 <span>Auditor Policy: Fail-Closed Protection</span>
                 <span className="text-[#006840] dark:text-[#4ade80] font-medium">Zero-Trust Settlement Gate</span>
               </div>
