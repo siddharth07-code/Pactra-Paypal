@@ -1,147 +1,100 @@
-/* Scoped Marketing Tokens: src/components/landing/landing.css
- * In accordance with DESIGN.md and Anti-Slop Guidelines
- * Strictly scoped under .pactum-landing
- */
 .pactum-landing {
-  --landing-paper: #F5F3EF;          /* Editorial warm stone ground */
-  --landing-paper-subtle: #ECE9E2;   /* Secondary paper card background */
-  --landing-obsidian: #080808;       /* Deep pitch ground for dark transitions */
-  --landing-night: #111111;          /* Dark surfaces */
-  --landing-night-card: #121212;     /* Monolithic dark card background */
-  --landing-night-card-subtle: #181818;
-  --landing-card-border: rgba(255, 255, 255, 0.08);
-
-  /* Typography Colors */
-  --landing-ink: #111111;            /* Primary typography on paper */
-  --landing-muted: #5A5650;          /* Secondary body on paper */
-  --landing-subtle: #8A857D;         /* Micro metadata on paper */
-  --landing-on-night: #F5F3EF;       /* Primary display text on obsidian */
-  --landing-muted-on-night: #8E8A82; /* Secondary text on obsidian */
-  --landing-faint-on-night: #5A5650; /* Captions on obsidian */
-
-  /* Brand Accent: Anodized precision alignment seam (restrained, never neon) */
-  --landing-vermilion: #C43A1D;
-
-  /* Architectural Rules */
-  --landing-rule-paper: rgba(17, 17, 17, 0.08);
-  --landing-rule-dark: rgba(255, 255, 255, 0.08);
-
-  /* Radii */
-  --radius-pill: 9999px;
-  --radius-card: 6px;
-  --radius-code: 4px;
-}
-
-.pactum-landing {
-  background-color: var(--landing-paper);
-  color: var(--landing-ink);
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  min-height: 100vh;
-  position: relative;
-  overflow-x: hidden;
-}
-
-/* Stagger headline word mask */
-.hero-word-mask {
-  display: inline-block;
-  overflow: hidden;
-  vertical-align: top;
-}
-
-.hero-word {
-  display: inline-block;
-  transform: translateY(115%);
-  opacity: 0;
-  will-change: transform, opacity;
-}
-
-/* High-contrast solid black pill CTA */
-.pactum-pill-cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #111111;
-  color: #F5F3EF;
-  border-radius: var(--radius-pill);
-  font-weight: 500;
-  text-decoration: none;
-  transition: background-color 0.15s ease, transform 0.15s ease;
-  cursor: pointer;
-}
-
-.pactum-pill-cta:hover {
-  background-color: #262626;
-  transform: translateY(-1px);
-}
-
-.pactum-pill-cta:active {
-  transform: translateY(0);
-}
-
-.pactum-pill-cta:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--landing-paper), 0 0 0 4px var(--landing-vermilion);
-}
-
-/* High-contrast solid white pill CTA on obsidian */
-.pactum-pill-cta-dark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #FFFFFF;
-  color: #111111;
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-  text-decoration: none;
-  transition: background-color 0.15s ease, transform 0.15s ease;
-  cursor: pointer;
-}
-
-.pactum-pill-cta-dark:hover {
-  background-color: #E8E6E1;
-  transform: translateY(-1px);
-}
-
-.pactum-pill-cta-dark:active {
-  transform: translateY(0);
-}
-
-.pactum-pill-cta-dark:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--landing-obsidian), 0 0 0 4px var(--landing-vermilion);
-}
-
-/* Baseline Metadata Rail */
-.pactum-baseline-rail {
-  border-top: 1px solid var(--landing-rule-paper);
+  --landing-paper: #f5f3ef;
+  --landing-ink: #111111;
+  --landing-muted: #5a5650;
+  --landing-night: #111111;
+  --landing-on-night: #f5f3ef;
+  --landing-muted-on-night: #b5b0a7;
+  --landing-rule: #d4d0c7;
+  --landing-vermilion: #c43a1d;
   background: var(--landing-paper);
+  color: var(--landing-ink);
+  font-family: var(--font-inter), Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  min-height: 100vh;
 }
-
-/* Editorial Obsidian Section */
-.editorial-obsidian-section {
-  background-color: var(--landing-obsidian);
-  color: var(--landing-on-night);
-  position: relative;
-  border-top: 1px solid var(--landing-rule-dark);
+.pactum-landing *, .pactum-landing *::before, .pactum-landing *::after { box-sizing: border-box; }
+.pactum-landing h1, .pactum-landing h2, .pactum-landing h3, .pactum-landing p, .pactum-landing figure { margin: 0; }
+.pactum-landing .landing-container { width: calc(100% - 40px); max-width: 1280px; margin-inline: auto; }
+.pactum-landing a, .pactum-landing summary { cursor: pointer; }
+.pactum-landing :is(a, summary):focus-visible { outline: 2px solid currentColor; outline-offset: 5px; }
+.pactum-landing .landing-skip { position: absolute; top: 12px; left: 20px; padding: 10px 16px; background: var(--landing-ink); color: var(--landing-paper); transform: translateY(-180%); z-index: 10; }
+.pactum-landing .landing-skip:focus { transform: none; }
+.pactum-landing .landing-header { min-height: 80px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.pactum-landing .landing-brand { display: inline-flex; align-items: center; gap: 10px; font-size: 18px; line-height: 1; font-weight: 600; letter-spacing: -.04em; }
+.pactum-landing .landing-monogram { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 4px; font-size: 13px; background: var(--landing-ink); color: var(--landing-paper); }
+.pactum-landing .landing-header nav, .pactum-landing .landing-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.pactum-landing .landing-text-link, .pactum-landing .landing-sign-in { display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 500; text-decoration: none; }
+.pactum-landing .landing-text-link { text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1px; }
+.pactum-landing .landing-text-link:hover { text-decoration-thickness: 2px; }
+.pactum-landing .landing-sign-in { padding-inline: 20px; border: 1px solid var(--landing-muted); border-radius: 999px; }
+.pactum-landing .landing-sign-in:hover { color: var(--landing-paper); background: var(--landing-ink); }
+.pactum-landing .landing-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: center; padding-block: 44px 56px; }
+.pactum-landing .landing-hero-copy { min-width: 0; }
+.pactum-landing h1 { font-size: clamp(44px, 7vw, 100px); font-weight: 600; letter-spacing: -.055em; line-height: 1.02; }
+.pactum-landing .landing-hero-copy > p:first-of-type { max-width: 410px; margin-top: 28px; font-size: 18px; line-height: 1.6; color: var(--landing-muted); }
+.pactum-landing .landing-hero .landing-actions { margin-top: 32px; }
+.pactum-landing .landing-button { min-height: 48px; padding: 12px 26px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; border: 1px solid transparent; border-radius: 999px; background: var(--landing-ink); color: var(--landing-paper); text-decoration: none; transition: background-color .15s; }
+.pactum-landing .landing-button:hover { background: #30302d; }
+.pactum-landing .landing-button:active { background: #484640; }
+.pactum-landing .landing-demo-note { max-width: 350px; margin-top: 24px; font-size: 13px; color: var(--landing-muted); }
+.pactum-landing .landing-artifact { min-width: 0; }
+.pactum-landing .landing-artifact-scene { position: relative; height: 340px; }
+.pactum-landing .landing-artifact-scene canvas { display: block; width: 100% !important; height: 100% !important; }
+.pactum-landing .landing-sculpture-placeholder { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; color: var(--landing-muted); }
+.pactum-landing .landing-artifact figcaption { border-top: 1px solid var(--landing-rule); padding-top: 16px; font-size: 12px; line-height: 1.7; color: var(--landing-muted); }
+.pactum-landing .landing-artifact figcaption span { display: block; }
+.pactum-landing .landing-process { background: var(--landing-night); color: var(--landing-on-night); padding-block: 64px; }
+.pactum-landing .landing-section-intro { display: grid; gap: 24px; padding-bottom: 48px; }
+.pactum-landing h2 { font-size: clamp(32px, 4vw, 54px); line-height: 1.1; letter-spacing: -.04em; font-weight: 500; }
+.pactum-landing .landing-section-intro > p { max-width: 510px; color: var(--landing-muted-on-night); font-size: 18px; }
+.pactum-landing .landing-workflow { list-style: none; padding: 0; margin: 0; }
+.pactum-landing .landing-workflow li { display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 12px 20px; border-top: 1px solid #44413c; padding-block: 28px; }
+.pactum-landing .landing-step-number { font-family: var(--font-plex-mono), monospace; font-size: 13px; color: var(--landing-muted-on-night); padding-top: 5px; }
+.pactum-landing h3 { font-weight: 500; font-size: 25px; line-height: 1.3; letter-spacing: -.025em; }
+.pactum-landing .landing-workflow li > div { grid-column: 2; min-width: 0; }
+.pactum-landing .landing-workflow li > div > p:first-child { max-width: 600px; color: var(--landing-muted-on-night); }
+.pactum-landing .landing-record { margin-top: 16px; font-size: 13px; color: var(--landing-on-night); }
+.pactum-landing .landing-method { border-top: 1px solid #44413c; border-bottom: 1px solid #44413c; }
+.pactum-landing .landing-method summary { padding-block: 20px; font-size: 15px; font-weight: 500; }
+.pactum-landing .landing-method summary:hover { text-decoration: underline; text-underline-offset: 5px; }
+.pactum-landing .landing-method > div { display: grid; gap: 20px; padding-bottom: 28px; max-width: 760px; color: var(--landing-muted-on-night); }
+.pactum-landing .landing-method code { font-family: var(--font-plex-mono), monospace; font-size: .9em; }
+.pactum-landing .landing-disclosure { margin-top: 24px; max-width: 740px; color: var(--landing-muted-on-night); font-size: 13px; }
+.pactum-landing .landing-closing { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 32px; padding-top: 64px; }
+.pactum-landing .landing-closing p { margin-top: 16px; color: var(--landing-muted-on-night); }
+.pactum-landing .landing-closing .landing-button { background: var(--landing-paper); color: var(--landing-ink); }
+.pactum-landing .landing-closing .landing-button:hover { background: #d4d0c7; }
+.pactum-landing .landing-footer { background: var(--landing-night); color: var(--landing-on-night); }
+.pactum-landing .landing-footer > div { border-top: 1px solid #44413c; padding-block: 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; }
+.pactum-landing .landing-footer p { font-size: 13px; color: var(--landing-muted-on-night); }
+@media (min-width: 640px) {
+  .pactum-landing .landing-container { width: calc(100% - 64px); }
+  .pactum-landing .landing-hero { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 32px; padding-block: 64px; }
+  .pactum-landing h1 { font-size: clamp(48px, 6.4vw, 100px); }
+  .pactum-landing .landing-artifact-scene { height: 380px; }
+  .pactum-landing .landing-process { padding-block: 80px; }
+  .pactum-landing .landing-workflow li { grid-template-columns: 40px minmax(140px,.7fr) minmax(0,1.5fr); gap: 24px; padding-block: 36px; }
+  .pactum-landing .landing-workflow li > div { grid-column: 3; }
+  .pactum-landing .landing-closing { padding-top: 80px; }
 }
-
-/* Monolithic Stage Card */
-.monolithic-stage-card {
-  background-color: var(--landing-night-card);
-  border: 1px solid var(--landing-card-border);
-  border-radius: var(--radius-card);
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+@media (min-width: 1100px) {
+  .pactum-landing .landing-container { width: calc(100% - 128px); }
+  .pactum-landing .landing-hero { gap: 48px; padding-block: 72px; }
+  .pactum-landing .landing-artifact-scene { height: 460px; }
+  .pactum-landing .landing-process { padding-block: 96px 64px; }
+  .pactum-landing .landing-section-intro { grid-template-columns: 1fr 1fr; gap: 80px; align-items: end; padding-bottom: 64px; }
 }
-
-.monolithic-stage-card:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  background-color: var(--landing-night-card-subtle);
+@media (max-width: 479px) {
+  .pactum-landing .landing-register { display: none; }
+  .pactum-landing .landing-header { min-height: 72px; }
+  .pactum-landing .landing-hero-copy > p:first-of-type { font-size: 16px; }
+  .pactum-landing .landing-actions { gap: 12px 20px; }
+  .pactum-landing .landing-hero .landing-button { flex: 1 1 100%; }
+  .pactum-landing .landing-section-intro > p { font-size: 16px; }
+  .pactum-landing .landing-footer > div { align-items: start; flex-direction: column; }
 }
-
-/* System Evidence Code Snippet Box */
-.pactum-evidence-box {
-  background-color: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-code);
-  font-family: var(--font-plex-mono), monospace;
+@media (prefers-reduced-motion: reduce) {
+  .pactum-landing *, .pactum-landing *::before, .pactum-landing *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
