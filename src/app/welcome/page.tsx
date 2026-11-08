@@ -2,9 +2,9 @@ import { Metadata } from "next";
 import { WelcomeHeroScreen } from "@/components/landing/WelcomeHeroScreen";
 
 export const metadata: Metadata = {
-  title: "PACTUM — Engineered For Certainty | Autonomous B2B Procurement",
+  title: "PACTUM | Procurement, with proof",
   description:
-    "Autonomous B2B procurement meets deterministic payment verification. Multi-vendor negotiation, SHA-256 Merkle proofs, and audited PayPal settlement.",
+    "Set buying limits, negotiate supplier terms and review recorded evidence before PayPal Sandbox settlement.",
 };
 
 export default function WelcomePage() {
