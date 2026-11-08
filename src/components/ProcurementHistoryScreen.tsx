@@ -16,12 +16,25 @@ import {
   X,
   ArrowRight,
 } from "lucide-react";
-import type { ProcurementSession } from "@/types/pactum";
+import type { ProcurementSession, RequiredSpecification } from "@/types/pactum";
 
 interface ProcurementHistoryScreenProps {
   sessions: ProcurementSession[];
   onSelectSession: (session: ProcurementSession) => void;
   onStartNew: () => void;
+}
+
+function formatRequiredSpecs(specs?: RequiredSpecification[] | string[]): string {
+  if (!specs || !Array.isArray(specs) || specs.length === 0) return "Standard SLA";
+  return specs
+    .map((s) => {
+      if (typeof s === "string") return s;
+      if (s && typeof s === "object") {
+        return s.name ? (s.value ? `${s.name}: ${s.value}` : s.name) : JSON.stringify(s);
+      }
+      return String(s);
+    })
+    .join(", ");
 }
 
 export function ProcurementHistoryScreen({
@@ -91,44 +104,44 @@ export function ProcurementHistoryScreen({
     });
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-smoke/80 dark:border-[#27272a]">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-border-primary">
         <div>
-          <span className="text-[11.5px] font-sans font-semibold uppercase tracking-[0.06em] text-architect-violet dark:text-[#b490f5] block mb-1">
+          <span className="text-[11.5px] font-sans font-semibold uppercase tracking-[0.06em] text-ember-orange block mb-1">
             Authoritative Audit Trail
           </span>
-          <h1 className="type-page-title text-obsidian dark:text-[#f6f4f0]">
+          <h1 className="type-page-title text-text-primary">
             Procurement History
           </h1>
-          <p className="type-body text-secondary mt-1 max-w-2xl">
+          <p className="type-body text-text-secondary mt-1 max-w-2xl">
             Immutable transaction records of procurement mandates, negotiated supplier terms, Merkle roots, and cryptographic audit proofs.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="text-[11.5px] font-sans font-medium text-secondary bg-smoke/40 dark:bg-[#1f1f23] px-3 py-1 rounded-[6px] border border-smoke dark:border-[#27272a]">
-            Authoritative In-Memory Store
+          <span className="text-[11.5px] font-sans font-medium text-text-secondary bg-surface-secondary px-3 py-1 rounded-[6px] border border-border-primary">
+            Authoritative Persistence
           </span>
         </div>
       </div>
 
       {/* Search and Filters Bar */}
-      <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-4 sm:p-5 border border-smoke dark:border-[#27272a] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
+      <div className="bg-surface-primary rounded-[6px] p-4 sm:p-5 border border-border-primary flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative w-full sm:w-96">
-          <Search className="w-4 h-4 absolute left-3.5 top-3 text-[#737373] dark:text-[#a3a3a3]" aria-hidden="true" />
+          <Search className="w-4 h-4 absolute left-3.5 top-3 text-text-secondary" aria-hidden="true" />
           <input
             type="text"
             placeholder="Search by ID, item, or vendor..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-warm-cream/40 dark:bg-[#121214] rounded-[8px] pl-10 pr-9 py-2 text-[14px] text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#27272a] focus:outline-none focus:border-obsidian dark:focus:border-white focus-visible:ring-2 focus-visible:ring-ember-orange transition-colors"
+            className="w-full bg-surface-secondary rounded-[6px] pl-10 pr-9 py-2 text-[14px] text-text-primary border border-border-primary focus:outline-none focus:border-border-primary focus-visible:ring-2 focus-visible:ring-ember-orange transition-colors"
             aria-label="Search procurement sessions"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-2.5 text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-white"
+              className="absolute right-3 top-2.5 text-text-secondary hover:text-text-primary"
               aria-label="Clear search query"
             >
               <X className="w-4 h-4" />
@@ -138,13 +151,13 @@ export function ProcurementHistoryScreen({
 
         <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto self-start sm:self-auto">
           <div className="flex items-center gap-1.5">
-            <Filter className="w-4 h-4 text-[#737373] dark:text-[#a3a3a3]" aria-hidden="true" />
+            <Filter className="w-4 h-4 text-text-secondary" aria-hidden="true" />
             <label htmlFor="history-status-filter" className="sr-only">Filter by session status</label>
             <select
               id="history-status-filter"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-warm-cream/40 dark:bg-[#121214] rounded-[8px] px-3.5 py-2 text-[13px] text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#27272a] focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer font-medium transition-colors"
+              className="bg-surface-secondary rounded-[6px] px-3.5 py-2 text-[13px] text-text-primary border border-border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer font-medium transition-colors"
             >
               <option value="ALL">All States ({sessions.length})</option>
               <option value="SETTLED">Settled &amp; Captured</option>
@@ -160,7 +173,7 @@ export function ProcurementHistoryScreen({
               id="history-sort-by"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as "NEWEST" | "OLDEST" | "BUDGET_DESC" | "BUDGET_ASC")}
-              className="bg-warm-cream/40 dark:bg-[#121214] rounded-[8px] px-3.5 py-2 text-[13px] text-obsidian dark:text-[#f5f3ef] border border-smoke dark:border-[#27272a] focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer font-medium transition-colors"
+              className="bg-surface-secondary rounded-[6px] px-3.5 py-2 text-[13px] text-text-primary border border-border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer font-medium transition-colors"
             >
               <option value="NEWEST">Sort: Newest First</option>
               <option value="OLDEST">Sort: Oldest First</option>
@@ -172,7 +185,7 @@ export function ProcurementHistoryScreen({
       </div>
 
       {/* Institutional Financial Data Table */}
-      <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] border border-smoke dark:border-[#27272a] shadow-2xs overflow-hidden transition-colors">
+      <div className="bg-surface-primary rounded-[6px] border border-border-primary overflow-hidden transition-colors">
         {filteredSessions.length === 0 ? (
           <div className="p-16">
             <EmptyState
@@ -188,7 +201,7 @@ export function ProcurementHistoryScreen({
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left text-[13.5px] border-collapse">
                 <thead>
-                  <tr className="border-b border-smoke dark:border-[#27272a] bg-warm-cream/50 dark:bg-[#141416] type-table-header text-[#737373] dark:text-[#a3a3a3]">
+                  <tr className="border-b border-border-primary bg-surface-secondary type-table-header text-text-secondary">
                     <th scope="col" className="py-3.5 pl-6 pr-4 font-semibold">Session ID</th>
                     <th scope="col" className="py-3.5 px-4 font-semibold">Item Specification</th>
                     <th scope="col" className="py-3.5 px-4 font-semibold">Supplier</th>
@@ -199,46 +212,46 @@ export function ProcurementHistoryScreen({
                     <th scope="col" className="py-3.5 pl-4 pr-6 font-semibold text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-smoke dark:divide-[#27272a]">
+                <tbody className="divide-y divide-border-primary">
                   {filteredSessions.map((s) => {
                     const isAuditPassed = s.auditCertificate?.passed === true;
 
                     return (
                       <tr
                         key={s.id}
-                        className="hover:bg-warm-cream/35 dark:hover:bg-[#1f1f23] transition-colors group"
+                        className="hover:bg-surface-secondary/70 transition-colors group"
                       >
                         {/* Session ID */}
                         <td className="py-4 pl-6 pr-4 whitespace-nowrap">
-                          <span className="font-mono-token text-[12px] font-medium text-obsidian dark:text-[#f5f3ef]">
+                          <span className="font-mono-token text-[12px] font-medium text-text-primary">
                             {s.id}
                           </span>
                         </td>
 
                         {/* Item Specification */}
                         <td className="py-4 px-4">
-                          <div className="font-medium text-obsidian dark:text-[#f5f3ef] line-clamp-1 max-w-[220px]">
+                          <div className="font-medium text-text-primary line-clamp-1 max-w-[220px]">
                             {s.mandate.itemQuery}
                           </div>
-                          <div className="text-[12px] text-[#666666] dark:text-[#a5a19b]">
-                            {s.mandate.requiredSpecs.join(", ") || "Standard SLA"}
+                          <div className="text-[12px] text-text-secondary">
+                            {formatRequiredSpecs(s.mandate.requiredSpecs)}
                           </div>
                         </td>
 
                         {/* Supplier */}
                         <td className="py-4 px-4 whitespace-nowrap">
-                          <span className="font-medium text-obsidian dark:text-[#f5f3ef]">
+                          <span className="font-medium text-text-primary">
                             {s.selectedQuote?.vendorName || "Evaluating Baselines"}
                           </span>
                         </td>
 
                         {/* Quantity */}
-                        <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-obsidian dark:text-[#f5f3ef]">
+                        <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-text-primary">
                           {s.mandate.quantity.toLocaleString()}
                         </td>
 
                         {/* Ceiling Budget */}
-                        <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap font-medium text-obsidian dark:text-[#f5f3ef]">
+                        <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap font-medium text-text-primary">
                           <CurrencyDisplay
                             amount={s.mandate.maxTotalBudget}
                             currency={s.mandate.currency}
@@ -266,7 +279,7 @@ export function ProcurementHistoryScreen({
                               return <StatusBadge status={l.status} label={l.label} />;
                             })()}
                             {s.fxRecord && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-mono-token font-medium bg-architect-violet/10 text-architect-violet dark:text-[#a78bfa] border border-architect-violet/20">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-mono-token font-medium bg-ember-orange/10 text-ember-orange border border-ember-orange/20">
                                 FX Settled
                               </span>
                             )}
@@ -279,7 +292,7 @@ export function ProcurementHistoryScreen({
                             <button
                               type="button"
                               onClick={() => setInspectedSession(s)}
-                              className="p-1.5 rounded-[6px] border border-smoke dark:border-[#2e2e34] text-obsidian dark:text-[#f5f3ef] hover:bg-warm-cream dark:hover:bg-[#242429] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+                              className="p-1.5 rounded-[6px] border border-border-primary text-text-primary hover:bg-surface-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
                               aria-label={`Inspect session ${s.id} details`}
                               title="Inspect session record"
                             >
@@ -288,7 +301,7 @@ export function ProcurementHistoryScreen({
                             <button
                               type="button"
                               onClick={() => onSelectSession(s)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] bg-warm-cream/70 dark:bg-[#202024] border border-smoke dark:border-[#2e2e34] text-[12.5px] font-medium text-obsidian dark:text-[#f5f3ef] hover:border-ember-orange hover:text-ember-orange transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] bg-surface-secondary border border-border-primary text-[12.5px] font-medium text-text-primary hover:border-ember-orange hover:text-ember-orange transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
                               aria-label={`Open session ${s.id}`}
                             >
                               <span>Open</span>
@@ -304,7 +317,7 @@ export function ProcurementHistoryScreen({
             </div>
 
             {/* Mobile Dedicated Session Cards (< sm) */}
-            <div className="sm:hidden divide-y divide-smoke dark:divide-[#27272a]">
+            <div className="sm:hidden divide-y divide-border-primary">
               {filteredSessions.map((s) => {
                 const isAuditPassed = s.auditCertificate?.passed === true;
                 const lifecycle = getSessionLifecycleConfig(s);
@@ -314,15 +327,15 @@ export function ProcurementHistoryScreen({
                 return (
                   <div
                     key={s.id}
-                    className="p-4 space-y-3 hover:bg-warm-cream/35 dark:hover:bg-[#1f1f23] transition-colors"
+                    className="p-4 space-y-3 hover:bg-surface-secondary/70 transition-colors"
                   >
                     {/* Top Row: Item and Lifecycle Badge */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-0.5 min-w-0">
-                        <h3 className="font-medium text-[14.5px] text-obsidian dark:text-[#f5f3ef] truncate">
+                        <h3 className="font-medium text-[14.5px] text-text-primary truncate">
                           {s.mandate.itemQuery}
                         </h3>
-                        <div className="flex items-center gap-1.5 text-[11.5px] text-secondary font-mono-token">
+                        <div className="flex items-center gap-1.5 text-[11.5px] text-text-secondary font-mono-token">
                           <span>ID:</span>
                           <span className="truncate max-w-[140px]">{s.id}</span>
                         </div>
@@ -335,19 +348,19 @@ export function ProcurementHistoryScreen({
                     {/* Middle Grid: Supplier, Qty, Budget, Audit */}
                     <div className="grid grid-cols-2 gap-2.5 text-[12.5px] pt-1">
                       <div>
-                        <span className="text-secondary block text-[11px]">Supplier</span>
-                        <span className="font-medium text-obsidian dark:text-[#f5f3ef] truncate block">
+                        <span className="text-text-secondary block text-[11px]">Supplier</span>
+                        <span className="font-medium text-text-primary truncate block">
                           {supplierName}
                         </span>
                       </div>
                       <div>
-                        <span className="text-secondary block text-[11px]">Quantity</span>
-                        <span className="font-medium text-obsidian dark:text-[#f5f3ef] tabular-nums">
+                        <span className="text-text-secondary block text-[11px]">Quantity</span>
+                        <span className="font-medium text-text-primary tabular-nums">
                           {s.mandate.quantity.toLocaleString()} units
                         </span>
                       </div>
                       <div>
-                        <span className="text-secondary block text-[11px]">Ceiling Budget</span>
+                        <span className="text-text-secondary block text-[11px]">Ceiling Budget</span>
                         <CurrencyDisplay
                           amount={s.mandate.maxTotalBudget}
                           currency={s.mandate.currency}
@@ -355,32 +368,32 @@ export function ProcurementHistoryScreen({
                         />
                       </div>
                       <div>
-                        <span className="text-secondary block text-[11px]">ACWORLD Audit</span>
+                        <span className="text-text-secondary block text-[11px]">ACWORLD Audit</span>
                         {s.auditCertificate ? (
                           <StatusBadge
                             status={isAuditPassed ? "verified" : "failure"}
                             label={isAuditPassed ? "PASS" : "FAIL"}
                           />
                         ) : (
-                          <span className="text-secondary text-[11.5px] italic">Not established</span>
+                          <span className="text-text-secondary text-[11.5px] italic">Not established</span>
                         )}
                       </div>
                     </div>
 
                     {/* Merkle Root indicator if available */}
                     {hasMerkleRoot && (
-                      <div className="text-[11px] font-mono-token text-secondary flex items-center gap-1 pt-1 truncate">
-                        <span className="font-medium text-obsidian dark:text-[#f5f3ef]">Root:</span>
+                      <div className="text-[11px] font-mono-token text-text-secondary flex items-center gap-1 pt-1 truncate">
+                        <span className="font-medium text-text-primary">Root:</span>
                         <span className="truncate">{s.merkleRoot}</span>
                       </div>
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex items-center gap-2 pt-2 border-t border-smoke/70 dark:border-[#222226]">
+                    <div className="flex items-center gap-2 pt-2 border-t border-border-primary">
                       <button
                         type="button"
                         onClick={() => setInspectedSession(s)}
-                        className="flex-1 py-2 px-3 rounded-[6px] border border-smoke dark:border-[#2e2e34] text-[12.5px] font-medium text-obsidian dark:text-[#f5f3ef] hover:bg-warm-cream dark:hover:bg-[#242429] transition-colors cursor-pointer flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+                        className="flex-1 py-2 px-3 rounded-[6px] border border-border-primary text-[12.5px] font-medium text-text-primary hover:bg-surface-secondary transition-colors cursor-pointer flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
                         aria-label={`Inspect session ${s.id} details`}
                       >
                         <Eye className="w-3.5 h-3.5" aria-hidden="true" />
@@ -389,7 +402,7 @@ export function ProcurementHistoryScreen({
                       <button
                         type="button"
                         onClick={() => onSelectSession(s)}
-                        className="flex-1 py-2 px-3 rounded-[6px] bg-warm-cream/70 dark:bg-[#202024] border border-smoke dark:border-[#2e2e34] text-[12.5px] font-medium text-obsidian dark:text-[#f5f3ef] hover:border-ember-orange hover:text-ember-orange transition-colors cursor-pointer flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+                        className="flex-1 py-2 px-3 rounded-[6px] bg-surface-secondary border border-border-primary text-[12.5px] font-medium text-text-primary hover:border-ember-orange hover:text-ember-orange transition-colors cursor-pointer flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
                         aria-label={`Open session ${s.id}`}
                       >
                         <span>Open Session</span>
@@ -417,12 +430,12 @@ export function ProcurementHistoryScreen({
             onClick={() => setInspectedSession(null)}
             aria-hidden="true"
           />
-          <div className="relative bg-paper-white dark:bg-[#18181b] rounded-[8px] p-6 sm:p-7 max-w-2xl w-full border border-smoke dark:border-[#27272a] shadow-2xl space-y-6 z-10 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+          <div className="relative bg-surface-primary rounded-[6px] p-6 sm:p-7 max-w-2xl w-full border border-border-primary shadow-2xl space-y-6 z-10 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="flex items-start justify-between gap-4 pb-4 border-b border-smoke dark:border-[#27272a]">
+            <div className="flex items-start justify-between gap-4 pb-4 border-b border-border-primary">
               <div>
                 <div className="flex items-center gap-3">
-                  <h3 id="session-inspector-title" className="text-[20px] font-semibold text-obsidian dark:text-[#f5f3ef] tracking-tight">
+                  <h3 id="session-inspector-title" className="text-[20px] font-semibold text-text-primary tracking-tight">
                     Session Audit Inspection
                   </h3>
                   {(() => {
@@ -430,14 +443,14 @@ export function ProcurementHistoryScreen({
                     return <StatusBadge status={l.status} label={l.label} />;
                   })()}
                 </div>
-                <div className="text-[12px] text-[#737373] dark:text-[#a3a3a3] mt-1">
+                <div className="text-[12px] text-text-secondary mt-1">
                   Session ID: <span className="font-mono-token">{inspectedSession.id}</span>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setInspectedSession(null)}
-                className="p-1 rounded-[6px] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer"
+                className="p-1 rounded-[6px] text-text-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer"
                 aria-label="Close session inspector"
               >
                 <X className="w-5 h-5" aria-hidden="true" />
@@ -446,41 +459,47 @@ export function ProcurementHistoryScreen({
 
             {/* 1. Mandate Constraints */}
             <div className="space-y-2.5">
-              <span className="text-[11.5px] font-sans font-semibold uppercase tracking-[0.05em] text-architect-violet dark:text-[#b490f5] block">
+              <span className="text-[11.5px] font-sans font-semibold uppercase tracking-[0.05em] text-ember-orange block">
                 Authoritative Mandate Constraints
               </span>
-              <div className="bg-warm-cream/40 dark:bg-[#141416] p-4 rounded-[8px] border border-smoke dark:border-[#27272a] space-y-2 text-[13.5px]">
+              <div className="bg-surface-secondary p-4 rounded-[6px] border border-border-primary space-y-2 text-[13.5px]">
                 <div className="flex justify-between">
-                  <span className="text-[#737373] dark:text-[#a3a3a3]">Item Description:</span>
-                  <span className="font-medium text-obsidian dark:text-[#f5f3ef]">{inspectedSession.mandate.itemQuery}</span>
+                  <span className="text-text-secondary">Item Description:</span>
+                  <span className="font-medium text-text-primary">{inspectedSession.mandate.itemQuery}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#737373] dark:text-[#a3a3a3]">Quantity:</span>
-                  <span className="font-medium text-obsidian dark:text-[#f5f3ef] tabular-nums">{inspectedSession.mandate.quantity.toLocaleString()} units</span>
+                  <span className="text-text-secondary">Quantity:</span>
+                  <span className="font-medium text-text-primary tabular-nums">{inspectedSession.mandate.quantity.toLocaleString()} units</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#737373] dark:text-[#a3a3a3]">Ceiling Budget:</span>
-                  <span className="font-medium text-obsidian dark:text-[#f5f3ef] tabular-nums">${inspectedSession.mandate.maxTotalBudget.toLocaleString()} {inspectedSession.mandate.currency}</span>
+                  <span className="text-text-secondary">Ceiling Budget:</span>
+                  <span className="font-medium text-text-primary tabular-nums">${inspectedSession.mandate.maxTotalBudget.toLocaleString()} {inspectedSession.mandate.currency}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#737373] dark:text-[#a3a3a3]">Delivery SLA:</span>
-                  <span className="text-obsidian dark:text-[#f5f3ef] tabular-nums">&le; {inspectedSession.mandate.maxDeliveryDays} days</span>
+                  <span className="text-text-secondary">Delivery SLA:</span>
+                  <span className="text-text-primary tabular-nums">&le; {inspectedSession.mandate.maxDeliveryDays} days</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#737373] dark:text-[#a3a3a3]">Min Return Window:</span>
-                  <span className="text-obsidian dark:text-[#f5f3ef] tabular-nums">&ge; {inspectedSession.mandate.minReturnDays} days</span>
+                  <span className="text-text-secondary">Min Return Window:</span>
+                  <span className="text-text-primary tabular-nums">&ge; {inspectedSession.mandate.minReturnDays} days</span>
+                </div>
+                <div className="flex justify-between pt-1 border-t border-border-primary/60">
+                  <span className="text-text-secondary">Specifications:</span>
+                  <span className="text-text-primary font-medium text-right max-w-[320px]">
+                    {formatRequiredSpecs(inspectedSession.mandate.requiredSpecs)}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* 2. Cryptographic Flight Recorder */}
             <div className="space-y-2.5">
-              <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-architect-violet dark:text-[#b490f5] font-medium block">
+              <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-ember-orange font-medium block">
                 Merkle Flight Recorder Root
               </span>
-              <div className="bg-warm-cream/40 dark:bg-[#141416] p-4 rounded-[8px] border border-smoke dark:border-[#27272a] space-y-2">
+              <div className="bg-surface-secondary p-4 rounded-[6px] border border-border-primary space-y-2">
                 <CopyableHash hash={inspectedSession.merkleRoot || inspectedSession.preSettlementRoot} label="Merkle Root" truncate={false} />
-                <div className="text-[12px] font-mono text-[#737373] dark:text-[#a3a3a3]">
+                <div className="text-[12px] font-mono text-text-secondary">
                   Committed Turns: {inspectedSession.turns?.length ?? 0}
                 </div>
               </div>
@@ -488,13 +507,13 @@ export function ProcurementHistoryScreen({
 
             {/* 3. ACWORLD Audit Certificate */}
             <div className="space-y-2.5">
-              <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-architect-violet dark:text-[#b490f5] font-medium block">
+              <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-ember-orange font-medium block">
                 Independent ACWORLD Audit Status
               </span>
               {inspectedSession.auditCertificate ? (
-                <div className="p-4 rounded-[8px] border border-smoke dark:border-[#27272a] bg-warm-cream/40 dark:bg-[#141416] space-y-3">
+                <div className="p-4 rounded-[6px] border border-border-primary bg-surface-secondary space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[13.5px] font-medium text-obsidian dark:text-[#f5f3ef]">
+                    <span className="text-[13.5px] font-medium text-text-primary">
                       Certificate #{inspectedSession.auditCertificate.certificateId}
                     </span>
                     <StatusBadge
@@ -504,7 +523,7 @@ export function ProcurementHistoryScreen({
                   </div>
                   <div className="space-y-2 text-xs">
                     {inspectedSession.auditCertificate.invariants.map((inv, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-[#737373] dark:text-[#a3a3a3]">
+                      <div key={idx} className="flex items-center justify-between text-text-secondary">
                         <span>{inv.name}</span>
                         <StatusBadge
                           status={inv.passed ? "verified" : "failure"}
@@ -515,7 +534,7 @@ export function ProcurementHistoryScreen({
                   </div>
                 </div>
               ) : (
-                <div className="p-3 text-[13px] text-[#737373] dark:text-[#a3a3a3] bg-warm-cream/40 dark:bg-[#141416] rounded-[8px] border border-smoke dark:border-[#27272a]">
+                <div className="p-3 text-[13px] text-text-secondary bg-surface-secondary rounded-[6px] border border-border-primary">
                   Independent audit has not been executed for this session yet.
                 </div>
               )}
@@ -523,21 +542,21 @@ export function ProcurementHistoryScreen({
 
             {/* 4. PayPal Transaction Info */}
             <div className="space-y-2.5">
-              <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-architect-violet dark:text-[#b490f5] font-medium block">
+              <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-ember-orange font-medium block">
                 PayPal Orders v2 Artifacts
               </span>
-              <div className="bg-warm-cream/40 dark:bg-[#141416] p-4 rounded-[8px] border border-smoke dark:border-[#27272a] space-y-1.5 text-xs font-mono">
+              <div className="bg-surface-secondary p-4 rounded-[6px] border border-border-primary space-y-1.5 text-xs font-mono">
                 <div className="flex justify-between">
-                  <span className="text-[#737373] dark:text-[#a3a3a3]">Order ID:</span>
-                  <span className="text-obsidian dark:text-[#f5f3ef]">{inspectedSession.paypalOrderId || "Uncommitted"}</span>
+                  <span className="text-text-secondary">Order ID:</span>
+                  <span className="text-text-primary">{inspectedSession.paypalOrderId || "Uncommitted"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#737373] dark:text-[#a3a3a3]">Capture ID:</span>
-                  <span className="text-obsidian dark:text-[#f5f3ef]">{inspectedSession.paypalCaptureId || "Uncommitted"}</span>
+                  <span className="text-text-secondary">Capture ID:</span>
+                  <span className="text-text-primary">{inspectedSession.paypalCaptureId || "Uncommitted"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#737373] dark:text-[#a3a3a3]">Invoice ID:</span>
-                  <span className="text-obsidian dark:text-[#f5f3ef]">{inspectedSession.paypalInvoiceId || "Uncommitted"}</span>
+                  <span className="text-text-secondary">Invoice ID:</span>
+                  <span className="text-text-primary">{inspectedSession.paypalInvoiceId || "Uncommitted"}</span>
                 </div>
               </div>
             </div>
@@ -545,44 +564,44 @@ export function ProcurementHistoryScreen({
             {/* 5. Verifiable FX Settlement Bridge (if applicable) */}
             {inspectedSession.fxRecord && (
               <div className="space-y-2.5">
-                <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-architect-violet dark:text-[#b490f5] font-medium block">
+                <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-ember-orange font-medium block">
                   Verifiable FX Settlement Bridge
                 </span>
-                <div className="bg-warm-cream/40 dark:bg-[#141416] p-4 rounded-[8px] border border-smoke dark:border-[#27272a] space-y-1.5 text-xs font-mono">
+                <div className="bg-surface-secondary p-4 rounded-[6px] border border-border-primary space-y-1.5 text-xs font-mono">
                   <div className="flex justify-between">
-                    <span className="text-[#737373] dark:text-[#a3a3a3]">Commercial Obligation:</span>
-                    <span className="text-obsidian dark:text-[#f5f3ef] font-semibold">
+                    <span className="text-text-secondary">Commercial Obligation:</span>
+                    <span className="text-text-primary font-semibold">
                       {inspectedSession.agreementRecord ? `${inspectedSession.agreementRecord.currency || "INR"} ${inspectedSession.agreementRecord.totalCost.toLocaleString()}` : "INR"}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#737373] dark:text-[#a3a3a3]">Locked FX Rate:</span>
-                    <span className="text-obsidian dark:text-[#f5f3ef]">1 USD = ₹{inspectedSession.fxRecord.rate}</span>
+                    <span className="text-text-secondary">Locked FX Rate:</span>
+                    <span className="text-text-primary">1 USD = ₹{inspectedSession.fxRecord.rate}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#737373] dark:text-[#a3a3a3]">Settlement Obligation:</span>
+                    <span className="text-text-secondary">Settlement Obligation:</span>
                     <span className="text-lichen-green font-bold">
                       ${(inspectedSession.fxRecord.targetAmountMinor / 100).toFixed(2)} USD
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#737373] dark:text-[#a3a3a3]">Conversion Status:</span>
-                    <span className="text-obsidian dark:text-[#f5f3ef] uppercase">{inspectedSession.fxRecord.status}</span>
+                    <span className="text-text-secondary">Conversion Status:</span>
+                    <span className="text-text-primary uppercase">{inspectedSession.fxRecord.status}</span>
                   </div>
-                  <div className="pt-1 border-t border-smoke/70 dark:border-[#27272a]">
-                    <span className="text-[#737373] dark:text-[#a3a3a3] block mb-0.5">Conversion Hash:</span>
-                    <span className="break-all text-[11px] text-obsidian dark:text-[#f5f3ef]">{inspectedSession.fxRecord.conversionHash}</span>
+                  <div className="pt-1 border-t border-border-primary/60">
+                    <span className="text-text-secondary block mb-0.5">Conversion Hash:</span>
+                    <span className="break-all text-[11px] text-text-primary">{inspectedSession.fxRecord.conversionHash}</span>
                   </div>
                 </div>
               </div>
             )}
 
             {/* Modal Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-smoke dark:border-[#27272a]">
+            <div className="flex justify-end gap-3 pt-4 border-t border-border-primary">
               <button
                 type="button"
                 onClick={() => setInspectedSession(null)}
-                className="px-4 py-2 rounded-[8px] border border-smoke dark:border-[#27272a] text-[13.5px] font-medium text-obsidian dark:text-[#f5f3ef] hover:bg-warm-cream dark:hover:bg-[#202024] transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-[6px] border border-border-primary text-[13.5px] font-medium text-text-primary hover:bg-surface-secondary transition-colors cursor-pointer"
               >
                 Close
               </button>
@@ -593,7 +612,7 @@ export function ProcurementHistoryScreen({
                   setInspectedSession(null);
                   onSelectSession(s);
                 }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[8px] bg-ember-orange hover:bg-[#e65c00] text-white text-[13.5px] font-medium transition-colors cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-ember-orange hover:bg-[#a3351f] text-white text-[13.5px] font-medium transition-colors cursor-pointer shadow-xs"
               >
                 <span>Navigate to Live Session</span>
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
@@ -605,4 +624,3 @@ export function ProcurementHistoryScreen({
     </div>
   );
 }
-
