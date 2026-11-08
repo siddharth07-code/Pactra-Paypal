@@ -517,7 +517,7 @@ export function SettlementCenterScreen({
                 <span>Authoritative Session Not Found in Server Store</span>
               </div>
               <p className="text-[13px] text-text-secondary leading-relaxed">
-                The session <code className="font-mono-token text-text-primary bg-lavender-mist dark:bg-[#20182b] px-1.5 py-0.5 rounded text-[12px] font-medium">{session.id}</code> is not registered in the authoritative server store. This can happen if the server process restarted.
+                The session <code className="font-mono-token text-text-primary bg-surface-secondary px-1.5 py-0.5 rounded text-[12px] font-medium">{session.id}</code> is not registered in the authoritative server store. This can happen if the server process restarted.
               </p>
               <div className="flex flex-wrap items-center gap-2.5 pt-1">
                 {onStartNewNegotiation && (
@@ -569,7 +569,7 @@ export function SettlementCenterScreen({
                   <div className="flex justify-between items-center">
                     <span className="text-text-secondary">SKU / Product:</span>
                     {hasAgreement && sku !== "Not established" ? (
-                      <span className="font-mono-token text-[11.5px] text-text-primary bg-lavender-mist dark:bg-[#20182b] px-2 py-0.5 rounded border border-architect-violet/20">
+                      <span className="font-mono-token text-[11.5px] text-text-primary bg-surface-secondary px-2 py-0.5 rounded border border-border-primary">
                         {sku}
                       </span>
                     ) : selectedQuote?.sku ? (
@@ -626,7 +626,7 @@ export function SettlementCenterScreen({
                     <div className="flex justify-between items-center">
                       <span className="text-text-secondary">Agreement Record:</span>
                       <span
-                        className="font-mono-token text-[11px] text-text-primary bg-surface-secondary px-2 py-0.5 rounded border border-architect-violet/20 font-medium"
+                        className="font-mono-token text-[11px] text-text-primary bg-surface-secondary px-2 py-0.5 rounded border border-border-primary font-medium"
                         title={agreementRecord.agreementId}
                       >
                         {agreementRecord.agreementId.slice(0, 18)}... (R{agreementRecord.round})
@@ -876,7 +876,7 @@ export function SettlementCenterScreen({
                             <ArrowRightLeft className="w-4 h-4 text-text-primary" />
                             <span>CROSS-CURRENCY SETTLEMENT</span>
                           </div>
-                          <span className="font-mono-token text-[10.5px] px-2 py-0.5 rounded bg-architect-violet/10 text-text-primary font-medium border border-architect-violet/20">
+                          <span className="font-mono-token text-[10.5px] px-2 py-0.5 rounded bg-surface-secondary text-text-primary font-medium border border-border-primary">
                             INR &rarr; USD Bridge
                           </span>
                         </div>
@@ -907,7 +907,7 @@ export function SettlementCenterScreen({
                               onClick={() => setSelectedRateSource("DETERMINISTIC_DEMO")}
                               className={`px-2 py-0.5 rounded text-[10.5px] font-medium transition-colors cursor-pointer ${
                                 selectedRateSource === "DETERMINISTIC_DEMO"
-                                  ? "bg-architect-violet text-white"
+                                  ? "bg-ember-orange text-white"
                                   : "text-text-secondary hover:text-text-primary"
                               }`}
                             >
@@ -918,7 +918,7 @@ export function SettlementCenterScreen({
                               onClick={() => setSelectedRateSource("LIVE_PROVIDER")}
                               className={`px-2 py-0.5 rounded text-[10.5px] font-medium transition-colors cursor-pointer ${
                                 selectedRateSource === "LIVE_PROVIDER"
-                                  ? "bg-architect-violet text-white"
+                                  ? "bg-ember-orange text-white"
                                   : "text-text-secondary hover:text-text-primary"
                               }`}
                             >
@@ -1504,7 +1504,7 @@ export function SettlementCenterScreen({
                         type="button"
                         onClick={handleRunAudit}
                         disabled={isRunningAudit || isSessionNotFound}
-                        className="px-3 py-1.5 rounded-[6px] bg-ember-orange text-white font-medium text-[12px] hover:bg-[#d95500] transition-colors cursor-pointer shrink-0 "
+                        className="px-3 py-1.5 rounded-[6px] bg-ember-orange text-white font-medium text-[12px] hover:bg-ember-hover transition-colors cursor-pointer shrink-0 "
                       >
                         Run Evaluation
                       </button>
