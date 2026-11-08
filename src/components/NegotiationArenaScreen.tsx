@@ -1,25 +1,11 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
-import {
-  PrimaryButton,
-  CurrencyDisplay,
-  StatusBadge,
-} from "./SharedUI";
-import {
-  ShieldAlert,
-  CheckCircle2,
-  Building2,
-  Lock,
-  ChevronDown,
-  ArrowRight,
-  AlertTriangle,
-  Loader2,
-} from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { PrimaryButton, GhostButton } from "./SharedUI";
+import { OperationsPanel } from "./OperationsUI";
 import type { VendorQuote, ProcurementMandate, ProcurementSession } from "@/types/pactum";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, toMinorUnits, fromMinorUnits } from "@/lib/currency";
 import { negotiationFailureMessage } from "@/lib/negotiation-failure";
-import { GhostButton } from "./SharedUI";
 
 export interface StreamEventItem {
   id: string;
@@ -37,728 +23,151 @@ interface NegotiationArenaScreenProps {
   onProceedToSettlement?: () => void;
   onStartNegotiation?: () => Promise<void> | void;
   session?: ProcurementSession;
+  loading?: boolean;
+  error?: string;
+  onRetry?: () => void;
 }
 
-export function NegotiationArenaScreen({
-  sessionId,
-  mandate,
-  quotes,
-  events,
-  isStreaming,
-  onProceedToSettlement,
-  onStartNegotiation,
-  session,
+function number(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+export function NegotiationArenaScreen({ sessionId, mandate, quotes, events, isStreaming,
+  onProceedToSettlement, onStartNegotiation, session, loading = false, error, onRetry,
 }: NegotiationArenaScreenProps) {
-  const feedContainerRef = useRef<HTMLDivElement>(null);
-  const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
-
-  // Auto-scroll inside feed container without shifting global window scroll
-  useEffect(() => {
-    if (feedContainerRef.current && typeof feedContainerRef.current.scrollTo === "function") {
-      const prefersReducedMotion =
-        typeof window !== "undefined" &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-      feedContainerRef.current.scrollTo({
-        top: feedContainerRef.current.scrollHeight,
-        behavior: prefersReducedMotion ? "auto" : "smooth",
-      });
-    }
-  }, [events]);
-
-  const currentRound = events.reduce((max, ev) => {
-    if (ev.payload.round && typeof ev.payload.round === "number") {
-      return Math.max(max, ev.payload.round);
-    }
-    return max;
-  }, 1);
-
+  const authoritativeMandate = session?.mandate ?? mandate;
+  const currency = authoritativeMandate?.currency;
+  const money = (value: unknown) => currency && number(value) !== undefined ? formatCurrency(value as number, currency) : "Not recorded";
   const terminal = events.filter(event => ["NEGOTIATION_COMPLETED", "NEGOTIATION_FAILED", "NEGOTIATION_ABORTED"].includes(event.type)).at(-1);
-  const completedEvent = terminal?.type === "NEGOTIATION_COMPLETED" ? terminal : undefined;
   const failed = terminal?.type === "NEGOTIATION_FAILED" || (!terminal && !isStreaming && Boolean(session?.negotiationFailure));
   const stopped = terminal?.type === "NEGOTIATION_ABORTED";
-  const failureCode = String(terminal?.payload.code ?? session?.negotiationFailure?.code ?? "NEGOTIATION_UNEXPECTED");
+  const completed = terminal?.type === "NEGOTIATION_COMPLETED" ? terminal : undefined;
+  const agreement = session?.agreementRecord;
+  const hasDeal = !failed && !stopped && Boolean(agreement || (completed && completed.payload.outcome !== "NO_DEAL" && (completed.payload.selectedVendor || completed.payload.winningVendor || completed.payload.winningVendorId)));
+  const noDeal = !hasDeal && !failed && !stopped && Boolean(completed || (session?.status === "AUDIT_FAILED" && session.turns.length));
+  const winnerId = agreement?.vendorId ?? completed?.payload.winningVendorId;
+  const winner = agreement?.vendorName ?? completed?.payload.selectedVendor ?? completed?.payload.winningVendor;
+  const agreedOffer = (agreement?.agreedOffer ?? completed?.payload.finalOffer) as { unitPrice?: number; shippingCost?: number; deliveryDays?: number; returnDays?: number } | undefined;
+  const total = agreement?.totalCost ?? completed?.payload.totalCost ?? completed?.payload.finalTotalCost ?? completed?.payload.finalAmount;
+  const round = events.reduce((max, event) => Math.max(max, number(event.payload.round) ?? 0), 0);
+  const maxRounds = events.find(event => event.type === "ROUND_STARTED")?.payload.maxRounds;
+  const state = session?.status === "CANCELLED" ? "Session cancelled" : isStreaming ? "Negotiation running" : failed ? "Negotiation Halted" : stopped ? "Negotiation stopped" : hasDeal ? "Agreement recorded" : noDeal ? "No deal reached" : session?.turns?.length ? "Saved negotiation" : authoritativeMandate ? "Not started" : "No session loaded";
   const failureReference = terminal?.payload.reference ?? session?.negotiationFailure?.reference;
-
-  const isNoDeal = !failed && !stopped && Boolean(
-    (completedEvent &&
-      (completedEvent.payload.outcome === "NO_DEAL" ||
-        (!completedEvent.payload.selectedVendor &&
-          !completedEvent.payload.winningVendor &&
-          !completedEvent.payload.winningVendorId))) ||
-      Boolean(session?.turns && session.turns.length > 0 && !session.agreementRecord && session.status === "AUDIT_FAILED")
-  );
-
-  const isConsensusDeal = !failed && !stopped && Boolean(
-    (completedEvent &&
-      completedEvent.payload.outcome !== "NO_DEAL" &&
-      (completedEvent.payload.selectedVendor ||
-        completedEvent.payload.winningVendor ||
-        completedEvent.payload.winningVendorId)) ||
-      session?.agreementRecord
-  );
-
-  const winningVendorId =
-    (completedEvent?.payload?.winningVendorId as string | undefined) ||
-    session?.agreementRecord?.vendorId;
-  const winningVendorName =
-    ((completedEvent?.payload?.selectedVendor ||
-      completedEvent?.payload?.winningVendor) as string | undefined) ||
-    session?.agreementRecord?.vendorName;
-
-  const currencyCode = mandate?.currency || session?.mandate?.currency || "USD";
-
-  return (
-    <div className="space-y-6 animate-in fade-in duration-150">
-      {/* 1. EDITORIAL PAGE HEADER */}
-      <div className="pb-5 border-b border-smoke dark:border-[#27272a] flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-[26px] sm:text-[30px] font-semibold tracking-tight text-obsidian dark:text-[#f6f4f0] leading-none">
-              Negotiation Arena
-            </h1>
-            {isStreaming && (
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-ember-orange/10 dark:bg-ember-orange/15 text-ember-orange text-[11.5px] font-medium border border-ember-orange/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-ember-orange animate-pulse" />
-                Negotiation running
-              </span>
-            )}
-            {isConsensusDeal && <StatusBadge status="verified" label="Consensus Reached" />}
-            {isNoDeal && <StatusBadge status="warning" label="No Deal Reached" />}
-            {failed && <StatusBadge status="failure" label="Negotiation Halted" />}
-            {stopped && <StatusBadge status="warning" label="Negotiation stopped" />}
-            {!isStreaming && !isConsensusDeal && !isNoDeal && !failed && !stopped && (
-              <StatusBadge status="neutral" label="Saved negotiation" />
-            )}
-          </div>
-
-          {/* Clean metadata strip with aligned labels and values */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-[#737373] dark:text-[#a3a3a3]">
-            <div className="flex items-center gap-1.5">
-              <span>Session:</span>
-              <span className="font-mono-token text-obsidian dark:text-[#f6f4f0] text-[12px]">
-                {sessionId || session?.id || "Pending"}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span>Target:</span>
-              <span className="font-medium text-obsidian dark:text-[#f6f4f0]">
-                {mandate?.itemQuery || session?.mandate?.itemQuery || "4K Monitors"} ({mandate?.quantity || session?.mandate?.quantity || 25} units)
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span>Ceiling:</span>
-              <CurrencyDisplay
-                amount={mandate?.maxTotalBudget || session?.mandate?.maxTotalBudget || 8500}
-                currency={currencyCode}
-                size="sm"
-              />
-            </div>
-            <div className="flex items-center gap-1.5 text-architect-violet dark:text-[#a78bfa] font-medium">
-              <span>Round {currentRound} of 4</span>
-            </div>
-          </div>
+  const fallback = events.some(event => event.payload.generator === "DETERMINISTIC_FALLBACK");
+  const canStart = Boolean(authoritativeMandate && quotes.length && onStartNegotiation && !loading && !error && !terminal && !session?.negotiationFailure && (!session || ["MANDATE_PENDING", "SOURCING", "NEGOTIATING"].includes(session.status)));
+  const [starting, setStarting] = useState(false);
+  const startClaim = useRef(false);
+  const [startError, setStartError] = useState(false);
+  const feedRef = useRef<HTMLDivElement>(null);
+  const followRef = useRef(true);
+  useEffect(() => {
+    // Follow new turns only while the reader remains at the end of the history.
+    const feed = feedRef.current;
+    if (isStreaming && followRef.current && feed) feed.scrollTop = feed.scrollHeight;
+  }, [events, isStreaming]);
+  const start = async () => {
+    if (startClaim.current || !canStart || isStreaming) return;
+    startClaim.current = true; setStarting(true); setStartError(false);
+    try { await onStartNegotiation?.(); } catch { setStartError(true); }
+    finally { startClaim.current = false; setStarting(false); }
+  };
+  const supplierName = (payload: Record<string, unknown>) => String(payload.vendorName ?? quotes.find(quote => quote.vendorId === payload.vendorId)?.vendorName ?? payload.vendorId ?? "Supplier not recorded");
+  const sourceName = (generator: unknown) => generator === "GEMINI_LIVE" ? "Gemini" : generator === "DETERMINISTIC_FALLBACK" ? "deterministic fallback" : "source not recorded";
+  return <div className="space-y-6 text-text-primary min-w-0">
+    <header className="space-y-4 border-b border-border-primary pb-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-2 min-w-0">
+          <h1 className="text-[26px] sm:text-[30px] font-semibold tracking-tight leading-tight">Negotiation Arena</h1>
+          <p className="text-sm text-text-secondary">Compare supplier terms and review the recorded negotiation.</p>
         </div>
-
-        {isConsensusDeal && !isStreaming && onProceedToSettlement && (
-          <PrimaryButton onClick={onProceedToSettlement} className="self-start md:self-auto shrink-0">
-            Proceed to Settlement Gate
-          </PrimaryButton>
-        )}
+        <p role="status" className="text-sm font-medium py-2">{loading && !authoritativeMandate ? "Loading saved negotiation…" : state}{round > 0 && <> · Round {round}{typeof maxRounds === "number" ? ` of ${maxRounds}` : ""}</>}</p>
       </div>
-      {failed && <section role="alert" className="rounded-[6px] border border-border-primary bg-surface-primary p-5 space-y-3">
-        <h2 className="text-lg font-semibold">Negotiation could not complete</h2>
-        <p className="text-sm">{negotiationFailureMessage(failureCode)}</p>
-        <p className="text-sm text-text-secondary">Review the saved history before starting another attempt.</p>
-        {failureReference && <p className="text-xs text-text-secondary">Diagnostic reference: {String(failureReference)}</p>}
-        <GhostButton onClick={() => window.location.reload()}>Reload saved session</GhostButton>
-      </section>}
-      {stopped && <p role="status" className="border border-border-primary rounded-[6px] p-4 text-sm">{String(terminal?.payload.reason ?? terminal?.payload.error ?? "Negotiation stopped because the session no longer meets the requirements to proceed.")}</p>}
-      {events.some(event => event.payload.generator === "DETERMINISTIC_FALLBACK") && <p role="status" className="text-sm text-text-secondary">Some proposals used the deterministic fallback. They are not live model results.</p>}
+      {authoritativeMandate ? <dl className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4 text-sm">
+        <div className="col-span-2 md:col-span-1 min-w-0"><dt className="text-text-secondary mb-1">Procurement request</dt><dd className="font-medium break-words">{authoritativeMandate.itemQuery}</dd></div>
+        <div><dt className="text-text-secondary mb-1">Quantity</dt><dd className="tabular-nums">{authoritativeMandate.quantity} units</dd></div>
+        <div><dt className="text-text-secondary mb-1">Budget ceiling</dt><dd className="font-mono-token tabular-nums break-words">{money(authoritativeMandate.maxTotalBudget)} {currency}</dd></div>
+        <div><dt className="text-text-secondary mb-1">Required terms</dt><dd>Delivery ≤ {authoritativeMandate.maxDeliveryDays} days<br />Returns ≥ {authoritativeMandate.minReturnDays} days</dd></div>
+      </dl> : !error && <p className="text-sm text-text-secondary">{loading || isStreaming ? "Loading saved procurement requirements…" : "Open a procurement request from Sourcing or History to view its negotiation."}</p>}
+      {(sessionId || session?.id) && <p className="text-xs text-text-secondary break-all">Session <span className="font-mono-token">{sessionId ?? session?.id}</span></p>}
+    </header>
 
-      {/* 2. WORKSPACE GRID: Supplier Comparison (Left) & Execution Feed (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Structured Supplier Comparison Area */}
-        <section aria-label="Competing Supplier Terms" className="lg:col-span-5 space-y-3.5">
-          <div className="flex items-center justify-between pb-1 border-b border-smoke dark:border-[#27272a]">
-            <div>
-              <h2 className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-                Competing Supplier Terms
-              </h2>
-              <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3]">
-                Wholesale baseline quotes &amp; live counter-bids
-              </p>
-            </div>
-            <span className="text-[11.5px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
-              {quotes.length} suppliers
-            </span>
-          </div>
+    {error && <section role="alert" className="border border-border-primary rounded-[6px] bg-surface-primary p-5 space-y-3"><h2 className="font-semibold">Saved negotiation unavailable</h2><p className="text-sm">{error}</p>{onRetry && <GhostButton onClick={onRetry} className="min-h-11">Reload saved session</GhostButton>}</section>}
+    {failed && <section role="alert" className="border border-border-primary rounded-[6px] bg-surface-primary p-5 space-y-3">
+      <h2 className="text-lg font-semibold">Negotiation could not complete</h2>
+      <p className="text-sm">{negotiationFailureMessage(String(terminal?.payload.code ?? session?.negotiationFailure?.code ?? "NEGOTIATION_UNEXPECTED"))}</p>
+      <p className="text-sm text-text-secondary">Review the saved history before starting another attempt.</p>
+      {failureReference && <p className="text-xs text-text-secondary break-all">Diagnostic reference: {String(failureReference)}</p>}
+      <GhostButton onClick={() => window.location.reload()} className="min-h-11">Reload saved session</GhostButton>
+    </section>}
+    {stopped && <p role="status" className="border border-border-primary rounded-[6px] p-5 text-sm">{String(terminal?.payload.reason ?? terminal?.payload.error ?? "The session no longer meets the requirements to proceed.")}</p>}
+    {fallback && <p className="text-sm text-text-secondary">Some proposals used the deterministic fallback. They are not live model results.</p>}
 
-          {/* Compact Supplier Comparison Table / List */}
-          <div className="divide-y divide-smoke dark:divide-[#27272a] border border-smoke dark:border-[#27272a] rounded-[8px] bg-paper-white dark:bg-[#18181b] overflow-hidden shadow-2xs">
-            {quotes.map((quote) => {
-              const quantity = mandate?.quantity || session?.mandate?.quantity || 25;
-              const unitPrice = quote.currentUnitBid ?? quote.initialUnitAsk;
-              const shippingCost = quote.shippingCost || 0;
-              const unitCents = Math.round(unitPrice * 100);
-              const shippingCents = Math.round(shippingCost * 100);
-              const landedCost = (unitCents * quantity + shippingCents) / 100;
+    {hasDeal && <section aria-label="Final agreement" className="border border-border-primary border-l-[3px] border-l-ember-orange rounded-[6px] bg-surface-primary p-5 sm:p-6 space-y-5">
+      <div className="flex flex-wrap justify-between gap-4"><div className="space-y-1"><h2 className="text-lg font-semibold">Consensus Reached with {String(winner ?? "supplier not recorded")}</h2><p className="text-sm text-text-secondary">Agreement Accepted: Mutual agreement recorded. Payment has not been initiated by this screen.</p></div><div><p className="text-xs text-text-secondary mb-1">Agreed total · {currency ?? "Currency not recorded"}</p><p className="text-2xl font-semibold tracking-tight tabular-nums">{money(total)}</p></div></div>
+      {agreedOffer && <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm"><div><dt className="text-text-secondary">Unit price</dt><dd className="tabular-nums mt-1">{money(agreedOffer.unitPrice)}</dd></div><div><dt className="text-text-secondary">Shipping</dt><dd className="tabular-nums mt-1">{money(agreedOffer.shippingCost)}</dd></div><div><dt className="text-text-secondary">Delivery</dt><dd className="mt-1">{agreedOffer.deliveryDays === undefined ? "Not recorded" : `${agreedOffer.deliveryDays} ${agreedOffer.deliveryDays === 1 ? "day" : "days"}`}</dd></div><div><dt className="text-text-secondary">Returns</dt><dd className="mt-1">{agreedOffer.returnDays === undefined ? "Not recorded" : `${agreedOffer.returnDays} days`}</dd></div></dl>}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border-primary pt-4"><p className="text-sm text-text-secondary max-w-xl">{session?.status === "CANCELLED" ? "This session is cancelled. The recorded agreement is retained for review." : "Review ACWORLD audit and settlement eligibility next. PayPal authorization requires a separate action."}</p>{onProceedToSettlement && !isStreaming && session?.status !== "CANCELLED" && <PrimaryButton onClick={onProceedToSettlement} className="min-h-11">Review audit and settlement</PrimaryButton>}</div>
+    </section>}
+    {noDeal && <section role="status" className="border border-border-primary rounded-[6px] p-5 space-y-2"><h2 className="text-lg font-semibold">No agreement reached</h2><p className="text-sm text-text-secondary">{String(completed?.payload.reason ?? "No supplier offer met the required terms.")}</p><p className="text-sm text-text-secondary">Settlement is unavailable. Review the mandate in Sourcing before starting a new request.</p></section>}
 
-              const maxBudget = mandate?.maxTotalBudget || session?.mandate?.maxTotalBudget || 8500;
-              const maxDelivery = mandate?.maxDeliveryDays || session?.mandate?.maxDeliveryDays || 5;
-              const minReturn = mandate?.minReturnDays || session?.mandate?.minReturnDays || 30;
+    <div className="grid grid-cols-1 xl:grid-cols-[minmax(280px,0.85fr)_minmax(0,1.5fr)] gap-6 items-start">
+      <OperationsPanel title="Supplier terms" action={<span className="text-sm text-text-secondary">{quotes.length} available</span>}>
+        {!authoritativeMandate || !quotes.length ? <p className="p-5 text-sm text-text-secondary">{loading ? "Loading supplier terms…" : "No supplier terms available for this request."}</p> : <div className="divide-y divide-border-primary sm:grid sm:grid-cols-2 xl:block sm:divide-y-0 xl:divide-y">
+          {quotes.map(quote => {
+            const latest = events.filter(event => event.payload.vendorId === quote.vendorId && ["VENDOR_COUNTEROFFER", "VENDOR_ACCEPTANCE", "BUYER_ACCEPTANCE"].includes(event.type)).at(-1);
+            const ask = number(latest?.payload.unitPrice ?? latest?.payload.newUnitAsk) ?? quote.currentUnitBid ?? quote.initialUnitAsk;
+            const totalMinor = toMinorUnits(ask) * authoritativeMandate.quantity + toMinorUnits(quote.shippingCost);
+            const valid = (!quote.currency || quote.currency === currency) && Number.isSafeInteger(totalMinor) && totalMinor >= 0;
+            const isWinner = hasDeal && (winnerId === quote.vendorId || winner === quote.vendorName);
+            return <article key={quote.vendorId} className="p-5 space-y-4 min-w-0">
+              <div><h3 className="font-semibold break-words">{quote.vendorName}</h3><p className="text-xs text-text-secondary mt-1 break-words">{quote.productTitle || quote.sku}</p><p className="text-xs text-text-secondary mt-1">{quote.dataSource === "MOCK_CATALOG" ? "Demonstration supplier" : `Source: ${quote.dataSource}`}</p></div>
+              <dl className="grid grid-cols-2 gap-3 text-sm"><div><dt className="text-text-secondary">Initial unit ask</dt><dd className="tabular-nums mt-1">{quote.currency && quote.currency !== currency ? formatCurrency(quote.initialUnitAsk, quote.currency) : money(quote.initialUnitAsk)}</dd></div><div><dt className="text-text-secondary">Latest unit ask</dt><dd className="tabular-nums mt-1">{valid ? money(ask) : "Currency or amount unavailable"}</dd></div><div><dt className="text-text-secondary">Shipping</dt><dd className="tabular-nums mt-1">{valid ? money(quote.shippingCost) : "Not available"}</dd></div><div><dt className="text-text-secondary">Landed total</dt><dd className="font-medium tabular-nums mt-1">{valid ? money(fromMinorUnits(totalMinor)) : "Not available"}</dd></div><div><dt className="text-text-secondary">Initial delivery</dt><dd className="mt-1">{quote.deliveryDays} days</dd></div><div><dt className="text-text-secondary">Initial returns</dt><dd className="mt-1">{quote.returnDays} days</dd></div></dl>
+              <p className="text-sm border-t border-border-primary pt-3">{isWinner ? "Selected agreement" : latest?.type?.includes("ACCEPTANCE") ? "Offer accepted" : latest ? "Counteroffer recorded" : "Starting offer"}</p>
+              {valid && <p className="text-xs text-text-secondary">{totalMinor > toMinorUnits(authoritativeMandate.maxTotalBudget) ? "Above budget; price requires negotiation" : "Within budget ceiling"}. Full eligibility depends on the server policy evaluation.</p>}
+            </article>;
+          })}
+        </div>}
+      </OperationsPanel>
 
-              let eligibilityLabel: string;
-              let badgeStatus: "verified" | "neutral" | "warning" | "failure";
-
-              if (!Number.isFinite(unitPrice) || unitPrice <= 0 || !quote.sku) {
-                eligibilityLabel = "Disqualified";
-                badgeStatus = "failure";
-              } else if (quote.deliveryDays > maxDelivery || quote.returnDays < minReturn) {
-                eligibilityLabel = "Hard Constraint Violation";
-                badgeStatus = "warning";
-              } else if (landedCost <= maxBudget) {
-                eligibilityLabel = "Within Budget";
-                badgeStatus = "verified";
-              } else {
-                eligibilityLabel = "Above Budget — Negotiation Candidate";
-                badgeStatus = "neutral";
-              }
-
-              const isSelected = selectedVendorId === quote.vendorId;
-              const isWinner =
-                isConsensusDeal &&
-                (winningVendorId === quote.vendorId || winningVendorName === quote.vendorName);
-
-              return (
-                <div
-                  key={quote.vendorId}
-                  onClick={() => setSelectedVendorId(isSelected ? null : quote.vendorId)}
-                  className={`p-4 transition-colors cursor-pointer select-none border-l-2 ${
-                    isWinner
-                      ? "bg-smoke/25 dark:bg-[#141a16] border-l-lichen-green"
-                      : isSelected
-                      ? "bg-smoke/20 dark:bg-[#1f1f23] border-l-architect-violet"
-                      : "hover:bg-smoke/15 dark:hover:bg-[#1c1c20] border-l-transparent"
-                  }`}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setSelectedVendorId(isSelected ? null : quote.vendorId);
-                    }
-                  }}
-                  aria-label={`Inspect ${quote.vendorName} terms`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[14.5px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-                          {quote.vendorName}
-                        </span>
-                        {isWinner && (
-                          <StatusBadge status="verified" label="Winning Offer" />
-                        )}
-                      </div>
-                      <div className="text-[11.5px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
-                        SKU: {quote.sku}
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="text-[11px] text-[#737373] dark:text-[#a3a3a3] uppercase tracking-wider font-sans font-medium">
-                        Landed Total
-                      </div>
-                      <div className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums tracking-tight">
-                        <CurrencyDisplay
-                          amount={landedCost}
-                          currency={currencyCode}
-                          size="md"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Aligned Financial Metrics: Unit Ask, Shipping, Quantity */}
-                  <div className="grid grid-cols-3 gap-2 pt-3 mt-3 border-t border-smoke dark:border-[#27272a] text-[12px]">
-                    <div>
-                      <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Unit Ask</span>
-                      <span className="font-sans font-medium text-obsidian dark:text-[#f6f4f0] tabular-nums">
-                        {formatCurrency(unitPrice, currencyCode)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Shipping</span>
-                      <span className="font-sans font-medium text-obsidian dark:text-[#f6f4f0] tabular-nums">
-                        {formatCurrency(shippingCost, currencyCode)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Quantity</span>
-                      <span className="text-obsidian dark:text-[#f6f4f0] tabular-nums">{quantity} units</span>
-                    </div>
-                  </div>
-
-                  {/* Logistics SLA & Return Policy */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 text-[12px]">
-                    <div>
-                      <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Delivery SLA</span>
-                      <span className="text-obsidian dark:text-[#f6f4f0]">{quote.deliveryDays} days</span>
-                    </div>
-                    <div>
-                      <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Return Window</span>
-                      <span className="text-obsidian dark:text-[#f6f4f0]">{quote.returnDays} days</span>
-                    </div>
-                  </div>
-
-                  {/* Feasibility Indicator Badge */}
-                  <div className="pt-2.5 flex items-center justify-between text-[11.5px] border-t border-smoke/60 dark:border-[#27272a]/60 mt-2">
-                    <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3]">
-                      Eligibility Status:
-                    </span>
-                    <StatusBadge
-                      status={badgeStatus}
-                      label={eligibilityLabel}
-                    />
-                  </div>
-                </div>
-              );
+      <OperationsPanel title="Negotiation history" action={<span className="text-sm text-text-secondary">{isStreaming ? "Receiving turns" : "Recorded turns"}</span>}>
+        {!events.length ? <div className="p-5 sm:p-6 space-y-4">
+          <p className="font-medium">{isStreaming ? "Initializing Negotiation..." : authoritativeMandate ? "Ready to negotiate" : "No negotiation loaded"}</p>
+          <p className="text-sm text-text-secondary">Baseline supplier asking prices are starting commercial positions, not accepted agreements. Proposals must satisfy the mandate before an agreement can be recorded.</p>
+          {onStartNegotiation && authoritativeMandate && <PrimaryButton onClick={() => void start()} disabled={!canStart || isStreaming || starting} className="min-h-11">{isStreaming || starting ? "Initializing Negotiation..." : "Start Negotiation"}</PrimaryButton>}
+          {startError && <p role="alert" className="text-sm">Negotiation could not start. Reload the saved session before retrying.</p>}
+        </div> : <div ref={feedRef} onScroll={() => { const feed = feedRef.current; if (feed) followRef.current = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 64; }} tabIndex={0} aria-label="Negotiation timeline log" className="max-h-[640px] overflow-y-auto focus-visible:outline-2 focus-visible:outline-ember-orange focus-visible:outline-offset-2">
+          <ol className="divide-y divide-border-primary">
+            {events.map(event => {
+              const p = event.payload;
+              const offer = p.proposedOffer as { unitPrice?: number; deliveryDays?: number; returnDays?: number } | undefined;
+              const isPolicy = ["GUARDRAIL_BLOCKED", "GUARDRAIL_INTERVENTION"].includes(event.type);
+              let title: string;
+              if (event.type === "ROUND_STARTED") title = `Round ${p.round}${typeof p.maxRounds === "number" ? ` of ${p.maxRounds}` : ""}`;
+              else if (event.type === "BUYER_PROPOSAL") title = `Buyer proposal (${sourceName(p.generator)}) → ${supplierName(p)}`;
+              else if (event.type === "VENDOR_COUNTEROFFER") title = `${supplierName(p)} counteroffer`;
+              else if (event.type === "VENDOR_ACCEPTANCE") title = `Vendor Accepted Proposal (${supplierName(p)})`;
+              else if (event.type === "BUYER_ACCEPTANCE") title = `Buyer Accepted Counteroffer (${supplierName(p)})`;
+              else if (isPolicy) title = event.type === "GUARDRAIL_BLOCKED" ? "Policy blocked proposal" : "Policy intervention";
+              else if (event.type === "ROUND_COMPLETED") title = `Round ${p.round} saved`;
+              else if (event.type === "NEGOTIATION_COMPLETED") title = "Negotiation run ended";
+              else if (event.type === "NEGOTIATION_FAILED") title = "Negotiation failed";
+              else if (event.type === "NEGOTIATION_ABORTED") title = "Negotiation stopped by session or policy change";
+              else if (event.type === "SOURCING_EVALUATED") title = "Supplier evaluation recorded";
+              else if (event.type === "NEGOTIATION_STARTED") title = "Negotiation started";
+              else return null;
+              const message = p.message ?? (p.turn as { message?: string } | undefined)?.message;
+              return <li key={event.id} className="p-5 space-y-3 text-sm break-words">
+                <div className="flex flex-wrap items-baseline justify-between gap-2"><h3 className="font-medium">{title}</h3>{!Number.isNaN(Date.parse(event.timestamp)) && <time dateTime={event.timestamp} className="text-xs text-text-secondary tabular-nums">{new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>}</div>
+                {event.type === "BUYER_PROPOSAL" && offer && <p className="flex flex-wrap gap-x-4 gap-y-2 tabular-nums"><span>Unit Bid: <strong className="font-medium">{money(offer.unitPrice)}</strong></span>{offer.deliveryDays !== undefined && <span>Delivery {offer.deliveryDays} days</span>}{offer.returnDays !== undefined && <span>Returns {offer.returnDays} days</span>}</p>}
+                {event.type === "VENDOR_COUNTEROFFER" && <p className="tabular-nums">New Ask: {money(p.newUnitAsk)}</p>}
+                {event.type.includes("ACCEPTANCE") && <p className="tabular-nums">Agreed Unit: {money(p.unitPrice)}</p>}
+                {isPolicy && <><p className="text-text-secondary">{String(p.reason ?? p.detail ?? "A proposal did not satisfy the required policy checks.")}</p><p className="text-text-secondary">Supplier: {supplierName(p)}</p><details><summary className="min-h-11 flex items-center cursor-pointer underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ember-orange">Verification details</summary><p className="text-xs text-text-secondary break-all pt-2">Recorded decision: {event.type}</p></details></>}
+                {number(p.utilityScore) !== undefined && <p className="text-xs text-text-secondary tabular-nums">Utility: {Number(p.utilityScore).toFixed(3)}{number(p.threshold) !== undefined ? ` · Required ${Number(p.threshold).toFixed(3)}` : ""}</p>}
+                {typeof message === "string" && message && <details><summary className="min-h-11 flex items-center cursor-pointer underline underline-offset-4 text-text-secondary focus-visible:outline-2 focus-visible:outline-ember-orange">Proposal reasoning</summary><p className="text-text-secondary leading-relaxed pt-2 whitespace-pre-wrap">{message}</p></details>}
+              </li>;
             })}
-          </div>
-        </section>
-
-        {/* Right Column: Negotiation Execution Feed */}
-        <section aria-label="Negotiation Execution Feed" className="lg:col-span-7 space-y-3.5">
-          <div className="flex items-center justify-between pb-1 border-b border-smoke dark:border-[#27272a]">
-            <div>
-              <h2 className="text-[15px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-                Negotiation Execution Feed
-              </h2>
-              <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3]">
-                Chronological transcript with deterministic guardrail evaluations
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 text-[11px] font-mono-token text-[#006840] dark:text-[#4ade80] bg-smoke/40 dark:bg-[#18181c] px-2 py-0.5 rounded border border-smoke dark:border-[#27272a] shrink-0">
-              <Lock className="w-3 h-3" aria-hidden="true" />
-              <span>Predicates A–E Active</span>
-            </div>
-          </div>
-
-          {/* Chronological Stream Container */}
-          <div
-            ref={feedContainerRef}
-            className="border border-smoke dark:border-[#27272a] rounded-[8px] bg-paper-white dark:bg-[#18181b] p-4 sm:p-5 h-[620px] overflow-y-auto space-y-3.5 text-[13.5px] shadow-2xs"
-            tabIndex={0}
-            aria-label="Negotiation timeline log"
-          >
-            {events.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 sm:p-8 space-y-4 text-[#737373] dark:text-[#a3a3a3]">
-                <div className="w-14 h-14 rounded-full bg-smoke/50 dark:bg-[#202025] border border-smoke dark:border-[#2e2e34] flex items-center justify-center shadow-2xs">
-                  <Building2 className="w-7 h-7 text-obsidian/70 dark:text-[#b490f5]" aria-hidden="true" />
-                </div>
-                <div className="space-y-1.5 max-w-md">
-                  <h3 className="text-[17px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
-                    Ready to negotiate
-                  </h3>
-                  <p className="text-[12.5px] leading-relaxed text-[#737373] dark:text-[#a3a3a3]">
-                    Baseline supplier asking prices are starting commercial positions, not accepted agreements. Autonomous Gemini buyer agent will negotiate across discrete rounds under mathematical Boulware guardrails.
-                  </p>
-                </div>
-
-                {/* Mandate Constraints & Feasibility Strip */}
-                <div className="w-full max-w-md grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-[8px] bg-warm-cream/40 dark:bg-[#151518] border border-smoke dark:border-[#27272a] text-[12px] text-left">
-                  <div>
-                    <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3] block">Suppliers</span>
-                    <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">{quotes.length} eligible</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3] block">Rounds</span>
-                    <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">4 discrete</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3] block">Target</span>
-                    <span className="font-semibold text-obsidian dark:text-[#f6f4f0] truncate block" title={`${mandate?.itemQuery || "Items"} (${mandate?.quantity || 25} units)`}>
-                      {mandate?.quantity || 25} units
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3] block">Budget Ceiling</span>
-                    <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
-                      {formatCurrency(mandate?.maxTotalBudget || 8500, currencyCode)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Primary Start Negotiation Action */}
-                <div className="pt-2">
-                  <PrimaryButton
-                    onClick={onStartNegotiation}
-                    disabled={isStreaming || quotes.length === 0}
-                    className="flex items-center gap-2 px-6 py-2.5 text-[13.5px] cursor-pointer"
-                  >
-                    {isStreaming ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                        <span>Initializing Negotiation...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Start Negotiation</span>
-                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                      </>
-                    )}
-                  </PrimaryButton>
-                  {quotes.length === 0 && (
-                    <p className="text-[11.5px] text-amber-500 mt-2">
-                      No supplier quotes loaded for this session. Sourcing must retrieve baseline quotes first.
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              events.map((ev) => {
-                const p = ev.payload;
-
-                // 1. ROUND STARTED
-                if (ev.type === "ROUND_STARTED") {
-                  return (
-                    <div
-                      key={ev.id}
-                      className="py-1.5 flex items-center gap-3 text-[11.5px] font-sans text-[#737373] dark:text-[#a3a3a3] select-none"
-                    >
-                      <span className="h-px bg-smoke dark:bg-[#27272a] flex-1" />
-                      <span className="uppercase tracking-wider font-semibold text-architect-violet dark:text-[#a78bfa]">
-                        Round {String(p.round)} of {String(p.maxRounds || 4)}
-                      </span>
-                      <span className="h-px bg-smoke dark:bg-[#27272a] flex-1" />
-                    </div>
-                  );
-                }
-
-                // 2. BUYER PROPOSAL
-                if (ev.type === "BUYER_PROPOSAL") {
-                  const proposedOffer = p.proposedOffer as { unitPrice?: number; deliveryDays?: number; returnDays?: number } | undefined;
-                  const thresholdVal = typeof p.threshold === "number" ? p.threshold : undefined;
-
-                  return (
-                    <div
-                      key={ev.id}
-                      className="py-3 px-3.5 rounded-[6px] bg-smoke/20 dark:bg-[#141416] border-l-2 border-l-architect-violet/70 border-y border-r border-smoke dark:border-[#27272a] space-y-2 transition-colors"
-                    >
-                      <div className="flex items-center justify-between text-[12px]">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
-                            Buyer proposal ({p.generator === "GEMINI_LIVE" ? "Gemini" : p.generator === "DETERMINISTIC_FALLBACK" ? "deterministic fallback" : "source not recorded"}) → {String(p.vendorName || p.vendorId)}
-                          </span>
-                          <span className="text-[#737373] dark:text-[#a3a3a3]">
-                            (Round {String(p.round)})
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[12px] font-sans tabular-nums font-medium text-architect-violet dark:text-[#a78bfa]">
-                            Utility: {typeof p.utilityScore === "number" ? p.utilityScore.toFixed(3) : "—"}
-                            {thresholdVal !== undefined && (
-                              <span className="text-[11px] text-[#737373] dark:text-[#a3a3a3] font-normal ml-1">
-                                (τ: {thresholdVal.toFixed(3)})
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-
-                      <p className="text-[13px] text-[#4a4a52] dark:text-[#c4c0ba] leading-relaxed italic">
-                        &ldquo;{String(p.message)}&rdquo;
-                      </p>
-
-                      {Boolean(proposedOffer) && (
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1.5 border-t border-smoke/70 dark:border-[#27272a] text-[12px] font-sans tabular-nums text-[#737373] dark:text-[#a3a3a3]">
-                          <span>
-                            Unit Bid: <strong className="text-obsidian dark:text-[#f6f4f0] font-semibold">{formatCurrency(proposedOffer?.unitPrice ?? 0, currencyCode)}</strong>
-                          </span>
-                          <span>
-                            Delivery SLA: <strong className="text-obsidian dark:text-[#f6f4f0] font-semibold">{proposedOffer?.deliveryDays}d</strong>
-                          </span>
-                          <span>
-                            Return Window: <strong className="text-obsidian dark:text-[#f6f4f0] font-semibold">{proposedOffer?.returnDays}d</strong>
-                          </span>
-                          <span className="ml-auto text-[11px] text-[#006840] dark:text-[#4ade80] font-mono-token">
-                            Guardrail Passed
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-
-                // 3. GUARDRAIL INTERVENTION / BLOCKED
-                if (ev.type === "GUARDRAIL_INTERVENTION" || ev.type === "GUARDRAIL_BLOCKED") {
-                  const reasonStr = String(p.reason || p.detail || "Predicate constraint violation");
-                  let predicateName = "Mechanism-Design Guardrail";
-                  if (/budget|exceed|shipping|feasibility/i.test(reasonStr)) {
-                    predicateName = "Predicate A — Feasibility & Budget Limit";
-                  } else if (/leakage|reservation|disclose/i.test(reasonStr)) {
-                    predicateName = "Predicate B — Reservation-Price Leakage";
-                  } else if (/utility|normaliz/i.test(reasonStr)) {
-                    predicateName = "Predicate C — Multi-Attribute Utility";
-                  } else if (/boulware|threshold|decay/i.test(reasonStr)) {
-                    predicateName = "Predicate D — Boulware Utility Threshold";
-                  } else if (/anti-thrashing|monotonic|previous buyer/i.test(reasonStr)) {
-                    predicateName = "Predicate E — Anti-Thrashing Monotonicity";
-                  }
-
-                  const rejectedOffer = p.rejectedOffer as { unitPrice?: number; deliveryDays?: number; returnDays?: number } | undefined;
-
-                  return (
-                    <div
-                      key={ev.id}
-                      className="py-3 px-3.5 rounded-[6px] bg-amber-500/[0.04] dark:bg-[#1a1614] border-l-2 border-l-ember-orange border-y border-r border-amber-500/20 dark:border-[#38261e] space-y-2 transition-colors"
-                    >
-                      <div className="flex items-center justify-between text-[12px]">
-                        <div className="flex items-center gap-1.5 text-ember-orange font-semibold">
-                          <ShieldAlert className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          <span>{predicateName} Intervened</span>
-                        </div>
-                        <span className="text-[10.5px] font-mono-token font-medium px-1.5 py-0.5 rounded bg-ember-orange/15 text-ember-orange border border-ember-orange/25 uppercase">
-                          Purged from Queue
-                        </span>
-                      </div>
-
-                      <div className="text-[12.5px] text-obsidian dark:text-[#f6f4f0] leading-snug">
-                        <span className="text-[#737373] dark:text-[#a3a3a3]">Mathematical Violation:</span>{" "}
-                        <span className="font-medium text-ember-orange">
-                          {reasonStr}
-                        </span>
-                      </div>
-
-                      {rejectedOffer && (
-                        <div className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3] font-mono-token pt-0.5">
-                          Blocked Offer: {formatCurrency(rejectedOffer.unitPrice ?? 0, currencyCode)}/unit • {rejectedOffer.deliveryDays}d delivery • {rejectedOffer.returnDays}d return
-                        </div>
-                      )}
-
-                      {/* Accessible Technical Disclosure Control */}
-                      <details className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3] pt-1 group">
-                        <summary className="cursor-pointer hover:text-obsidian dark:hover:text-white select-none inline-flex items-center gap-1 font-mono-token">
-                          <span>Verification details</span>
-                          <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
-                        </summary>
-                        <div className="mt-1.5 p-2 rounded bg-smoke/40 dark:bg-[#121214] font-mono-token text-[11px] space-y-1 border border-smoke/70 dark:border-[#27272a]">
-                          <div>Target Vendor: {String(p.vendorName || p.vendorId)}</div>
-                          <div>Status: {String(p.status || "GUARDRAIL_BLOCKED")}</div>
-                          <div>Action: Outgoing message purged. AI prompt regenerated under tighter mathematical constraints.</div>
-                        </div>
-                      </details>
-                    </div>
-                  );
-                }
-
-                // 4. VENDOR COUNTEROFFER
-                if (ev.type === "VENDOR_COUNTEROFFER") {
-                  const quote = quotes.find((q) => q.vendorId === p.vendorId);
-                  const initialAsk = quote?.initialUnitAsk;
-                  const newAsk = Number(p.newUnitAsk);
-                  const concession = initialAsk && !isNaN(newAsk) && initialAsk > newAsk ? initialAsk - newAsk : null;
-
-                  return (
-                    <div
-                      key={ev.id}
-                      className="py-3 px-3.5 rounded-[6px] bg-smoke/15 dark:bg-[#141416] border border-smoke dark:border-[#27272a] space-y-2 transition-colors"
-                    >
-                      <div className="flex items-center justify-between text-[12px]">
-                        <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
-                          {String(p.vendorName || p.vendorId)} Counteroffer
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {concession !== null && (
-                            <span className="text-[11px] font-mono-token text-[#006840] dark:text-[#4ade80]">
-                              (-{formatCurrency(concession, currencyCode)} concession)
-                            </span>
-                          )}
-                          <span className="font-sans font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
-                            New Ask: {formatCurrency(newAsk, currencyCode)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {Boolean(p.turn && typeof p.turn === "object") && (
-                        <p className="text-[13px] text-[#4a4a52] dark:text-[#c4c0ba] leading-relaxed italic">
-                          &ldquo;{String((p.turn as { message?: string }).message)}&rdquo;
-                        </p>
-                      )}
-                    </div>
-                  );
-                }
-
-                // 4.b VENDOR ACCEPTANCE
-                if (ev.type === "VENDOR_ACCEPTANCE") {
-                  return (
-                    <div
-                      key={ev.id}
-                      className="py-3 px-3.5 rounded-[6px] bg-emerald-500/[0.05] dark:bg-[#141a16] border border-emerald-500/25 space-y-1.5 transition-colors"
-                    >
-                      <div className="flex items-center justify-between text-[12px]">
-                        <span className="font-semibold text-[#006840] dark:text-[#4ade80] flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          <span>Vendor Accepted Proposal ({String(p.vendorName || p.vendorId)})</span>
-                        </span>
-                        {typeof p.unitPrice === "number" && (
-                          <span className="font-sans font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
-                            Agreed Unit: {formatCurrency(p.unitPrice, currencyCode)}
-                          </span>
-                        )}
-                      </div>
-                      {typeof p.message === "string" && (
-                        <p className="text-[13px] text-[#4a4a52] dark:text-[#c4c0ba] italic">
-                          &ldquo;{p.message}&rdquo;
-                        </p>
-                      )}
-                    </div>
-                  );
-                }
-
-                // 4.c BUYER ACCEPTANCE
-                if (ev.type === "BUYER_ACCEPTANCE") {
-                  return (
-                    <div
-                      key={ev.id}
-                      className="py-3 px-3.5 rounded-[6px] bg-emerald-500/[0.05] dark:bg-[#141a16] border border-emerald-500/25 space-y-1.5 transition-colors"
-                    >
-                      <div className="flex items-center justify-between text-[12px]">
-                        <span className="font-semibold text-[#006840] dark:text-[#4ade80] flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          <span>Buyer Accepted Counteroffer ({String(p.vendorName || p.vendorId)})</span>
-                        </span>
-                        {typeof p.unitPrice === "number" && (
-                          <span className="font-sans font-semibold text-obsidian dark:text-[#f6f4f0] tabular-nums">
-                            Agreed Unit: {formatCurrency(p.unitPrice, currencyCode)}
-                          </span>
-                        )}
-                      </div>
-                      {typeof p.message === "string" && (
-                        <p className="text-[13px] text-[#4a4a52] dark:text-[#c4c0ba] italic">
-                          &ldquo;{p.message}&rdquo;
-                        </p>
-                      )}
-                    </div>
-                  );
-                }
-
-                // 5. ROUND COMPLETED
-                if (ev.type === "ROUND_COMPLETED") {
-                  return (
-                    <div
-                      key={ev.id}
-                      className="py-1.5 px-3 rounded-[4px] bg-smoke/25 dark:bg-[#141416] text-[11.5px] text-[#737373] dark:text-[#a3a3a3] flex items-center justify-between font-mono-token border border-smoke dark:border-[#27272a]"
-                    >
-                      <span>Round {String(p.round)} committed to Merkle tree</span>
-                      <span className="text-architect-violet dark:text-[#a78bfa]">
-                        {String(p.merkleRoot).slice(0, 14)}...
-                      </span>
-                    </div>
-                  );
-                }
-
-                // 6. NEGOTIATION COMPLETED
-                if (ev.type === "NEGOTIATION_COMPLETED") {
-                  if (failed || stopped) return <p key={ev.id} className="text-sm text-text-secondary">An earlier completion event was superseded. Reload the saved session to confirm its state.</p>;
-                  const isDealTurn =
-                    p.outcome !== "NO_DEAL" &&
-                    Boolean(p.selectedVendor || p.winningVendor || p.winningVendorId);
-
-                  if (!isDealTurn) {
-                    return (
-                      <div
-                        key={ev.id}
-                        className="py-3.5 px-4 rounded-[6px] bg-amber-500/[0.08] dark:bg-amber-500/10 border-l-2 border-l-amber-500 border-y border-r border-amber-500/20 space-y-2 transition-colors"
-                      >
-                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-                          <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
-                          <span className="font-semibold text-[14px]">
-                            Negotiation Concluded — No Deal
-                          </span>
-                        </div>
-                        <p className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
-                          {String(
-                            p.reason ||
-                              "No competing vendor counteroffer satisfied mandatory budget and SLA constraints."
-                          )}
-                        </p>
-                        <div className="text-[12px] text-[#737373] dark:text-[#a3a3a3] pt-0.5">
-                          Settlement gate is closed for this session. Revise mandate constraints or source alternative wholesale catalogs.
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  const vendorName = String(p.selectedVendor || p.winningVendor || "Selected Supplier");
-                  const totalCostVal = p.totalCost ?? p.finalTotalCost ?? p.finalAmount;
-                  const savingsVal = p.savings ?? p.savingsAmount ?? 0;
-
-                  return (
-                    <div
-                      key={ev.id}
-                      className="py-3.5 px-4 rounded-[6px] bg-emerald-500/[0.05] dark:bg-[#141a16] border-l-2 border-l-lichen-green border-y border-r border-emerald-500/20 dark:border-[#1e2a22] space-y-2.5 transition-colors"
-                    >
-                      <div className="flex items-center gap-2 text-[#006840] dark:text-[#4ade80]">
-                        <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span className="font-semibold text-[14px]">
-                          Consensus Reached with {vendorName}
-                        </span>
-                      </div>
-
-                      <div className="text-[13px] text-[#4a4a52] dark:text-[#b8b5af] flex flex-wrap items-center gap-x-4 gap-y-1">
-                        <span>
-                          Final Landed Cost:{" "}
-                          <strong className="text-obsidian dark:text-white tabular-nums">
-                            {formatCurrency(Number(totalCostVal ?? 0), currencyCode)}
-                          </strong>
-                        </span>
-                        <span>•</span>
-                        <span>
-                          Net Savings:{" "}
-                          <strong className="text-[#006840] dark:text-[#4ade80] tabular-nums">
-                            +{formatCurrency(Number(savingsVal ?? 0), currencyCode)}
-                          </strong>
-                        </span>
-                      </div>
-
-                      <div className="text-[12.5px] text-[#006840] dark:text-[#4ade80] flex items-center gap-1.5 font-medium">
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                        <span>Agreement Accepted: Mutual agreement recorded and committed to pre-settlement Merkle tree.</span>
-                      </div>
-
-                      {onProceedToSettlement && !failed && !stopped && !isStreaming && (
-                        <div className="pt-1">
-                          <button
-                            type="button"
-                            onClick={onProceedToSettlement}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[6px] bg-ember-orange hover:bg-[#e65c00] text-white text-[12.5px] font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
-                          >
-                            <span>Proceed to Settlement Gate</span>
-                            <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-
-                // Fallback for general events
-                return (
-                  <div
-                    key={ev.id}
-                    className="py-1 px-2.5 rounded bg-smoke/20 dark:bg-[#141416] text-[11px] text-[#737373] dark:text-[#a3a3a3] flex items-center justify-between font-mono-token border border-smoke dark:border-[#27272a]"
-                  >
-                    <span>{ev.type}</span>
-                    <span>{new Date(ev.timestamp).toLocaleTimeString()}</span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </section>
-      </div>
+          </ol>
+        </div>}
+      </OperationsPanel>
     </div>
-  );
+  </div>;
 }
