@@ -139,8 +139,23 @@
 .pactum-cinema .cinema-evidence > p { color: var(--landing-muted); }
 .pactum-cinema .cinema-audit-result { margin-top: 12px; padding: 12px; background: #dcefe2; color: #28543a; border-radius: 8px; font-size: 12px; }
 .pactum-cinema .cinema-audit-story { margin-top: 32px; }
+/* Lavender retains the approval boundary; mint frames the conditional settlement outcome. */
+.pactum-cinema .cinema-settlement { padding: 16px; border-top: 1px solid #d7d0c7; }
+.pactum-cinema .cinema-settlement h3 { margin: 8px 0; font-size: clamp(24px, 2.5vw, 34px); }
+.pactum-cinema .cinema-settlement h4 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+.pactum-cinema .cinema-settlement .cinema-sub { max-width: 580px; }
+.pactum-cinema .cinema-payment-approval { margin-top: 12px; padding: 10px 12px; border-radius: 7px; background: var(--cinema-lavender); color: #584b69; font-size: 12px; }
+.pactum-cinema .cinema-payment-approval p:last-child { margin-top: 4px; }
+.pactum-cinema .cinema-payment-steps { margin: 8px 0; padding-left: 24px; list-style: decimal; }
+.pactum-cinema .cinema-payment-step { padding: 8px 0 8px 4px; border-bottom: 1px solid #d7d0c7; font-size: 12px; }
+.pactum-cinema .cinema-payment-step p { color: var(--landing-muted); }
+.pactum-cinema .cinema-payment-step > span { display: block; margin-top: 4px; font-weight: 600; color: #584b69; }
+.pactum-cinema .cinema-payment-outcome { padding: 10px 12px; background: #dcefe2; color: #28543a; border-radius: 8px; font-size: 12px; }
+.pactum-cinema .cinema-payment-outcome .landing-text-link { font-size: 12px; }
+.pactum-cinema .cinema-settlement-story { margin-top: 32px; }
 @media (min-width: 700px) {
   .pactum-cinema .cinema-audit { padding: 24px; }
+  .pactum-cinema .cinema-settlement { padding: 24px; }
 }
 @media (min-width: 1000px) and (min-height: 900px) and (prefers-reduced-motion: no-preference) {
   .pactum-cinema[data-enhanced="true"] .cinema-panels { display: grid; }
@@ -149,6 +164,8 @@
   .pactum-cinema[data-enhanced="true"] .cinema-negotiation-story { margin-top: 0; }
   .pactum-cinema[data-enhanced="true"] .cinema-audit { border-top: 0; }
   .pactum-cinema[data-enhanced="true"] .cinema-audit-story { margin-top: 0; }
+  .pactum-cinema[data-enhanced="true"] .cinema-settlement { border-top: 0; }
+  .pactum-cinema[data-enhanced="true"] .cinema-settlement-story { margin-top: 0; }
 }
 @media (max-width: 699px) {
   .pactum-cinema .cinema-negotiation { padding: 16px; }
@@ -210,11 +227,16 @@
   .pactum-cinema .cinema-rail-note { display: none; }
 }
 @media (min-width: 1000px) and (min-height: 900px) and (prefers-reduced-motion: no-preference) {
-  .pactum-cinema[data-enhanced="true"] .cinema-chapter { height: 520vh; padding-bottom: 0; }
+  .pactum-cinema[data-enhanced="true"] .cinema-chapter { height: 720vh; padding-bottom: 0; }
   .pactum-cinema[data-enhanced="true"] .cinema-sticky { position: sticky; top: 0; min-height: 100vh; display: flex; flex-direction: column; justify-content: flex-start; padding-block: 32px; }
   .pactum-cinema[data-enhanced="true"] .cinema-story { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 35%; }
   .pactum-cinema[data-enhanced="true"] .cinema-story h2 { font-size: clamp(36px, 4vw, 60px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .pactum-cinema *, .pactum-cinema *::before, .pactum-cinema *::after { scroll-behavior: auto !important; transition: none !important; }
+}
+@media (min-width: 1000px) and (min-height: 900px) and (max-height: 1000px) and (prefers-reduced-motion: no-preference) {
+  .pactum-cinema[data-enhanced="true"] .cinema-sticky { padding-block: 12px; }
+  .pactum-cinema[data-enhanced="true"] .cinema-caption { margin-bottom: 8px; }
+  .pactum-cinema[data-enhanced="true"] .cinema-controls { margin-top: 8px; }
 }
