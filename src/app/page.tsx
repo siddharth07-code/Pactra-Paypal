@@ -26,8 +26,8 @@ function convertSessionTurnsToStreamEvents(session: ProcurementSession): StreamE
       events.push({
         id: `turn_rnd_${currentRound}`,
         type: "ROUND_STARTED",
-        timestamp: turn.timestamp || new Date().toISOString(),
-        payload: { round: currentRound, maxRounds: 4 },
+        timestamp: turn.timestamp || "",
+        payload: { round: currentRound },
       });
     }
 
@@ -35,7 +35,7 @@ function convertSessionTurnsToStreamEvents(session: ProcurementSession): StreamE
       events.push({
         id: turn.id || `turn_gr_${i}`,
         type: turn.guardrailStatus,
-        timestamp: turn.timestamp || new Date().toISOString(),
+        timestamp: turn.timestamp || "",
         payload: {
           round: turn.round,
           vendorId: turn.vendorId,
@@ -48,7 +48,7 @@ function convertSessionTurnsToStreamEvents(session: ProcurementSession): StreamE
         events.push({
           id: turn.id || `turn_ba_${i}`,
           type: "BUYER_ACCEPTANCE",
-          timestamp: turn.timestamp || new Date().toISOString(),
+          timestamp: turn.timestamp || "",
           payload: {
             round: turn.round,
             vendorId: turn.vendorId,
@@ -60,7 +60,7 @@ function convertSessionTurnsToStreamEvents(session: ProcurementSession): StreamE
         events.push({
           id: turn.id || `turn_bp_${i}`,
           type: "BUYER_PROPOSAL",
-          timestamp: turn.timestamp || new Date().toISOString(),
+          timestamp: turn.timestamp || "",
           payload: {
             round: turn.round,
             vendorId: turn.vendorId,
@@ -77,7 +77,7 @@ function convertSessionTurnsToStreamEvents(session: ProcurementSession): StreamE
         events.push({
           id: turn.id || `turn_va_${i}`,
           type: "VENDOR_ACCEPTANCE",
-          timestamp: turn.timestamp || new Date().toISOString(),
+          timestamp: turn.timestamp || "",
           payload: {
             round: turn.round,
             vendorId: turn.vendorId,
@@ -89,7 +89,7 @@ function convertSessionTurnsToStreamEvents(session: ProcurementSession): StreamE
         events.push({
           id: turn.id || `turn_vc_${i}`,
           type: "VENDOR_COUNTEROFFER",
-          timestamp: turn.timestamp || new Date().toISOString(),
+          timestamp: turn.timestamp || "",
           payload: {
             round: turn.round,
             vendorId: turn.vendorId,
@@ -105,13 +105,12 @@ function convertSessionTurnsToStreamEvents(session: ProcurementSession): StreamE
     events.push({
       id: `ev_completed_${session.id}`,
       type: "NEGOTIATION_COMPLETED",
-      timestamp: session.agreementRecord.acceptedAt || new Date().toISOString(),
+      timestamp: session.agreementRecord.acceptedAt || "",
       payload: {
         outcome: "ACCEPTED",
         selectedVendor: session.agreementRecord.vendorName,
         winningVendorId: session.agreementRecord.vendorId,
         totalCost: session.agreementRecord.totalCost,
-        savings: (session.mandate.maxTotalBudget || 0) - session.agreementRecord.totalCost,
         finalOffer: session.agreementRecord.agreedOffer,
       },
     });
@@ -119,7 +118,7 @@ function convertSessionTurnsToStreamEvents(session: ProcurementSession): StreamE
     events.push({
       id: `ev_no_deal_${session.id}`,
       type: "NEGOTIATION_COMPLETED",
-      timestamp: new Date().toISOString(),
+      timestamp: session.updatedAt,
       payload: {
         outcome: "NO_DEAL",
         reason: "No competing vendor counteroffer satisfied mandatory budget and SLA constraints.",
@@ -222,9 +221,10 @@ function Home() {
       let matchedSession: ProcurementSession | undefined;
       if (sessionParam) {
         matchedSession = loaded.find((s) => s.id === sessionParam);
+        if (!matchedSession) setSessionsError("The selected procurement session is unavailable. Check the organization and session link, then reload.");
       }
       // Only default to first session if not intentionally on sourcing screen
-      if (!matchedSession && loaded.length > 0 && screenParam !== "sourcing") {
+      if (!matchedSession && !sessionParam && loaded.length > 0 && screenParam !== "sourcing") {
         matchedSession = loaded[0];
       }
 
@@ -425,6 +425,7 @@ function Home() {
   };
 
   const handleOpenSession = (session: ProcurementSession) => {
+    setSessionsError("");
     setActiveSession(session);
     setArenaSessionId(session.id);
     setArenaMandate(session.mandate);
@@ -501,6 +502,9 @@ function Home() {
           isStreaming={isStreaming}
           session={activeSession}
           onStartNegotiation={handleArenaStartNegotiation}
+          loading={sessionsLoading}
+          error={sessionsError}
+          onRetry={() => window.location.reload()}
           onProceedToSettlement={async () => {
             const loaded = await refreshSessions();
             if (arenaSessionId) {
@@ -511,13 +515,7 @@ function Home() {
                 return;
               }
             }
-            if (loaded.length > 0) {
-              setActiveSession(loaded[0]);
-              setArenaSessionId(loaded[0].id);
-              navigateToScreen("settlement", loaded[0].id);
-            } else {
-              navigateToScreen("settlement");
-            }
+            setSessionsError("The selected session could not be loaded. Reload it before reviewing settlement.");
           }}
         />
       )}
