@@ -27,13 +27,16 @@ export function WelcomeHeroScreen() {
     media.add("(min-width: 1000px) and (min-height: 900px) and (prefers-reduced-motion: no-preference)", () => {
       gsap.set(pageRef.current, { attr: { "data-enhanced": "true" } });
       const panels = pageRef.current?.querySelectorAll<HTMLElement>("[data-scene]");
-      const setScene = (negotiation: boolean) => panels?.forEach(panel => {
-        const hidden = (panel.dataset.scene === "negotiation") !== negotiation;
+      const setScene = (scene: "mandate" | "negotiation" | "audit") => panels?.forEach(panel => {
+        const hidden = panel.dataset.scene !== scene;
+        if (hidden && panel.contains(document.activeElement)) {
+          pageRef.current?.querySelector<HTMLButtonElement>("button[aria-pressed]")?.focus({ preventScroll: true });
+        }
         panel.inert = hidden;
         panel.setAttribute("aria-hidden", String(hidden));
       });
-      setScene(false);
-      const timeline = gsap.timeline({ onUpdate: () => setScene(timeline.time() >= 1.75), scrollTrigger: { trigger: ".cinema-chapter", start: "top top", end: "bottom bottom", scrub: .6, invalidateOnRefresh: true } });
+      setScene("mandate");
+      const timeline = gsap.timeline({ onUpdate: () => setScene(timeline.time() >= 3.05 ? "audit" : timeline.time() >= 1.75 ? "negotiation" : "mandate"), scrollTrigger: { trigger: ".cinema-chapter", start: "top top", end: "bottom bottom", scrub: .6, invalidateOnRefresh: true } });
       timeline.to(".cinema-preview", { width: "58%", xPercent: 72.4, ease: "none", duration: 1 }, 0)
         .from(".cinema-story", { autoAlpha: 0, y: 32, duration: .6 }, .25)
         .to(".cinema-rail", { autoAlpha: 0, width: 0, padding: 0, duration: .5 }, 0)
@@ -44,7 +47,16 @@ export function WelcomeHeroScreen() {
         .fromTo('[data-scene="negotiation"]', { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: .4 }, 1.75)
         .from(".cinema-offer", { x: 16, opacity: 0, stagger: .12, duration: .35 }, 1.8)
         .from(".cinema-terms", { y: 12, opacity: 0, duration: .35 }, 2.25)
-        .to({}, { duration: .4 });
+        .to({}, { duration: .4 })
+        .to('[data-scene="negotiation"]', { autoAlpha: 0, y: -16, duration: .3 }, 2.75)
+        .fromTo('[data-scene="audit"]', { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: .4 }, 3.05)
+        .from(".cinema-agreement", { y: 12, opacity: 0, duration: .35 }, 3.15)
+        .from(".cinema-audit-check", { opacity: 0, x: 12, stagger: .15, duration: .3 }, 3.5)
+        .from(".cinema-evidence-leaves", { opacity: 0, duration: .3 }, 4)
+        .from(".cinema-evidence-join", { scaleY: 0, transformOrigin: "top", duration: .3 }, 4.2)
+        .from(".cinema-evidence-root", { opacity: 0, duration: .3 }, 4.5)
+        .from(".cinema-audit-result", { opacity: 0, y: 8, duration: .35 }, 4.8)
+        .to({}, { duration: .5 });
       return () => panels?.forEach(panel => { panel.inert = false; panel.removeAttribute("aria-hidden"); });
     });
     return () => media.revert();
@@ -72,7 +84,7 @@ export function WelcomeHeroScreen() {
       </section>
       <section id="procurement-mandate" className="cinema-chapter" aria-labelledby="mandate-title">
         <div className="landing-container cinema-sticky">
-          <div className="cinema-caption"><span>Introducing the procurement workspace</span><span>Scenes 01 + 02</span></div>
+          <div className="cinema-caption"><span>Introducing the procurement workspace</span><span>Scenes 01 + 02 + 03</span></div>
           <div className="cinema-scene">
             <div className="cinema-story" data-scene="mandate">
               <p className="cinema-kicker">01 / Procurement mandate</p>
@@ -83,6 +95,11 @@ export function WelcomeHeroScreen() {
               <p className="cinema-kicker">02 / AI negotiation</p>
               <h2 id="negotiation-title">Compare the offer.<br />Keep the boundaries.</h2>
               <p>Evaluate supplier proposals against the mandate, then review a counteroffer with the conditions still in view.</p>
+            </div>
+            <div className="cinema-story cinema-audit-story" data-scene="audit">
+              <p className="cinema-kicker">03 / Audit verification</p>
+              <h2 id="audit-title">Keep the terms.<br />Trace the evidence.</h2>
+              <p>Bring the draft agreement and its policy checks into one record. SHA-256 Merkle evidence helps check record integrity; commercial review still matters.</p>
             </div>
             <div className="cinema-preview" role="group" aria-label="Illustrative procurement mandate">
               <div className="cinema-toolbar"><span>Procurement workspace</span><span className="cinema-sample">Illustrative workflow</span></div>
@@ -119,10 +136,36 @@ export function WelcomeHeroScreen() {
                 <p className="cinema-review-note">This demonstration does not contact suppliers or approve an agreement.</p>
                 <Link href="/workspace" className="landing-text-link">Create your procurement mandate</Link>
               </section>
+              <section className="cinema-audit" data-scene="audit" aria-labelledby="agreement-title">
+                <p className="cinema-label">03 / Agreement verification · Illustrative demo</p>
+                <h3 id="agreement-title">A draft with a traceable record.</h3>
+                <p className="cinema-sub">Sample verification only. No agreement is created and no cryptographic verification is executed here.</p>
+                <div className="cinema-agreement">
+                  <h4>Draft agreement / Sample supplier A</h4>
+                  <p>20 office chairs · USD 3,700 · delivery in 8 days</p>
+                  <p>Buyer approval pending · payment not authorized</p>
+                </div>
+                <ul className="cinema-audit-checks" aria-label="Illustrative agreement policy checks">
+                  <li className="cinema-audit-check"><span>Budget / USD 4,000 limit</span><strong>Sample pass</strong></li>
+                  <li className="cinema-audit-check"><span>Delivery / 10-day limit</span><strong>Sample pass</strong></li>
+                  <li className="cinema-audit-check"><span>Buyer approval</span><strong>Still required</strong></li>
+                </ul>
+                <figure className="cinema-evidence" aria-labelledby="evidence-caption">
+                  <figcaption id="evidence-caption">SHA-256 / Merkle evidence, simplified</figcaption>
+                  <div className="cinema-evidence-leaves"><span>Mandate record</span><span>Draft terms</span></div>
+                  <div className="cinema-evidence-join" aria-hidden="true" />
+                  <div className="cinema-evidence-root">Combined evidence root <span>Diagram only · no computed hash</span></div>
+                  <p>Recorded events become leaf hashes, combined into a Merkle root. Inclusion proofs can check whether a record belongs to that root.</p>
+                </figure>
+                <div className="cinema-audit-result">
+                  <h4>Audit-verified / Illustrative state</h4>
+                  <p>Example evidence integrity: shown as valid. Buyer approval and PayPal Sandbox settlement remain separate steps.</p>
+                </div>
+              </section>
               </div>
             </div>
           </div>
-          <div className="cinema-controls"><span>Sample workflow / Chapters 01 + 02</span><div><button type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? "Resume motion" : "Pause motion"}</button><button type="button" onClick={() => { setPaused(false); setReplay(value => value + 1); window.scrollTo({ top: 0, behavior: "instant" }); }}>Replay entrance</button></div></div>
+          <div className="cinema-controls"><span>Sample workflow / Chapters 01 + 02 + 03</span><div><button type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? "Resume motion" : "Pause motion"}</button><button type="button" onClick={() => { setPaused(false); setReplay(value => value + 1); window.scrollTo({ top: 0, behavior: "instant" }); }}>Replay entrance</button></div></div>
         </div>
       </section>
       <LifecycleScrollSection />

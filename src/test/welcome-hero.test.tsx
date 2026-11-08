@@ -113,4 +113,21 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "instant" });
     expect(screen.getByRole("button", { name: "Pause motion" })).toHaveAttribute("aria-pressed", "false");
   });
+  it("carries the negotiated draft into a disclosed audit example without implying approval", () => {
+    render(<WelcomeHeroScreen />);
+    expect(screen.getByText("20 office chairs · USD 3,700 · delivery in 8 days")).toBeVisible();
+    expect(screen.getByText("Buyer approval pending · payment not authorized")).toBeVisible();
+    expect(screen.getByRole("list", { name: "Illustrative agreement policy checks" }).children).toHaveLength(3);
+    expect(screen.getByText("Still required")).toBeVisible();
+    expect(screen.getByText(/No agreement is created and no cryptographic verification is executed here/)).toBeVisible();
+    expect(screen.getByRole("figure", { name: "SHA-256 / Merkle evidence, simplified" })).toBeVisible();
+    expect(screen.getByText("Diagram only · no computed hash")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Audit-verified / Illustrative state" })).toBeVisible();
+  });
+  it("keeps the audit record readable with motion paused", () => {
+    render(<WelcomeHeroScreen />);
+    fireEvent.click(screen.getByRole("button", { name: "Pause motion" }));
+    expect(screen.getByRole("heading", { name: "A draft with a traceable record." })).toBeVisible();
+    expect(screen.getByText(/Buyer approval and PayPal Sandbox settlement remain separate steps/)).toBeVisible();
+  });
 });
