@@ -90,7 +90,7 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-page-bg text-text-primary font-sans transition-colors duration-150">
+    <div className="pactum-workspace min-h-screen flex flex-col bg-page-bg text-text-primary font-sans transition-colors duration-150">
       {/* Skip to Main Content Link (WCAG 2.2 AA) */}
       <a
         href="#main-content"
@@ -100,8 +100,8 @@ export function AppShell({
       </a>
 
       {/* Persistent Single-Row Institutional Fintech Header */}
-      <header className="h-16 w-full bg-surface-primary border-b border-border-primary sticky top-0 z-40 transition-colors">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center">
+      <header className="h-16 w-full bg-page-bg border-b border-border-primary sticky top-0 z-40 transition-colors">
+        <div className="max-w-[1344px] mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center">
           {/* Brand stays anchored in the same natural row as navigation. */}
           <button
             type="button"
@@ -239,7 +239,7 @@ export function AppShell({
         className={`flex-1 w-full focus:outline-none ${
           currentScreen === "overview"
             ? "w-full"
-            : "max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10"
+            : "max-w-[1344px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12"
         }`}
       >
         {children}
@@ -249,8 +249,8 @@ export function AppShell({
       <BackToTopButton />
 
       {/* Editorial Footer Bar */}
-      <footer className="w-full bg-surface-primary border-t border-border-primary mt-16 transition-colors no-print">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-text-secondary">
+      <footer className="w-full bg-page-bg border-t border-border-primary mt-16 transition-colors no-print">
+        <div className="max-w-[1344px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-text-secondary">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-text-primary">PACTUM</span>
             <span>Procurement operations</span>
