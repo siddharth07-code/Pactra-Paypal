@@ -64,7 +64,7 @@ export function OrganizationBoundary({ children }: { children: ReactNode }) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error?.message ?? "Organization operation failed.");
-      window.location.replace("/");
+      window.location.replace("/workspace");
     } catch (error) {
       setError(error instanceof Error ? error.message : "Organization access failed.");
     }
