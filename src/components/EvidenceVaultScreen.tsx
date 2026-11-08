@@ -8,7 +8,6 @@ import {
 } from "./SharedUI";
 import {
   ShieldCheck,
-  Lock,
   Info,
 } from "lucide-react";
 import type { ProcurementSession, MerkleAuditNode } from "@/types/pactum";
@@ -180,11 +179,10 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-y border-border-primary py-6">
         <div className="min-w-0 space-y-3.5">
           <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
-            <span className="text-[12px] font-sans font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+            <span className="text-base font-medium text-text-primary tracking-tight">
               Pre-Settlement Merkle Root
             </span>
-            <span className="text-[11px] font-sans font-medium px-2 py-0.5 rounded-[4px] bg-surface-secondary text-text-primary border border-border-primary">
+            <span className="text-xs text-text-secondary">
               {preRoot ? "Root recorded" : "Not recorded"}
             </span>
           </div>
@@ -207,11 +205,10 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
 
         <div className="min-w-0 space-y-3.5">
           <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
-            <span className="text-[12px] font-sans font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+            <span className="text-base font-medium text-text-primary tracking-tight">
               Post-Audit Settlement Root
             </span>
-            <span className="text-[11px] font-sans font-medium px-2 py-0.5 rounded-[4px] bg-surface-secondary text-text-primary border border-border-primary">
+            <span className="text-xs text-text-secondary">
               {postRoot ? "Root recorded" : "Not recorded"}
             </span>
           </div>
@@ -228,7 +225,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
             )}
           </div>
           <p className="text-[12.5px] text-text-secondary leading-relaxed pt-2.5 border-t border-border-primary">
-            Cryptographically commits the ACWORLD audit certificate and payment capture without circular dependency on the pre-settlement root.
+            Covers the ACWORLD audit certificate and payment capture as a separate record.
           </p>
         </div>
       </div>
@@ -344,7 +341,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
           <div className="flex items-center gap-2.5">
             <Info className="w-4 h-4 text-text-secondary shrink-0" aria-hidden="true" />
             <span className="text-[13.5px] font-semibold text-text-primary tracking-tight">
-              Evaluator Guide: Understanding VeriPay Evidence &amp; ACWORLD Audit
+              How to read this evidence
             </span>
           </div>
           <span className="text-[12px] font-mono-token text-text-secondary group-open:rotate-180 transition-transform">
