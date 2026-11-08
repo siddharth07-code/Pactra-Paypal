@@ -53,7 +53,7 @@ export function OverviewScreen({ sessions, onStartNew, onOpenSession, onNavigate
 
   return <PageContainer>
     <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-      <div className="space-y-2"><h1 className="text-[28px] sm:text-[32px] leading-tight font-semibold tracking-[-0.03em]">Procurement overview</h1>
+      <div className="space-y-3"><h1 className="workspace-title">Procurement overview</h1>
         <p className="text-sm text-text-secondary">Your mandates, outstanding decisions and settlement progress.</p></div>
       <PrimaryButton onClick={onStartNew}>New mandate</PrimaryButton>
     </div>
