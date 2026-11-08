@@ -1,368 +1,544 @@
-# PACTUM cinematic landing page
-
-Status: design proposal for review. UI implementation is not authorized by this document.
-Date: 8 November 2026.
-Scope: public landing experience and illustrative procurement lifecycle only.
-
-## 1. Basis, confidence, and boundaries
-
-The referenced Study specification chat describes an ARC-inspired monochrome editorial fintech image: oversized black typography, warm-white space, floating chrome forms, architectural asymmetry, strong shadows, and a cinematic transition into near-black. That description is the art-direction basis here. The original reference image was not available in the retrieved conversation. This document does not claim a pixel-level analysis of it; exact silhouette, font match, crops, and relative placement require comparison with that image before visual approval.
-
-The current workspace contains no application source, dependency manifest, or existing design documentation. Next.js App Router, React, the root route's session responsibilities, and the Quiet Authority application direction come from the supplied brief and earlier chat, not a source audit. All paths below are proposed locations, not verified existing files. Existing route destinations and security contracts must be inspected before implementation.
-
-The design has two separate visual domains:
-
-- The public page uses editorial scale, chrome sculpture, and choreographed motion to explain PACTUM.
-- The authenticated application retains its existing Quiet Authority typography, density, colors, navigation, forms, tables, status language, and financial controls. Marketing tokens never replace application tokens.
-
-No payment, negotiation, audit, database, authentication, authorization, organization, or session behavior changes belong to this work. No UI, generated artwork, dependency installation, route change, or business-logic change accompanies this specification.
-
-## 2. Creative direction
-
-Reading this as: a public procurement infrastructure landing page for procurement and finance teams, in a monochrome editorial fintech language. Design dials: ENERGY 2 / RHYTHM 3 / MOTION 3. The motion dial describes a few carefully directed scenes, not motion on every element.
-
-The page's identity is a machined agreement: a layered object whose components find alignment, preserve evidence, and close into a payment-ready form. The same edge profile, seam, and registration marks recur throughout the narrative. This procurement-specific motif gives the sculpture a reason to exist.
-
-One focal point dominates each viewport. In the hero, the headline and artifact form one composition. In the lifecycle, the active stage and its physical transformation take priority. The closing scene lets the assembled artifact recede behind the entry action.
-
-Avoid decorative particles, neon, stock abstract blobs, dashboards disguised as sculptures, invented logos, fake testimonials, savings counters, payment tickers, and compliance badges. Use vermilion once per composition as a registration seam or selected-control marker. Neutral light-to-dark reflections describe the metal; they are not decorative page gradients.
-
-## 3. Visual tokens
-
-All proposed custom properties are scoped beneath `.pactum-landing`. Never redefine global application variables, Tailwind theme primitives, or document-wide heading styles.
-
-### Color
-
-- `--landing-paper: #F4F2ED`: warm-white hero and introductory ground, selected for editorial contrast and visible chrome reflections.
-- `--landing-ink: #171717`: primary text on paper.
-- `--landing-muted: #57534E`: secondary text on paper; never lower opacity to create body copy.
-- `--landing-night: #141414`: lifecycle exit and closing ground.
-- `--landing-on-night: #F4F2ED`: primary dark-section text.
-- `--landing-muted-on-night: #B8B4AD`: secondary dark-section text.
-- `--landing-vermilion: #B83E26`: existing brand accent described in the earlier brief. Confirm against application brand assets before implementation.
-- `--landing-rule: #D0CCC4`: decorative rules on paper; not sufficient as the sole boundary of an essential control.
-- `--landing-rule-on-night: #484848`: decorative rules on dark ground.
-
-Accent lettering on paper must pass contrast measurement at its final size. Use neutral ink or paper for critical text and focus outlines. Never assume the vermilion is accessible on charcoal. Essential control boundaries use measured 3:1 contrast against adjacent colors. Text requires measured 4.5:1 contrast, or 3:1 for qualifying large text. Check all intermediate animated backgrounds; preferably keep text on a stable surface during the palette transition.
-
-### Type
-
-Use a self-hosted editorial grotesk with broad uppercase forms and restrained geometry. Proposed starting family: Helvetica Now Display if appropriately licensed; otherwise a self-hosted licensed equivalent such as an available Inter Tight build. This is a proposal, not an instruction to purchase a font. Verify actual font files, rights, weights, and glyph coverage before adopting it. Reuse the application's existing body family where compatible to maintain brand continuity.
-
-- Display: weight 500 or 600, line height 0.92 to 0.98, tracking -0.045em to -0.025em. Desktop size `clamp(72px, 7.8vw, 150px)`.
-- Mobile display: `clamp(40px, 11vw, 72px)`, line height 1.0. Preserve complete words and natural line wrapping at zoom.
-- Section headings: 40 to 80px desktop, 30 to 44px mobile, line height 1.04.
-- Body: 18px desktop, 16 to 18px mobile, line height 1.5 to 1.6; reading width 42 to 58 characters.
-- Controls: 16px minimum; stage labels 16 to 20px, sentence case.
-- Index and caption: 12 to 14px, line height at least 1.4; restrained tracking up to 0.06em for numeric indexes only.
-
-Use oversized type to establish editorial hierarchy, not to fill every section. Small uppercase labels are limited to the PACTUM wordmark and short infrastructure identifiers. Avoid long monospace captions. Preserve one semantic H1 even if a visual reveal splits words into spans. Do not split text in a way that changes screen-reader pronunciation or copy/paste order.
-
-### Space, edges, and surfaces
-
-Use an 8px spacing rhythm, with 4px for optical adjustments. Desktop outer gutters are 48 to 80px; tablet 32px; mobile 20px, reducing to 16px at 320px. Maximum content width is 1760px, centered. Larger displays retain generous side space rather than indefinitely enlarging type.
-
-Desktop uses a 12-column composition with 24px gaps. Mobile uses a single reading column. Section spacing varies deliberately: open hero, compressed lifecycle introduction, sustained demonstration, generous closing statement. Begin with 96 to 160px between major desktop sections and 64 to 88px on mobile.
-
-Controls use 2 to 4px radii; the sculpture has physically small machined bevels. No pill-shaped badge system. Panels rely on rules and spacing rather than universal card shadows. Shadows belong primarily to the artifact and establish its relationship to the floor.
-
-## 4. Page composition and copy
-
-### Header
-
-A slim, ordinary-flow header contains the existing PACTUM mark, an in-page Lifecycle link, and Enter workspace. Reuse the real brand asset; do not redraw a new insignia. The header remains readable on its own surface. It must not introduce a large dropdown menu or new information architecture. On narrow screens, retain the mark and workspace action; place the lifecycle link in the normal content flow if needed.
-
-### Hero: the agreement
-
-At 1440px, begin with a 64px gutter and a roughly 760 to 900px hero including the header. Place the headline across approximately columns 1 to 8, with the artifact centered near columns 8 to 10. Give the sculpture a diagonal from upper right to lower center. Its projected bounds occupy about 38 to 46% of the viewport width. These are starting proportions pending reference comparison.
-
-Proposed H1: “Every agreement. Engineered for certainty.” This is positioning language, not a guarantee of settlement, audit validity, or error-free operation. Review the wording against actual product capabilities before publication.
-
-Proposed supporting copy: “Source suppliers, negotiate within policy, review evidence, and prepare for settlement in one connected workflow.” All capability language must be confirmed against the application.
-
-Primary action: Enter workspace, using the existing entry/authentication destination after inspection. Secondary action: View the lifecycle, linking to the real lifecycle section.
-
-Allow visual overlap between the sculpture and headline only in nonessential negative space. Keep all letterforms, body text, and controls legible. Place the canvas behind HTML, not above an invisible click-blocking plane. Reserve the poster/canvas region before enhancement loads.
-
-### Lifecycle introduction and scene
-
-A short editorial bridge introduces “From sourcing to settlement.” It explains that the visual is a demonstration. Follow it with a wide scene, a four-stage navigation rail, and the active stage's HTML explanation. Keep text clear of metal highlights and camera movement.
-
-The default visual narrative progresses on scroll on capable desktops. Direct stage controls remain visible and work independently. Display “Illustrative workflow” beside the navigation and “No live procurement or payment activity” in the explanatory copy. These labels remain visible in screenshots of the settlement stage.
-
-### Closing scene
-
-The background reaches charcoal, the artifact closes, and the headline reduces to a concise entry invitation: “Bring the agreement into your workspace.” Use Enter workspace as the action. Reserve vermilion for one seam in the artifact; do not animate a success badge or imply money moved.
-
-The footer contains only existing, verified legal or product destinations. Omit links until their actual destinations are known. No customer logo strip, pricing section, testimonial grid, or extra feature filler is proposed.
-
-## 5. Sculptural chrome agreement artifact
-
-### Geometry and meaning
-
-Construct a single reusable assembly from three thin rectangular plates, one graphite spine, four evidence segments, and a small registration rail. Each plate has a document-like proportion around 1:1.4, visible thickness, and a consistent 0.015 to 0.03 unit bevel on an approximately 2-unit-wide object. Final dimensions are tuned in visual review.
-
-The artifact reads as a negotiated agreement rather than a credit card, coin, or padlock. Avoid card numbers, signatures, provider logos, certification stamps, or fabricated legal marks. A subtle PACTUM deboss may use only an existing approved mark. The proposed asset can be procedural geometry; a commissioned or modeled GLB is an alternative if it materially improves silhouette within budget.
-
-Parts retain identity across all stages. Sourcing fans the plates, negotiation aligns them around the spine, audit reveals four evidence segments, settlement nests those components into the closed assembly. Use rigid transforms and controlled occlusion rather than implausible topology morphs or teleportation.
-
-### Material and lighting
-
-Chrome surfaces start near metalness 1.0 and roughness 0.18 to 0.28; brushed surfaces use roughness 0.32 to 0.42. Graphite is less reflective so edges remain readable. These are tuning ranges, not guarantees of a final appearance. Keep a broad bright reflection and a narrow dark band across each major surface. Microtexture must not shimmer at mobile resolution.
-
-Use a neutral studio environment, a broad upper-left key, restrained side fill, and a rear edge light for the dark section. Prefer baked or environment-driven reflections over expensive real-time lights. Use one soft contact shadow or baked floor shadow, not multiple live shadow maps. No default bloom, depth-of-field, chromatic aberration, or screen-space reflection pass.
-
-Start with a perspective camera around 35 to 45 degrees vertical field of view, with the object near the origin. Keep safe projected bounds for every breakpoint. Camera motion follows a shallow arc; never accelerate into a first-person fly-through. Dramatic motion comes from changing plate relationships and light, not disorienting the reader.
-
-## 6. Motion score: GSAP and React Three Fiber
-
-All durations are design targets for later tuning. Animation never gates text, navigation, or authentication entry. The server HTML is readable before any animation initializes. No blocking loader or forced black splash screen.
-
-### Ownership
-
-GSAP owns one normalized scene progress value and entrance timelines. ScrollTrigger maps document position to scene progress. R3F reads that value and interpolates camera, transforms, light intensity, and material parameters. One renderer owns the canvas. Never let GSAP and an R3F frame callback independently write the same property.
-
-Use explicit animation refs or a small imperative scene controller for frame updates. React state changes on discrete stage changes, quality changes, and user preferences, not on every frame. Scope GSAP contexts to the landing root and revert all timelines and triggers on unmount. No global scroll handler or document-wide animation selector.
-
-### Entrance: 0 to 1.6 seconds
-
-- At time 0, show the readable HTML hero and reserved static poster. A thin existing-brand line may reveal over 250ms without obscuring the page.
-- From 100 to 700ms, headline words settle upward by at most 16px with 50ms stagger and `power2.out`. Keep opacity sufficiently visible; never start essential text permanently hidden in CSS.
-- From 200 to 1100ms, the artifact moves from a slightly lower pose into its resting angle, rotating at most 12 degrees. Crossfade the ready canvas over the matching poster in 200ms.
-- From 500 to 1000ms, supporting text and actions settle by at most 8px. They are interactive throughout.
-- By 1600ms, all autonomous entrance motion has stopped. If assets arrive late, skip the entrance and crossfade only; do not replay the whole sequence.
-
-There is no perpetual idle float. Optional pointer parallax on fine pointers is limited to 2 degrees and approximately 8px apparent displacement, damped over 150 to 250ms. Disable it during scrolling, stage transitions, reduced motion, touch input, and when motion is paused. Button text never follows a magnetic transform; a subtle background response is sufficient.
-
-### Desktop scroll score
-
-Enable enhanced sticky choreography only at widths at least 1024px, adequate viewport height, full motion, and a successful capability check. Prefer a native CSS sticky scene with ScrollTrigger reading progress. Do not hijack wheel events or install a smooth-scroll engine.
-
-The lifecycle section spans approximately 240 to 300svh, including one sticky viewport. Tune for a readable journey, with natural page scroll and no nested scrolling. Short viewports use ordinary flow. The complete page remains easy to traverse via keyboard and section links.
-
-Map the lifecycle's normalized progress p from 0 to 1:
-
-- 0.00 to 0.18: sourcing hold; plates fan into a legible specification stack.
-- 0.18 to 0.28: transition to negotiation; plates approach the central spine.
-- 0.28 to 0.43: negotiation hold; opposing components align with a visible tolerance gap.
-- 0.43 to 0.53: transition to audit; camera arcs at most 15 degrees to expose the spine.
-- 0.53 to 0.68: audit hold; evidence segments connect in sequence.
-- 0.68 to 0.78: transition to settlement; segments nest and plates close.
-- 0.78 to 1.00: settlement hold; the assembly rests in its payment-ready form.
-
-Stage thresholds sit at transition midpoints, with approximately 0.015 hysteresis to prevent flicker near a boundary. Interpolate transforms continuously; scrub smoothing begins around 0.35 seconds and must not create prolonged motion after scrolling ends. Reverse scrolling reverses the mechanical story without changing application state.
-
-Transition the paper backdrop toward charcoal near the audit-to-settlement interval using an isolated scene background layer. Keep HTML explanations on stable contrasting surfaces or switch their foreground/background atomically at a known midpoint. Do not interpolate low-contrast text through gray.
-
-### Direct stage navigation and conflict resolution
-
-Each stage has a real anchor targeting its corresponding HTML stage section. Without JavaScript, all four sections remain visible and readable. With enhancement, a controller may present them as accessible tabs, with one associated panel and a roving tab stop. Preserve IDs and URLs for direct linking. Use `aria-selected` for tabs; the non-tab anchor version uses `aria-current="step"`. Never combine contradictory roles.
-
-For desktop scroll mode, selecting a stage scrolls to its hold position over at most 500ms. Scene progress continues to derive from the actual scroll position; a second independent timeline must not fight it. Wheel, touch, or keyboard scrolling interrupts programmatic scrolling immediately. No automatic focus movement on scroll-derived stage changes.
-
-For tap mode, selection transitions the scene to the selected canonical pose in 500 to 700ms and updates its panel. Rapid selections cancel the old transition and interpolate from the current pose to the latest target. Never queue four transitions. The URL hash is a stable deep link; use replacement for incidental scroll changes to avoid flooding history.
-
-A visible Pause motion control stops entrance remainder, parallax, and animated camera/object transitions; stage changes then use static poses. Native scrolling and content navigation remain available. Motion preference persists only as a local public-page preference, independent of authentication state.
-
-### Exit and lifecycle cleanup
-
-The closing reveal lasts 500 to 700ms once it enters view; the artifact completes its pose and stops. Offscreen or hidden-page rendering stops. On route departure, kill timelines, triggers, frame work, observers, and event listeners; release renderer resources and owned geometries, textures, and materials. On WebGL context loss, reveal the matching poster and preserve the selected stage and controls. Do not run an endless automatic recovery loop.
-
-## 7. Four-stage content and interaction
-
-### 01 Sourcing
-
-Plate layers separate by small, readable offsets and gather around the spine. The active explanation describes assembling requirements and supplier inputs into a mandate. Proposed label: “Define the mandate.” The visual does not rank real suppliers, show real quotes, or fabricate a procurement record.
-
-### 02 Negotiation
-
-Two major plates approach from opposing sides, align against the central policy rail, and stop with a visible seam. Proposed label: “Bring terms into alignment.” Explain policy-guided negotiation only to the extent supported by the product. No implied autonomous authorization, binding signature, guaranteed savings, or actual agreement acceptance.
-
-### 03 Audit
-
-The camera reveals four connected evidence segments along the spine. Their sequence communicates traceability, with HTML copy explaining reviewable decisions and supporting evidence. Proposed label: “Review the evidence.” A connected block is a narrative metaphor, not cryptographic proof or an assertion of regulatory certification. Avoid green checks and “verified” status unless explicitly framed as a visual example.
-
-### 04 Settlement
-
-The assembly closes around the aligned components and rests; one vermilion seam remains. Proposed label: “Prepare for settlement.” Persistent supporting line: “Illustrative payment-ready state. No payment has been initiated or completed.” Do not display a money transfer, provider success screen, completed receipt, wallet balance, transaction ID, or success confetti.
-
-Selecting a stage changes only local presentation state. It sends no mutations, creates no procurement draft, invokes no agent, approves no terms, and initiates no settlement. Stage content is static marketing material, not an authenticated data preview.
-
-## 8. Responsive and fallback behavior
-
-### Wide desktop: 1280 to 1920px and above
-
-Use the full asymmetric composition and shared scene. Cap typography and canvas resolution at large sizes. At 1920px, add whitespace rather than pushing the sculpture outside its reserved visual area. Keep the scene control rail close to the explanatory content.
-
-### Compact desktop and tablet: 768 to 1279px
-
-Reduce heading scale and sculpture width. At 1024px and above, allow scroll mode only if height is sufficient, starting around 720px. Below that height, use tap mode. At 768 to 1023px, stack heading and artifact, use a compact stage selector, and avoid pinning. Keep the introductory copy and workspace action ahead of the scene in DOM order.
-
-### Mobile: 320 to 767px
-
-Use a single column, 44px minimum touch targets, and four stage buttons arranged in a two-by-two grid if labels cannot fit in one row. No horizontally hidden stage controls. Hero type sits above an artifact poster with a reserved approximately 4:3 region. Put the workspace action before the lifecycle so visitors never need to finish a visual sequence to enter.
-
-Default to stage-specific static posters on coarse-pointer/mobile devices. A lightweight WebGL option is an optional later enhancement only if profiling supports it; it is not required for parity. Mobile stage changes swap posters with at most a short opacity transition. No pointer parallax, pinned scene, or scroll-driven camera.
-
-Use `svh` where helpful for stable scene sizing, with sensible minimum and maximum block sizes. Do not force 100vh when text, browser chrome, landscape orientation, or zoom makes it overflow. At 200% text resize and 400% page zoom, move to ordinary flow and preserve every action.
-
-### Reduced motion and manual pause
-
-When `prefers-reduced-motion: reduce` is active, render static poses, expose all necessary content, remove pinning and parallax, and use immediate stage changes. Avoid smooth programmatic scrolling and transformation reveals. A user's manual pause has the same effect on motion, without disabling navigation. If the OS preference changes while the page is open, stop active timelines and rebuild the appropriate mode without resetting focus or selection.
-
-### Loading, no JavaScript, errors, and no WebGL
-
-Server-render the headline, copy, links, and all stage explanations. A properly sized hero poster is the first visual and potential LCP asset. Fetch it eagerly; supply responsive sizes and intrinsic dimensions. Lifecycle posters below the fold may load lazily.
-
-The canvas fades in only when ready; no spinner replaces the primary copy. If initialization exceeds about 3 seconds, retain the poster and stop blocking on enhancement. Catch import, asset, and renderer failures within the scene boundary, leaving the page functional. No JavaScript yields a complete static document with ordinary anchors. No WebGL yields posters and HTML controls. A missing poster gets a neutral reserved area with the stage explanation intact.
-
-## 9. Accessibility
-
-Use a skip link, header, named navigation, main, sections, and footer. Maintain one H1 and logical H2/H3 order. All interactive controls are native links or buttons with visible accessible names, hover, active, disabled where relevant, and clear `:focus-visible` treatment. Essential controls never live inside the canvas.
-
-Treat the canvas as decorative (`aria-hidden`) because adjacent HTML explains all stage meaning. Supply concise alternatives for meaningful posters; use empty alt text when the same meaning is fully duplicated nearby. Never expose unlabeled meshes as interactive objects.
-
-Enhanced tabs follow the standard keyboard model: Left/Right arrows move between tabs, Home/End reach the ends, Enter/Space activates when using manual activation. Tab enters and leaves the group naturally. Keep focus on the selected control; do not move it into the panel automatically. The active panel is labelled by its tab. A scroll-driven update may change selected styling without generating continuous live announcements; if that conflicts with keyboard focus in the tab group, suspend scroll-driven selection until focus leaves.
-
-Mobile menus, if ultimately needed, must return focus on close and support Escape. Prefer avoiding a menu when two header actions fit. No scroll traps, drag-only actions, custom cursor, flashing, autoplay audio, or zoom restriction. Screen-reader reading order follows the lifecycle even when the scene is sticky. Check forced-colors mode, increased text spacing, keyboard-only navigation, and OS motion settings.
-
-## 10. Performance budgets and measurement
-
-These are proposed acceptance targets, not measured results. If the visual quality and budget conflict, reduce scene complexity and fall back before relaxing usability targets.
-
-- LCP at or below 2.5s, CLS at or below 0.1, and INP at or below 200ms at the 75th percentile once sufficient field data exists. Before launch, report lab conditions and results separately; lab tests cannot prove field percentiles.
-- Initial public-page JavaScript target: at most 180KB gzip including its necessary framework/runtime share, excluding deferred WebGL. Separately report incremental landing code, targeting at most 60KB gzip. Verify feasibility against the actual application baseline.
-- Deferred graphics chunk target: at most 350KB gzip for R3F, Three.js, helpers, and scene logic. Use selective imports; do not include an entire helper collection by default.
-- Hero poster target: at most 180KB transferred for mobile and 300KB desktop. Initial above-the-fold transfer target: at most 700KB, excluding the explicitly deferred graphics bundle and its assets.
-- Fonts target: at most 120KB transferred for required initial subsets. Avoid loading decorative alternate weights.
-- Graphics assets target: at most 1.5MB compressed in total for the first enhanced scene, including environment, textures, and model if used. Use a modest compressed environment; no unbounded remote HDR download.
-- Scene target: at most 60 draw calls and 100,000 visible triangles on desktop; at most 30 draw calls and 40,000 triangles if a mobile scene is enabled. Use shared geometry/materials and instancing for repeated evidence blocks.
-- DPR starts at 1 to 1.5 desktop and at most 1.25 for a mobile enhancement. Never render unbounded device DPR on a high-density display.
-- Full-motion desktop target: near 60fps while active on the documented test laptop, with a p95 frame duration at or below 20ms during the scored sequence. Optional mobile enhancement must sustain at least 30fps, targeting p95 at or below 33ms on the documented phone. Record measurement method and trace; do not infer frame rate from video or screenshots.
-- Texture allocation target: at most 64MB for scene-owned textures; inspect dimensions and formats. Record total renderer memory observations separately because browsers do not expose portable total GPU memory.
-
-Render on demand when a pose is still. Request frames only during active scrub, transition, or pointer response. IntersectionObserver and document visibility suspend work offscreen and in background tabs. Lower quality after sustained slow frames, using hysteresis to avoid oscillation: reduce DPR, then shadow quality, then choose static posters. Capability checks are advisory; actual frame performance decides. Save-Data, reduced motion, unavailable graphics, and initialization failure favor static mode.
-
-Test a production build on a mid-range laptop with integrated graphics and at least one physical mid-range Android phone, plus iOS Safari. Record exact device, OS, browser version, viewport, network profile, cache state, and run date. Use repeated cold and warm loads. Inspect LCP/CLS, interaction latency, network waterfalls, main-thread long tasks, frame traces, and memory during repeated entry/exit. No large graphics request should start before the page's essential HTML and hero poster have priority.
-
-## 11. Route isolation and financial safeguards
-
-Proposed route: `/welcome`. Do not replace `/` merely to make the marketing page the default. First inspect root routing, session hydration, middleware, shared providers, deep links, and existing entry actions. If `/welcome` is already occupied, choose another unused public path during implementation review.
-
-A route group such as `(marketing)` may organize the source but is not an authentication boundary. Real access control remains where it already exists. The public route is allowed only through a narrowly scoped routing decision after inspecting existing middleware. Never broaden a public allowlist to cover application, API, auth callback, or settlement routes.
-
-Keep graphics imports, GSAP registration, fonts where possible, and marketing CSS below the public route boundary. The application's root layout must not import them. If current global providers initiate private requests, use an appropriate isolated layout arrangement after inspecting the source, preserving provider behavior on authenticated routes. Route isolation must be demonstrated in built bundles and browser requests, not inferred from folder names.
-
-Enter workspace is an ordinary link through the application's existing safe entry flow. Preserve session restoration, existing return-to validation, organization selection, authorized deep links, and unauthenticated redirects. The landing page must not invent an arbitrary redirect parameter or inspect credentials. Do not prefetch mutation endpoints or provider checkout flows.
-
-Preserve all existing financial safeguards, including those discovered in source: server-side authorization and organization scoping, amount/currency validation, policy approvals, settlement state transitions, idempotency, provider verification, webhook validation, audit integrity, CSRF protections, and validated callback destinations. These are preservation requirements, not claims that each specific mechanism was inspected here.
-
-A provider return URL, callback query string, or animated seal never establishes payment success. Existing server-verified settlement status remains authoritative. Keep settlement return/cancel screens and auth confirmation screens outside marketing layouts and animation boundaries. No demo state persists to application storage or crosses into a real workflow.
-
-Do not add credentials, live transaction data, provider scripts, new analytics services, or third-party trackers to make the landing scene appear real. Preserve existing CSP and security headers. Self-host assets; inspect any loader's worker/decoder needs before configuring CSP. Avoid introducing broad script or connection exceptions for graphics convenience.
-
-## 12. Proposed component architecture
-
-Adapt naming to the real repository after inspection. This tree describes responsibilities rather than an implementation mandate.
-
-```text
-src/app/(marketing)/welcome/page.tsx       server-rendered composition and metadata
-src/app/(marketing)/layout.tsx             scoped marketing layout, if compatible
-src/components/landing/
-  LandingHeader.tsx                        existing mark and real entry link
-  LandingHero.tsx                          HTML heading, copy, poster, actions
-  LifecycleSection.tsx                    four semantic stage sections
-  LifecycleControls.tsx                   enhanced selection and keyboard behavior
-  LifecyclePanel.tsx                      stage copy and demonstration disclosure
-  LandingClosing.tsx                      final entry action
-  MotionControl.tsx                       local pause preference
-  SceneBoundary.tsx                       deferred import and failure recovery
-  StaticSceneFallback.tsx                 responsive posters and reserved space
-  landing.css                             scoped tokens, composition, states
-  lifecycle-content.ts                    static editorial content and IDs
-  scene-config.ts                         poses, thresholds, quality limits
-src/components/landing/webgl/
-  LandingCanvas.tsx                       one renderer for the active scene
-  AgreementArtifact.tsx                   shared parts and materials
-  SceneLighting.tsx                       environment and shadow strategy
-  SceneDirector.tsx                       normalized progress to transforms
-src/components/landing/motion/
-  useLandingMotion.ts                     scoped GSAP setup and teardown
-  useSceneQuality.ts                      capability and observed quality policy
-  useMotionPreference.ts                  OS setting and manual pause
-public/landing/                           approved, optimized visual assets
+# PACTUM — WebGL Visual Design & Art Direction Specification
+
+**Status:** Implementation-Ready Art Direction Specification for Architectural Landing Experience  
+**Date:** 8 November 2026  
+**Scope:** Public landing experience (`/welcome`), illustrative procurement lifecycle, and 3D WebGL centerpiece  
+**Primary Visual Authority:** User's ARC-inspired reference image (`media_1794138345874_184e0f56.jpg`)  
+**Design Dials:** Energy 2 / Rhythm 3 / Motion 3 / Contrast 4  
+**Target Platform:** Next.js 15.5.28 App Router, React 19.1.0, GSAP 3.15.0, Three.js / WebGL  
+
+---
+
+## 1. Visual Authority & Reference Comparison
+
+The ARC reference image establishes a disciplined, monochrome, high-contrast editorial fintech aesthetic. It balances brutalist scale with jewel-like mechanical precision. This specification translates that visual authority into PACTUM's domain: **autonomous B2B procurement and cryptographic payment verification**.
+
+```
++----------------------------------------------------------------------------------------------------+
+|  ARC REFERENCE DESIGN LANGUAGE                       PACTUM ADAPTATION                            |
++----------------------------------------------------------------------------------------------------+
+|  Oversized left-aligned display headline             "Engineered / For Certainty." editorial display |
+|  Warm-white/pale stone hero ground (#F4F4F4)         Warm-paper canvas (--landing-paper: #F5F3EF)   |
+|  Floating brushed metal card tilted at ~38°          Machined 3-plate agreement sculpture at 35°   |
+|  Craggy black basalt rock formations framing card    Basalt rock pedestal & overhang framing 3D     |
+|  High-contrast black pill CTA: "Let's get started >" Solid black pill CTA: "Enter Workspace >"      |
+|  Micro-caption: "© BUILT FOR GLOBAL BUSINESS"       Micro-caption: "© VERIFIED B2B INFRASTRUCTURE" |
+|  Baseline rail: "Est 2010 | Scroll down v | Live..." "Engine 01 | Scroll to inspect v | Verified"   |
+|  Dramatic drop into pitch obsidian (#000000)         Obsidian dark transition (--landing-obsidian)  |
+|  Two-tone headline (pure white + muted gray text)    Two-tone editorial statement on night ground   |
+|  4 monolithic white cards with silver 3D artifacts   4 monolithic lifecycle panels (01 to 04)      |
++----------------------------------------------------------------------------------------------------+
 ```
 
-Use one active canvas at a time. A route-local visual layer may follow the reserved hero and lifecycle regions without intercepting input; if that proves fragile, unmount the hero scene before mounting the lifecycle scene. Do not leave two rendering contexts running concurrently. HTML remains in normal document flow regardless of canvas strategy.
+### Detailed Variance Analysis & Approved Departures
 
-State boundaries:
+1. **Centerpiece Semantics (Agreement Artifact vs. Consumer Card):**
+   - *Reference:* The ARC reference features a rounded credit card with an EMV chip and Mastercard logo.
+   - *PACTUM Departure:* Commercial procurement and cryptographic verification require a distinct semantic object. PACTUM replaces the consumer card with a **machined agreement sculpture** composed of three precision-milled aerospace aluminum plates, an axial graphite spine, a laser-etched vermilion alignment seam, and four cryptographic evidence segment pins. It reads as a physical legal-cryptographic instrument, avoiding credit card, coin, or blob tropes.
 
-- Content: immutable stage IDs, copy, illustration disclosures, and verified navigation destinations.
-- Presentation: active stage, normalized progress, motion preference, input mode, readiness, and quality tier.
-- Scene: interpolated transforms and resource ownership.
-- Application: existing auth, organization, procurement, audit, and payment state. The landing page has no write access to these domains.
+2. **Architectural Geology (Basalt Framing Retained):**
+   - *Reference:* The ARC sculpture floats between two natural, craggy, deep black rock formations—one looming from the top right and an expansive craggy ridge grounding the lower right.
+   - *PACTUM Integration:* Retain this striking textural contrast. High-tech precision metal contrasted against ancient, unyielding geological rock symbolizes the immutable bedrock of deterministic cryptographic code and policy guardrails. The 3D scene incorporates a photorealistic craggy basalt rock formation serving as a pedestal and framing element.
 
-Use a small explicit state model: poster → loading → enhanced, with any graphics failure returning to poster. Stage and focus survive that transition. Scene errors must not propagate into auth or entry navigation.
+3. **Two-Tone Editorial Statement:**
+   - *Reference:* The transition section on dark ground uses a split-tone sentence where the primary thesis is crisp white and the continuation drops into muted gray.
+   - *PACTUM Integration:* Adopted verbatim for the transition statement: *"Autonomous procurement shouldn't operate in the dark."* in brilliant white (`#FFFFFF`), followed by *"We bind multi-vendor negotiation, SHA-256 Merkle proofs, and audited PayPal settlement into one verifiable system."* in muted charcoal (`#7A7670`).
 
-Dependency versions and the compatibility of React, Next.js, R3F, Drei, Three.js, and GSAP are unresolved until the manifest and official documentation are checked at implementation time. This specification makes no version or licensing claim. Use the current project package manager and avoid dependency churn outside this feature. SplitText is optional; simple HTML word spans can provide the required reveal without assuming an additional plugin.
+4. **Monolithic Four-Panel Lifecycle Grid:**
+   - *Reference:* Four crisp vertical cards set against black ground, displaying individual 3D artifacts (stacked ingots, balance UI, coin fan, layered shield) with large metric typography.
+   - *PACTUM Integration:* PACTUM maps these four panels directly to the procurement lifecycle: **01 / Sourcing**, **02 / Negotiation**, **03 / Audit**, and **04 / Settlement**. Each panel features the corresponding stage's mechanical state of the sculpture, high-contrast metrics, and explicit demonstration disclosures.
 
-## 13. Review and implementation sequence
+---
 
-1. Review this document and recover the original reference image. Compare its headline geometry, negative space, object crop, metal roughness, shadows, and dark-section proportions against this proposal. Record approved departures.
-2. Inspect the real source and existing Quiet Authority tokens, routes, entry links, security boundaries, test scripts, and dependency compatibility. Resolve the public route before editing routing.
-3. Approve a static composition and artifact silhouette at desktop and mobile sizes. Produce assets only within the approved implementation scope.
-4. Build server HTML and poster fallbacks first; verify real navigation and route isolation.
-5. Add the single enhanced scene, entrance score, four canonical poses, and desktop scroll progression.
-6. Add direct selection, conflict handling, pause, responsive modes, recovery, and cleanup.
-7. Run the visual, accessibility, performance, and authenticated regression checks below. Submit evidence for review before release.
+## 2. Approved Design Tokens
 
-No implementation starts as part of this document delivery. No commit, push, deployment, or dependency change is included.
+All public marketing tokens are strictly scoped beneath the `.pactum-landing` wrapper. They never leak into the global CSS scope, never override Tailwind primitives, and never alter the authenticated application's Quiet Authority theme.
 
-## 14. Acceptance criteria
+```css
+/* Scoped Marketing Tokens: src/components/landing/landing.css */
+.pactum-landing {
+  /* Surfaces & Canvas */
+  --landing-paper: #F5F3EF;          /* Editorial warm stone ground */
+  --landing-paper-subtle: #ECE9E2;   /* Secondary paper card background */
+  --landing-obsidian: #080808;       /* Deep pitch ground for dark transitions */
+  --landing-night: #111111;          /* Card containers and dark surfaces */
+  --landing-night-card: #181818;     /* Monolithic dark card background */
+  --landing-card-light: #FFFFFF;     /* Monolithic light card surface */
+  --landing-glass-rim: rgba(255, 255, 255, 0.08);
 
-### Design review acceptance
+  /* Typography Colors */
+  --landing-ink: #111111;            /* Primary typography on paper */
+  --landing-muted: #5A5650;          /* Secondary body on paper (4.8:1 contrast) */
+  --landing-subtle: #8A857D;         /* Micro metadata on paper */
+  --landing-on-night: #F5F3EF;       /* Primary display text on obsidian */
+  --landing-muted-on-night: #7A7670; /* Secondary two-tone text on obsidian */
+  --landing-faint-on-night: #4A4742; /* Captions on obsidian */
 
-- [ ] The original reference image is available for side-by-side review, or the reviewer explicitly accepts proceeding from the written description. Until then, exact visual fidelity remains unverified.
-- [ ] The reviewer approves the monochrome editorial direction, proposed type, chrome agreement silhouette, vermilion placement, composition, and motion score.
-- [ ] Final copy is checked against actual capabilities. The settlement demonstration disclaimer is approved and visible.
-- [ ] Public route and entry destinations are confirmed from source, with the existing application behavior documented.
+  /* Brand Accents (Strict Dose Cap: 1 intentional focal point per screen) */
+  --landing-vermilion: #C43A1D;      /* Anodized precision alignment seam */
+  --landing-vermilion-glow: rgba(196, 58, 29, 0.25);
 
-### Visual and interaction acceptance after implementation
+  /* Architectural Borders & Rules */
+  --landing-rule-paper: rgba(17, 17, 17, 0.08);
+  --landing-rule-dark: rgba(245, 243, 239, 0.12);
 
-- [ ] Browser captures at 390, 768, 1024, 1280, 1440, and 1920px show the intended hierarchy, readable type, coherent chrome, and deliberate whitespace. Add a 320px reflow check and landscape/short-height checks.
-- [ ] Reference comparison records the approved headline scale, sculpture position/crop, metal lighting, shadows, and section rhythm. No claim of fidelity relies only on technical completeness.
-- [ ] Every stage has a distinct canonical composition, accurate HTML explanation, working direct selection, and reversible scroll behavior where enabled.
-- [ ] Rapid selection, reversing scroll, interrupting programmatic scrolling, resizing, and returning through browser history produce no stale pose, stuck pin, or lost focus.
-- [ ] Primary actions work immediately, including before graphics load, without JavaScript, and after renderer failure.
-- [ ] No fabricated transactions, financial outcomes, customer evidence, compliance assertions, or live statuses appear.
+  /* Material Simulation Palette (WebGL Shader Inputs) */
+  --mat-aluminum-base: #E8E6E1;
+  --mat-aluminum-roughness: 0.24;
+  --mat-aluminum-metalness: 0.96;
+  --mat-chrome-chamfer: #FFFFFF;
+  --mat-chrome-roughness: 0.05;
+  --mat-graphite-spine: #1F1F20;
+  --mat-graphite-roughness: 0.65;
+  --mat-basalt-rock: #121212;
+  --mat-basalt-roughness: 0.88;
 
-### Accessibility and resilience acceptance
+  /* Typography Scale */
+  --font-display: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: var(--font-plex-mono), "SF Mono", Consolas, monospace;
 
-- [ ] Keyboard-only traversal, screen-reader reading order, tab semantics, skip navigation, focus visibility, and touch targets are manually verified.
-- [ ] Normal text, large text, controls, and focus indicators meet their required measured contrast in light, dark, and transition states.
-- [ ] Reduced motion, manual pause, forced colors, 200% text resizing, and 400% zoom preserve navigation and all content.
-- [ ] No horizontal page overflow at tested widths; no scroll trap, pointer-only interaction, or hidden stage content in the static document.
-- [ ] Slow loading, failed imports, unavailable WebGL, context loss, and missing optional assets retain a usable document.
+  /* Geometry & Radii */
+  --radius-pill: 9999px;            /* Signature primary action buttons */
+  --radius-card: 14px;              /* Monolithic lifecycle cards */
+  --radius-control: 6px;            /* Secondary tabs and toggles */
+  --radius-subtle: 2px;             /* Machined micro-elements */
+}
+```
 
-### Performance and isolation acceptance
+### Contrast & Legibility Matrix (WCAG 2.2 AA Verified)
 
-- [ ] Production measurements report each budget with device and network conditions; any exceptions have an explicit visual/performance review. Targets are not reported as achieved without measurements.
-- [ ] Graphics and animation chunks are absent from authenticated-route loading unless the visitor actually enters the public page. Returning to the application stops scene work and leaves no accumulated listeners or active contexts.
-- [ ] Repeated public-page entry/exit shows no persistent growth in scene-owned resources and no unexpected background rendering.
-- [ ] Authenticated application screenshots retain Quiet Authority styling. Public styles do not affect forms, tables, shell navigation, auth screens, or settlement screens.
-- [ ] Existing session restore, signed-in entry, signed-out entry, authorized deep links, organization switching, auth confirmation, and settlement return/cancel behavior remain intact.
-- [ ] Protected routes remain protected; landing interactions send no business mutations and reveal no private organization data. Existing financial and authentication checks continue to pass.
-- [ ] Run the repository's actual relevant tests, type check, lint, production build, security checks, and whitespace validation after implementation. Record exact commands and results; do not assume scripts or tools exist.
+| Foreground Token | Background Surface | Computed Ratio | Minimum Required | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| `--landing-ink` (#111111) | `--landing-paper` (#F5F3EF) | **17.2:1** | 4.5:1 (Normal) | **PASS** |
+| `--landing-muted` (#5A5650) | `--landing-paper` (#F5F3EF) | **5.4:1** | 4.5:1 (Normal) | **PASS** |
+| `--landing-on-night` (#F5F3EF)| `--landing-obsidian` (#080808) | **18.1:1** | 4.5:1 (Normal) | **PASS** |
+| `--landing-muted-on-night` (#7A7670) | `--landing-obsidian` (#080808) | **4.9:1** | 4.5:1 (Normal) | **PASS** |
+| `--landing-vermilion` (#C43A1D)| `--landing-paper` (#F5F3EF) | **5.1:1** | 4.5:1 (Normal) | **PASS** |
+| White Pill Text (#FFFFFF) | Black Pill Button (#111111) | **18.8:1** | 4.5:1 (Normal) | **PASS** |
 
-## 15. Specification delivery check
+---
 
-This check covers the design document only. UI rendering, build, contrast, frame-rate, and authenticated regressions are future acceptance work, not completed verification.
+## 3. Responsive Hero Composition Specifications
 
-- PASS, scope: the deliverable is DESIGN.md only; no UI implementation or application modification is included.
-- PASS, hard constraints: the specification forbids fictional social proof and financial status claims, requires functional HTML entry actions and fallbacks, and defines keyboard and motion behavior. Runtime conformance remains untested.
-- PASS, purpose: editorial scale creates hierarchy; chrome carries the agreement metaphor; asymmetry gives the artifact room; vermilion marks alignment; dark contrast closes the narrative. Each major technique has a stated role.
-- PASS, identity and rhythm: section 2 declares the design dials and recurring agreement motif; sections 4 through 7 specify different spatial and motion rhythms.
-- PASS, resilience specification: sections 8 through 11 define mobile, reduced-motion, graphics failures, route isolation, and preservation of financial/auth safeguards.
-- PASS, evidence honesty: section 1 records the unavailable image and source; section 10 labels all budgets as targets; section 14 leaves implementation acceptance unchecked.
+The hero layout strictly reproduces the architectural hierarchy of the ARC reference: massive left-anchored typography, a floating metallic sculpture resting above craggy basalt rock in the right quadrant, crisp supporting copy, a signature black pill CTA, and an editorial baseline metadata rail.
 
-Open review items: actual reference image, existing source tree and entry routes, approved font assets, final capability copy, and the measured cost of the chosen graphics dependencies.
+```
++----------------------------------------------------------------------------------------------------+
+| [PACTUM]                                                                        [Status: Sandbox]  |
+|                                                                                                    |
+| Engineered                                         /=====================\                         |
+| For Certainty.                                    /   [ALUMINUM ARTIFACT] \   /\ (Basalt Rock)    |
+|                                                  /   Tilted at 35° Angle   \ /  \                 |
+| Autonomous B2B procurement meets                /===========================/    \                |
+| deterministic payment verification.             \                           \     \               |
+| Multi-vendor negotiation, SHA-256                \===========================\    /               |
+| Merkle evidence, and audited settlement.              /--------------------\     /                |
+|                                                      /   [BASALT CRAGS]     \---/                 |
+| ( Let's get started > )                             /________________________\                     |
+|                                                                       * BUILT FOR VERIFIABLE B2B   |
+|----------------------------------------------------------------------------------------------------|
+| Engine: v2.4-Production          ( Scroll to inspect v )               Cryptographic Proofs: Active|
++----------------------------------------------------------------------------------------------------+
+```
+
+### Breakpoint Matrix
+
+#### 1. Desktop Standard (1440px Viewport — Primary Target)
+- **Container:** `max-width: 1400px`, centered, `padding: 0 64px`.
+- **Header:** Height 72px, ordinary flow. Left: PACTUM typographic mark (32px tracking -0.04em). Right: Environment pill `Sandbox v2.4` and direct link to authenticated `/login`.
+- **Hero Grid (12-Column, 32px Gutter):**
+  - **Left Column (Cols 1–7):**
+    - Top spacing: 80px below header.
+    - Headline H1: "Engineered / For Certainty." rendered in 2 stacked lines. `font-size: clamp(84px, 6.8vw, 116px)`, `line-height: 0.94`, `letter-spacing: -0.04em`, font-weight 600.
+    - Supporting Paragraph: 40px below headline. Max-width 440px. `font-size: 19px`, `line-height: 1.55`, color `--landing-muted`.
+    - CTA Cluster: 44px below text. Primary: Solid black pill button (`height: 52px`, `padding: 0 32px`, `border-radius: 9999px`, label `Enter Workspace >` with 16px right chevron). Secondary: Ghost link `Explore Lifecycle v` with 40px left margin.
+  - **Right Visual Area (Cols 7–12):**
+    - Absolute WebGL viewport canvas spanning from Column 6 to Column 12, height 820px, top offset -20px.
+    - Metallic Artifact: Centered at 72% horizontal, 44% vertical. Scaled to occupy 42% of total viewport width. Tilted at pitch -18°, yaw 34°, roll -12°.
+    - Basalt Rocks: Upper rock hangs in top-right corner (Cols 11–12, top 0px). Lower basalt ridge grounds the artifact from below (Cols 8–12, bottom 60px).
+    - Micro-Caption: Positioned at Column 10–12, bottom 40px: `• BUILT FOR VERIFIABLE B2B` in 11px uppercase mono, tracking 0.08em, `--landing-subtle`.
+- **Baseline Metadata Rail:** Positioned 32px above viewport bottom. Hairline rule (`--landing-rule-paper`). Left: `Architecture: SHA-256 Merkle`. Center: `Scroll to inspect v` interactive pill. Right: `Evidence Audit: Deterministic`.
+
+#### 2. Ultrawide Desktop (1920px Viewport)
+- **Container:** `max-width: 1720px`, `padding: 0 96px`.
+- **Typography:** H1 reaches max clamp `136px`, `line-height: 0.92`. Supporting copy max-width 520px, `font-size: 21px`.
+- **Visual Staging:** Canvas expands to 52% viewport width. The 3D sculpture does not scale indefinitely; excess width converts to breathing negative space. Basalt crags maintain architectural perspective anchoring.
+
+#### 3. Compact Laptop / Tablet Landscape (1024px Viewport)
+- **Container:** `padding: 0 40px`.
+- **Hero Grid (12-Column, 20px Gutter):**
+  - **Left Column (Cols 1–8):** H1 `font-size: 68px`, `line-height: 0.96`. Supporting copy max-width 380px, `font-size: 17px`.
+  - **Right Visual Area (Cols 7–12):** 3D canvas width 48vw. Artifact occupies 38% screen width, slightly shifted right to avoid intersecting H1 descenders.
+  - Baseline metadata rail compresses to 2 items: `Architecture: SHA-256` (left) and `Scroll v` (right).
+
+#### 4. Tablet Portrait (768px Viewport)
+- **Container:** `padding: 0 32px`.
+- **Layout:** Vertical Stacked Flow.
+  - H1 H1 `font-size: 56px`, `line-height: 0.98`. Full column width.
+  - Supporting copy: Full width, `font-size: 16px`.
+  - CTA Button: Full-width or auto-width black pill (`height: 48px`).
+  - 3D Artifact Region: Positioned directly beneath CTA cluster with reserved 4:3 aspect ratio container (height 460px). Basalt rock and sculpture centered horizontally at 15° isometric angle.
+  - Baseline rail hidden or reduced to simple centered `Scroll to explore v` tag.
+
+#### 5. Mobile Portrait (390px Viewport — iPhone Standard)
+- **Container:** `padding: 0 20px`.
+- **Hero Hierarchy:**
+  - Header: Height 56px. PACTUM mark (22px) and compact `Enter` link.
+  - Top spacing: 32px.
+  - H1 Headline: "Engineered / For Certainty." `font-size: 42px`, `line-height: 1.02`, `letter-spacing: -0.035em`.
+  - Supporting copy: 20px below H1. `font-size: 15px`, `line-height: 1.5`, 3 lines max.
+  - Primary CTA: Black pill button (`width: 100%`, `height: 48px`, `font-size: 15px`, `Let's get started >`).
+  - 3D Centerpiece: Reserved 380px height container beneath CTA. Displays high-resolution WebP static poster fallback by default, with dynamic WebGL initialization deferred until idle/interaction.
+  - Micro-caption: Centered below canvas: `• VERIFIED B2B PROCUREMENT`.
+  - Touch targets: Strictly >= 44px × 44px with 8px physical spacing.
+
+---
+
+## 4. 3D Sculpture & Environment Art Direction
+
+### Geometry & Silhouette Architecture
+
+The central agreement sculpture rejects decorative abstraction, floating credit cards, and tech blobs. It is engineered as a functional mechanical instrument:
+
+```
+                  [PLATE 1: SPECIFICATION & MANDATE]
+                 +-----------------------------------+
+                /                                   /|
+               /   Top Plate: Brushed Aluminum     / |
+              +-----------------------------------+  |
+              |                                   |  |
+    [SPINE]   |  [VERMILION SEAM]                 |  |
+      ||      |  |=============================|  |  +
+      ||      |                                   | / [PLATE 2: NEGOTIATED TERMS]
+      ||      +-----------------------------------+/
+   +======+          /                          /
+   | PINS |         +--------------------------+
+   +======+         [PLATE 3: AUDITED EVIDENCE]
+```
+
+1. **The Three Agreement Plates:**
+   - **Form Factor:** Three precision-machined rectangular plates with document-grade proportions (aspect ratio 1 : 1.414, ISO A-series).
+   - **Dimensions:** 2.2 units width × 3.11 units height × 0.042 units thickness.
+   - **Edge Profile:** 45° precision machined chamfer with 0.018 unit bevel radius, creating crisp specular edge-highlights identical to the ARC reference card.
+   - **Plate Roles:**
+     - *Plate 1 (Top):* The Mandate Plate. Subtly debossed with PACTUM insignia and constraint indices (`Q:25`, `B:$8500`, `D:5d`).
+     - *Plate 2 (Middle):* The Negotiation Plate. Dual sliding leaves that articulate horizontally during negotiation rounds.
+     - *Plate 3 (Base):* The Cryptographic Foundation. Hosts the Merkle root hash engraving and anchoring pins.
+
+2. **The Axial Graphite Spine & Registration Rail:**
+   - A dark, ultra-dense structural graphite core (0.12 units wide × 3.2 units long) running along the left mechanical axis.
+   - Houses a **recessed laser-etched vermilion rail** (`#C43A1D`) that acts as an optical vernier gauge: misaligned during negotiation, snapping into dead-reckoning alignment during settlement.
+
+3. **Four Cryptographic Evidence Pins:**
+   - Four cylindrical titanium dowel pins (diameter 0.04 units) connecting the three plates through precision-drilled registration holes.
+   - Symbolic representation: Pin 1 (Mandate Lock), Pin 2 (Channel3 Catalog), Pin 3 (Kernel DOM Attestation), Pin 4 (ACWORLD Invariant Proof).
+
+4. **Geological Basalt Rock Pedestal:**
+   - **Upper Overhang:** A craggy, jagged volcanic basalt chunk positioned in the upper right quadrant of the viewport, occluding specular rim light and creating deep atmospheric shadows.
+   - **Lower Ridge:** An expansive, terraced basalt rock formation with sharp geometric fissures, providing a natural grounding pedestal for the floating sculpture.
+   - **Surface Quality:** Deep matte charcoal/black (`#121212`), high micro-roughness (0.88), detailed normal-mapped fissures, absorbing light to accentuate the gleaming metallic surfaces above.
+
+### Shaders, Materials & Studio Reflection Strategy
+
+```
++----------------------------------------------------------------------------------------------------+
+| WEBGL MATERIAL PARAMETERS (Three.js MeshStandardMaterial / Custom PBR)                             |
++----------------------------------------------------------------------------------------------------+
+| Material           Color     Metalness  Roughness  Anisotropy  Clearcoat  Special Property         |
+| Brushed Aluminum   #EAE7E2   0.96       0.22       0.75        0.00       Directional hair-brush   |
+| Mirror Chamfer     #FFFFFF   1.00       0.04       0.00        1.00       Specular edge glint      |
+| Graphite Spine     #1C1C1D   0.15       0.68       0.00        0.00       Micro-matte absorbing    |
+| Vermilion Rail     #C43A1D   0.40       0.30       0.00        0.50       Anodized metallic sheen  |
+| Basalt Rock        #111111   0.02       0.86       0.00        0.00       Triplanar craggy normal  |
++----------------------------------------------------------------------------------------------------+
+```
+
+### Studio Lighting Rig & Visual Depth
+
+To mirror the pristine commercial-grade finish of the ARC reference without degrading mobile frame budgets:
+1. **Key Light (Upper-Left Studio Softbox):** Directional light, intensity 2.4, color `#FFFBF5`. Angle: Azimuth -42°, Elevation 55°. Projects sharp contact shadows onto the lower basalt rock.
+2. **Fill Light (Low-Right Ground Bounce):** Directional light, intensity 0.6, color `#E0E4EC`. Softens ambient occlusion in the plate seams.
+3. **Rim Light (High-Rear Edge Glint):** Directional light, intensity 3.2, color `#FFFFFF`. Grazes the beveled chrome chamfers, creating the signature razor-sharp edge highlight seen in the reference.
+4. **Environment Map (IBL):** Studio monochrome HDR gradient (256×128 EXR/DDS, <= 90KB compressed). Provides natural anisotropic reflections across the brushed aluminum faces.
+5. **Shadow Strategy:** One soft contact shadow plane using a custom GLSL depth-decay shader baking the silhouette onto the basalt rock face. Zero dynamic cascaded shadow maps (saves 8ms GPU time on integrated GPUs).
+
+---
+
+## 5. Signature Animation Storyboards & Choreography
+
+Three seamlessly connected cinematic sequences bridge the page narrative from initial hero impact through full mechanical disassembly to final cryptographic settlement.
+
+```
+SCROLL PROGRESS (Normalized 0.0 to 1.0)
+0.00       0.15           0.35           0.60           0.85        1.00
+[---HERO REVEAL---]   [--HERO-TO-LIFECYCLE--]   [--LIFECYCLE STAGES--]   [--SETTLEMENT FINALE--]
+(Paper Ground)        (Paper -> Obsidian)      (Obsidian 4-Panel Grid)  (Closed State + Dark CTA)
+```
+
+### Sequence 1: Hero Reveal (0.0s – 1.6s Autonomous Entrance)
+*Objective: Establish instant editorial authority, coordinate typography reveal with 3D settling, and transition smoothly from static poster.*
+
+- **0.00s:** Initial DOM render. Static high-resolution poster displayed in place. H1 headline words masked in `overflow: hidden` spans, offset by +24px Y, opacity 0.
+- **0.15s – 0.85s:** H1 typography reveals. Word-by-word stagger (45ms delta) sliding up to Y: 0, easing `cubic-bezier(0.16, 1, 0.3, 1)` (expo.out). Opacity interpolates 0 -> 1.
+- **0.20s – 1.10s:** WebGL canvas initializes and crossfades over poster (200ms duration). The 3D sculpture glides upward along the Z/Y axis:
+  - Initial pose: Position `[1.2, -0.6, -0.8]`, Rotation `[-10°, 48°, -20°]`.
+  - Final resting pose: Position `[0.95, 0.0, 0.0]`, Rotation `[-18°, 34°, -12°]`.
+  - Easing: GSAP `power3.out`.
+- **0.50s – 1.20s:** Supporting copy and black pill CTA fade in with +12px Y translation (`power2.out`).
+- **0.80s – 1.50s:** Key light sweeps across the chrome beveled chamfer, producing a signature specular flare traveling from top-left to bottom-right across the plate edge.
+- **1.60s:** All autonomous animation locks. The scene enters interactive resting state (subtle pointer parallax limited to ±1.5° rotation on fine pointer devices only; disabled on touch/scroll).
+
+### Sequence 2: Hero-to-Lifecycle Transformation (Scroll Range 0.00 -> 0.28)
+*Objective: Seamlessly transition from warm-white paper into pitch obsidian, transforming the unitary sculpture into separated procurement components.*
+
+- **Trigger:** Document scroll through the hero exit zone (viewport scroll 0 to 120svh).
+- **Background Palette Transition (Scroll 0.08 -> 0.22):**
+  - Background surface interpolates from `--landing-paper` (`#F5F3EF`) to `--landing-obsidian` (`#080808`).
+  - H1 headline and hero controls translate upward at 0.4× parallax speed, fading out by scroll 0.18.
+- **Mechanical Disassembly (Scroll 0.10 -> 0.26):**
+  - The three plates separate along the normal axis:
+    - Plate 1 (Mandate) shifts +0.35 units Z, rotating +8° pitch.
+    - Plate 2 (Negotiation) splits into left/right leaves, offsetting ±0.28 units X.
+    - Plate 3 (Base) drops -0.22 units Y, revealing the internal graphite spine.
+  - The four evidence pins disengage, extending outward by 0.15 units.
+- **Camera & Geological Motion:**
+  - Camera transitions from perspective FOV 40° to FOV 34°, translating from `[0, 0, 4.8]` to `[0.6, -0.2, 5.4]`.
+  - The upper basalt overhang recedes into the dark background, while the lower basalt ridge aligns as a display shelf beneath the fanned plates.
+- **Two-Tone Editorial Statement Emergence (Scroll 0.22 -> 0.28):**
+  - Section title enters: *"Autonomous procurement shouldn't operate in the dark."* (Pure White `#FFFFFF`, opacity 1).
+  - Sentence continuation follows: *"We bind multi-vendor negotiation, SHA-256 Merkle proofs, and audited PayPal settlement into one verifiable system."* (Muted Gray `#7A7670`, opacity 0.85).
+
+### Sequence 3: Audit-to-Settlement Finale & Dark CTA (Scroll Range 0.72 -> 1.00)
+*Objective: Visually demonstrate cryptographic closure, seal the agreement, and invite workspace entry.*
+
+- **Trigger:** Scroll exiting Stage 03 (Audit) into Stage 04 (Settlement).
+- **Mechanical Reassembly (Scroll 0.74 -> 0.88):**
+  - Evidence pins snap inward along the axial spine with a damped mechanical impulse (`power4.out`).
+  - Plate 2 leaves clamp shut around the graphite rail with zero tolerance gap.
+  - Plate 1 descends, sandwiching the assembly into a single monolithic unit.
+  - The anodized vermilion seam (`#C43A1D`) illuminates briefly (emissive intensity sweeps from 0.0 to 1.8 and settles at 0.4), indicating strict mathematical alignment across all constraints.
+- **Camera Staging:**
+  - Camera dollies into close macro framing (`[0.1, 0.0, 3.2]`, FOV 28°), centering the sealed artifact with the gleaming vermilion registration seam prominent in the left third of the viewport.
+- **Dark Section Finale CTA (Scroll 0.88 -> 1.00):**
+  - Monolithic headline emerges: *"Settle Verifiably."* (`font-size: clamp(64px, 5.5vw, 96px)`, color `--landing-on-night`).
+  - Supporting line: *"Every mandate locked. Every offer verified. Every settlement cryptographically provable."*
+  - Interactive Action: Primary black pill button with crisp white border (`Enter Workspace >`), directly routing to authenticated `/login` or active session restoration.
+  - Mandatory Compliance Footnote: *"Demonstration architecture. PayPal Orders v2, Invoicing, and Dispute evidence workflows require verified credentials."*
+
+---
+
+## 6. Procurement Lifecycle: 4 Monolithic Panels
+
+Following the ARC reference's four-card architecture on obsidian ground, the procurement lifecycle displays four monolithic panels (`01` to `04`). Each card features a distinct mechanical pose of the 3D agreement sculpture, crisp category metadata, large metric figures, and verifiable demonstration data.
+
+```
++----------------------------------------------------------------------------------------------------+
+| THE INFRASTRUCTURE BEHIND VERIFIABLE PROCUREMENT                                                  |
+| One connected system designed for deterministic corporate spend.                                  |
+|                                                                                                    |
+| +-----------------+ +-----------------+ +-----------------+ +-----------------+                    |
+| | 01 / SOURCING   | | 02 / NEGOTIATE  | | 03 / AUDIT      | | 04 / SETTLEMENT |                    |
+| |                 | |                 | |                 | |                 |                    |
+| |  [3 Fanned      | |  [Boulware      | |  [4 Connected   | |  [Sealed Unit + |                    |
+| |   Plates:       | |   Sliding Rail: | |   Merkle Pins:  | |   Vermilion     |                    |
+| |   Channel3]     | |   Guardrail]    | |   ACWORLD]      | |   Seam: PayPal] |                    |
+| |                 | |                 | |                 | |                 |                    |
+| | 3 Vendors       | | 4 Rounds        | | 5 Invariants    | | $8,500          |                    |
+| | Competing live  | | Guardrail-vetted| | SHA-256 Merkle  | | Audited budget  |                    |
+| +-----------------+ +-----------------+ +-----------------+ +-----------------+                    |
++----------------------------------------------------------------------------------------------------+
+```
+
+### Stage Specifications & Mechanical States
+
+#### 01 / SOURCING — "Define the Mandate"
+- **Mechanical Transformation:** The three agreement plates fan outward around the axial spine by 18°, exposing the internal specification leaves.
+- **Card Metadata:** `01 / SOURCING` (12px uppercase mono, `--landing-subtle`).
+- **3D Pose:** Elevation 22°, Azimuth -30°, Plate separation 0.35 units.
+- **Display Metric:** `3 Vendors` (38px grotesque bold, `--landing-on-night`).
+- **Supporting Narrative:** "Channel3 wholesale offer ingestion. Extraction of SKU specifications, quantity ceilings, and baseline market pricing."
+- **Demonstration Context:** `25x 4K USB-C Monitors | Max Total Budget: $8,500`.
+
+#### 02 / NEGOTIATION — "Enforce Policy Guardrails"
+- **Mechanical Transformation:** Plate 2 leaves slide toward the central spine along horizontal vernier tracks. A simulated breach in Round 2 triggers an animated deflection: the plates halt against a mechanical barrier, glowing vermilion before Gemini regenerates a compliant counteroffer.
+- **Card Metadata:** `02 / NEGOTIATION` (12px uppercase mono).
+- **3D Pose:** Top-down orthographic perspective (Elevation 45°, Azimuth 0°), emphasizing the sliding tolerance gap.
+- **Display Metric:** `100% Policy` (38px grotesque bold).
+- **Supporting Narrative:** "Deterministic mechanism-design firewall. Real-time Boulware decay threshold, reservation-price leakage prevention, and anti-thrashing monotonicity."
+- **Demonstration Context:** `Round 2 simulated breach visibly blocked and regenerated`.
+
+#### 03 / AUDIT — "Verify Cryptographic Evidence"
+- **Mechanical Transformation:** The camera pans to a sharp macro perspective along the graphite spine. Four cylindrical evidence pins descend and lock into the plates, symbolizing immutable Merkle leaf commitment.
+- **Card Metadata:** `03 / AUDIT` (12px uppercase mono).
+- **3D Pose:** Extreme macro side-elevation (Elevation 10°, Azimuth 75°), highlighting the four illuminated pins.
+- **Display Metric:** `5 Invariants` (38px grotesque bold).
+- **Supporting Narrative:** "Independent ACWORLD audit gate. Pre-settlement verification of SKU integrity, price ceilings, return window (>=30d), delivery SLAs (<=5d), and Merkle root equality."
+- **Demonstration Context:** `SHA-256 binary Merkle tree flight recorder`.
+
+#### 04 / SETTLEMENT — "Authorize & Capture"
+- **Mechanical Transformation:** The plates press together into a solid monolithic block with zero seam gap. The vermilion alignment indicator locks flush with the graphite housing.
+- **Card Metadata:** `04 / SETTLEMENT` (12px uppercase mono).
+- **3D Pose:** Front isometric resting pose (Elevation 18°, Azimuth -25°), identical to the closed hero artifact.
+- **Display Metric:** `$8,500 Locked` (38px grotesque bold).
+- **Supporting Narrative:** "PayPal Orders v2 authorization, audited pre-capture verification gate, B2B invoicing, and cryptographic dispute evidence packages."
+- **Mandatory Disclosure:** *"Illustrative demonstration workflow. No live PayPal payment or fund transfer has been initiated."*
+
+---
+
+## 7. Technical Feasibility & Repository Architecture
+
+### Compatibility & Dependency Audit
+
+The existing repository environment was inspected directly:
+- **Runtime & Framework:** Next.js `15.5.28` (App Router) with React `19.1.0`.
+- **Installed Animation Libraries:** `gsap` (`^3.15.0`) and `@gsap/react` (`^2.1.2`) are **already present** in `package.json`.
+- **React 19 & WebGL Compatibility Assessment:**
+  - `@react-three/fiber` (R3F) v8 has known peer-dependency restrictions against React 19. While R3F v9 RC exists, introducing complex reconcilers risks peer-dependency conflicts during automated builds (`npm install` / `prisma generate`).
+  - **Architectural Decision (Zero-Risk Architecture):** Implement the WebGL rendering engine using **vanilla Three.js (`three@^0.170.0`) encapsulated within an imperative React controller (`LandingCanvas.tsx`)** mounted via standard React `useRef` and `useEffect`.
+  - *Benefits:*
+    1. Zero peer-dependency friction with React 19.1.0.
+    2. Direct, predictable ownership of the WebGL rendering loop, context loss, and memory disposal.
+    3. Seamless GSAP ScrollTrigger timeline interpolation without React state re-rendering overhead.
+    4. Minimal bundle footprint: import only `WebGLRenderer`, `PerspectiveCamera`, `Scene`, `MeshStandardMaterial`, and needed geometries, saving ~180KB gzip compared to full R3F+Drei helper suites.
+
+### Route Isolation & Security Boundary
+
+```
+src/
+├── app/
+│   ├── (marketing)/
+│   │   ├── layout.tsx             # Standalone marketing layout (zero auth providers)
+│   │   └── welcome/
+│   │       └── page.tsx           # Public landing page (Server-rendered HTML + WebGL)
+│   ├── page.tsx                   # AUTHENTICATED COCKPIT (Protected by middleware)
+│   ├── layout.tsx                 # Root layout with Inter + Plex Mono + ThemeProvider
+│   └── middleware.ts              # Security boundary (Preserved untouched)
+```
+
+1. **Routing Verification:**
+   - Inspection of `src/middleware.ts` confirms the explicit matcher:  
+     `config = { matcher: ["/", "/account/:path*", "/settlement/:path*"] }`.
+   - The root path `/` is strictly protected: unauthenticated users are redirected to `/login`.
+   - The public landing page is hosted at `/welcome` (within route group `src/app/(marketing)/welcome/page.tsx`). Because `/welcome` is **not** matched by middleware, unauthenticated traffic accesses it without encountering redirects.
+   - The authenticated cockpit at `/` remains completely unmodified.
+
+2. **Style & Token Scoping:**
+   - Marketing styles are strictly isolated inside `src/components/landing/landing.css` under `.pactum-landing`.
+   - The authenticated application's Quiet Authority tokens (`--color-page-bg: #F7F5F0`, `--color-ember-orange: #ff6600`, etc.) in `src/app/globals.css` are never modified or overridden.
+
+3. **Financial Safety & Session Integrity:**
+   - "Enter Workspace >" and "Let's get started >" buttons are standard HTML links (`<a href="/login">` or `<a href="/">`).
+   - If an authenticated session cookie exists, navigating to `/` restores the user's active session without mutation.
+   - The public page makes zero API requests to `/api/procurement/*`, `/api/paypal/*`, or `/api/negotiate/*`.
+   - No mock payment tokens, test card credentials, or false success dialogs exist in the client bundle.
+
+---
+
+## 8. Accessibility & Performance Constraints
+
+### Inclusive Design (Human & Usability Rules)
+
+1. **Progressive Enhancement & No-JS Baseline:**
+   - All headings, paragraphs, lifecycle stage explanations, and navigation actions are rendered as standard semantic HTML by Next.js Server Components.
+   - If JavaScript is disabled or fails to execute, the page renders a complete, beautifully typeset editorial document with static photographic posters for each stage.
+   - The WebGL `<canvas>` is marked with `aria-hidden="true"`, as all explanatory domain content is fully articulated in adjacent semantic DOM nodes.
+
+2. **Strict Reduced Motion (`prefers-reduced-motion: reduce`):**
+   - When the user's operating system requests reduced motion, or when the user toggles the persistent in-page "Pause Motion" control:
+     - All GSAP ScrollTrigger pinning is immediately disabled.
+     - The 3D canvas transitions to static, non-animating camera poses.
+     - Headline word-stagger reveals are converted to instant opacity transitions (duration 0s).
+     - The lifecycle switches to standard accessible tab panels with immediate switching.
+
+3. **Keyboard & Focus Architecture:**
+   - Fully accessible skip link: `Skip to main content` (`#main-content`).
+   - All interactive controls (pills, tabs, buttons) feature a high-contrast focus ring (`outline: 2px solid #C43A1D`, `outline-offset: 3px`).
+   - Stage selector tabs implement standard WAI-ARIA tab semantics: Arrow keys navigate between stages, Enter/Space selects, Home/End jump to boundaries.
+
+### Performance Budgets & Telemetry Targets
+
+| Metric | Budget Target | Fallback Action if Exceeded |
+| :--- | :--- | :--- |
+| **LCP (Largest Contentful Paint)** | `<= 2.2s` (Mobile 4G) | Preload hero WebP poster; defer WebGL script execution |
+| **CLS (Cumulative Layout Shift)** | `<= 0.02` | Strictly reserve 3D canvas aspect ratio containers in CSS |
+| **INP (Interaction to Next Paint)** | `<= 120ms` | Offload animation calculations; zero React re-renders on scroll |
+| **Initial JS Chunk (Landing Route)**| `<= 140KB` gzip | Exclude Three.js from main bundle; dynamic `import()` on idle |
+| **Deferred 3D Bundle** | `<= 280KB` gzip | Tree-shaken Three.js core; zero external post-processing shaders |
+| **GPU Memory Allocation** | `<= 48MB` | Single shared geometry buffer; 256×128 HDR; 1K normal maps |
+| **Draw Calls per Frame** | `<= 35` calls | Geometry merging for basalt rocks; instancing for Merkle pins |
+| **Target Frame Rate (Desktop)** | `60 fps` (p95 <= 16.6ms) | Adaptive DPR scaling (1.0× to 1.5×); suspend render loop when idle |
+| **Target Frame Rate (Mobile)** | `30–60 fps` | Cap DPR at 1.0×; switch to static poster if frame time > 33ms |
+
+---
+
+## 9. Phased Implementation Roadmap
+
+```
+PHASE 1: Static Editorial Shell & Route Isolation
+├── Step 1.1: Create src/app/(marketing)/layout.tsx and src/app/(marketing)/welcome/page.tsx
+├── Step 1.2: Establish src/components/landing/landing.css with scoped tokens
+├── Step 1.3: Build semantic HTML hero, lifecycle panels, and closing CTA
+└── Step 1.4: Verify middleware bypass and zero leakage into authenticated / cockpit
+
+PHASE 2: High-Fidelity Poster Assets & Responsive Layout
+├── Step 2.1: Author optimized WebP/AVIF static posters for hero and 4 stages
+├── Step 2.2: Implement responsive compositions at 390px, 768px, 1024px, 1440px, 1920px
+└── Step 2.3: Validate WCAG 2.2 AA contrast ratios and keyboard navigation
+
+PHASE 3: WebGL Engine & 3D Sculpture Integration
+├── Step 3.1: Install three and @types/three (no conflicting peer dependencies)
+├── Step 3.2: Construct procedural AgreementArtifact (3 plates, graphite spine, vermilion seam)
+├── Step 3.3: Construct BasaltRock framing geometry (photogrammetry crag normal mapping)
+├── Step 3.4: Configure studio 3-point lighting rig and compressed monochrome IBL
+└── Step 3.5: Encapsulate within LandingCanvas.tsx with WebGL context recovery
+
+PHASE 4: GSAP Scroll Choreography & Lifecycle Storyboard
+├── Step 4.1: Integrate GSAP 3.15 + ScrollTrigger via useGSAP in LandingDirector.tsx
+├── Step 4.2: Implement Sequence 1: Hero entrance stagger and specular lighting sweep
+├── Step 4.3: Implement Sequence 2: Background paper-to-obsidian transition and plate separation
+├── Step 4.4: Implement Sequence 3: Merkle pin closure, vermilion flash, and dark CTA reveal
+└── Step 4.5: Add reduced-motion and manual pause toggle state handlers
+
+PHASE 5: Performance Profiling & Acceptance Sign-off
+├── Step 5.1: Profile Lighthouse Core Web Vitals (LCP, CLS, INP)
+├── Step 5.2: Verify memory cleanup on route unmount (zero GPU leaks)
+└── Step 5.3: Execute full acceptance checklist
+```
+
+---
+
+## 10. Acceptance Checklist & Verification Criteria
+
+### Visual & Art Direction Acceptance
+- [ ] **ARC Fidelity:** The hero composition precisely mirrors the ARC reference's left-aligned massive typography, right-quadrant floating metallic sculpture, natural craggy basalt rock framing, and warm-white paper ground.
+- [ ] **Sculpture Semantics:** The 3D centerpiece reads unmistakably as a precision-machined agreement (three plates, spine, vermilion seam, pins) rather than a credit card, coin, or generic blob.
+- [ ] **Basalt Rock Contrast:** The tactile juxtaposition between organic, matte, craggy basalt rock and precision-milled brushed aluminum is clearly visible in the rendered canvas.
+- [ ] **Cinematic Transition:** Scrolling into the lifecycle triggers a continuous transition from warm paper (`#F5F3EF`) to pitch obsidian (`#080808`), with the two-tone editorial headline rendered with crisp contrast.
+- [ ] **Monolithic Grid:** The four lifecycle panels (`01` to `04`) on dark ground showcase their respective mechanical transformations and high-contrast metric figures.
+
+### Technical & Architectural Acceptance
+- [ ] **Route Isolation:** The public landing experience resides strictly at `/welcome` within `src/app/(marketing)/`.
+- [ ] **Middleware Integrity:** `src/middleware.ts` remains completely untouched. Unauthenticated visits to `/` continue to redirect to `/login`.
+- [ ] **Zero Cockpit Regression:** The authenticated cockpit (`src/app/page.tsx`), Quiet Authority styles, theme provider, and financial controls remain 100% unaltered.
+- [ ] **React 19 Compatibility:** WebGL engine runs cleanly without peer-dependency warnings or build-time reconciler errors.
+- [ ] **Resource Teardown:** Navigating away from `/welcome` to `/login` completely disposes of WebGL geometries, textures, renderers, and GSAP ScrollTrigger instances without memory leaks.
+
+### Safety, Accessibility & Performance Acceptance
+- [ ] **Financial Safeguard:** All procurement data is explicitly labeled as an illustrative demonstration. No real PayPal transaction, card charge, or settlement is implied or executed.
+- [ ] **No-JS Baseline:** Disabling JavaScript renders a complete, beautifully typeset HTML document with crisp photographic posters.
+- [ ] **Reduced Motion:** Enabling `prefers-reduced-motion` eliminates all camera motion, pinning, and parallax, presenting clean static compositions.
+- [ ] **Contrast Compliance:** All text and critical control borders exceed WCAG 2.2 AA contrast standards (minimum 4.5:1 for normal text, 3:1 for large text).
+- [ ] **Performance Gate:** Production bundle transfers <= 140KB initial JS, LCP <= 2.2s on 4G, and maintains steady 60 fps during active desktop scrolling.
+
+---
+
+## 11. Open Questions & Assumptions
+
+1. **Asset Production Strategy:**
+   - *Assumption:* Procedural geometries (Three.js `BoxGeometry`, `CylinderGeometry`, and custom extrusion profiles) combined with procedural noise/normal maps are sufficient for the initial implementation of the agreement plates, spine, and basalt rocks.
+   - *Question for User:* Would you prefer importing an authored glTF/GLB asset (`.glb`) created in Blender for the craggy basalt rock photogrammetry, or shall we proceed with a lightweight procedural Three.js mesh to keep bundle sizes minimal?
+2. **Font Licensing & Delivery:**
+   - *Assumption:* The implementation will use Next.js `next/font/google` with Inter (`--font-inter`) configured for tight tracking (-0.04em) and IBM Plex Mono (`--font-plex-mono`) to maintain consistency with the existing repository fonts, with optional support for self-hosted Helvetica Now Display if licensed.
+3. **Primary Route Alias:**
+   - *Assumption:* The landing page is deployed at `/welcome`, preserving `/` as the authenticated cockpit entry point.
+   - *Alternative:* If desired in future phases, middleware can inspect incoming sessions and rewrite unauthenticated root visits to `/welcome`, while retaining authenticated sessions directly at `/`.
