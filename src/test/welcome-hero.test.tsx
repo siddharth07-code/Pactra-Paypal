@@ -3,23 +3,13 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { WelcomeHeroScreen } from "@/components/landing/WelcomeHeroScreen";
 
-// Mock WebGL canvas components to isolate DOM/editorial layout and accessibility tests
+// Mock WebGL canvas component to isolate DOM/editorial layout and accessibility tests
 vi.mock("@/components/landing/HeroSculptureCanvas", () => ({
   HeroSculptureCanvas: ({ onLoaded }: { onLoaded?: () => void }) => {
     React.useEffect(() => {
       onLoaded?.();
     }, [onLoaded]);
     return <div data-testid="mock-sculpture-canvas">Mock 3D Hero Sculpture</div>;
-  },
-}));
-
-vi.mock("@/components/landing/LifecycleSculptureCanvas", () => ({
-  LifecycleSculptureCanvas: ({ progress }: { progress: number }) => {
-    return (
-      <div data-testid="mock-lifecycle-canvas" data-progress={progress}>
-        Mock 3D Lifecycle Sculpture
-      </div>
-    );
   },
 }));
 
@@ -45,7 +35,7 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
   it("renders the technical baseline metadata rail", () => {
     render(<WelcomeHeroScreen />);
     expect(screen.getByText(/Architecture: SHA-256 Merkle Engine/i)).toBeInTheDocument();
-    expect(screen.getByText(/PayPal Orders v2 • Audited Capture Gate/i)).toBeInTheDocument();
+    expect(screen.getByText("PayPal Orders v2 • Audited Capture Gate")).toBeInTheDocument();
   });
 
   it("provides an accessible skip link for keyboard navigation", () => {
@@ -70,17 +60,16 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the 4 monolithic lifecycle stage tabs", () => {
+  it("renders the 4 monolithic architectural pillars", () => {
     render(<WelcomeHeroScreen />);
-    expect(screen.getByRole("tab", { name: /01 SOURCING/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /02 NEGOTIATE/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /03 AUDIT/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /04 SETTLE/i })).toBeInTheDocument();
-  });
-
-  it("renders the lifecycle 3D canvas container", () => {
-    render(<WelcomeHeroScreen />);
-    expect(screen.getByTestId("mock-lifecycle-canvas")).toBeInTheDocument();
+    expect(screen.getByText("SOURCING")).toBeInTheDocument();
+    expect(screen.getByText("3 Competing Vendors")).toBeInTheDocument();
+    expect(screen.getByText("NEGOTIATE")).toBeInTheDocument();
+    expect(screen.getByText("Deterministic Guardrail")).toBeInTheDocument();
+    expect(screen.getByText("AUDIT")).toBeInTheDocument();
+    expect(screen.getByText("5 Invariant Proofs")).toBeInTheDocument();
+    expect(screen.getByText("SETTLE")).toBeInTheDocument();
+    expect(screen.getByText("Audited Capture Gate")).toBeInTheDocument();
   });
 
   it("renders the dark section finale headline and settlement CTA", () => {
