@@ -1,258 +1,131 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React from "react";
 import Link from "next/link";
-import { ArrowRight, Layers, ShieldCheck, FileCheck, CheckCircle2 } from "lucide-react";
-import { LifecycleSculptureCanvas } from "./LifecycleSculptureCanvas";
 
-interface StageData {
-  id: string;
+interface Pillar {
   number: string;
-  title: string;
+  stage: string;
   metric: string;
   description: string;
-  capability: string;
-  contextTag: string;
-  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
+  specification: string;
+  benchmark: string;
 }
 
-const LIFECYCLE_STAGES: StageData[] = [
+const PILLARS: Pillar[] = [
   {
-    id: "sourcing",
     number: "01",
-    title: "SOURCING",
+    stage: "SOURCING",
     metric: "3 Competing Vendors",
     description: "Structured supplier discovery and comparable procurement options.",
-    capability:
-      "Channel3 wholesale offer ingestion. Extraction of SKU specifications, quantity ceilings, and baseline market pricing.",
-    contextTag: "25x 4K USB-C Monitors • Max Budget: $8,500",
-    icon: Layers,
+    specification:
+      "Channel3 wholesale catalog ingestion extracts verified SKUs, technical specifications, and baseline market pricing across competing distributors.",
+    benchmark: "25x 4K USB-C Monitors • Max Budget: $8,500",
   },
   {
-    id: "negotiate",
     number: "02",
-    title: "NEGOTIATE",
-    metric: "100% Policy Enforced",
+    stage: "NEGOTIATE",
+    metric: "Deterministic Guardrail",
     description: "AI-assisted negotiation within deterministic policy boundaries.",
-    capability:
-      "Deterministic mechanism-design firewall. Real-time Boulware decay threshold, reservation-price leakage prevention, and anti-thrashing monotonicity.",
-    contextTag: "Round 2 simulated breach visibly blocked & regenerated",
-    icon: ShieldCheck,
+    specification:
+      "Deterministic mechanism-design firewall enforces real-time Boulware decay thresholds, reservation-price leakage rules, and price monotonicity before transmission.",
+    benchmark: "Round 2 simulated breach visibly blocked & regenerated",
   },
   {
-    id: "audit",
     number: "03",
-    title: "AUDIT",
-    metric: "5 Authoritative Invariants",
+    stage: "AUDIT",
+    metric: "5 Invariant Proofs",
     description: "Evidence-linked audit checks before financial execution.",
-    capability:
-      "Independent ACWORLD audit gate verifying SKU integrity, price ceilings, return window (>=30d), delivery SLAs (<=5d), and Merkle root equality.",
-    contextTag: "SHA-256 binary Merkle flight recorder",
-    icon: FileCheck,
+    specification:
+      "Independent ACWORLD audit gate verifies SKU integrity, price ceilings, return windows (>=30d), delivery SLAs (<=5d), and Merkle root equality before capture.",
+    benchmark: "SHA-256 binary Merkle flight recorder",
   },
   {
-    id: "settle",
     number: "04",
-    title: "SETTLE",
-    metric: "$8,500 Audited Total",
+    stage: "SETTLE",
+    metric: "Audited Capture Gate",
     description: "PayPal-powered authorization and controlled capture workflows.",
-    capability:
-      "PayPal Orders v2 authorization, audited pre-capture verification gate, B2B invoicing, and cryptographic dispute evidence packages.",
-    contextTag: "Readiness verified • Settlement authorized",
-    icon: CheckCircle2,
+    specification:
+      "PayPal Orders v2 authorization locks immutable custom_id root references, executing capture only behind the independent audit gate. Generates B2B invoices and dispute evidence.",
+    benchmark: "Readiness verified • Settlement authorized",
   },
 ];
 
 export function LifecycleScrollSection() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [activeStageIndex, setActiveStageIndex] = useState(0);
-  const [isReducedMotion, setIsReducedMotion] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setIsReducedMotion(mediaQuery.matches);
-
-    const handleMediaChange = (e: MediaQueryListEvent) => {
-      setIsReducedMotion(e.matches);
-    };
-
-    mediaQuery.addEventListener("change", handleMediaChange);
-    return () => mediaQuery.removeEventListener("change", handleMediaChange);
-  }, []);
-
-  // Native scroll tracking without hijacking
-  useEffect(() => {
-    if (isReducedMotion) return;
-
-    const handleScroll = () => {
-      const track = trackRef.current;
-      if (!track) return;
-
-      const rect = track.getBoundingClientRect();
-      const windowHeight = window.innerHeight;
-      const totalScrollable = rect.height - windowHeight;
-
-      if (totalScrollable <= 0) return;
-
-      // Calculate progress 0.0 to 1.0 based on track visibility
-      const rawProgress = -rect.top / totalScrollable;
-      const clampedProgress = Math.min(Math.max(rawProgress, 0), 1);
-
-      setScrollProgress(clampedProgress);
-
-      const stageIdx = Math.min(3, Math.floor(clampedProgress * 4));
-      setActiveStageIndex(stageIdx);
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [isReducedMotion]);
-
-  const selectStage = (idx: number) => {
-    setActiveStageIndex(idx);
-    const targetProgress = idx * 0.33;
-    setScrollProgress(targetProgress);
-
-    if (!isReducedMotion && trackRef.current) {
-      const track = trackRef.current;
-      const totalScrollable = track.offsetHeight - window.innerHeight;
-      const targetScrollY =
-        window.scrollY + track.getBoundingClientRect().top + targetProgress * totalScrollable;
-      window.scrollTo({ top: targetScrollY, behavior: "smooth" });
-    }
-  };
-
   return (
     <section
       id="lifecycle-section"
-      ref={sectionRef}
       className="editorial-obsidian-section w-full relative z-10"
       aria-label="Procurement Lifecycle Architecture"
     >
-      {/* 1. Transition Header & Two-Tone Thesis Statement (DESIGN.md Section 1 & 5) */}
-      <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 pt-24 sm:pt-32 pb-16 lg:pb-24">
+      {/* 1. Transition Header & Two-Tone Thesis Statement */}
+      <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 pt-24 sm:pt-32 pb-16 lg:pb-20">
         <div className="max-w-4xl space-y-6 sm:space-y-8">
-          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.08em] text-[#7A7670]">
-            <span className="w-2 h-0.5 bg-[#C43A1D]" />
-            <span>01—04 / Verifiable Lifecycle</span>
+          <div className="text-xs font-mono uppercase tracking-[0.08em] text-[#7A7670]">
+            01—04 / System Architecture
           </div>
 
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-medium tracking-[-0.03em] leading-[1.08]">
-            <span className="two-tone-thesis-lead block">
+            <span className="text-white block">
               Autonomous procurement shouldn’t operate in the dark.
             </span>
-            <span className="two-tone-thesis-sub block mt-3 font-sans text-xl sm:text-2xl lg:text-3xl font-normal leading-[1.3] text-[#7A7670]">
+            <span className="block mt-4 font-sans text-xl sm:text-2xl lg:text-3xl font-normal leading-[1.35] text-[#7A7670]">
               We bind multi-vendor negotiation, SHA-256 Merkle proofs, and audited PayPal settlement
               into one verifiable system.
             </span>
           </h2>
         </div>
+      </div>
 
-        {/* Stage Selector Pills (Accessible Stage Switcher) */}
-        <div className="flex flex-wrap gap-2.5 pt-10 sm:pt-12" role="tablist" aria-label="Lifecycle Stages">
-          {LIFECYCLE_STAGES.map((st, idx) => (
-            <button
-              key={st.id}
-              role="tab"
-              aria-selected={activeStageIndex === idx}
-              onClick={() => selectStage(idx)}
-              className={`stage-tab-btn ${activeStageIndex === idx ? "active" : ""}`}
+      {/* 2. Four Monolithic Architectural Pillars Gallery */}
+      <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 pb-24 sm:pb-32">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {PILLARS.map((p) => (
+            <article
+              key={p.number}
+              className="monolithic-pillar-card p-6 sm:p-7 flex flex-col justify-between space-y-8"
             >
-              <span className="text-[#C43A1D] font-bold">{st.number}</span>
-              <span>{st.title}</span>
-            </button>
+              {/* Pillar Header */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3 text-xs font-mono">
+                  <span className="text-[#C43A1D] font-bold">{p.number}</span>
+                  <span className="text-[#7A7670] uppercase tracking-wider">{p.stage}</span>
+                </div>
+
+                <div className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                  {p.metric}
+                </div>
+
+                <p className="text-sm font-medium text-[#ECE9E2] leading-snug">
+                  {p.description}
+                </p>
+
+                <p className="text-xs text-[#8A857D] leading-relaxed">
+                  {p.specification}
+                </p>
+              </div>
+
+              {/* Benchmark Tag */}
+              <div className="pt-3 border-t border-white/5 text-[11px] font-mono text-[#7A7670] leading-normal">
+                {p.benchmark}
+              </div>
+            </article>
           ))}
         </div>
       </div>
 
-      {/* 2. Scroll-Scrubbed Track: Desktop Sticky Split & Mobile Stack */}
-      <div ref={trackRef} className="relative w-full min-h-[220vh] lg:min-h-[280vh]">
-        <div className="sticky top-20 w-full max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start py-8">
-          {/* Left Column: Active Lifecycle Information Panel */}
-          <div className="lg:col-span-6 space-y-6 order-2 lg:order-1">
-            <div className="lifecycle-card active p-6 sm:p-8 lg:p-10 space-y-6">
-              {/* Card Header & Icon */}
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                <div className="flex items-center gap-3">
-                  <span className="px-2.5 py-1 rounded-[4px] bg-[#C43A1D]/15 border border-[#C43A1D]/30 text-xs font-mono text-[#C43A1D] font-semibold">
-                    STAGE {LIFECYCLE_STAGES[activeStageIndex].number}
-                  </span>
-                  <span className="font-mono text-xs uppercase tracking-wider text-[#7A7670]">
-                    {LIFECYCLE_STAGES[activeStageIndex].title}
-                  </span>
-                </div>
-                {React.createElement(LIFECYCLE_STAGES[activeStageIndex].icon, {
-                  className: "w-5 h-5 text-[#ECE9E2]",
-                  "aria-hidden": true,
-                })}
-              </div>
-
-              {/* Metric & Title */}
-              <div className="space-y-2">
-                <div className="lifecycle-metric text-white">
-                  {LIFECYCLE_STAGES[activeStageIndex].metric}
-                </div>
-                <h3 className="text-lg sm:text-xl font-medium text-[#ECE9E2]">
-                  {LIFECYCLE_STAGES[activeStageIndex].description}
-                </h3>
-              </div>
-
-              {/* Concrete Capability Narrative */}
-              <p className="text-sm sm:text-base leading-[1.6] text-[#A09C94] font-normal">
-                {LIFECYCLE_STAGES[activeStageIndex].capability}
-              </p>
-
-              {/* Context Tag */}
-              <div className="pt-2 border-t border-white/5 flex items-center gap-2 text-xs font-mono text-[#7A7670]">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>{LIFECYCLE_STAGES[activeStageIndex].contextTag}</span>
-              </div>
-            </div>
-
-            {/* Scroll Navigation Micro-Indicator */}
-            <div className="flex items-center justify-between text-xs font-mono text-[#7A7670] px-2">
-              <span>Scroll to scrub verification</span>
-              <span>{Math.round(scrollProgress * 100)}% Verified</span>
-            </div>
+      {/* 3. Dark Section Finale & Action */}
+      <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 py-20 sm:py-28 border-t border-white/10">
+        <div className="max-w-2xl space-y-6">
+          <div className="text-xs font-mono uppercase tracking-[0.08em] text-[#C43A1D]">
+            Deterministic Finality
           </div>
 
-          {/* Right Column: 3D Mechanical Agreement Sculpture (Evolves with Scroll Scrub) */}
-          <div className="lg:col-span-6 relative w-full h-[380px] sm:h-[460px] lg:h-[540px] rounded-[14px] overflow-hidden order-1 lg:order-2 border border-white/5 bg-[#0D0D0D]">
-            <LifecycleSculptureCanvas
-              progress={scrollProgress}
-              activeStage={activeStageIndex}
-            />
-
-            {/* Micro Mechanical Attestation Badge */}
-            <div className="absolute left-4 bottom-4 z-20 pointer-events-none hidden sm:block">
-              <div className="px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-xs border border-white/10 text-[11px] font-mono text-[#A09C94]">
-                &bull; Mechanical Stage:{" "}
-                <span className="text-white font-medium">
-                  {LIFECYCLE_STAGES[activeStageIndex].title}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Dark Section Finale & Action (DESIGN.md Section 5 - Sequence 3) */}
-      <div className="w-full max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 py-24 sm:py-32 border-t border-white/10">
-        <div className="max-w-3xl space-y-8">
-          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.08em] text-[#C43A1D]">
-            <span>Deterministic Finality</span>
-          </div>
-
-          <h2 className="text-4xl sm:text-6xl lg:text-7xl font-serif font-medium tracking-[-0.03em] leading-[0.98] text-white">
+          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-medium tracking-[-0.03em] leading-[0.98] text-white">
             Settle Verifiably.
           </h2>
 
-          <p className="text-base sm:text-xl leading-[1.6] text-[#A09C94] max-w-xl">
+          <p className="text-base sm:text-lg leading-[1.6] text-[#A09C94]">
             Every mandate locked. Every offer verified. Every settlement cryptographically provable.
           </p>
 
@@ -260,17 +133,15 @@ export function LifecycleScrollSection() {
             <Link
               id="lifecycle-cta"
               href="/login"
-              className="pactum-pill-cta-dark h-[54px] px-9 text-[15px]"
+              className="pactum-pill-cta-dark h-[52px] px-8 text-[15px]"
             >
               <span>Enter Workspace</span>
-              <ArrowRight className="w-4 h-4 ml-1" aria-hidden="true" />
             </Link>
           </div>
 
-          {/* Compliance & Demonstration Footnote */}
-          <p className="text-xs font-mono text-[#5A5650] max-w-lg leading-relaxed pt-6">
-            Illustrative demonstration workflow. PayPal Orders v2, Invoicing, and Dispute evidence
-            workflows require verified credentials.
+          <p className="text-xs font-mono text-[#5A5650] leading-relaxed pt-4">
+            Demonstration architecture. PayPal Orders v2, Invoicing, and Dispute evidence workflows
+            require verified credentials.
           </p>
         </div>
       </div>
