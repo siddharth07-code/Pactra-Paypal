@@ -1,5 +1,5 @@
 /* Scoped Marketing Tokens: src/components/landing/landing.css
- * In accordance with DESIGN.md and Anti-Slop Rules
+ * In accordance with DESIGN.md and Anti-Slop Guidelines
  * Strictly scoped under .pactum-landing
  */
 .pactum-landing {
@@ -7,7 +7,8 @@
   --landing-paper-subtle: #ECE9E2;   /* Secondary paper card background */
   --landing-obsidian: #080808;       /* Deep pitch ground for dark transitions */
   --landing-night: #111111;          /* Dark surfaces */
-  --landing-night-card: #141414;     /* Monolithic dark card background */
+  --landing-night-card: #121212;     /* Monolithic dark card background */
+  --landing-night-card-subtle: #181818;
   --landing-card-border: rgba(255, 255, 255, 0.08);
 
   /* Typography Colors */
@@ -15,8 +16,8 @@
   --landing-muted: #5A5650;          /* Secondary body on paper */
   --landing-subtle: #8A857D;         /* Micro metadata on paper */
   --landing-on-night: #F5F3EF;       /* Primary display text on obsidian */
-  --landing-muted-on-night: #7A7670; /* Secondary two-tone text on obsidian */
-  --landing-faint-on-night: #4A4742; /* Captions on obsidian */
+  --landing-muted-on-night: #8E8A82; /* Secondary text on obsidian */
+  --landing-faint-on-night: #5A5650; /* Captions on obsidian */
 
   /* Brand Accent: Anodized precision alignment seam (restrained, never neon) */
   --landing-vermilion: #C43A1D;
@@ -27,13 +28,14 @@
 
   /* Radii */
   --radius-pill: 9999px;
-  --radius-card: 8px;
+  --radius-card: 6px;
+  --radius-code: 4px;
 }
 
 .pactum-landing {
   background-color: var(--landing-paper);
   color: var(--landing-ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
@@ -123,14 +125,23 @@
   border-top: 1px solid var(--landing-rule-dark);
 }
 
-/* Monolithic 4-Pillar Grid Card */
-.monolithic-pillar-card {
+/* Monolithic Stage Card */
+.monolithic-stage-card {
   background-color: var(--landing-night-card);
   border: 1px solid var(--landing-card-border);
   border-radius: var(--radius-card);
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-.monolithic-pillar-card:hover {
-  border-color: rgba(255, 255, 255, 0.18);
+.monolithic-stage-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  background-color: var(--landing-night-card-subtle);
+}
+
+/* System Evidence Code Snippet Box */
+.pactum-evidence-box {
+  background-color: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-code);
+  font-family: var(--font-plex-mono), monospace;
 }

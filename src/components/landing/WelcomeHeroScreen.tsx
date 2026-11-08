@@ -92,9 +92,9 @@ export function WelcomeHeroScreen() {
         Skip to primary workspace action
       </a>
 
-      {/* 1. Quiet Editorial Header */}
-      <header className="w-full max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 h-20 flex items-center justify-between z-20">
-        <div className="flex items-center gap-3">
+      {/* 1. Header */}
+      <header className="w-full max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 h-16 sm:h-20 flex items-center justify-between z-20">
+        <div className="flex items-center gap-2.5">
           <span
             className="w-7 h-7 rounded-[4px] bg-[#111111] text-[#F5F3EF] font-bold text-xs flex items-center justify-center shrink-0"
             aria-hidden="true"
@@ -106,23 +106,29 @@ export function WelcomeHeroScreen() {
           </span>
         </div>
 
-        <div className="flex items-center gap-4 text-xs font-mono">
+        <nav aria-label="Main Navigation" className="flex items-center gap-3 sm:gap-4 text-xs font-mono">
+          <Link
+            href="/register"
+            className="hidden sm:inline-block px-3 py-1.5 text-[#5A5650] hover:text-[#111111] transition-colors"
+          >
+            Create account
+          </Link>
           <Link
             href="/login"
             className="px-4 py-2 rounded-full border border-[#111111]/20 hover:border-[#111111] hover:bg-[#111111] hover:text-[#F5F3EF] text-[#111111] font-medium transition-colors cursor-pointer"
           >
             Sign in
           </Link>
-        </div>
+        </nav>
       </header>
 
       {/* 2. Main Hero Composition */}
       <main className="relative w-full max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 flex-1 flex flex-col justify-center py-6 sm:py-12 z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center min-h-[560px] lg:min-h-[660px]">
-          {/* Left Column (Cols 1-7): Oversized Editorial Typography */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center min-h-[540px] lg:min-h-[640px]">
+          {/* Left Column (Cols 1-7): Editorial Typography & Action */}
           <div className="lg:col-span-7 space-y-6 sm:space-y-8 z-20">
             {/* Oversized Headline with Masked Word Animation */}
-            <h1 className="text-[44px] sm:text-[68px] lg:text-[88px] xl:text-[98px] font-semibold tracking-[-0.04em] leading-[0.96] text-[#111111]">
+            <h1 className="text-[44px] sm:text-[64px] lg:text-[84px] xl:text-[96px] font-semibold tracking-[-0.04em] leading-[0.96] text-[#111111]">
               <span className="hero-word-mask block">
                 <span ref={addWordRef} className="hero-word">
                   Engineered
@@ -143,10 +149,10 @@ export function WelcomeHeroScreen() {
               Autonomous B2B procurement governed by deterministic mechanism design. Multi-vendor negotiation, SHA-256 Merkle proofs, and audited PayPal settlement.
             </p>
 
-            {/* Action CTA: High-Contrast Black Pill */}
+            {/* Action Cluster: Primary CTA Pill & Secondary Anchor */}
             <div
               ref={ctaClusterRef}
-              className="pt-2 opacity-0"
+              className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-2 opacity-0"
             >
               <Link
                 id="hero-cta"
@@ -155,11 +161,18 @@ export function WelcomeHeroScreen() {
               >
                 <span>Enter Workspace</span>
               </Link>
+
+              <a
+                href="#lifecycle-section"
+                className="text-xs font-mono text-[#5A5650] hover:text-[#111111] transition-colors py-2"
+              >
+                View System Architecture &darr;
+              </a>
             </div>
           </div>
 
-          {/* Right Column (Cols 7-12): 3D Agreement Sculpture Floating in Atmospheric Space */}
-          <div className="lg:col-span-5 relative w-full h-[460px] sm:h-[540px] lg:h-[700px] flex items-center justify-center">
+          {/* Right Column (Cols 7-12): 3D Agreement Sculpture */}
+          <div className="lg:col-span-5 relative w-full h-[360px] sm:h-[480px] lg:h-[680px] flex items-center justify-center">
             <div
               ref={canvasWrapperRef}
               className="absolute inset-0 w-full h-full opacity-0 transition-opacity duration-500"
