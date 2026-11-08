@@ -40,7 +40,7 @@ export function authConfiguration(env: Record<string, string | undefined> = proc
 
 export function safeDestination(value: unknown, fallback = "/account"): string {
   if (value === undefined || value === null) return fallback;
-  if (value !== "/" && value !== "/account") {
+  if (value !== "/" && value !== "/workspace" && value !== "/account") {
     throw new AuthError(400, "AUTH_INVALID_REDIRECT", "Redirect destination is not allowed.");
   }
   return value;
