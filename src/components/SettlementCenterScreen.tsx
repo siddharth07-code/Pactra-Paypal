@@ -461,6 +461,7 @@ export function SettlementCenterScreen({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <SectionHeader
+          pageTitle
           title="Settlement Center"
           subtitle="Verify the agreed procurement terms before payment."
         />
@@ -487,7 +488,7 @@ export function SettlementCenterScreen({
         <div className="bg-surface-primary rounded-[6px] p-8 sm:p-10 text-center text-text-secondary border border-border-primary space-y-4 ">
           <CreditCard className="w-10 h-10 mx-auto text-ash-gray mb-1 opacity-70" aria-hidden="true" />
           <h3 className="text-[17px] font-semibold text-text-primary">
-            No Authoritative Session Selected
+            No procurement selected
           </h3>
           <p className="text-[13.5px] text-text-secondary max-w-sm mx-auto leading-relaxed">
             Please run a procurement negotiation in the Negotiation Arena to select a winning vendor offer before proceeding to settlement.
@@ -546,9 +547,8 @@ export function SettlementCenterScreen({
                 <div className="flex justify-between items-start pb-3.5 border-b border-border-primary">
                   <div>
                     <h2 className="text-[17px] font-semibold text-text-primary tracking-tight">
-                      Agreed Transaction Terms
+                      Agreement
                     </h2>
-                    <p className="text-[12.5px] text-text-secondary mt-0.5">Authoritative procurement terms</p>
                   </div>
                   <button
                     type="button"
