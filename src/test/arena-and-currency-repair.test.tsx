@@ -120,12 +120,13 @@ describe("Phase 6.6: Negotiation Arena Repair & INR Currency Support", () => {
           quotes={mockUSDQuotes}
           events={[]}
           isStreaming={false}
+          onStartNegotiation={vi.fn()}
         />
       );
 
       expect(screen.getByText("Ready to negotiate")).toBeDefined();
-      expect(screen.getByText("3 eligible")).toBeDefined();
-      expect(screen.getByText("4 discrete")).toBeDefined();
+      expect(screen.getByText("3 available")).toBeDefined();
+      expect(screen.queryByText(/4 discrete/)).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Start Negotiation/i })).toBeDefined();
       expect(
         screen.getByText(/Baseline supplier asking prices are starting commercial positions/i)
@@ -261,8 +262,8 @@ describe("Phase 6.6: Negotiation Arena Repair & INR Currency Support", () => {
 
       expect(screen.getByText(/Consensus Reached with DisplayWorld Data Systems/i)).toBeDefined();
       expect(screen.getByText(/Agreement Accepted: Mutual agreement recorded/i)).toBeDefined();
-      const proceedBtns = screen.getAllByRole("button", { name: /Proceed to Settlement Gate/i });
-      expect(proceedBtns.length).toBeGreaterThan(0);
+      const proceedBtns = screen.getAllByRole("button", { name: /Review audit and settlement/i });
+      expect(proceedBtns).toHaveLength(1);
       fireEvent.click(proceedBtns[0]);
       expect(handleProceed).toHaveBeenCalled();
     });
@@ -335,7 +336,7 @@ describe("Phase 6.6: Negotiation Arena Repair & INR Currency Support", () => {
         />
       );
 
-      expect(screen.getAllByText("Above Budget — Negotiation Candidate").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/Above budget; price requires negotiation/).length).toBeGreaterThanOrEqual(1);
     });
 
     // 10. Guardrail interventions remain visible.
@@ -365,8 +366,8 @@ describe("Phase 6.6: Negotiation Arena Repair & INR Currency Support", () => {
         />
       );
 
-      expect(screen.getByText(/Predicate A — Feasibility & Budget Limit Intervened/i)).toBeDefined();
-      expect(screen.getByText(/Purged from Queue/i)).toBeDefined();
+      expect(screen.getByText("Policy blocked proposal")).toBeDefined();
+      expect(screen.queryByText(/Purged from Queue/i)).not.toBeInTheDocument();
       expect(screen.getByText(/Proposed offer total of \$8,600 exceeds budget ceiling \$8,500/i)).toBeDefined();
       expect(screen.getByText(/Verification details/i)).toBeDefined();
     });
