@@ -33,7 +33,7 @@ export function LifecycleScrollSection() {
       <p className="landing-disclosure">Demonstration catalog entries are sample offers, not live supplier commitments. This page displays no live procurement or payment status.</p>
       <div className="landing-closing">
         <div><h2>Start with a mandate.</h2><p>Bring your buying requirements into the workspace.</p></div>
-        <div className="landing-actions"><Link id="lifecycle-cta" href="/login" className="landing-button">Open workspace</Link><Link href="/register" className="landing-text-link">Create account</Link></div>
+        <div className="landing-actions"><Link id="lifecycle-cta" href="/workspace" className="landing-button">Open workspace</Link><Link href="/register" className="landing-text-link">Create account</Link></div>
       </div>
     </div>
   </section>;
