@@ -10,11 +10,11 @@ vi.mock("@/components/SourcingScreen", () => ({ SourcingScreen: () => null }));
 vi.mock("@/components/EvidenceVaultScreen", () => ({ EvidenceVaultScreen: () => null }));
 vi.mock("@/components/SettlementCenterScreen", () => ({ SettlementCenterScreen: () => <p>Settlement screen</p> }));
 vi.mock("@/components/ProcurementHistoryScreen", () => ({ ProcurementHistoryScreen: ({ sessions, onSelectSession }: { sessions: ProcurementSession[]; onSelectSession: (session: ProcurementSession) => void }) => <button onClick={() => onSelectSession(sessions[0])}>Open saved record</button> }));
-import Page from "@/app/page";
+import Page from "@/app/workspace/page";
 
 const session = { id: "selected", status: "AUDIT_PASSED", mandate: { itemQuery: "Saved procurement", quantity: 2, maxTotalBudget: 1000, maxDeliveryDays: 5, minReturnDays: 30, currency: "USD" }, quotes: [], turns: [{ id: "turn", round: 1, actor: "BUYER", turnType: "PROPOSAL", generator: "DETERMINISTIC_FALLBACK", timestamp: "2026-11-08T00:00:00Z" }], agreementRecord: { vendorName: "Saved supplier", vendorId: "v", totalCost: 600, acceptedAt: "2026-11-08T00:01:00Z" } } as unknown as ProcurementSession;
 const fetchMock = vi.fn();
-beforeEach(() => { vi.stubGlobal("fetch", fetchMock); fetchMock.mockReset().mockResolvedValue({ ok: true, json: async () => ({ sessions: [session] }) }); window.history.replaceState({}, "", "/?screen=arena&sessionId=selected"); });
+beforeEach(() => { vi.stubGlobal("fetch", fetchMock); fetchMock.mockReset().mockResolvedValue({ ok: true, json: async () => ({ sessions: [session] }) }); window.history.replaceState({}, "", "/workspace?screen=arena&sessionId=selected"); });
 
 describe("Arena authoritative session hydration", () => {
   it("restores the selected agreement without budget-derived savings", async () => {
@@ -25,7 +25,7 @@ describe("Arena authoritative session hydration", () => {
     expect(screen.getByText(/Buyer proposal \(deterministic fallback\)/)).toBeInTheDocument();
   });
   it("does not replace an explicit missing session with the organization's first record", async () => {
-    window.history.replaceState({}, "", "/?screen=arena&sessionId=missing");
+    window.history.replaceState({}, "", "/workspace?screen=arena&sessionId=missing");
     render(<Page />);
     await waitFor(() => expect(screen.queryByText(/Loading saved negotiation/)).not.toBeInTheDocument());
     expect(screen.queryByText("Saved procurement")).not.toBeInTheDocument();
@@ -51,7 +51,7 @@ describe("Arena authoritative session hydration", () => {
     expect(screen.queryByText(/Round 1 of 4/)).not.toBeInTheDocument();
   });
   it("clears a missing-session error after reopening a valid record from History", async () => {
-    window.history.replaceState({}, "", "/?screen=arena&sessionId=missing");
+    window.history.replaceState({}, "", "/workspace?screen=arena&sessionId=missing");
     render(<Page />);
     expect(await screen.findByRole("alert")).toHaveTextContent("unavailable");
     fireEvent.click(screen.getByRole("button", { name: "History" }));
