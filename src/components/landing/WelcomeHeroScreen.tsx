@@ -34,35 +34,65 @@ export function WelcomeHeroScreen() {
         }
         panel.inert = hidden;
         panel.setAttribute("aria-hidden", String(hidden));
+        panel.style.pointerEvents = hidden ? "none" : "auto";
       });
       setScene("mandate");
-      const timeline = gsap.timeline({ onUpdate: () => setScene(timeline.time() >= 5.65 ? "settlement" : timeline.time() >= 3.05 ? "audit" : timeline.time() >= 1.75 ? "negotiation" : "mandate"), scrollTrigger: { trigger: ".cinema-chapter", start: "top top", end: "bottom bottom", scrub: .6, invalidateOnRefresh: true } });
+
+      gsap.set('.cinema-story:not([data-scene="mandate"])', { autoAlpha: 0, pointerEvents: "none" });
+      gsap.set('.cinema-panels > :not([data-scene="mandate"])', { autoAlpha: 0, pointerEvents: "none" });
+      gsap.set('[data-scene="mandate"]', { autoAlpha: 1, pointerEvents: "auto" });
+
+      const timeline = gsap.timeline({
+        onUpdate: () => setScene(
+          timeline.time() >= 5.65 ? "settlement" :
+          timeline.time() >= 3.05 ? "audit" :
+          timeline.time() >= 1.75 ? "negotiation" : "mandate"
+        ),
+        scrollTrigger: {
+          trigger: ".cinema-chapter",
+          start: "top top",
+          end: "bottom bottom",
+          scrub: .6,
+          invalidateOnRefresh: true,
+        }
+      });
       timeline.to(".cinema-preview", { width: "58%", xPercent: 72.4, ease: "none", duration: 1 }, 0)
-        .from(".cinema-story", { autoAlpha: 0, y: 32, duration: .6 }, .25)
+        .from('.cinema-story[data-scene="mandate"]', { autoAlpha: 0, y: 32, duration: .6 }, .25)
         .to(".cinema-rail", { autoAlpha: 0, width: 0, padding: 0, duration: .5 }, 0)
         .to(".cinema-interface", { gap: 0, duration: .5 }, 0)
         .from(".cinema-confirm", { autoAlpha: 0, y: 12, duration: .4 }, .6)
         .to({}, { duration: .4 })
-        .to('[data-scene="mandate"]', { autoAlpha: 0, y: -16, duration: .3 }, 1.45)
-        .fromTo('[data-scene="negotiation"]', { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: .4 }, 1.75)
+        .to('[data-scene="mandate"]', { autoAlpha: 0, y: -16, duration: .3, pointerEvents: "none" }, 1.45)
+        .fromTo('[data-scene="negotiation"]', { autoAlpha: 0, y: 20, pointerEvents: "none" }, { autoAlpha: 1, y: 0, pointerEvents: "auto", duration: .4, immediateRender: false }, 1.75)
         .from(".cinema-offer", { x: 16, opacity: 0, stagger: .12, duration: .35 }, 1.8)
         .from(".cinema-terms", { y: 12, opacity: 0, duration: .35 }, 2.25)
         .to({}, { duration: .4 })
-        .to('[data-scene="negotiation"]', { autoAlpha: 0, y: -16, duration: .3 }, 2.75)
-        .fromTo('[data-scene="audit"]', { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: .4 }, 3.05)
+        .to('[data-scene="negotiation"]', { autoAlpha: 0, y: -16, duration: .3, pointerEvents: "none" }, 2.75)
+        .fromTo('[data-scene="audit"]', { autoAlpha: 0, y: 20, pointerEvents: "none" }, { autoAlpha: 1, y: 0, pointerEvents: "auto", duration: .4, immediateRender: false }, 3.05)
         .from(".cinema-agreement", { y: 12, opacity: 0, duration: .35 }, 3.15)
         .from(".cinema-audit-check", { opacity: 0, x: 12, stagger: .15, duration: .3 }, 3.5)
         .from(".cinema-evidence-leaves", { opacity: 0, duration: .3 }, 4)
         .from(".cinema-evidence-join", { scaleY: 0, transformOrigin: "top", duration: .3 }, 4.2)
         .from(".cinema-evidence-root", { opacity: 0, duration: .3 }, 4.5)
         .from(".cinema-audit-result", { opacity: 0, y: 8, duration: .35 }, 4.8)
-        .to('[data-scene="audit"]', { autoAlpha: 0, y: -16, duration: .3 }, 5.35)
-        .fromTo('[data-scene="settlement"]', { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: .4 }, 5.65)
+        .to('[data-scene="audit"]', { autoAlpha: 0, y: -16, duration: .3, pointerEvents: "none" }, 5.35)
+        .fromTo('[data-scene="settlement"]', { autoAlpha: 0, y: 20, pointerEvents: "none" }, { autoAlpha: 1, y: 0, pointerEvents: "auto", duration: .4, immediateRender: false }, 5.65)
         .from(".cinema-payment-approval", { opacity: 0, y: 12, duration: .35 }, 6.05)
         .from(".cinema-payment-step", { opacity: 0, x: 12, stagger: .3, duration: .35 }, 6.4)
         .from(".cinema-payment-outcome", { opacity: 0, y: 8, duration: .35 }, 7.45)
         .to({}, { duration: .6 });
-      return () => panels?.forEach(panel => { panel.inert = false; panel.removeAttribute("aria-hidden"); });
+
+      return () => {
+        pageRef.current?.removeAttribute("data-enhanced");
+        panels?.forEach(panel => {
+          panel.inert = false;
+          panel.removeAttribute("aria-hidden");
+          panel.style.removeProperty("opacity");
+          panel.style.removeProperty("visibility");
+          panel.style.removeProperty("pointer-events");
+          panel.style.removeProperty("transform");
+        });
+      };
     });
     return () => media.revert();
   }, { scope: pageRef, dependencies: [paused, replay], revertOnUpdate: true });
