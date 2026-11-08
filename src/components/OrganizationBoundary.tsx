@@ -77,7 +77,7 @@ export function OrganizationBoundary({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-page-bg text-text-primary flex items-center justify-center p-6">
+      <main className="pactum-workspace min-h-screen bg-page-bg text-text-primary flex items-center justify-center p-6">
         <p className="text-text-secondary text-sm">Verifying organization access…</p>
       </main>
     );
@@ -94,7 +94,7 @@ export function OrganizationBoundary({ children }: { children: ReactNode }) {
     <OrganizationContext.Provider value={active}>
       <OrganizationControlContext.Provider value={controlValue}>
         {error && !active ? (
-          <main className="min-h-screen bg-page-bg text-text-primary flex items-center justify-center p-6">
+          <main className="pactum-workspace min-h-screen bg-page-bg text-text-primary flex items-center justify-center p-6">
             <div className="max-w-md w-full p-6 rounded-[6px] border border-border-primary bg-surface-primary space-y-4">
               <h2 className="text-lg font-semibold text-text-primary">Organization Access</h2>
               <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -110,7 +110,7 @@ export function OrganizationBoundary({ children }: { children: ReactNode }) {
               <span className="text-[11.5px] font-mono uppercase tracking-[0.08em] font-semibold text-ember-orange block">
                 Workspace Multi-Tenancy
               </span>
-              <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+              <h1 className="workspace-title text-text-primary">
                 Choose or create your organization
               </h1>
               <p className="text-xs text-text-secondary">
