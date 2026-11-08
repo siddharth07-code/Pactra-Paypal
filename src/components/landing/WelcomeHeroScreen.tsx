@@ -27,7 +27,7 @@ export function WelcomeHeroScreen() {
     media.add("(min-width: 1000px) and (min-height: 900px) and (prefers-reduced-motion: no-preference)", () => {
       gsap.set(pageRef.current, { attr: { "data-enhanced": "true" } });
       const panels = pageRef.current?.querySelectorAll<HTMLElement>("[data-scene]");
-      const setScene = (scene: "mandate" | "negotiation" | "audit") => panels?.forEach(panel => {
+      const setScene = (scene: "mandate" | "negotiation" | "audit" | "settlement") => panels?.forEach(panel => {
         const hidden = panel.dataset.scene !== scene;
         if (hidden && panel.contains(document.activeElement)) {
           pageRef.current?.querySelector<HTMLButtonElement>("button[aria-pressed]")?.focus({ preventScroll: true });
@@ -36,7 +36,7 @@ export function WelcomeHeroScreen() {
         panel.setAttribute("aria-hidden", String(hidden));
       });
       setScene("mandate");
-      const timeline = gsap.timeline({ onUpdate: () => setScene(timeline.time() >= 3.05 ? "audit" : timeline.time() >= 1.75 ? "negotiation" : "mandate"), scrollTrigger: { trigger: ".cinema-chapter", start: "top top", end: "bottom bottom", scrub: .6, invalidateOnRefresh: true } });
+      const timeline = gsap.timeline({ onUpdate: () => setScene(timeline.time() >= 5.65 ? "settlement" : timeline.time() >= 3.05 ? "audit" : timeline.time() >= 1.75 ? "negotiation" : "mandate"), scrollTrigger: { trigger: ".cinema-chapter", start: "top top", end: "bottom bottom", scrub: .6, invalidateOnRefresh: true } });
       timeline.to(".cinema-preview", { width: "58%", xPercent: 72.4, ease: "none", duration: 1 }, 0)
         .from(".cinema-story", { autoAlpha: 0, y: 32, duration: .6 }, .25)
         .to(".cinema-rail", { autoAlpha: 0, width: 0, padding: 0, duration: .5 }, 0)
@@ -56,7 +56,12 @@ export function WelcomeHeroScreen() {
         .from(".cinema-evidence-join", { scaleY: 0, transformOrigin: "top", duration: .3 }, 4.2)
         .from(".cinema-evidence-root", { opacity: 0, duration: .3 }, 4.5)
         .from(".cinema-audit-result", { opacity: 0, y: 8, duration: .35 }, 4.8)
-        .to({}, { duration: .5 });
+        .to('[data-scene="audit"]', { autoAlpha: 0, y: -16, duration: .3 }, 5.35)
+        .fromTo('[data-scene="settlement"]', { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: .4 }, 5.65)
+        .from(".cinema-payment-approval", { opacity: 0, y: 12, duration: .35 }, 6.05)
+        .from(".cinema-payment-step", { opacity: 0, x: 12, stagger: .3, duration: .35 }, 6.4)
+        .from(".cinema-payment-outcome", { opacity: 0, y: 8, duration: .35 }, 7.45)
+        .to({}, { duration: .6 });
       return () => panels?.forEach(panel => { panel.inert = false; panel.removeAttribute("aria-hidden"); });
     });
     return () => media.revert();
@@ -84,7 +89,7 @@ export function WelcomeHeroScreen() {
       </section>
       <section id="procurement-mandate" className="cinema-chapter" aria-labelledby="mandate-title">
         <div className="landing-container cinema-sticky">
-          <div className="cinema-caption"><span>Introducing the procurement workspace</span><span>Scenes 01 + 02 + 03</span></div>
+          <div className="cinema-caption"><span>Introducing the procurement workspace</span><span>Scenes 01 + 02 + 03 + 04</span></div>
           <div className="cinema-scene">
             <div className="cinema-story" data-scene="mandate">
               <p className="cinema-kicker">01 / Procurement mandate</p>
@@ -100,6 +105,11 @@ export function WelcomeHeroScreen() {
               <p className="cinema-kicker">03 / Audit verification</p>
               <h2 id="audit-title">Keep the terms.<br />Trace the evidence.</h2>
               <p>Bring the draft agreement and its policy checks into one record. SHA-256 Merkle evidence helps check record integrity; commercial review still matters.</p>
+            </div>
+            <div className="cinema-story cinema-settlement-story" data-scene="settlement">
+              <p className="cinema-kicker">04 / PayPal settlement</p>
+              <h2 id="settlement-title">Approval first.<br />Then payment.</h2>
+              <p>Carry the reviewed terms into PayPal Sandbox checkout. Buyer approval, authorization and capture are separate steps, each requiring its own confirmation.</p>
             </div>
             <div className="cinema-preview" role="group" aria-label="Illustrative procurement mandate">
               <div className="cinema-toolbar"><span>Procurement workspace</span><span className="cinema-sample">Illustrative workflow</span></div>
@@ -162,10 +172,43 @@ export function WelcomeHeroScreen() {
                   <p>Example evidence integrity: shown as valid. Buyer approval and PayPal Sandbox settlement remain separate steps.</p>
                 </div>
               </section>
+              <section className="cinema-settlement" data-scene="settlement" aria-labelledby="payment-title">
+                <p className="cinema-label">04 / PayPal settlement · Illustrative demo</p>
+                <h3 id="payment-title">From reviewed terms to payment.</h3>
+                <p className="cinema-sub">All amounts and statuses are examples. Scrolling does not approve the agreement, open checkout or make a payment.</p>
+                <div className="cinema-payment-approval">
+                  <h4>Buyer approval / Pending in this example</h4>
+                  <p>Sample supplier A · 20 office chairs</p>
+                  <p>USD 3,700 · delivery in 8 days</p>
+                  <p>Audit evidence shown as valid. Buyer approval still required.</p>
+                </div>
+                <ol className="cinema-payment-steps" aria-label="Conditional PayPal payment sequence">
+                  <li className="cinema-payment-step">
+                    <h4>Create order, then buyer approves at PayPal</h4>
+                    <p>After agreement approval, create an Orders v2 order with AUTHORIZE intent. The buyer then approves it separately at PayPal.</p>
+                    <span>Example status / Not started</span>
+                  </li>
+                  <li className="cinema-payment-step">
+                    <h4>Authorize the approved order</h4>
+                    <p>Orders v2 reserves funds if authorization succeeds. It does not capture them or confirm settlement.</p>
+                    <span>Example status / Not authorized</span>
+                  </li>
+                  <li className="cinema-payment-step">
+                    <h4>Capture the authorization later</h4>
+                    <p>A separate Payments v2 capture uses the authorization ID. A pending or failed result is not a completed payment.</p>
+                    <span>Example status / Not captured</span>
+                  </li>
+                </ol>
+                <div className="cinema-payment-outcome">
+                  <h4>Settlement / Awaiting payment confirmation</h4>
+                  <p>No funds move in this demonstration. Only a confirmed completed capture records payment; seller funds may still be held.</p>
+                  <Link href="/workspace" className="landing-text-link">Review settlement in your workspace</Link>
+                </div>
+              </section>
               </div>
             </div>
           </div>
-          <div className="cinema-controls"><span>Sample workflow / Chapters 01 + 02 + 03</span><div><button type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? "Resume motion" : "Pause motion"}</button><button type="button" onClick={() => { setPaused(false); setReplay(value => value + 1); window.scrollTo({ top: 0, behavior: "instant" }); }}>Replay entrance</button></div></div>
+          <div className="cinema-controls"><span>Sample workflow / Chapters 01 + 02 + 03 + 04</span><div><button type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? "Resume motion" : "Pause motion"}</button><button type="button" onClick={() => { setPaused(false); setReplay(value => value + 1); window.scrollTo({ top: 0, behavior: "instant" }); }}>Replay entrance</button></div></div>
         </div>
       </section>
       <LifecycleScrollSection />
