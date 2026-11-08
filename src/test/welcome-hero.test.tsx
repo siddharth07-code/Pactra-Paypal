@@ -155,4 +155,50 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
     fireEvent.click(screen.getByRole("button", { name: "Replay entrance" }));
     expect(screen.getByText("Example status / Not started")).toBeVisible();
   });
+
+  it("activates only the mandate scene initially and isolates inactive scenes when enhanced motion is active", () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+
+    const { container } = render(<WelcomeHeroScreen />);
+    const landing = container.querySelector(".pactum-cinema");
+    expect(landing).toHaveAttribute("data-enhanced", "true");
+
+    const mandateElements = container.querySelectorAll('[data-scene="mandate"]');
+    const negotiationElements = container.querySelectorAll('[data-scene="negotiation"]');
+    const auditElements = container.querySelectorAll('[data-scene="audit"]');
+    const settlementElements = container.querySelectorAll('[data-scene="settlement"]');
+
+    expect(mandateElements.length).toBeGreaterThan(0);
+    mandateElements.forEach(el => {
+      expect((el as HTMLElement).inert).toBe(false);
+      expect(el).toHaveAttribute("aria-hidden", "false");
+    });
+
+    negotiationElements.forEach(el => {
+      expect((el as HTMLElement).inert).toBe(true);
+      expect(el).toHaveAttribute("aria-hidden", "true");
+    });
+
+    auditElements.forEach(el => {
+      expect((el as HTMLElement).inert).toBe(true);
+      expect(el).toHaveAttribute("aria-hidden", "true");
+    });
+
+    settlementElements.forEach(el => {
+      expect((el as HTMLElement).inert).toBe(true);
+      expect(el).toHaveAttribute("aria-hidden", "true");
+    });
+
+    window.matchMedia = originalMatchMedia;
+  });
 });
