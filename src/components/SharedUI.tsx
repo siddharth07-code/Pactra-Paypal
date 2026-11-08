@@ -45,7 +45,7 @@ export function PrimaryButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 h-10 rounded-[6px] bg-ember-orange hover:bg-ember-hover text-white font-medium text-[13.5px] tracking-[-0.01em] transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] select-none ${className}`}
+      className={`workspace-primary inline-flex items-center justify-center gap-2 px-4 py-2.5 h-10 rounded-[6px] bg-ember-orange hover:bg-ember-hover text-white font-medium text-[13.5px] tracking-[-0.01em] transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#111113] select-none ${className}`}
     >
       <span>{children}</span>
       {showArrow && <ArrowRight className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" aria-hidden="true" />}
@@ -155,18 +155,21 @@ export function SectionHeader({
   subtitle,
   badge,
   className = "",
+  pageTitle = false,
 }: {
   title: string;
   subtitle?: string;
   badge?: React.ReactNode;
   className?: string;
+  pageTitle?: boolean;
 }) {
+  const Heading = pageTitle ? "h1" : "h2";
   return (
     <div className={`space-y-1.5 pb-2 ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="type-section-heading text-text-primary">
+        <Heading className={`${pageTitle ? "workspace-title" : "type-section-heading"} text-text-primary`}>
           {title}
-        </h2>
+        </Heading>
         {badge && <div>{badge}</div>}
       </div>
       {subtitle && (
