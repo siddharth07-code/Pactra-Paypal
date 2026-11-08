@@ -24,19 +24,19 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     finally { setBusy(false); }
   }
   return <main className="min-h-screen bg-page-bg text-text-primary flex items-center justify-center p-6">
-    <section className="w-full max-w-md rounded-xl border border-smoke dark:border-[#27272a] bg-paper-white dark:bg-[#18181b] p-8 space-y-6">
+    <section className="w-full max-w-md rounded-[6px] border border-border-primary bg-surface-primary p-8 space-y-6">
       <Link href="/login" className="font-mono text-ember-orange tracking-widest font-semibold">PACTUM</Link>
-      <h1 className="text-2xl font-semibold">{registration ? "Create your account" : "Sign in"}</h1>
-      <p className="text-sm text-secondary">Secure access to PACTUM. Organization permissions are configured separately.</p>
+      <h1 className="text-2xl font-semibold tracking-tight text-text-primary">{registration ? "Create your account" : "Sign in"}</h1>
+      <p className="text-sm text-text-secondary">Secure access to PACTUM. Organization permissions are configured separately.</p>
       <form onSubmit={submit} className="space-y-4">
-        <label className="block text-sm">Email<input name="email" type="email" required maxLength={254} autoComplete="email" className="mt-1 block w-full rounded border border-smoke bg-transparent p-3" /></label>
-        <label className="block text-sm">Password<input name="password" type="password" required minLength={registration ? 12 : 1} maxLength={128} autoComplete={registration ? "new-password" : "current-password"} className="mt-1 block w-full rounded border border-smoke bg-transparent p-3" /></label>
-        {registration && <p className="text-xs text-secondary">Use 12–128 characters. Email confirmation is required.</p>}
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-        {notice && <p role="status" className="text-sm">{notice}</p>}
-        <button disabled={busy} className="w-full rounded bg-ember-orange p-3 text-white font-medium disabled:opacity-50">{busy ? "Please wait…" : registration ? "Register" : "Sign in"}</button>
+        <label className="block text-sm text-text-primary">Email<input name="email" type="email" required maxLength={254} autoComplete="email" className="mt-1 block w-full rounded-[6px] border border-border-primary bg-surface-secondary text-text-primary p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange" /></label>
+        <label className="block text-sm text-text-primary">Password<input name="password" type="password" required minLength={registration ? 12 : 1} maxLength={128} autoComplete={registration ? "new-password" : "current-password"} className="mt-1 block w-full rounded-[6px] border border-border-primary bg-surface-secondary text-text-primary p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange" /></label>
+        {registration && <p className="text-xs text-text-secondary">Use 12–128 characters. Email confirmation is required.</p>}
+        {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400 p-2.5 rounded-[6px] border border-red-500/20 bg-red-500/10 font-medium">{error}</p>}
+        {notice && <p role="status" className="text-sm text-text-primary p-2.5 rounded-[6px] border border-emerald-500/20 bg-emerald-500/10 font-medium">{notice}</p>}
+        <button disabled={busy} className="w-full rounded-[6px] bg-ember-orange hover:bg-[#a3351f] p-3 text-white font-medium transition-colors cursor-pointer disabled:opacity-50">{busy ? "Please wait…" : registration ? "Register" : "Sign in"}</button>
       </form>
-      <Link href={registration ? "/login" : "/register"} className="block text-sm underline">{registration ? "Already registered? Sign in" : "Create an account"}</Link>
+      <Link href={registration ? "/login" : "/register"} className="block text-sm text-text-secondary hover:text-text-primary underline">{registration ? "Already registered? Sign in" : "Create an account"}</Link>
     </section>
   </main>;
 }
