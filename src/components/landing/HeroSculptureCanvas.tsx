@@ -13,39 +13,6 @@ interface HeroCanvasProps {
   paused?: boolean;
 }
 
-/**
- * Procedural low-poly/fissured craggy basalt geometry generator
- */
-function createCraggyBasaltGeometry(
-  radius: number,
-  height: number,
-  roughness: number = 0.35,
-  seed: number = 42
-): THREE.BufferGeometry {
-  const geom = new THREE.DodecahedronGeometry(radius, 2);
-  const pos = geom.attributes.position;
-  const v = new THREE.Vector3();
-
-  const pseudoNoise = (x: number, y: number, z: number) => {
-    const n = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719 + seed) * 43758.5453;
-    return (n - Math.floor(n)) * 2 - 1;
-  };
-
-  for (let i = 0; i < pos.count; i++) {
-    v.fromBufferAttribute(pos, i);
-    const n = pseudoNoise(v.x, v.y, v.z);
-    const facetNoise = Math.sign(n) * Math.pow(Math.abs(n), 1.4);
-    v.multiplyScalar(1 + facetNoise * roughness);
-    if (v.y < -radius * 0.4) {
-      v.y *= 0.6;
-    }
-    pos.setXYZ(i, v.x, v.y * (height / radius), v.z);
-  }
-
-  geom.computeVertexNormals();
-  return geom;
-}
-
 export function HeroSculptureCanvas({ onLoaded, className = "", paused = false }: HeroCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [webglSupported, setWebglSupported] = useState(true);
@@ -86,35 +53,45 @@ export function HeroSculptureCanvas({ onLoaded, className = "", paused = false }
 
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 50);
     camera.position.set(0, 0.1, 5.0);
+    camera.lookAt(0, -.15, 0);
 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, width < 640 ? 1 : 1.5));
     renderer.setSize(width, height);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
-    renderer.shadowMap.enabled = false;
+    renderer.toneMappingExposure = .95;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.domElement.setAttribute("aria-hidden", "true");
     container.appendChild(renderer.domElement);
 
     const ambientLight = new THREE.AmbientLight(0xf5f3ef, 0.58);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xfffbf5, 2.5);
+    const keyLight = new THREE.DirectionalLight(0xfffbf5, 1.8);
     keyLight.position.set(-3.2, 4.5, 3.8);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(1024, 1024);
+    keyLight.shadow.camera.left = -4;
+    keyLight.shadow.camera.right = 4;
+    keyLight.shadow.camera.top = 4;
+    keyLight.shadow.camera.bottom = -4;
+    keyLight.shadow.normalBias = .025;
+    keyLight.shadow.bias = -.0002;
     scene.add(keyLight);
 
     const fillLight = new THREE.DirectionalLight(0xe0e4ec, 0.55);
     fillLight.position.set(4.0, -1.8, 2.2);
     scene.add(fillLight);
 
-    const rimLight = new THREE.DirectionalLight(0xffffff, 3.2);
+    const rimLight = new THREE.DirectionalLight(0xffffff, 1.8);
     rimLight.position.set(2.5, 3.8, -3.5);
     scene.add(rimLight);
 
     const aluminumMaterial = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color("#EAE7E2"),
-      metalness: 0.88,
-      roughness: 0.27,
-      clearcoat: 0.2,
+      color: new THREE.Color("#B8B5B0"),
+      metalness: 0.85,
+      roughness: 0.3,
+      clearcoat: 0.08,
       anisotropy: 0.45,
     });
 
@@ -134,26 +111,34 @@ export function HeroSculptureCanvas({ onLoaded, className = "", paused = false }
       color: new THREE.Color("#C43A1D"),
       metalness: 0.4,
       roughness: 0.3,
-      emissive: new THREE.Color("#C43A1D"),
-      emissiveIntensity: 0.32,
     });
 
     const basaltMaterial = new THREE.MeshStandardMaterial({
       color: new THREE.Color("#121212"),
       metalness: 0.04,
       roughness: 0.90,
-      flatShading: true,
     });
 
     const heroGroup = new THREE.Group();
     scene.add(heroGroup);
 
-    const lowerBasaltGeom = createCraggyBasaltGeometry(1.6, 1.1, 0.42, 101);
+    const lowerBasaltGeom = new RoundedBoxGeometry(2.8, .32, 1.65, 5, .075);
     const lowerBasalt = new THREE.Mesh(lowerBasaltGeom, basaltMaterial);
-    lowerBasalt.position.set(0.0, -1.55, -0.2);
-    lowerBasalt.rotation.set(0.2, 0.8, -0.15);
-    lowerBasalt.scale.set(1.0, 0.65, 0.9);
+    lowerBasalt.name = "agreement-plinth";
+    lowerBasalt.position.set(0, -1.7, -.05);
+    lowerBasalt.rotation.y = .38;
+    lowerBasalt.castShadow = true;
+    lowerBasalt.receiveShadow = true;
     scene.add(lowerBasalt);
+
+    const floorGeometry = new THREE.PlaneGeometry(30, 30);
+    const floorMaterial = new THREE.ShadowMaterial({ opacity: .1 });
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.name = "contact-shadow-ground";
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -1.865;
+    floor.receiveShadow = true;
+    scene.add(floor);
 
     const plateWidth = 2.1;
     const plateHeight = 3.0;
@@ -164,6 +149,8 @@ export function HeroSculptureCanvas({ onLoaded, className = "", paused = false }
 
     const plate1Geom = new RoundedBoxGeometry(plateWidth, plateHeight, plateDepth, 3, .035);
     const plate1 = new THREE.Mesh(plate1Geom, aluminumMaterial);
+    plate1.castShadow = true;
+    plate1.receiveShadow = true;
     plate1.position.set(0, 0, 0.07);
     plateGroup.add(plate1);
 
@@ -175,11 +162,13 @@ export function HeroSculptureCanvas({ onLoaded, className = "", paused = false }
 
     const plate2Geom = new RoundedBoxGeometry(plateWidth * 0.98, plateHeight * 0.98, plateDepth, 3, .035);
     const plate2 = new THREE.Mesh(plate2Geom, aluminumMaterial);
+    plate2.castShadow = true;
     plate2.position.set(0.04, -0.02, 0.0);
     plateGroup.add(plate2);
 
     const plate3Geom = new RoundedBoxGeometry(plateWidth, plateHeight, plateDepth, 3, .035);
     const plate3 = new THREE.Mesh(plate3Geom, aluminumMaterial);
+    plate3.castShadow = true;
     plate3.position.set(-0.02, -0.04, -0.07);
     plateGroup.add(plate3);
 
@@ -229,12 +218,12 @@ export function HeroSculptureCanvas({ onLoaded, className = "", paused = false }
     const pose = { reveal: 1, scroll: 0, tiltX: 0, tiltY: 0, float: 0, sweep: 0 };
     const draw = () => {
       if (contextLost || !visible || document.hidden) return;
-      const spread = (1 - pose.reveal) * .65 + pose.scroll * .55;
+      const spread = (1 - pose.reveal) * .22 + pose.scroll * .12;
       plate1.position.z = .12 + spread;
       plate2.position.set(.06 + spread * .4, -.025, 0);
       plate3.position.set(-.06 - spread * .25, -.05, -.12 - spread * .35);
-      heroGroup.rotation.set(-.25 + pose.tiltX, .62 + pose.tiltY + pose.scroll * .18, -.12);
-      heroGroup.position.y = .05 + pose.float - (1 - pose.reveal) * .2;
+      heroGroup.rotation.set(-.09 + pose.tiltX, .62 + pose.tiltY + pose.scroll * .08, -.025);
+      heroGroup.position.y = -.015;
       rimLight.position.x = -1.5 + pose.reveal * 4 + pose.sweep * .5;
       renderer.render(scene, camera);
     };
@@ -246,7 +235,7 @@ export function HeroSculptureCanvas({ onLoaded, className = "", paused = false }
 
       camera.aspect = newWidth / newHeight;
       // Fit the complete assembly rather than cropping it to a narrow canvas.
-      camera.position.z = Math.max(7.6, 7.2 / camera.aspect);
+      camera.position.z = Math.max(7.4, 6.5 / camera.aspect);
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, newWidth < 640 ? 1 : 1.5));
       renderer.setSize(newWidth, newHeight);
@@ -264,7 +253,7 @@ export function HeroSculptureCanvas({ onLoaded, className = "", paused = false }
       pose.reveal = pausedRef.current ? 1 : 0;
       const intro = gsap.to(pose, { reveal: 1, duration: 2.2, ease: "power3.out", onUpdate: draw });
       // The slow light pass exposes the plate edges; pause it whenever the scene cannot be seen.
-      const ambient = gsap.to(pose, { float: .035, sweep: 1, duration: 4.5, yoyo: true, repeat: -1, ease: "sine.inOut", onUpdate: draw });
+      const ambient = gsap.to(pose, { sweep: 1, duration: 4.5, yoyo: true, repeat: -1, ease: "sine.inOut", onUpdate: draw });
       const scroll = gsap.to(pose, { scroll: 1, ease: "none", onUpdate: draw, scrollTrigger: {
         trigger: container.closest(".landing-hero") ?? container,
         start: "top top", end: "bottom top", scrub: .65,
@@ -283,8 +272,8 @@ export function HeroSculptureCanvas({ onLoaded, className = "", paused = false }
       const pointer = (event: PointerEvent) => {
         if (pausedRef.current || event.pointerType !== "mouse") return;
         const bounds = container.getBoundingClientRect();
-        moveX(((event.clientY - bounds.top) / bounds.height - .5) * .12);
-        moveY(((event.clientX - bounds.left) / bounds.width - .5) * .18);
+        moveX(((event.clientY - bounds.top) / bounds.height - .5) * .035);
+        moveY(((event.clientX - bounds.left) / bounds.width - .5) * .08);
       };
       const leave = () => { if (!pausedRef.current) { moveX(0); moveY(0); } };
       container.addEventListener("pointermove", pointer);
@@ -345,6 +334,7 @@ export function HeroSculptureCanvas({ onLoaded, className = "", paused = false }
         pinGeom,
         lowerBasaltGeom,
         inscriptionGeometry,
+        floorGeometry,
       ].forEach((g) => g.dispose());
       [
         aluminumMaterial,
@@ -354,6 +344,7 @@ export function HeroSculptureCanvas({ onLoaded, className = "", paused = false }
         basaltMaterial,
         edgeMaterial,
         inscriptionMaterial,
+        floorMaterial,
       ].forEach((m) => m.dispose());
       renderer.dispose();
       environmentTarget.dispose();
