@@ -1,0 +1,98 @@
+/* Scoped Marketing Tokens: src/components/landing/landing.css
+ * In accordance with DESIGN.md Section 2
+ * All tokens strictly scoped under .pactum-landing
+ */
+.pactum-landing {
+  /* Surfaces & Canvas */
+  --landing-paper: #F5F3EF;          /* Editorial warm stone ground */
+  --landing-paper-subtle: #ECE9E2;   /* Secondary paper card background */
+  --landing-obsidian: #080808;       /* Deep pitch ground for dark transitions */
+  --landing-night: #111111;          /* Card containers and dark surfaces */
+  --landing-night-card: #181818;     /* Monolithic dark card background */
+  --landing-card-light: #FFFFFF;     /* Monolithic light card surface */
+  --landing-glass-rim: rgba(255, 255, 255, 0.08);
+
+  /* Typography Colors */
+  --landing-ink: #111111;            /* Primary typography on paper */
+  --landing-muted: #5A5650;          /* Secondary body on paper (4.8:1 contrast) */
+  --landing-subtle: #8A857D;         /* Micro metadata on paper */
+  --landing-on-night: #F5F3EF;       /* Primary display text on obsidian */
+  --landing-muted-on-night: #7A7670; /* Secondary two-tone text on obsidian */
+  --landing-faint-on-night: #4A4742; /* Captions on obsidian */
+
+  /* Brand Accents */
+  --landing-vermilion: #C43A1D;      /* Anodized precision alignment seam */
+  --landing-vermilion-glow: rgba(196, 58, 29, 0.25);
+
+  /* Architectural Borders & Rules */
+  --landing-rule-paper: rgba(17, 17, 17, 0.08);
+  --landing-rule-dark: rgba(245, 243, 239, 0.12);
+
+  /* Geometry & Radii */
+  --radius-pill: 9999px;
+  --radius-card: 14px;
+  --radius-control: 6px;
+  --radius-subtle: 2px;
+}
+
+.pactum-landing {
+  background-color: var(--landing-paper);
+  color: var(--landing-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Stagger headline word mask */
+.hero-word-mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+}
+
+.hero-word {
+  display: inline-block;
+  transform: translateY(115%);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+/* Black pill button styling */
+.pactum-pill-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: #111111;
+  color: #FFFFFF;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+  text-decoration: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.pactum-pill-cta:hover {
+  background-color: #222222;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.pactum-pill-cta:active {
+  transform: translateY(1px);
+}
+
+.pactum-pill-cta:focus-visible {
+  outline: none;
+  ring: 2px solid var(--landing-vermilion);
+  box-shadow: 0 0 0 3px rgba(196, 58, 29, 0.3);
+}
+
+/* Baseline Metadata Rail */
+.pactum-baseline-rail {
+  border-top: 1px solid var(--landing-rule-paper);
+  background: linear-gradient(180deg, rgba(245, 243, 239, 0) 0%, rgba(245, 243, 239, 0.9) 100%);
+  backdrop-filter: blur(4px);
+}
