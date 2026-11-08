@@ -108,20 +108,12 @@ export function ProcurementHistoryScreen({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-border-primary">
         <div>
-          <span className="text-[11.5px] font-sans font-semibold uppercase tracking-[0.06em] text-ember-orange block mb-1">
-            Authoritative Audit Trail
-          </span>
-          <h1 className="type-page-title text-text-primary">
+          <h1 className="workspace-title text-text-primary">
             Procurement History
           </h1>
-          <p className="type-body text-text-secondary mt-1 max-w-2xl">
-            Immutable transaction records of procurement mandates, negotiated supplier terms, Merkle roots, and cryptographic audit proofs.
+          <p className="type-body text-text-secondary mt-3 max-w-2xl">
+            Review saved mandates, supplier agreements, audit evidence and settlement records.
           </p>
-        </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="text-[11.5px] font-sans font-medium text-text-secondary bg-surface-secondary px-3 py-1 rounded-[6px] border border-border-primary">
-            Authoritative Persistence
-          </span>
         </div>
       </div>
 
