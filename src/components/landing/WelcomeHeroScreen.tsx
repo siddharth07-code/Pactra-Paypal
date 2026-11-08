@@ -52,7 +52,7 @@ export function WelcomeHeroScreen() {
           <h1 id="welcome-title"><span className="landing-title-mask"><span className="landing-title-line">Procurement,</span></span><span className="landing-title-mask"><span className="landing-title-line">with proof.</span></span></h1>
           <p>Set the buying limits. Negotiate supplier terms. Review the evidence before authorizing payment.</p>
           <div className="landing-actions">
-            <Link id="hero-cta" href="/login" className="landing-button">Open workspace</Link>
+            <Link id="hero-cta" href="/workspace" className="landing-button">Open workspace</Link>
             <a href="#lifecycle-section" className="landing-text-link">See the process</a>
           </div>
           <p className="landing-demo-note">A B2B procurement workspace with PayPal Sandbox settlement.</p>
