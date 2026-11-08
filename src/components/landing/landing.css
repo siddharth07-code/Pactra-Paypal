@@ -1,38 +1,33 @@
 /* Scoped Marketing Tokens: src/components/landing/landing.css
- * In accordance with DESIGN.md Section 2
- * All tokens strictly scoped under .pactum-landing
+ * In accordance with DESIGN.md and Anti-Slop Rules
+ * Strictly scoped under .pactum-landing
  */
 .pactum-landing {
-  /* Surfaces & Canvas */
   --landing-paper: #F5F3EF;          /* Editorial warm stone ground */
   --landing-paper-subtle: #ECE9E2;   /* Secondary paper card background */
   --landing-obsidian: #080808;       /* Deep pitch ground for dark transitions */
-  --landing-night: #111111;          /* Card containers and dark surfaces */
-  --landing-night-card: #181818;     /* Monolithic dark card background */
-  --landing-card-light: #FFFFFF;     /* Monolithic light card surface */
-  --landing-glass-rim: rgba(255, 255, 255, 0.08);
+  --landing-night: #111111;          /* Dark surfaces */
+  --landing-night-card: #141414;     /* Monolithic dark card background */
+  --landing-card-border: rgba(255, 255, 255, 0.08);
 
   /* Typography Colors */
   --landing-ink: #111111;            /* Primary typography on paper */
-  --landing-muted: #5A5650;          /* Secondary body on paper (4.8:1 contrast) */
+  --landing-muted: #5A5650;          /* Secondary body on paper */
   --landing-subtle: #8A857D;         /* Micro metadata on paper */
   --landing-on-night: #F5F3EF;       /* Primary display text on obsidian */
   --landing-muted-on-night: #7A7670; /* Secondary two-tone text on obsidian */
   --landing-faint-on-night: #4A4742; /* Captions on obsidian */
 
-  /* Brand Accents */
-  --landing-vermilion: #C43A1D;      /* Anodized precision alignment seam */
-  --landing-vermilion-glow: rgba(196, 58, 29, 0.25);
+  /* Brand Accent: Anodized precision alignment seam (restrained, never neon) */
+  --landing-vermilion: #C43A1D;
 
-  /* Architectural Borders & Rules */
+  /* Architectural Rules */
   --landing-rule-paper: rgba(17, 17, 17, 0.08);
-  --landing-rule-dark: rgba(245, 243, 239, 0.12);
+  --landing-rule-dark: rgba(255, 255, 255, 0.08);
 
-  /* Geometry & Radii */
+  /* Radii */
   --radius-pill: 9999px;
-  --radius-card: 14px;
-  --radius-control: 6px;
-  --radius-subtle: 2px;
+  --radius-card: 8px;
 }
 
 .pactum-landing {
@@ -58,147 +53,84 @@
   will-change: transform, opacity;
 }
 
-/* Black pill button styling */
+/* High-contrast solid black pill CTA */
 .pactum-pill-cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
   background-color: #111111;
-  color: #FFFFFF;
+  color: #F5F3EF;
   border-radius: var(--radius-pill);
   font-weight: 500;
   text-decoration: none;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, box-shadow 0.2s ease;
+  transition: background-color 0.15s ease, transform 0.15s ease;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
 }
 
 .pactum-pill-cta:hover {
-  background-color: #222222;
+  background-color: #262626;
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
 }
 
 .pactum-pill-cta:active {
-  transform: translateY(1px);
+  transform: translateY(0);
 }
 
 .pactum-pill-cta:focus-visible {
   outline: none;
-  ring: 2px solid var(--landing-vermilion);
-  box-shadow: 0 0 0 3px rgba(196, 58, 29, 0.3);
+  box-shadow: 0 0 0 2px var(--landing-paper), 0 0 0 4px var(--landing-vermilion);
 }
 
-/* Baseline Metadata Rail */
-.pactum-baseline-rail {
-  border-top: 1px solid var(--landing-rule-paper);
-  background: linear-gradient(180deg, rgba(245, 243, 239, 0) 0%, rgba(245, 243, 239, 0.9) 100%);
-  backdrop-filter: blur(4px);
-}
-
-/* ==========================================================================
-   Editorial Obsidian Lifecycle Section (DESIGN.md Sections 1, 2, 5 & 6)
-   ========================================================================== */
-
-.editorial-obsidian-section {
-  background-color: var(--landing-obsidian);
-  color: var(--landing-on-night);
-  position: relative;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* Two-Tone Thesis Statement */
-.two-tone-thesis-lead {
-  color: #FFFFFF;
-}
-
-.two-tone-thesis-sub {
-  color: var(--landing-muted-on-night);
-}
-
-/* Monolithic Lifecycle Card */
-.lifecycle-card {
-  background-color: var(--landing-night-card);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-card);
-  transition: border-color 0.3s ease, background-color 0.3s ease, transform 0.3s ease;
-}
-
-.lifecycle-card.active {
-  border-color: rgba(196, 58, 29, 0.45);
-  background-color: #1A1A1A;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(196, 58, 29, 0.2);
-}
-
-/* Metric Display in Cards */
-.lifecycle-metric {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 2.25rem;
-  line-height: 1.1;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--landing-on-night);
-}
-
-/* Stage Navigation Tabs */
-.stage-tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--landing-muted-on-night);
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.stage-tab-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--landing-on-night);
-  border-color: rgba(255, 255, 255, 0.25);
-}
-
-.stage-tab-btn.active {
-  background: #FFFFFF;
-  color: #111111;
-  border-color: #FFFFFF;
-  font-weight: 600;
-}
-
-/* Dark Finale CTA Pill */
+/* High-contrast solid white pill CTA on obsidian */
 .pactum-pill-cta-dark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
   background-color: #FFFFFF;
   color: #111111;
   border-radius: var(--radius-pill);
   font-weight: 600;
   text-decoration: none;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, box-shadow 0.2s ease;
+  transition: background-color 0.15s ease, transform 0.15s ease;
   cursor: pointer;
-  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
 }
 
 .pactum-pill-cta-dark:hover {
   background-color: #E8E6E1;
   transform: translateY(-1px);
-  box-shadow: 0 6px 26px rgba(255, 255, 255, 0.22);
 }
 
 .pactum-pill-cta-dark:active {
-  transform: translateY(1px);
+  transform: translateY(0);
 }
 
 .pactum-pill-cta-dark:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(196, 58, 29, 0.8);
+  box-shadow: 0 0 0 2px var(--landing-obsidian), 0 0 0 4px var(--landing-vermilion);
+}
+
+/* Baseline Metadata Rail */
+.pactum-baseline-rail {
+  border-top: 1px solid var(--landing-rule-paper);
+  background: var(--landing-paper);
+}
+
+/* Editorial Obsidian Section */
+.editorial-obsidian-section {
+  background-color: var(--landing-obsidian);
+  color: var(--landing-on-night);
+  position: relative;
+  border-top: 1px solid var(--landing-rule-dark);
+}
+
+/* Monolithic 4-Pillar Grid Card */
+.monolithic-pillar-card {
+  background-color: var(--landing-night-card);
+  border: 1px solid var(--landing-card-border);
+  border-radius: var(--radius-card);
+  transition: border-color 0.2s ease;
+}
+
+.monolithic-pillar-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
 }
