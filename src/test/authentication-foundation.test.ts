@@ -264,8 +264,14 @@ describe("private pages and independent machine endpoints", () => {
   });
   it("redirects unauthenticated page navigation to the canonical login URL", async () => {
     mocks.getUser.mockResolvedValue({ data: { user: null }, error: { name: "AuthSessionMissingError" } });
-    const response = await middleware(request("/"));
+    const response = await middleware(request("/account"));
     expect(response.headers.get("location")).toBe("https://pactum.example/login");
+    expect(response.headers.get("cache-control")).toContain("no-store");
+  });
+  it("rewrites unauthenticated root navigation to the welcome landing experience", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: { name: "AuthSessionMissingError" } });
+    const response = await middleware(request("/"));
+    expect(response.headers.get("x-middleware-rewrite")).toBe("https://pactum.example/welcome");
     expect(response.headers.get("cache-control")).toContain("no-store");
   });
   it("does not redirect provider outages as if credentials were invalid", async () => {
