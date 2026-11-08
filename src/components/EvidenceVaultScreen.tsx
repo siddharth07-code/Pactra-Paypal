@@ -150,7 +150,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
+    <div className="space-y-8 text-text-primary min-w-0">
       {/* Header */}
       <SectionHeader
         title="Evidence Vault"
@@ -177,56 +177,56 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
 
       {/* Merkle Roots: Clean Side-by-Side Panels */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] shadow-2xs space-y-3.5 transition-colors">
-          <div className="flex items-center justify-between pb-2.5 border-b border-smoke dark:border-[#27272a]">
-            <span className="text-[12px] font-sans font-semibold text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider flex items-center gap-1.5">
+        <div className="bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary space-y-3.5">
+          <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
+            <span className="text-[12px] font-sans font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5" aria-hidden="true" />
               Pre-Settlement Merkle Root
             </span>
-            <span className="text-[11px] font-sans font-medium px-2 py-0.5 rounded-[4px] bg-smoke/40 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a]">
+            <span className="text-[11px] font-sans font-medium px-2 py-0.5 rounded-[4px] bg-surface-secondary text-text-primary border border-border-primary">
               PayPal custom_id bound
             </span>
           </div>
           <div>
-            <div className="text-[12px] text-[#737373] dark:text-[#a3a3a3] mb-1.5 font-medium">
+            <div className="text-[12px] text-text-secondary mb-1.5 font-medium">
               64-Character SHA-256 Digest
             </div>
             {preRoot ? (
               <CopyableHash hash={preRoot} truncate={false} />
             ) : (
-              <div className="p-3 rounded-[6px] bg-smoke/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a] text-[13px] text-ash-gray font-mono-token italic">
+              <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary text-[13px] text-text-secondary font-mono-token italic">
                 Uncommitted — Awaiting verified negotiation completion
               </div>
             )}
           </div>
-          <p className="text-[12.5px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed pt-2.5 border-t border-smoke dark:border-[#27272a]">
+          <p className="text-[12.5px] text-text-secondary leading-relaxed pt-2.5 border-t border-border-primary">
             Cryptographically commits the mandate requirements, Channel3 baseline quotes, and all approved negotiation rounds.
           </p>
         </div>
 
-        <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] shadow-2xs space-y-3.5 transition-colors">
-          <div className="flex items-center justify-between pb-2.5 border-b border-smoke dark:border-[#27272a]">
-            <span className="text-[12px] font-sans font-semibold text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider flex items-center gap-1.5">
+        <div className="bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary space-y-3.5">
+          <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
+            <span className="text-[12px] font-sans font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
               Post-Audit Settlement Root
             </span>
-            <span className="text-[11px] font-sans font-medium px-2 py-0.5 rounded-[4px] bg-smoke/40 dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] border border-smoke dark:border-[#27272a]">
+            <span className="text-[11px] font-sans font-medium px-2 py-0.5 rounded-[4px] bg-surface-secondary text-text-primary border border-border-primary">
               ACWORLD Certified
             </span>
           </div>
           <div>
-            <div className="text-[12px] text-[#737373] dark:text-[#a3a3a3] mb-1.5 font-medium">
+            <div className="text-[12px] text-text-secondary mb-1.5 font-medium">
               Post-Audit Digest
             </div>
             {postRoot ? (
               <CopyableHash hash={postRoot} truncate={false} />
             ) : (
-              <div className="p-3 rounded-[6px] bg-smoke/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a] text-[13px] text-ash-gray font-mono-token italic">
+              <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary text-[13px] text-text-secondary font-mono-token italic">
                 Pending ACWORLD final audit completion
               </div>
             )}
           </div>
-          <p className="text-[12.5px] text-[#737373] dark:text-[#a3a3a3] leading-relaxed pt-2.5 border-t border-smoke dark:border-[#27272a]">
+          <p className="text-[12.5px] text-text-secondary leading-relaxed pt-2.5 border-t border-border-primary">
             Cryptographically commits the ACWORLD audit certificate and payment capture without circular dependency on the pre-settlement root.
           </p>
         </div>
@@ -234,43 +234,43 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
 
       {/* Audit Context Metadata Bar */}
       {session?.auditCertificate && (
-        <div className="bg-warm-cream/30 dark:bg-[#18181b] rounded-[8px] p-4 border border-smoke dark:border-[#27272a] flex flex-wrap items-center justify-between gap-3 text-[12px] shadow-2xs">
+        <div className="bg-surface-secondary rounded-[6px] p-4 border border-border-primary flex flex-wrap items-center justify-between gap-3 text-[12px]">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="font-semibold text-obsidian dark:text-[#f6f4f0]">
+            <span className="font-semibold text-text-primary">
               Certificate: <span className="font-mono-token font-normal">{session.auditCertificate.certificateId}</span>
             </span>
-            <span className="text-[#737373] dark:text-[#a3a3a3]">•</span>
-            <span className="text-[#737373] dark:text-[#a3a3a3]">
-              Mandate: <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">v{session.auditCertificate.mandateVersion}</span>
+            <span className="text-text-secondary">•</span>
+            <span className="text-text-secondary">
+              Mandate: <span className="font-mono-token font-medium text-text-primary">v{session.auditCertificate.mandateVersion}</span>
             </span>
             {session.auditCertificate.agreementId && (
               <>
-                <span className="text-[#737373] dark:text-[#a3a3a3]">•</span>
-                <span className="text-[#737373] dark:text-[#a3a3a3]">
-                  Agreement: <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">{session.auditCertificate.agreementId}</span>
+                <span className="text-text-secondary">•</span>
+                <span className="text-text-secondary">
+                  Agreement: <span className="font-mono-token font-medium text-text-primary">{session.auditCertificate.agreementId}</span>
                 </span>
               </>
             )}
             {session.paypalOrderId && (
               <>
-                <span className="text-[#737373] dark:text-[#a3a3a3]">•</span>
-                <span className="text-[#737373] dark:text-[#a3a3a3]">
-                  PayPal Order: <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">{session.paypalOrderId}</span>
+                <span className="text-text-secondary">•</span>
+                <span className="text-text-secondary">
+                  PayPal Order: <span className="font-mono-token font-medium text-text-primary">{session.paypalOrderId}</span>
                 </span>
               </>
             )}
             {session.paypalCaptureId && (
               <>
-                <span className="text-[#737373] dark:text-[#a3a3a3]">•</span>
-                <span className="text-[#737373] dark:text-[#a3a3a3]">
-                  Capture: <span className="font-mono-token font-medium text-obsidian dark:text-[#f6f4f0]">{session.paypalCaptureId}</span>
+                <span className="text-text-secondary">•</span>
+                <span className="text-text-secondary">
+                  Capture: <span className="font-mono-token font-medium text-text-primary">{session.paypalCaptureId}</span>
                 </span>
               </>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[#737373] dark:text-[#a3a3a3]">Audit Stage:</span>
-            <span className="font-medium text-obsidian dark:text-[#f6f4f0]">
+            <span className="text-text-secondary">Audit Stage:</span>
+            <span className="font-medium text-text-primary">
               {session.auditCertificate.auditType === "POST_SETTLEMENT" ? "Post-Settlement Record" : "Pre-Settlement Gate"}
             </span>
           </div>
@@ -279,9 +279,9 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
 
       {/* Verifiable FX Settlement Bridge Evidence (Phase 18) */}
       {session?.fxRecord && (
-        <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] p-5 sm:p-6 border border-smoke dark:border-[#27272a] shadow-2xs space-y-3.5 transition-colors">
-          <div className="flex items-center justify-between pb-2.5 border-b border-smoke dark:border-[#27272a]">
-            <span className="text-[12px] font-sans font-semibold text-architect-violet dark:text-[#a78bfa] uppercase tracking-wider flex items-center gap-1.5">
+        <div className="bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary space-y-3.5">
+          <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
+            <span className="text-[12px] font-sans font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
               Verifiable FX Settlement Evidence
             </span>
@@ -291,45 +291,45 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-[12.5px]">
-            <div className="p-3 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a]">
-              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Commercial Amount</span>
-              <span className="font-semibold text-obsidian dark:text-[#f6f4f0] text-[13px] tabular-nums">
+            <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary">
+              <span className="text-text-secondary block text-[11px]">Commercial Amount</span>
+              <span className="font-semibold text-text-primary text-[13px] tabular-nums">
                 {(session.fxRecord.sourceAmountMinor / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} {session.fxRecord.sourceCurrency}
               </span>
-              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[10.5px] font-mono-token">
+              <span className="text-text-secondary block text-[10.5px] font-mono-token">
                 {session.fxRecord.sourceAmountMinor} minor units
               </span>
             </div>
-            <div className="p-3 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a]">
-              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Locked FX Rate</span>
-              <span className="font-semibold text-obsidian dark:text-[#f6f4f0] text-[13px] font-mono-token">
+            <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary">
+              <span className="text-text-secondary block text-[11px]">Locked FX Rate</span>
+              <span className="font-semibold text-text-primary text-[13px] font-mono-token">
                 1 USD = ₹{session.fxRecord.rate}
               </span>
-              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[10.5px]">
+              <span className="text-text-secondary block text-[10.5px]">
                 {session.fxRecord.rateConvention} ({session.fxRecord.rateSource === "DETERMINISTIC_DEMO" ? "Deterministic Demo FX" : (session.fxRecord.provider || "Live")})
               </span>
             </div>
-            <div className="p-3 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a]">
-              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Settlement Obligation</span>
-              <span className="font-bold text-lichen-green text-[13px] tabular-nums">
+            <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary">
+              <span className="text-text-secondary block text-[11px]">Settlement Obligation</span>
+              <span className="font-semibold text-text-primary text-[13px] tabular-nums">
                 ${(session.fxRecord.targetAmountMinor / 100).toFixed(2)} {session.fxRecord.targetCurrency}
               </span>
-              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[10.5px] font-mono-token">
+              <span className="text-text-secondary block text-[10.5px] font-mono-token">
                 {session.fxRecord.targetAmountMinor} minor units ({session.fxRecord.roundingMode})
               </span>
             </div>
-            <div className="p-3 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a]">
-              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[11px]">Timestamps &amp; SLA</span>
-              <span className="text-obsidian dark:text-[#f6f4f0] block text-[11.5px] font-mono-token">
+            <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary">
+              <span className="text-text-secondary block text-[11px]">Timestamps &amp; SLA</span>
+              <span className="text-text-primary block text-[11.5px] font-mono-token">
                 Quoted: {new Date(session.fxRecord.quotedAt).toLocaleTimeString()}
               </span>
-              <span className="text-[#737373] dark:text-[#a3a3a3] block text-[10.5px] font-mono-token">
+              <span className="text-text-secondary block text-[10.5px] font-mono-token">
                 Expires: {new Date(session.fxRecord.expiresAt).toLocaleTimeString()}
               </span>
             </div>
           </div>
-          <div className="pt-2 border-t border-smoke dark:border-[#27272a]">
-            <div className="text-[12px] text-[#737373] dark:text-[#a3a3a3] mb-1 font-medium">
+          <div className="pt-2 border-t border-border-primary">
+            <div className="text-[12px] text-text-secondary mb-1 font-medium">
               Cryptographic Conversion Commitment (SHA-256)
             </div>
             <CopyableHash hash={session.fxRecord.conversionHash} truncate={false} />
@@ -338,62 +338,62 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       )}
 
       {/* Evaluator Architecture & Verification Guide */}
-      <details className="group bg-paper-white dark:bg-[#18181b] rounded-[8px] border border-smoke dark:border-[#27272a] p-5 shadow-2xs transition-colors">
+      <details className="group bg-surface-primary rounded-[6px] border border-border-primary p-5">
         <summary className="flex items-center justify-between cursor-pointer list-none select-none">
           <div className="flex items-center gap-2.5">
-            <Info className="w-4 h-4 text-architect-violet dark:text-[#a78bfa] shrink-0" aria-hidden="true" />
-            <span className="text-[13.5px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+            <Info className="w-4 h-4 text-text-secondary shrink-0" aria-hidden="true" />
+            <span className="text-[13.5px] font-semibold text-text-primary tracking-tight">
               Evaluator Guide: Understanding VeriPay Evidence &amp; ACWORLD Audit
             </span>
           </div>
-          <span className="text-[12px] font-mono-token text-[#737373] dark:text-[#a3a3a3] group-open:rotate-180 transition-transform">
+          <span className="text-[12px] font-mono-token text-text-secondary group-open:rotate-180 transition-transform">
             ▼
           </span>
         </summary>
-        <div className="pt-4 mt-3 border-t border-smoke dark:border-[#27272a] grid grid-cols-1 md:grid-cols-2 gap-4 text-[12.5px] text-[#4a4a52] dark:text-[#b8b5af] leading-relaxed">
-          <div className="space-y-1.5 p-3 rounded-[6px] bg-smoke/20 dark:bg-[#141416] border border-smoke dark:border-[#27272a]">
-            <div className="font-semibold text-obsidian dark:text-[#f6f4f0] text-[13px]">
+        <div className="pt-4 mt-3 border-t border-border-primary grid grid-cols-1 md:grid-cols-2 gap-4 text-[12.5px] text-text-secondary leading-relaxed">
+          <div className="space-y-1.5 p-3 rounded-[6px] bg-surface-secondary border border-border-primary">
+            <div className="font-semibold text-text-primary text-[13px]">
               1. Mandate Commitment &amp; Acceptance
             </div>
             <p>
               The procurement officer locks budget and SLA bounds. The buyer agent negotiates with competing vendors. A winning agreement is explicitly accepted only when it satisfies all constraints.
             </p>
           </div>
-          <div className="space-y-1.5 p-3 rounded-[6px] bg-smoke/20 dark:bg-[#141416] border border-smoke dark:border-[#27272a]">
-            <div className="font-semibold text-obsidian dark:text-[#f6f4f0] text-[13px]">
+          <div className="space-y-1.5 p-3 rounded-[6px] bg-surface-secondary border border-border-primary">
+            <div className="font-semibold text-text-primary text-[13px]">
               2. Independent 5-Invariant Audit
             </div>
             <p>
               Before PayPal capture, the server independently recalculates landed cost arithmetic, validates SKU &amp; condition, verifies return window attestation, checks delivery SLA, and confirms cryptographic lineage. Any invariant failure immediately blocks payment capture.
             </p>
           </div>
-          <div className="space-y-1.5 p-3 rounded-[6px] bg-smoke/20 dark:bg-[#141416] border border-smoke dark:border-[#27272a]">
-            <div className="font-semibold text-obsidian dark:text-[#f6f4f0] text-[13px]">
+          <div className="space-y-1.5 p-3 rounded-[6px] bg-surface-secondary border border-border-primary">
+            <div className="font-semibold text-text-primary text-[13px]">
               3. SHA-256 Merkle Flight Recorder
             </div>
             <p>
               Every turn and attestation is canonicalized and committed into a binary Merkle tree. The Merkle root proves record immutability and sequence integrity; physical supplier fulfillment remains subject to real-world performance.
             </p>
           </div>
-          <div className="space-y-1.5 p-3 rounded-[6px] bg-smoke/20 dark:bg-[#141416] border border-smoke dark:border-[#27272a]">
-            <div className="font-semibold text-obsidian dark:text-[#f6f4f0] text-[13px]">
+          <div className="space-y-1.5 p-3 rounded-[6px] bg-surface-secondary border border-border-primary">
+            <div className="font-semibold text-text-primary text-[13px]">
               4. PayPal Sandbox Integration
             </div>
             <p>
-              Orders v2 authorization binds the pre-settlement root to <code className="font-mono-token text-architect-violet dark:text-[#a78bfa]">custom_id</code>. Audited capture releases funds and creates an itemized B2B invoice strictly behind the server-side audit gate.
+              Orders v2 authorization binds the pre-settlement root to <code className="font-mono-token text-text-primary bg-surface-secondary px-1 rounded">custom_id</code>. Audited capture releases funds and creates an itemized B2B invoice strictly behind the server-side audit gate.
             </p>
           </div>
         </div>
       </details>
 
       {/* 5 ACWORLD Invariants Structured Verification Checklist */}
-      <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] border border-smoke dark:border-[#27272a] shadow-2xs overflow-hidden transition-colors">
-        <div className="p-5 sm:p-6 border-b border-smoke dark:border-[#27272a] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-surface-primary rounded-[6px] border border-border-primary overflow-hidden">
+        <div className="p-5 sm:p-6 border-b border-border-primary flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-[16px] font-semibold text-obsidian dark:text-[#f6f4f0] tracking-tight">
+            <h2 className="text-[16px] font-semibold text-text-primary tracking-tight">
               ACWORLD Independent Audit Invariants
             </h2>
-            <p className="text-[12.5px] text-[#737373] dark:text-[#a3a3a3] mt-0.5">
+            <p className="text-[12.5px] text-text-secondary mt-0.5">
               Deterministic, fail-closed verification gate required before PayPal capture release
             </p>
           </div>
@@ -419,14 +419,14 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left text-[13px] border-collapse table-fixed">
             <thead>
-              <tr className="border-b border-smoke dark:border-[#27272a] bg-warm-cream/30 dark:bg-[#141416] type-table-header text-[#737373] dark:text-[#a3a3a3]">
+              <tr className="border-b border-border-primary bg-surface-secondary type-table-header text-text-secondary">
                 <th scope="col" className="w-[24%] py-3 pl-6 pr-4 font-semibold">Invariant</th>
                 <th scope="col" className="w-[36%] py-3 px-4 font-semibold">Evaluation Rule</th>
                 <th scope="col" className="w-[28%] py-3 px-4 font-semibold">Authoritative Evaluated Value</th>
                 <th scope="col" className="w-[12%] py-3 pl-4 pr-6 text-right font-semibold">Result</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-smoke dark:divide-[#27272a]">
+            <tbody className="divide-y divide-border-primary">
               {[
                 {
                   name: "1. SKU Integrity",
@@ -465,28 +465,28 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                   evaluated: preRoot ? `${preRoot.slice(0, 16)}...` : "—",
                 },
               ].map((item, idx) => (
-                <tr key={idx} className="hover:bg-smoke/30 dark:hover:bg-[#1f1f23] transition-colors">
-                  <td className="py-3.5 pl-6 pr-4 font-semibold text-obsidian dark:text-[#f6f4f0]">
+                <tr key={idx} className="hover:bg-surface-secondary transition-colors">
+                  <td className="py-3.5 pl-6 pr-4 font-semibold text-text-primary">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span>{item.name}</span>
                       {item.inv.isSupplierAttestation && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-medium">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-secondary text-text-secondary border border-border-primary font-medium">
                           Supplier Claim
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="py-3.5 px-4 text-[#737373] dark:text-[#a3a3a3] leading-snug break-words">
+                  <td className="py-3.5 px-4 text-text-secondary leading-snug break-words">
                     {item.rule}
                   </td>
-                  <td className="py-3.5 px-4 font-mono-token text-[12px] text-obsidian dark:text-[#f6f4f0] break-words">
+                  <td className="py-3.5 px-4 font-mono-token text-[12px] text-text-primary break-words">
                     {item.inv.code && (
-                      <span className="text-[11px] font-sans font-medium text-architect-violet dark:text-[#a78bfa] mr-1.5">
+                      <span className="text-[11px] font-sans font-medium text-text-secondary mr-1.5">
                         [{item.inv.code}]
                       </span>
                     )}
                     {item.inv.reason ? (
-                      <span className={item.inv.passed ? "text-obsidian dark:text-[#f6f4f0]" : "text-[#dc2626] dark:text-[#f87171]"}>
+                      <span className={item.inv.passed ? "text-text-primary" : "text-[#b83e26]"}>
                         {item.inv.reason}
                       </span>
                     ) : (
@@ -503,7 +503,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
         </div>
 
         {/* Mobile View */}
-        <div className="sm:hidden p-4 divide-y divide-smoke dark:divide-[#27272a]">
+        <div className="sm:hidden p-4 divide-y divide-border-primary">
           {[
             {
               name: "1. SKU Integrity",
@@ -533,12 +533,12 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
           ].map((item, idx) => (
             <div key={idx} className="py-3 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-[13.5px] text-obsidian dark:text-[#f6f4f0]">
+                <span className="font-semibold text-[13.5px] text-text-primary">
                   {item.name}
                 </span>
                 {renderInvariantBadge(item.inv)}
               </div>
-              <p className="text-[12px] text-[#737373] dark:text-[#a3a3a3]">
+              <p className="text-[12px] text-text-secondary">
                 {item.inv.reason || item.rule}
               </p>
             </div>
@@ -547,16 +547,16 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       </div>
 
       {/* Flight Recorder Ledger & Tree Inspector */}
-      <div className="bg-paper-white dark:bg-[#18181b] rounded-[8px] border border-smoke dark:border-[#27272a] overflow-hidden shadow-2xs transition-colors">
+      <div className="bg-surface-primary rounded-[6px] border border-border-primary overflow-hidden">
         {/* Tab Controls */}
-        <div className="px-5 sm:px-6 py-3.5 border-b border-smoke dark:border-[#27272a] flex items-center justify-between bg-warm-cream/30 dark:bg-[#141416]">
+        <div className="px-5 sm:px-6 py-3.5 border-b border-border-primary flex items-center justify-between bg-surface-secondary">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setActiveTab("timeline")}
               className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${activeTab === "timeline"
-                ? "bg-paper-white dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] shadow-2xs border border-smoke dark:border-[#27272a]"
-                : "text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f6f4f0]"
+                ? "bg-surface-primary text-text-primary border border-border-primary"
+                : "text-text-secondary hover:text-text-primary"
                 }`}
             >
               Committed Event Ledger ({committedNodes.length || evidenceData?.leaves?.length || 0})
@@ -565,15 +565,15 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
               type="button"
               onClick={() => setActiveTab("tree")}
               className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${activeTab === "tree"
-                ? "bg-paper-white dark:bg-[#202025] text-obsidian dark:text-[#f6f4f0] shadow-2xs border border-smoke dark:border-[#27272a]"
-                : "text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-[#f6f4f0]"
+                ? "bg-surface-primary text-text-primary border border-border-primary"
+                : "text-text-secondary hover:text-text-primary"
                 }`}
             >
               Merkle Tree Levels ({evidenceData?.levels?.length || 0})
             </button>
           </div>
 
-          <span className="text-[12px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
+          <span className="text-[12px] font-mono-token text-text-secondary">
             {session?.id || "No Session Selected"}
           </span>
         </div>
@@ -581,26 +581,26 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
         {/* Tab Content */}
         <div className="p-5 sm:p-6">
           {isLoading ? (
-            <div className="py-12 text-center text-[13.5px] text-[#737373] dark:text-[#a3a3a3]">
+            <div className="py-12 text-center text-[13.5px] text-text-secondary">
               Loading authoritative Merkle evidence...
             </div>
           ) : activeTab === "timeline" ? (
             committedNodes.length > 0 ? (
-              <div className="divide-y divide-smoke dark:divide-[#27272a]" role="list">
+              <div className="divide-y divide-border-primary" role="list">
                 {committedNodes.map((node) => {
                   const isInspecting = selectedProofIndex === node.index;
                   return (
                     <div key={node.index} className="py-3.5 space-y-2.5">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px]">
                         <div className="flex items-center gap-3">
-                          <span className="w-6 h-6 rounded-[4px] bg-warm-cream dark:bg-[#222227] text-architect-violet dark:text-[#a78bfa] font-mono-token text-[11px] font-medium flex items-center justify-center shrink-0">
+                          <span className="w-6 h-6 rounded-[4px] bg-surface-secondary text-text-primary font-mono-token text-[11px] font-medium flex items-center justify-center shrink-0 border border-border-primary">
                             {node.index}
                           </span>
                           <div>
-                            <div className="font-semibold text-obsidian dark:text-[#f6f4f0]">
+                            <div className="font-semibold text-text-primary">
                               {node.eventType}
                             </div>
-                            <div className="text-[11.5px] text-[#737373] dark:text-[#a3a3a3]">
+                            <div className="text-[11.5px] text-text-secondary">
                               {new Date(node.timestamp).toLocaleString()}
                             </div>
                           </div>
@@ -611,10 +611,12 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                           <button
                             type="button"
                             onClick={() => handleInspectProof(node.index)}
+                            aria-expanded={isInspecting}
+                            aria-label={`Inspect cryptographic proof for leaf index ${node.index}`}
                             className={`px-2.5 py-1 rounded-[5px] text-[11px] font-mono-token transition-colors cursor-pointer border ${
                               isInspecting
-                                ? "bg-architect-violet/15 text-architect-violet dark:text-[#a78bfa] border-architect-violet/30"
-                                : "bg-smoke/30 dark:bg-[#1a1a1e] text-[#737373] dark:text-[#a3a3a3] hover:text-obsidian dark:hover:text-white border-smoke dark:border-[#27272a]"
+                                ? "bg-surface-secondary text-text-primary border-border-primary font-semibold"
+                                : "bg-surface-primary text-text-secondary hover:text-text-primary border-border-primary"
                             }`}
                           >
                             {isInspecting ? "Hide Proof" : "Inspect Proof"}
@@ -624,52 +626,52 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
 
                       {/* Expandable Inclusion Proof Details */}
                       {isInspecting && (
-                        <div className="p-3.5 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-architect-violet/30 text-[12px] space-y-2 animate-in fade-in duration-150">
+                        <div className="p-3.5 rounded-[6px] bg-surface-secondary border border-border-primary text-[12px] space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="font-semibold text-architect-violet dark:text-[#a78bfa] font-mono-token text-[11.5px]">
+                            <span className="font-semibold text-text-primary font-mono-token text-[11.5px]">
                               SHA-256 Merkle Inclusion Proof (Leaf #{node.index})
                             </span>
                             <StatusBadge status="verified" label="Proof Verified" />
                           </div>
 
                           {isLoadingProof ? (
-                            <div className="text-[#737373] dark:text-[#a3a3a3] text-[11.5px] font-mono-token py-2">
+                            <div className="text-text-secondary text-[11.5px] font-mono-token py-2">
                               Computing cryptographic sibling proof path...
                             </div>
                           ) : inclusionProofData ? (
                             <div className="space-y-2 text-[11px] font-mono-token">
                               <div>
-                                <span className="text-[#737373] dark:text-[#a3a3a3]">Leaf Hash: </span>
-                                <span className="text-obsidian dark:text-[#f6f4f0] break-all">{inclusionProofData.leafHash || node.leafHash}</span>
+                                <span className="text-text-secondary">Leaf Hash: </span>
+                                <span className="text-text-primary break-all">{inclusionProofData.leafHash || node.leafHash}</span>
                               </div>
                               {inclusionProofData.proof && inclusionProofData.proof.length > 0 ? (
-                                <div className="space-y-1 pt-1 border-t border-smoke/70 dark:border-[#27272a]">
-                                  <div className="text-[#737373] dark:text-[#a3a3a3] font-sans font-medium">
+                                <div className="space-y-1 pt-1 border-t border-border-primary">
+                                  <div className="text-text-secondary font-sans font-medium">
                                     Sibling Nodes ({inclusionProofData.proof.length} level{inclusionProofData.proof.length > 1 ? "s" : ""}):
                                   </div>
                                   {inclusionProofData.proof.map((p, pIdx) => (
-                                    <div key={pIdx} className="flex items-center gap-2 text-[#737373] dark:text-[#a3a3a3]">
-                                      <span className="px-1 py-0.5 rounded bg-smoke/40 dark:bg-[#202025] uppercase text-[9.5px]">
+                                    <div key={pIdx} className="flex items-center gap-2 text-text-secondary">
+                                      <span className="px-1 py-0.5 rounded bg-surface-primary uppercase text-[9.5px] border border-border-primary">
                                         {p.position}
                                       </span>
-                                      <span className="break-all text-obsidian dark:text-[#f6f4f0]">{p.hash}</span>
+                                      <span className="break-all text-text-primary">{p.hash}</span>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <div className="text-[#737373] dark:text-[#a3a3a3] pt-1">
+                                <div className="text-text-secondary pt-1">
                                   Tree consists of 1 leaf node. Leaf digest is identical to root hash.
                                 </div>
                               )}
                               {inclusionProofData.rootHash && (
-                                <div className="pt-1 border-t border-smoke/70 dark:border-[#27272a]">
-                                  <span className="text-[#737373] dark:text-[#a3a3a3]">Evaluated Root Digest: </span>
-                                  <span className="text-architect-violet dark:text-[#a78bfa] break-all">{inclusionProofData.rootHash}</span>
+                                <div className="pt-1 border-t border-border-primary">
+                                  <span className="text-text-secondary">Evaluated Root Digest: </span>
+                                  <span className="text-text-primary break-all">{inclusionProofData.rootHash}</span>
                                 </div>
                               )}
                             </div>
                           ) : (
-                            <div className="text-rose-500 text-[11.5px]">
+                            <div className="text-[#b83e26] text-[11.5px]">
                               Unable to retrieve inclusion proof for leaf index {node.index}.
                             </div>
                           )}
@@ -684,9 +686,9 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                 {evidenceData.leaves.map((leaf, idx) => (
                   <div
                     key={idx}
-                    className="p-3 rounded-[6px] bg-warm-cream/40 dark:bg-[#141416] border border-smoke dark:border-[#27272a] flex items-center justify-between gap-3"
+                    className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary flex items-center justify-between gap-3"
                   >
-                    <span className="text-[12px] font-mono-token text-[#737373] dark:text-[#a3a3a3]">
+                    <span className="text-[12px] font-mono-token text-text-secondary">
                       Leaf #{idx}
                     </span>
                     <CopyableHash hash={leaf} truncate={false} />
@@ -694,7 +696,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                 ))}
               </div>
             ) : (
-              <div className="py-10 text-center text-[#737373] dark:text-[#a3a3a3] text-[13.5px]">
+              <div className="py-10 text-center text-text-secondary text-[13.5px]">
                 No Merkle events recorded for this session yet. Launch a procurement run to generate cryptographic proof.
               </div>
             )
@@ -702,14 +704,14 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
             <div className="space-y-4">
               {evidenceData.levels.map((lvl, levelIdx) => (
                 <div key={levelIdx} className="space-y-2">
-                  <div className="text-[12px] font-mono-token text-[#737373] dark:text-[#a3a3a3] uppercase tracking-wider font-medium">
+                  <div className="text-[12px] font-mono-token text-text-secondary uppercase tracking-wider font-medium">
                     Level {levelIdx} ({lvl.length} node{lvl.length > 1 ? "s" : ""})
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {lvl.map((hash, hIdx) => (
                       <div
                         key={hIdx}
-                        className="p-2.5 rounded-[6px] bg-warm-cream/30 dark:bg-[#141416] border border-smoke dark:border-[#27272a]"
+                        className="p-2.5 rounded-[6px] bg-surface-secondary border border-border-primary"
                       >
                         <CopyableHash hash={hash} truncate={false} />
                       </div>
@@ -719,7 +721,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
               ))}
             </div>
           ) : (
-            <div className="py-10 text-center text-[#737373] dark:text-[#a3a3a3] text-[13.5px]">
+            <div className="py-10 text-center text-text-secondary text-[13.5px]">
               Tree levels unavailable. Complete negotiation rounds to inspect internal Merkle nodes.
             </div>
           )}
@@ -727,7 +729,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       </div>
 
       {/* Integrity Attestation Note */}
-      <div className="pt-2 text-[12px] text-[#737373] dark:text-[#a3a3a3] flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-t border-smoke dark:border-[#27272a]">
+      <div className="pt-2 text-[12px] text-text-secondary flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-t border-border-primary">
         <span>Cryptographic Lineage: SHA-256 Merkle Flight Recorder</span>
         <span className="text-[11.5px]">Merkle root proves chronological record integrity; merchant performance is subject to external SLA verification.</span>
       </div>
