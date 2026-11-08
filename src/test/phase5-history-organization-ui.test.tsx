@@ -119,8 +119,9 @@ describe("Phase 5: Procurement History & Session Inspection", () => {
     expect(screen.getByText("Resolution: 4K, Port: USB-C")).toBeInTheDocument();
     // Verify empty specs fallback to Standard SLA
     expect(screen.getByText("Standard SLA")).toBeInTheDocument();
-    // Verify Authoritative Persistence wording is rendered
-    expect(screen.getByText("Authoritative Persistence")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Procurement History", level: 1 })).toBeInTheDocument();
+    expect(screen.getByText("Review saved mandates, supplier agreements, audit evidence and settlement records.")).toBeInTheDocument();
+    expect(screen.queryByText("Authoritative Persistence")).not.toBeInTheDocument();
     expect(screen.queryByText(/Authoritative In-Memory Store/i)).toBeNull();
   });
 
