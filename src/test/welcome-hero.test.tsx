@@ -18,11 +18,11 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
     expect(screen.getByRole("heading", { level: 1 }).className).not.toContain("opacity-0");
   });
 
-  it("renders the high-contrast black pill CTA linking directly to /login", () => {
+  it("links the primary CTA to the protected workspace", () => {
     render(<WelcomeHeroScreen />);
     const ctas = screen.getAllByRole("link", { name: /open workspace/i });
     expect(ctas).toHaveLength(2);
-    expect(ctas[0]).toHaveAttribute("href", "/login");
+    expect(ctas[0]).toHaveAttribute("href", "/workspace");
     expect(ctas[0].className).toContain("landing-button");
   });
 
@@ -68,7 +68,7 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
     expect(screen.getByRole("heading", { name: /Start with a mandate./i })).toBeInTheDocument();
     const finaleCta = document.getElementById("lifecycle-cta");
     expect(finaleCta).toBeInTheDocument();
-    expect(finaleCta).toHaveAttribute("href", "/login");
+    expect(finaleCta).toHaveAttribute("href", "/workspace");
   });
   it("keeps technical explanations optional and distinguishes packaging from submission", () => {
     render(<WelcomeHeroScreen />);
@@ -83,7 +83,7 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
     for (const anchor of container.querySelectorAll("a")) {
       const href = anchor.getAttribute("href")!;
       if (href.startsWith("#")) expect(container.querySelector(href)).not.toBeNull();
-      else expect(["/login", "/register"]).toContain(href);
+      else expect(["/login", "/register", "/workspace"]).toContain(href);
     }
   });
   it("pauses and resumes the sculpture without replacing its canvas", () => {
