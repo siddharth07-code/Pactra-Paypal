@@ -3,8 +3,6 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import { WelcomeHeroScreen } from "@/components/landing/WelcomeHeroScreen";
 
-// WebGL resources have a separate lifecycle suite; this suite exercises public content.
-vi.mock("next/dynamic", () => ({ default: () => ({ paused }: { paused: boolean }) => <div data-testid="mock-sculpture-canvas" data-paused={paused} aria-hidden="true" /> }));
 
 afterEach(() => {
   cleanup();
@@ -14,7 +12,7 @@ afterEach(() => {
 describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
   it("renders the product headline without an animation mask", () => {
     render(<WelcomeHeroScreen />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Procurement,with proof.");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("From intent.To agreement.");
     expect(screen.getByRole("heading", { level: 1 }).className).not.toContain("opacity-0");
   });
 
@@ -39,11 +37,6 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
     expect(skipLink).toBeInTheDocument();
     expect(skipLink).toHaveAttribute("href", "#welcome-main");
     expect(screen.getByRole("main")).toHaveAttribute("id", "welcome-main");
-  });
-
-  it("includes the 3D sculpture component container without crashing", () => {
-    render(<WelcomeHeroScreen />);
-    expect(screen.getByTestId("mock-sculpture-canvas")).toBeInTheDocument();
   });
 
   it("renders a readable product explanation in the dark section", () => {
@@ -86,23 +79,19 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
       else expect(["/login", "/register", "/workspace"]).toContain(href);
     }
   });
-  it("pauses and resumes the sculpture without replacing its canvas", () => {
+  it("keeps the sample mandate separate from live activity", () => {
     render(<WelcomeHeroScreen />);
-    const canvas = screen.getByTestId("mock-sculpture-canvas");
-    fireEvent.click(screen.getByRole("button", { name: "Pause sculpture motion" }));
-    expect(canvas).toHaveAttribute("data-paused", "true");
-    expect(screen.getByRole("button", { name: "Resume sculpture motion" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Resume sculpture motion" }));
-    expect(screen.getByTestId("mock-sculpture-canvas")).toBe(canvas);
-    expect(canvas).toHaveAttribute("data-paused", "false");
+    expect(screen.getByRole("group", { name: "Illustrative procurement mandate" })).toBeInTheDocument();
+    expect(screen.getByText(/No live procurement or payment activity/)).toBeVisible();
+    expect(screen.getByText("Buyer-defined limit")).toBeVisible();
   });
-  it("honors the system reduced-motion preference", () => {
-    const original = window.matchMedia;
-    vi.spyOn(window, "matchMedia").mockImplementation(query => ({ ...original(query), matches: query === "(prefers-reduced-motion: reduce)" }));
+  it("lets visitors pause motion without losing the mandate or workspace link", () => {
     render(<WelcomeHeroScreen />);
-    expect(screen.getByText("Reduced motion enabled")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /sculpture motion/ })).not.toBeInTheDocument();
-    expect(screen.getByTestId("mock-sculpture-canvas")).toHaveAttribute("data-paused", "true");
-    vi.restoreAllMocks();
+    fireEvent.click(screen.getByRole("button", { name: "Pause motion" }));
+    expect(screen.getByRole("button", { name: "Resume motion" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("heading", { name: /Clarity before/ })).toBeVisible();
+    expect(screen.getByRole("group", { name: "Illustrative procurement mandate" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Resume motion" }));
+    expect(screen.getByRole("button", { name: "Pause motion" })).toHaveAttribute("aria-pressed", "false");
   });
 });
