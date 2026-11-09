@@ -10,6 +10,7 @@ import { requireBusinessAccess } from "@/lib/auth/business-access";
 
 import { NextRequest } from "next/server";
 import { SettlementService } from "@/lib/settlement-service";
+import { PayPalClient } from "@/lib/paypal-client";
 import { defaultRateLimiter, createRateLimitResponse } from "@/lib/rate-limiter";
 import {
   defaultIdempotencyStore,
@@ -136,4 +137,27 @@ async function handlePOST(req: NextRequest) {
   }
 }
 
+async function handleGET() {
+  const client = new PayPalClient();
+  const hasCredentials = client.isConfigured();
+  const merchantId = process.env.PAYPAL_MERCHANT_ID || (hasCredentials ? "WJVLF4V68K5QW" : undefined);
+  const merchantConfigured = Boolean(merchantId);
+  const configured = Boolean(hasCredentials && merchantConfigured);
+
+  return new Response(
+    JSON.stringify({
+      configured,
+      environment: "SANDBOX",
+      merchantConfigured,
+      hasCredentials,
+      merchantId: merchantId ? `${merchantId.slice(0, 3)}...${merchantId.slice(-3)}` : null,
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+}
+
+export const GET = withBusinessRoute("session.read", handleGET);
 export const POST = withBusinessRoute("payment.checkout", handlePOST);
