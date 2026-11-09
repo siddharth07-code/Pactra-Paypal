@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SettlementService } from "./settlement-service";
 import { sessionStore } from "./session-store";
 import { PayPalClient } from "./paypal-client";
+import { CryptographicFlightRecorder } from "./flight-recorder";
 import type { ProcurementSession } from "../types/pactum";
 
 describe("Settlement Service & Audited Capture Gate Tests", () => {
@@ -46,8 +47,30 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
       returnDays: 30,
       shippingCost: 150,
     },
+    agreementRecord: {
+      agreementId: "agree_gate_test",
+      sessionId: "session-settle-gate",
+      vendorId: "vendor-apex",
+      vendorName: "Apex Displays",
+      sku: "APX-4K-27",
+      agreedPrice: 320,
+      agreedOffer: {
+        unitPrice: 320,
+        quantity: 25,
+        deliveryDays: 4,
+        returnDays: 30,
+        shippingCost: 150,
+      },
+      totalCost: 320 * 25 + 150,
+      agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+      acceptingParty: "VENDOR",
+      acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
+      round: 3,
+      acceptedAt: new Date().toISOString(),
+      mandateVersion: 1,
+      currency: "USD",
+    },
     status: "AUDIT_PENDING",
-    preSettlementRoot: "c0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffee1234",
     merchantAttestation: {
       merchantUrl: "https://apex.com",
       returnPolicyText: "30-day return policy",
@@ -56,6 +79,11 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+
+  const validRecorder = CryptographicFlightRecorder.getOrReconstitute(validSession);
+  validSession.flightRecord = validRecorder.exportFlightRecord();
+  validSession.merkleRoot = validRecorder.getRootHash();
+  validSession.preSettlementRoot = validRecorder.getRootHash();
 
   describe("Phase A: initiateCheckout", () => {
     it("successfully creates PayPal Sandbox order and returns validated approval redirect URL", async () => {
