@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { OrganizationBoundary } from "@/components/OrganizationBoundary";
 import { AppShell, NavScreen } from "@/components/AppShell";
+import { useWorkspaceTransition } from "@/components/workspace-transition";
 import { OverviewScreen } from "@/components/OverviewScreen";
 import { SourcingScreen } from "@/components/SourcingScreen";
 import { NegotiationArenaScreen, StreamEventItem } from "@/components/NegotiationArenaScreen";
@@ -171,76 +172,120 @@ function Home() {
     return [];
   }, []);
 
+  const transition = useWorkspaceTransition();
+  const navigationVersion = useRef(0);
+  const displayedScreen = useRef<NavScreen>("overview");
+  const requestedScreen = useRef<NavScreen>("overview");
+  const entry = useRef(0);
+  const nextEntry = useRef(0);
+  const scrollPositions = useRef(new Map<number, number>());
+
+  const applySession = useCallback((session: ProcurementSession | undefined, id?: string) => {
+    setActiveSession(session);
+    setArenaSessionId(id ?? session?.id);
+    setArenaMandate(session?.mandate);
+    setArenaQuotes(session?.quotes ?? []);
+    setStreamEvents(session ? convertSessionTurnsToStreamEvents(session) : []);
+  }, []);
+
+  const showScreen = useCallback((screen: NavScreen, update: () => void, scroll: number) => {
+    const changed = screen !== displayedScreen.current;
+    transition(() => {
+      displayedScreen.current = screen;
+      setCurrentScreen(screen);
+      update();
+    }, changed && screen !== "history" && displayedScreen.current !== "history", changed ? scroll : undefined);
+  }, [transition]);
+
   const navigateToScreen = useCallback((screen: NavScreen, sessionId?: string) => {
-    setCurrentScreen(screen);
-    // When intentionally navigating to sourcing without an explicit sessionId, start fresh
-    if (screen === "sourcing" && !sessionId) {
-      setActiveSession(undefined);
-      setArenaSessionId(undefined);
-      setArenaMandate(undefined);
-      setArenaQuotes([]);
-      setStreamEvents([]);
-      if (typeof window !== "undefined") {
-        const url = new URL(window.location.href);
-        url.searchParams.set("screen", screen);
-        url.searchParams.delete("sessionId");
-        window.history.replaceState({}, "", url.toString());
-      }
-      return;
+    navigationVersion.current++;
+    const freshSourcing = screen === "sourcing" && !sessionId;
+    const targetSessionId = freshSourcing ? undefined : sessionId || arenaSessionId || activeSession?.id;
+    const url = new URL(window.location.href);
+    url.searchParams.set("screen", screen);
+    if (targetSessionId) url.searchParams.set("sessionId", targetSessionId);
+    else url.searchParams.delete("sessionId");
+
+    const changed = screen !== requestedScreen.current;
+    requestedScreen.current = screen;
+    if (changed) {
+      scrollPositions.current.set(entry.current, window.scrollY);
+      entry.current = ++nextEntry.current;
+      window.history.pushState({ pactumEntry: entry.current }, "", url);
+    } else if (url.href !== window.location.href) {
+      window.history.replaceState({ ...window.history.state, pactumEntry: entry.current }, "", url);
     }
 
-    const targetSessionId = sessionId || arenaSessionId || activeSession?.id;
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("screen", screen);
-      if (targetSessionId) {
-        url.searchParams.set("sessionId", targetSessionId);
-      } else {
-        url.searchParams.delete("sessionId");
-      }
-      window.history.replaceState({}, "", url.toString());
-    }
-  }, [arenaSessionId, activeSession]);
+    showScreen(screen, () => {
+      if (freshSourcing) applySession(undefined);
+    }, 0);
+  }, [activeSession, applySession, arenaSessionId, showScreen]);
+
+  const sessionsRef = useRef(sessions);
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
 
   useEffect(() => {
-    let screenParam: string | null = null;
-    let sessionParam: string | null = null;
-    if (typeof window !== "undefined") {
+    const readLocation = () => {
       const params = new URLSearchParams(window.location.search);
-      screenParam = params.get("screen");
-      sessionParam = params.get("sessionId");
-      if (screenParam && ["overview", "sourcing", "arena", "vault", "settlement", "history"].includes(screenParam)) {
-        setCurrentScreen(screenParam as NavScreen);
-      }
-      if (sessionParam) {
-        setArenaSessionId(sessionParam);
-      }
-    }
+      const value = params.get("screen");
+      const screen = (["overview", "sourcing", "arena", "vault", "settlement", "history"].includes(value ?? "")
+        ? value : "overview") as NavScreen;
+      return { screen, id: params.get("sessionId") ?? undefined };
+    };
 
-    refreshSessions().then((loaded) => {
-      let matchedSession: ProcurementSession | undefined;
-      if (sessionParam) {
-        matchedSession = loaded.find((s) => s.id === sessionParam);
-        if (!matchedSession) setSessionsError("The selected procurement session is unavailable. Check the organization and session link, then reload.");
-      }
-      // Only default to first session if not intentionally on sourcing screen
-      if (!matchedSession && !sessionParam && loaded.length > 0 && screenParam !== "sourcing") {
-        matchedSession = loaded[0];
-      }
+    const previousRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    entry.current = window.history.state?.pactumEntry ?? 0;
+    nextEntry.current = Math.max(nextEntry.current, entry.current);
+    const initial = readLocation();
+    requestedScreen.current = initial.screen;
+    displayedScreen.current = initial.screen;
+    setCurrentScreen(initial.screen);
+    setArenaSessionId(initial.id);
 
-      if (matchedSession) {
-        setActiveSession(matchedSession);
-        setArenaSessionId(matchedSession.id);
-        setArenaMandate(matchedSession.mandate);
-        setArenaQuotes(matchedSession.quotes || []);
-
-        // Hydrate persisted turns if no live stream is active
-        if (matchedSession.turns && matchedSession.turns.length > 0) {
-          setStreamEvents(convertSessionTurnsToStreamEvents(matchedSession));
-        }
+    const hydrate = ({ screen, id }: ReturnType<typeof readLocation>, loaded: ProcurementSession[]) => {
+      const matched = id ? loaded.find((session) => session.id === id) : screen === "sourcing" ? undefined : loaded[0];
+      applySession(matched, id);
+      if (id && !matched) {
+        setSessionsError("The selected procurement session is unavailable. Check the organization and session link, then reload.");
       }
+    };
+
+    const initialVersion = navigationVersion.current;
+    let mounted = true;
+    const pending = refreshSessions();
+    void pending.then((loaded) => {
+      if (mounted && initialVersion === navigationVersion.current) hydrate(initial, loaded);
     });
-  }, [refreshSessions]);
+
+    const onPopState = (event: PopStateEvent) => {
+      const version = ++navigationVersion.current;
+      scrollPositions.current.set(entry.current, window.scrollY);
+      entry.current = event.state?.pactumEntry ?? 0;
+      const destination = readLocation();
+      requestedScreen.current = destination.screen;
+      showScreen(destination.screen, () => {
+        setSessionsError("");
+        if (sessionsRef.current.length) {
+          hydrate(destination, sessionsRef.current);
+        } else {
+          applySession(undefined, destination.id);
+          void pending.then((loaded) => {
+            if (mounted && version === navigationVersion.current) hydrate(destination, loaded);
+          });
+        }
+      }, scrollPositions.current.get(entry.current) ?? 0);
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      mounted = false;
+      window.removeEventListener("popstate", onPopState);
+      window.history.scrollRestoration = previousRestoration;
+    };
+  }, [applySession, refreshSessions, showScreen]);
 
   // Clean up SSE on unmount
   useEffect(() => {
@@ -272,6 +317,7 @@ function Home() {
     setStreamEvents([]);
     setIsStreaming(true);
     navigateToScreen("arena", sessionId);
+    const negotiationEntry = entry.current;
 
     try {
       const res = await fetch("/api/negotiate/stream", {
@@ -339,10 +385,10 @@ function Home() {
             } else if (eventType === "SESSION_INITIALIZED") {
               setArenaSessionId(parsed.sessionId);
               // Also update URL with authoritative session ID
-              if (typeof window !== "undefined") {
+              if (entry.current === negotiationEntry) {
                 const url = new URL(window.location.href);
                 url.searchParams.set("sessionId", parsed.sessionId);
-                window.history.replaceState({}, "", url.toString());
+                window.history.replaceState(window.history.state, "", url.toString());
               }
             } else if (eventType === "VENDOR_COUNTEROFFER") {
               // Update live quote bids in arena panels
@@ -506,7 +552,9 @@ function Home() {
           error={sessionsError}
           onRetry={() => window.location.reload()}
           onProceedToSettlement={async () => {
+            const version = navigationVersion.current;
             const loaded = await refreshSessions();
+            if (version !== navigationVersion.current) return;
             if (arenaSessionId) {
               const matched = loaded.find((s) => s.id === arenaSessionId);
               if (matched) {
