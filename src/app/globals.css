@@ -481,3 +481,44 @@ body {
     border: 1px solid #cccccc !important;
   }
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .pactum-workspace #main-content {
+    view-transition-name: pactum-workspace-content;
+  }
+
+  html:has(.pactum-workspace)::view-transition {
+    pointer-events: none;
+  }
+
+  html:has(.pactum-workspace)::view-transition-old(root) {
+    animation: none;
+    opacity: 0;
+  }
+
+  html:has(.pactum-workspace)::view-transition-new(root) {
+    animation: none;
+  }
+
+  ::view-transition-group(pactum-workspace-content) {
+    animation-duration: 520ms;
+  }
+
+  ::view-transition-old(pactum-workspace-content) {
+    animation: pactum-workspace-exit 420ms ease-out both;
+  }
+
+  ::view-transition-new(pactum-workspace-content) {
+    animation: pactum-workspace-enter 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    background: var(--color-page-bg);
+  }
+}
+
+@keyframes pactum-workspace-exit {
+  to { opacity: 0; transform: translateY(-8px) scale(0.985); }
+}
+
+@keyframes pactum-workspace-enter {
+  from { clip-path: inset(0 0 24%); transform: translateY(16px); opacity: 0; }
+  to { clip-path: inset(0); transform: translateY(0); opacity: 1; }
+}
