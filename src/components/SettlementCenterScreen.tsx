@@ -7,7 +7,7 @@
  * Follows GEMINI.md Section 8, 9, 12 and Phase 6.2 Semantic UI Specifications.
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   PrimaryButton,
   GhostButton,
@@ -114,6 +114,37 @@ export function SettlementCenterScreen({
   const [isLockingQuote, setIsLockingQuote] = useState(false);
   const [fxError, setFxError] = useState<string | null>(null);
   const [selectedRateSource, setSelectedRateSource] = useState<"DETERMINISTIC_DEMO" | "LIVE_PROVIDER" | undefined>(undefined);
+  const [merchantConfig, setMerchantConfig] = useState<{
+    configured?: boolean;
+    merchantConfigured?: boolean;
+    hasCredentials?: boolean;
+    environment?: string;
+  } | null>(null);
+  const [isCheckingReadiness, setIsCheckingReadiness] = useState(false);
+
+  const checkMerchantReadiness = async () => {
+    try {
+      setIsCheckingReadiness(true);
+      const res = await fetch("/api/paypal/checkout");
+      if (res.ok) {
+        const data = await res.json();
+        setMerchantConfig(data);
+        if (data.configured) {
+          setCheckoutError((prev) =>
+            prev?.toLowerCase().includes("merchant configuration") ? null : prev
+          );
+        }
+      }
+    } catch {
+      // Ignore readiness check failures gracefully
+    } finally {
+      setIsCheckingReadiness(false);
+    }
+  };
+
+  useEffect(() => {
+    checkMerchantReadiness();
+  }, []);
 
   // Authoritative agreement record and agreed offer
   const agreementRecord = session?.agreementRecord;
@@ -455,6 +486,12 @@ export function SettlementCenterScreen({
 
   const badgeConfig = getSettlementBadgeConfig(session?.status, hasAgreement);
   const isSessionNotFound = checkoutError?.includes("not found in authoritative store");
+  const isMerchantConfigError =
+    merchantConfig?.configured === false ||
+    Boolean(
+      checkoutError?.toLowerCase().includes("merchant configuration") ||
+      checkoutError?.toLowerCase().includes("paypal_not_configured")
+    );
 
   return (
     <div className="space-y-8 min-w-0">
@@ -683,10 +720,45 @@ export function SettlementCenterScreen({
 
                 {/* Checkout Error Banner */}
                 {checkoutError && !isSessionNotFound && (
-                  <div className="p-3.5 rounded-[6px] bg-[#feeef0] dark:bg-[#2b1012] border border-[#ef4444]/25 text-[#dc2626] dark:text-[#f87171] text-[12.5px] flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
-                    <div className="leading-snug">{checkoutError}</div>
-                  </div>
+                  isMerchantConfigError ? (
+                    <div className="p-4 rounded-[6px] bg-[#fff8eb] dark:bg-[#281a08] border border-ember-orange/40 text-text-primary text-[12.5px] space-y-2">
+                      <div className="flex items-center gap-2 font-semibold text-ember-orange text-[13px]">
+                        <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span>PayPal Sandbox Merchant Configuration Required</span>
+                      </div>
+                      <p className="text-[12px] text-text-secondary leading-relaxed">
+                        Orders v2 authorization requires an active PayPal Sandbox merchant identity (<code className="font-mono-token text-[11px] px-1 py-0.5 rounded bg-surface-secondary text-text-primary">PAYPAL_MERCHANT_ID</code>). The server cannot create or verify payee commitments without this binding.
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={checkMerchantReadiness}
+                          disabled={isCheckingReadiness}
+                          className="px-2.5 py-1 rounded-[4px] bg-ember-orange text-white text-[11.5px] font-medium hover:bg-ember-orange/90 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {isCheckingReadiness ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                              <span>Checking Sandbox...</span>
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                              <span>Re-check Readiness</span>
+                            </>
+                          )}
+                        </button>
+                        <span className="text-[11px] text-text-secondary">
+                          Sandbox Payee Account: <span className="font-mono-token">WJVLF4V68K5QW</span>
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-[6px] bg-[#feeef0] dark:bg-[#2b1012] border border-[#ef4444]/25 text-[#dc2626] dark:text-[#f87171] text-[12.5px] flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                      <div className="leading-snug">{checkoutError}</div>
+                    </div>
+                  )
                 )}
 
                 {/* Status Specific Notice */}
@@ -1086,8 +1158,9 @@ export function SettlementCenterScreen({
                         </div>
                         <PrimaryButton
                           onClick={handleContinueToPayPal}
-                          disabled={isInitiating || isSessionNotFound}
+                          disabled={isInitiating || isSessionNotFound || isMerchantConfigError}
                           className="w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          ariaLabel={isMerchantConfigError ? "Checkout Blocked — Merchant Unconfigured" : "Continue to PayPal Sandbox"}
                         >
                           {isInitiating ? (
                             <>
@@ -1103,6 +1176,24 @@ export function SettlementCenterScreen({
                         </PrimaryButton>
                       </div>
                     )
+                  ) : isMerchantConfigError ? (
+                    <div className="space-y-2.5">
+                      <div className="flex items-center gap-1.5 text-[12px] text-amber-700 dark:text-amber-400 font-medium justify-center pb-0.5">
+                        <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>Merchant Setup Required — PayPal Sandbox</span>
+                      </div>
+                      <PrimaryButton
+                        disabled={true}
+                        className="w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        ariaLabel="Checkout Blocked — Merchant Unconfigured"
+                      >
+                        <Lock className="w-4 h-4" aria-hidden="true" />
+                        <span>Checkout Blocked — Merchant Unconfigured</span>
+                      </PrimaryButton>
+                      <p className="text-[11.5px] text-text-secondary text-center leading-snug">
+                        Audit passed, but PayPal Sandbox checkout cannot proceed until the server merchant configuration is verified.
+                      </p>
+                    </div>
                   ) : (
                     <div className="space-y-2.5">
                       <div className="flex items-center gap-1.5 text-[12px] text-[#006840] dark:text-[#4ade80] font-medium justify-center pb-0.5">
