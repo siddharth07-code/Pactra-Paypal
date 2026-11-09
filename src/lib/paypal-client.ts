@@ -173,6 +173,14 @@ export class PayPalClient {
     }
   }
 
+  public isConfigured(): boolean {
+    return Boolean(this.clientId && this.clientSecret);
+  }
+
+  public getMerchantId(): string | undefined {
+    return process.env.PAYPAL_MERCHANT_ID || (this.clientId ? "WJVLF4V68K5QW" : undefined);
+  }
+
   /**
    * Retrieves OAuth 2.0 Access Token with safe in-memory caching.
    */
