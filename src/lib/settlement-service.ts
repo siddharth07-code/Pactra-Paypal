@@ -95,7 +95,11 @@ export function evaluateSettlementEligibility(session: ProcurementSession, optio
     agreementCurrent = false;
     blockers.push(`Session ${session.id} has no final agreed offer or selected vendor quote.`);
     reasons.agreement = "Missing final agreed offer or selected quote.";
-  } else if (session.agreementRecord) {
+  } else if (!session.agreementRecord) {
+    agreementCurrent = false;
+    blockers.push(`Session ${session.id} has no authoritative agreement record. Complete negotiation before settlement checkout.`);
+    reasons.agreement = "Missing agreement record.";
+  } else {
     if (session.agreementRecord.sessionId && session.agreementRecord.sessionId !== session.id) {
       agreementCurrent = false;
       blockers.push(`Agreement session mismatch: recorded agreement session ${session.agreementRecord.sessionId} does not match active session ${session.id}.`);
@@ -322,40 +326,66 @@ export class SettlementService {
       };
     }
 
-    if (session.agreementRecord) {
-      if (session.agreementRecord.sessionId && session.agreementRecord.sessionId !== sessionId) {
+    if (!session.agreementRecord) {
+      return {
+        success: false,
+        sessionId,
+        error: "Current agreement, verified evidence, and audit are required.",
+        blockedAtGate: true,
+      };
+    }
+
+    if (session.agreementRecord.sessionId && session.agreementRecord.sessionId !== sessionId) {
+      return {
+        success: false,
+        sessionId,
+        error: `Agreement session mismatch: recorded agreement session ${session.agreementRecord.sessionId} does not match active session ${sessionId}.`,
+        blockedAtGate: true,
+      };
+    }
+    if (session.agreementRecord.mandateVersion !== (session.mandate.version ?? 1)) {
+      return {
+        success: false,
+        sessionId,
+        error: `Stale agreement rejected: agreement is from mandate version ${session.agreementRecord.mandateVersion}, current mandate is version ${session.mandate.version ?? 1}.`,
+        blockedAtGate: true,
+      };
+    }
+    if (session.agreementRecord.vendorId !== session.selectedQuote.vendorId) {
+      return {
+        success: false,
+        sessionId,
+        error: `Agreement vendor mismatch: recorded agreement vendor ${session.agreementRecord.vendorId} does not match selected vendor ${session.selectedQuote.vendorId}.`,
+        blockedAtGate: true,
+      };
+    }
+    if (
+      session.agreementRecord.vendorName &&
+      session.selectedQuote.vendorName &&
+      session.agreementRecord.vendorName !== session.selectedQuote.vendorName
+    ) {
+      return {
+        success: false,
+        sessionId,
+        error: `Agreement vendor name mismatch: recorded agreement vendor name ${session.agreementRecord.vendorName} does not match selected vendor name ${session.selectedQuote.vendorName}.`,
+        blockedAtGate: true,
+      };
+    }
+
+    // Ensure verified evidence flight record is attached and synchronized
+    if (!session.flightRecord) {
+      const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
+      session.flightRecord = recorder.exportFlightRecord();
+      session.preSettlementRoot = recorder.getRootHash();
+      session.merkleRoot = recorder.getRootHash();
+    } else {
+      const recorder = CryptographicFlightRecorder.fromSerialized(session.flightRecord);
+      const integrity = recorder.verifyIntegrity(session.preSettlementRoot ?? session.merkleRoot);
+      if (!integrity.valid) {
         return {
           success: false,
           sessionId,
-          error: `Agreement session mismatch: recorded agreement session ${session.agreementRecord.sessionId} does not match active session ${sessionId}.`,
-          blockedAtGate: true,
-        };
-      }
-      if (session.agreementRecord.mandateVersion !== (session.mandate.version ?? 1)) {
-        return {
-          success: false,
-          sessionId,
-          error: `Stale agreement rejected: agreement is from mandate version ${session.agreementRecord.mandateVersion}, current mandate is version ${session.mandate.version ?? 1}.`,
-          blockedAtGate: true,
-        };
-      }
-      if (session.agreementRecord.vendorId !== session.selectedQuote.vendorId) {
-        return {
-          success: false,
-          sessionId,
-          error: `Agreement vendor mismatch: recorded agreement vendor ${session.agreementRecord.vendorId} does not match selected vendor ${session.selectedQuote.vendorId}.`,
-          blockedAtGate: true,
-        };
-      }
-      if (
-        session.agreementRecord.vendorName &&
-        session.selectedQuote.vendorName &&
-        session.agreementRecord.vendorName !== session.selectedQuote.vendorName
-      ) {
-        return {
-          success: false,
-          sessionId,
-          error: `Agreement vendor name mismatch: recorded agreement vendor name ${session.agreementRecord.vendorName} does not match selected vendor name ${session.selectedQuote.vendorName}.`,
+          error: `Flight recorder cryptographic integrity failed: ${integrity.error ?? "evidence root mismatch"}`,
           blockedAtGate: true,
         };
       }
@@ -531,6 +561,7 @@ export class SettlementService {
         success: false,
         sessionId,
         error: err instanceof Error ? err.message : "Failed to initiate PayPal checkout.",
+        blockedAtGate: true,
       };
     } finally {
       sessionStore.releaseLock(sessionId);
@@ -781,6 +812,18 @@ export class SettlementService {
         authorizationId =
           orderDetails.purchase_units?.[0]?.payments?.authorizations?.find(a => a.status === "CREATED")?.id;
         session.paypalAuthorizationId = authorizationId;
+      }
+
+      // Ensure verified evidence flight record is attached and synchronized
+      if (!session.flightRecord) {
+        const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
+        session.flightRecord = recorder.exportFlightRecord();
+        if (!session.preSettlementRoot) {
+          session.preSettlementRoot = recorder.getRootHash();
+        }
+        if (!session.merkleRoot) {
+          session.merkleRoot = recorder.getRootHash();
+        }
       }
 
       // 3. INDEPENDENT ACWORLD FINAL-STATE AUDIT GATE
