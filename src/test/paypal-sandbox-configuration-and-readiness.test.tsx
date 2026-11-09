@@ -8,7 +8,7 @@ import type { ProcurementSession } from "@/types/pactum";
 function createPassingAuditedSession(): ProcurementSession {
   return {
     id: "sess_sandbox_ready_001",
-    status: "NEGOTIATION_SUCCESS",
+    status: "AUDIT_PASSED",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     mandate: {
@@ -19,6 +19,11 @@ function createPassingAuditedSession(): ProcurementSession {
       maxTotalBudget: 8500,
       maxDeliveryDays: 5,
       minReturnDays: 30,
+      requiredSpecs: [
+        { name: "Resolution", value: "4K", mandatory: true },
+        { name: "Port", value: "USB-C", mandatory: true },
+      ],
+      createdAt: new Date().toISOString(),
       currency: "USD",
       isLocked: true,
       version: 1,
@@ -44,6 +49,8 @@ function createPassingAuditedSession(): ProcurementSession {
       returnDays: 30,
       shippingCost: 200,
     },
+    quotes: [],
+    turns: [],
     agreementRecord: {
       agreementId: "agr_test_001",
       mandateVersion: 1,
@@ -60,15 +67,20 @@ function createPassingAuditedSession(): ProcurementSession {
       },
       agreedPrice: 320,
       totalCost: 8200,
-      timestamp: new Date().toISOString(),
+      agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+      acceptingParty: "VENDOR",
+      acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
+      round: 3,
+      acceptedAt: new Date().toISOString(),
       currency: "USD",
     },
     auditCertificate: {
       certificateId: "cert_test_001",
+      sessionId: "sess_sandbox_ready_001",
       agreementId: "agr_test_001",
       mandateVersion: 1,
       passed: true,
-      recalculatedTotalCost: 8200,
+      verifiedRoot: "0000000000000000000000000000000000000000000000000000000000000000",
       invariants: [
         { name: "SKU_INTEGRITY", passed: true },
         { name: "PRICE_CEILING", passed: true },
