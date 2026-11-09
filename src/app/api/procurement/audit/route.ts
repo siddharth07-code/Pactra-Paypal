@@ -8,7 +8,7 @@ import { requireBusinessAccess } from "@/lib/auth/business-access";
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { sessionStore } from "@/lib/session-store";
+import { sessionStore, saveSessionCheckpoint } from "@/lib/session-store";
 import { applyAuditCertificate, canRunCommercialAudit } from "@/lib/settlement-lifecycle";
 import { AcworldAuditor } from "@/lib/acworld-auditor";
 import { CryptographicFlightRecorder } from "@/lib/flight-recorder";
@@ -73,7 +73,7 @@ async function handlePOST(req: NextRequest) {
 
       applyAuditCertificate(session, auditCertificate);
 
-      sessionStore.saveSession(session);
+      await saveSessionCheckpoint(session);
 
       return NextResponse.json({
         success: true,
