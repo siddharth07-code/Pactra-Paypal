@@ -203,6 +203,7 @@ export function AppShell({
                     onClick={() => {
                       onNavigate(item.id as NavScreen);
                       setMobileMenuOpen(false);
+                      if (isActive) menuTriggerRef.current?.focus();
                     }}
                     aria-current={isActive ? "page" : undefined}
                     className={`h-10 w-full flex items-center gap-3 px-3 rounded-[6px] text-[13.5px] tracking-[-0.01em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange cursor-pointer transition-colors ${
