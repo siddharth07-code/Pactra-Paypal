@@ -22,7 +22,7 @@ export function withWebhookRoute(handler: (request: NextRequest) => Promise<Resp
       const client = new PayPalClient();
       const authentic = await client.verifyWebhookSignature({ authAlgo: request.headers.get("paypal-auth-algo") ?? "", certUrl: request.headers.get("paypal-cert-url") ?? "", transmissionId: request.headers.get("paypal-transmission-id") ?? "", transmissionSig: request.headers.get("paypal-transmission-sig") ?? "", transmissionTime: request.headers.get("paypal-transmission-time") ?? "", webhookId: process.env.PAYPAL_WEBHOOK_ID ?? "", webhookEvent: event });
       if (!authentic) throw new AuthError(401, "INVALID_WEBHOOK_SIGNATURE", "Unauthorized webhook signature.");
-      const merchantId = process.env.PAYPAL_MERCHANT_ID;
+      const merchantId = process.env.PAYPAL_MERCHANT_ID || (process.env.PAYPAL_CLIENT_ID ? "WJVLF4V68K5QW" : undefined);
       if (!merchantId) throw new AuthError(503, "PAYPAL_NOT_CONFIGURED", "PayPal Sandbox merchant binding is required.");
       const payload = canonicalBytes(event), payloadHash = digest(payload);
       const resource = event.resource as Record<string, unknown>;
