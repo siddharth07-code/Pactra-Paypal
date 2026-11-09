@@ -152,8 +152,17 @@ export function SettlementCenterScreen({
   const selectedQuote = session?.selectedQuote;
   const mandate = session?.mandate;
 
-  // An agreement is authoritative ONLY when an agreementRecord or a valid finalOffer with a selected vendor exists
-  const hasAgreement = Boolean(agreementRecord || (finalOffer && selectedQuote));
+  // An agreement is authoritative ONLY when an agreementRecord exists and matches selected vendor terms
+  const hasAgreement = Boolean(
+    agreementRecord &&
+    (!selectedQuote || !agreementRecord.vendorId || agreementRecord.vendorId === selectedQuote.vendorId)
+  );
+
+  const isStaleAgreement = Boolean(
+    agreementRecord &&
+    mandate &&
+    agreementRecord.mandateVersion !== (mandate.version ?? 1)
+  );
 
   // Supplier & terms presentation
   const supplierName = hasAgreement
@@ -187,8 +196,18 @@ export function SettlementCenterScreen({
 
   // Strict Fail-Closed Audit Evaluation (Section 13)
   const auditCert = session?.auditCertificate;
-  const isAuditPassed = Boolean(auditCert && auditCert.passed === true && session?.status !== "AUDIT_FAILED");
-  const isAuditFailed = Boolean((auditCert && auditCert.passed === false) || session?.status === "AUDIT_FAILED");
+  const isAuditPassed = Boolean(
+    auditCert &&
+    auditCert.passed === true &&
+    session?.status !== "AUDIT_FAILED" &&
+    hasAgreement &&
+    !isStaleAgreement
+  );
+  const isAuditFailed = Boolean(
+    (auditCert && auditCert.passed === false) ||
+    session?.status === "AUDIT_FAILED" ||
+    (auditCert && auditCert.passed === true && isStaleAgreement)
+  );
   const isAuditMissing = auditCert === undefined;
   const failedInvariantsCount = auditCert?.invariants?.filter((i) => !i.passed).length ?? (session?.status === "AUDIT_FAILED" ? 1 : 0);
 
@@ -263,7 +282,7 @@ export function SettlementCenterScreen({
    * Strictly blocked unless ACWORLD audit passed.
    */
   const handleContinueToPayPal = async () => {
-    if (!session?.id || isInitiating || !isAuditPassed) return;
+    if (!session?.id || isInitiating || !isAuditPassed || !hasAgreement || isStaleAgreement) return;
     setIsInitiating(true);
     setCheckoutError(null);
 
@@ -715,6 +734,16 @@ export function SettlementCenterScreen({
                   <div className="p-3.5 rounded-[6px] bg-[#feeef0] dark:bg-[#2b1012] border border-[#ef4444]/25 text-[#dc2626] dark:text-[#f87171] text-[12.5px] flex items-start gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
                     <div className="leading-snug">{auditError}</div>
+                  </div>
+                )}
+
+                {/* Stale Agreement Banner */}
+                {isStaleAgreement && (
+                  <div className="p-3.5 rounded-[6px] bg-[#feeef0] dark:bg-[#2b1012] border border-[#ef4444]/25 text-[#dc2626] dark:text-[#f87171] text-[12.5px] flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                    <div className="leading-snug">
+                      Stale Agreement: This agreement was formed under mandate version {agreementRecord?.mandateVersion}, but the active mandate is version {mandate?.version ?? 1}. Re-negotiate to form a current agreement.
+                    </div>
                   </div>
                 )}
 
