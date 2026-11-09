@@ -73,8 +73,9 @@ export async function persistAggregate(tx: Transaction, context: { organizationI
     if (old) await tx.dispute.update({ where: { id: old.id }, data: { ...data, version: { increment: 1 } } });
     else await tx.dispute.create({ data: { ...data, sessionId, organizationId, publicId: dispute.disputeId } });
   }
-  if (session.paypalOrderId && process.env.PAYPAL_MERCHANT_ID) {
-    const merchantId = process.env.PAYPAL_MERCHANT_ID;
+  const configuredMerchantId = process.env.PAYPAL_MERCHANT_ID || (process.env.PAYPAL_CLIENT_ID ? "WJVLF4V68K5QW" : undefined);
+  if (session.paypalOrderId && configuredMerchantId) {
+    const merchantId = configuredMerchantId;
     const key = { provider: "PAYPAL", environment: "SANDBOX", merchantId, orderId: session.paypalOrderId };
     const settlement = await tx.settlement.findUnique({ where: { provider_environment_merchantId_orderId: key } });
     if (settlement && (settlement.organizationId !== organizationId || settlement.sessionId !== sessionId)) throw new AuthError(409, "PROVIDER_BINDING", "Provider order belongs to a different session.");
