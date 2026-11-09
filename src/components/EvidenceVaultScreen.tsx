@@ -1,16 +1,25 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
 import {
   CopyableHash,
   StatusBadge,
-  SectionHeader,
 } from "./SharedUI";
 import {
   ShieldCheck,
   Info,
+  CheckCircle2,
+  Layers,
+  ChevronDown,
 } from "lucide-react";
 import type { ProcurementSession, MerkleAuditNode } from "@/types/pactum";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger, useGSAP);
+}
 
 interface EvidenceVaultScreenProps {
   session?: ProcurementSession;
@@ -45,6 +54,18 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
     rootHash?: string;
   } | null>(null);
   const [isLoadingProof, setIsLoadingProof] = useState(false);
+
+  // Motion refs
+  const containerRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const subtitleRef = useRef<HTMLParagraphElement>(null);
+  const statusBadgeRef = useRef<HTMLDivElement>(null);
+  const rootsCardRef = useRef<HTMLDivElement>(null);
+  const contextBarRef = useRef<HTMLDivElement>(null);
+  const fxBridgeRef = useRef<HTMLDivElement>(null);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const invariantsCardRef = useRef<HTMLDivElement>(null);
+  const ledgerCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!session?.id) {
@@ -148,35 +169,218 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
     }
   };
 
-  return (
-    <div className="space-y-8 text-text-primary min-w-0">
-      {/* Header */}
-      <SectionHeader
-        pageTitle
-        title="Evidence Vault"
-        subtitle="Review the records behind this agreement and verify their integrity."
-        badge={
-          <StatusBadge
-            status={
-              evidenceData?.integrity && !evidenceData.integrity.valid
-                ? "failure"
-                : preRoot
-                  ? "verified"
-                  : "neutral"
-            }
-            label={
-              evidenceData?.integrity && !evidenceData.integrity.valid
-                ? `Chain Compromised [${evidenceData.integrity.errorCode ?? "TAMPERED"}]`
-                : preRoot
-                  ? "Flight Recorder Locked"
-                  : "Awaiting Negotiation"
-            }
-          />
+  // Stage A-F Entrance Choreography
+  useGSAP(
+    () => {
+      const prefersReduced =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (prefersReduced) return;
+
+      const media = gsap.matchMedia();
+      media.add("(prefers-reduced-motion: no-preference)", () => {
+        const delay =
+          typeof document !== "undefined" &&
+          (document.documentElement.classList.contains("view-transition-active") ||
+            Boolean((document as unknown as { startViewTransition?: unknown }).startViewTransition))
+            ? 0.08
+            : 0.02;
+
+        const tl = gsap.timeline({
+          defaults: { ease: "power3.out" },
+          delay,
+        });
+
+        // Stage A: Heading reveal through vertical clipping mask
+        if (headingRef.current) {
+          tl.fromTo(
+            headingRef.current,
+            { y: 28, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.58, ease: "power3.out", clearProps: "transform,opacity" },
+            0
+          );
         }
-      />
+
+        // Stage B: Subtitle & status badge
+        const headerMeta = [subtitleRef.current, statusBadgeRef.current].filter(Boolean);
+        if (headerMeta.length > 0) {
+          tl.fromTo(
+            headerMeta,
+            { y: 12, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.45, stagger: 0.04, clearProps: "transform,opacity" },
+            0.12
+          );
+        }
+
+        // Stage C: Merkle Roots Card
+        if (rootsCardRef.current) {
+          tl.fromTo(
+            rootsCardRef.current,
+            { y: 14, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.48, clearProps: "transform,opacity" },
+            0.2
+          );
+        }
+
+        // Stage D: Context Bar / FX Bridge / Details
+        const secondaryMeta = [contextBarRef.current, fxBridgeRef.current, detailsRef.current].filter(Boolean);
+        if (secondaryMeta.length > 0) {
+          tl.fromTo(
+            secondaryMeta,
+            { y: 14, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.45, stagger: 0.05, clearProps: "transform,opacity" },
+            0.26
+          );
+        }
+
+        // Stage E: ACWORLD Invariants Card
+        if (invariantsCardRef.current) {
+          tl.fromTo(
+            invariantsCardRef.current,
+            { y: 16, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.52, clearProps: "transform,opacity" },
+            0.32
+          );
+        }
+
+        // Stage F: Flight Recorder Ledger Card
+        if (ledgerCardRef.current) {
+          tl.fromTo(
+            ledgerCardRef.current,
+            { y: 18, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.52, clearProps: "transform,opacity" },
+            0.38
+          );
+        }
+      });
+    },
+    { scope: containerRef }
+  );
+
+  // Progressive reveal for committed ledger events
+  useGSAP(
+    () => {
+      if (activeTab !== "timeline" || committedNodes.length === 0) return;
+      const prefersReduced =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (prefersReduced) return;
+
+      gsap.fromTo(
+        ".vault-event-row",
+        { opacity: 0, y: 8 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.35,
+          stagger: 0.04,
+          ease: "power2.out",
+          clearProps: "transform,opacity",
+        }
+      );
+    },
+    { dependencies: [activeTab, committedNodes.length], scope: containerRef }
+  );
+
+  // Progressive reveal for tree levels
+  useGSAP(
+    () => {
+      if (activeTab !== "tree" || !evidenceData?.levels?.length) return;
+      const prefersReduced =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (prefersReduced) return;
+
+      gsap.fromTo(
+        ".vault-tree-level",
+        { opacity: 0, y: 10 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.35,
+          stagger: 0.05,
+          ease: "power2.out",
+          clearProps: "transform,opacity",
+        }
+      );
+    },
+    { dependencies: [activeTab, evidenceData?.levels?.length], scope: containerRef }
+  );
+
+  // Smooth proof inspection expansion animation
+  useGSAP(
+    () => {
+      if (selectedProofIndex === null) return;
+      const prefersReduced =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (prefersReduced) return;
+
+      gsap.fromTo(
+        ".vault-proof-expanded",
+        { opacity: 0, y: -6, scaleY: 0.98, transformOrigin: "top" },
+        {
+          opacity: 1,
+          y: 0,
+          scaleY: 1,
+          duration: 0.3,
+          ease: "power2.out",
+          clearProps: "transform,opacity",
+        }
+      );
+    },
+    { dependencies: [selectedProofIndex, isLoadingProof], scope: containerRef }
+  );
+
+  const isAuditPassed = session?.auditCertificate?.passed === true;
+  const isAuditFailed = session?.auditCertificate?.passed === false;
+
+  return (
+    <div ref={containerRef} className="space-y-8 text-text-primary min-w-0">
+      {/* Header with Masked Heading Reveal */}
+      <header className="space-y-1.5 pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="overflow-hidden">
+            <h1
+              ref={headingRef}
+              className="workspace-title text-text-primary translate-y-0 opacity-100"
+            >
+              Evidence Vault
+            </h1>
+          </div>
+          <div ref={statusBadgeRef} className="translate-y-0 opacity-100">
+            <StatusBadge
+              status={
+                evidenceData?.integrity && !evidenceData.integrity.valid
+                  ? "failure"
+                  : preRoot
+                    ? "verified"
+                    : "neutral"
+              }
+              label={
+                evidenceData?.integrity && !evidenceData.integrity.valid
+                  ? `Chain Compromised [${evidenceData.integrity.errorCode ?? "TAMPERED"}]`
+                  : preRoot
+                    ? "Flight Recorder Locked"
+                    : "Awaiting Negotiation"
+              }
+            />
+          </div>
+        </div>
+        <p
+          ref={subtitleRef}
+          className="type-body text-text-secondary max-w-3xl translate-y-0 opacity-100"
+        >
+          Review the records behind this agreement and verify their integrity.
+        </p>
+      </header>
 
       {/* Merkle Roots: Clean Side-by-Side Panels */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-y border-border-primary py-6">
+      <section
+        ref={rootsCardRef}
+        aria-label="Authoritative Merkle Roots"
+        className="grid grid-cols-1 md:grid-cols-2 gap-8 border-y border-border-primary py-6 translate-y-0 opacity-100"
+      >
         <div className="min-w-0 space-y-3.5">
           <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
             <span className="text-base font-medium text-text-primary tracking-tight">
@@ -228,11 +432,14 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
             Covers the ACWORLD audit certificate and payment capture as a separate record.
           </p>
         </div>
-      </div>
+      </section>
 
       {/* Audit Context Metadata Bar */}
       {session?.auditCertificate && (
-        <div className="bg-surface-secondary rounded-[6px] p-4 border border-border-primary flex flex-wrap items-center justify-between gap-3 text-[12px]">
+        <div
+          ref={contextBarRef}
+          className="bg-surface-secondary rounded-[6px] p-4 border border-border-primary flex flex-wrap items-center justify-between gap-3 text-[12px] translate-y-0 opacity-100 transition-all duration-200"
+        >
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="font-semibold text-text-primary">
               Certificate: <span className="font-mono-token font-normal">{session.auditCertificate.certificateId}</span>
@@ -277,10 +484,13 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
 
       {/* Verifiable FX Settlement Bridge Evidence (Phase 18) */}
       {session?.fxRecord && (
-        <div className="bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary space-y-3.5">
+        <div
+          ref={fxBridgeRef}
+          className="bg-surface-primary rounded-[6px] p-5 sm:p-6 border border-border-primary space-y-3.5 translate-y-0 opacity-100"
+        >
           <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
             <span className="text-[12px] font-sans font-semibold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+              <ShieldCheck className="w-3.5 h-3.5 text-mint-primary" aria-hidden="true" />
               Verifiable FX Settlement Evidence
             </span>
             <StatusBadge
@@ -336,7 +546,10 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       )}
 
       {/* Evaluator Architecture & Verification Guide */}
-      <details className="group bg-surface-primary rounded-[6px] border border-border-primary p-5">
+      <details
+        ref={detailsRef}
+        className="group bg-surface-primary rounded-[6px] border border-border-primary p-5 translate-y-0 opacity-100 transition-shadow duration-200"
+      >
         <summary className="flex items-center justify-between cursor-pointer list-none select-none">
           <div className="flex items-center gap-2.5">
             <Info className="w-4 h-4 text-text-secondary shrink-0" aria-hidden="true" />
@@ -344,8 +557,8 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
               How to read this evidence
             </span>
           </div>
-          <span className="text-[12px] font-mono-token text-text-secondary group-open:rotate-180 transition-transform">
-            ▼
+          <span className="text-[12px] font-mono-token text-text-secondary group-open:rotate-180 transition-transform duration-200">
+            <ChevronDown className="w-4 h-4 inline" aria-hidden="true" />
           </span>
         </summary>
         <div className="pt-4 mt-3 border-t border-border-primary grid grid-cols-1 md:grid-cols-2 gap-4 text-[12.5px] text-text-secondary leading-relaxed">
@@ -385,12 +598,27 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       </details>
 
       {/* 5 ACWORLD Invariants Structured Verification Checklist */}
-      <div className="bg-surface-primary rounded-[6px] border border-border-primary overflow-hidden">
+      <section
+        ref={invariantsCardRef}
+        aria-label="ACWORLD Independent Audit Invariants"
+        className={`bg-surface-primary rounded-[6px] border border-border-primary overflow-hidden translate-y-0 opacity-100 transition-all duration-300 ${
+          isAuditPassed
+            ? "border-l-[3px] border-l-mint-primary"
+            : isAuditFailed
+            ? "border-l-[3px] border-l-[#b83e26]"
+            : ""
+        }`}
+      >
         <div className="p-5 sm:p-6 border-b border-border-primary flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-[16px] font-semibold text-text-primary tracking-tight">
-              ACWORLD Independent Audit Invariants
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-[16px] font-semibold text-text-primary tracking-tight">
+                ACWORLD Independent Audit Invariants
+              </h2>
+              {isAuditPassed && (
+                <CheckCircle2 className="w-4 h-4 text-mint-primary inline shrink-0" aria-hidden="true" />
+              )}
+            </div>
             <p className="text-[12.5px] text-text-secondary mt-0.5">
               Deterministic, fail-closed verification gate required before PayPal capture release
             </p>
@@ -463,7 +691,10 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                   evaluated: preRoot ? `${preRoot.slice(0, 16)}...` : "—",
                 },
               ].map((item, idx) => (
-                <tr key={idx} className="hover:bg-surface-secondary transition-colors">
+                <tr
+                  key={idx}
+                  className="vault-invariant-row hover:bg-surface-secondary/70 transition-colors duration-150"
+                >
                   <td className="py-3.5 pl-6 pr-4 font-semibold text-text-primary">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span>{item.name}</span>
@@ -529,7 +760,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
               rule: "Merkle root matches PayPal custom_id",
             },
           ].map((item, idx) => (
-            <div key={idx} className="py-3 space-y-1.5">
+            <div key={idx} className="vault-invariant-row py-3 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-[13.5px] text-text-primary">
                   {item.name}
@@ -542,30 +773,40 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
       {/* Flight Recorder Ledger & Tree Inspector */}
-      <div className="bg-surface-primary rounded-[6px] border border-border-primary overflow-hidden">
+      <section
+        ref={ledgerCardRef}
+        aria-label="Flight Recorder Ledger and Tree Inspector"
+        className="bg-surface-primary rounded-[6px] border border-border-primary overflow-hidden translate-y-0 opacity-100"
+      >
         {/* Tab Controls */}
-        <div className="px-5 sm:px-6 py-3.5 border-b border-border-primary flex items-center justify-between bg-surface-secondary">
-          <div className="flex items-center gap-2">
+        <div className="px-5 sm:px-6 py-3.5 border-b border-border-primary flex flex-wrap items-center justify-between gap-3 bg-surface-secondary">
+          <div className="flex items-center gap-2" role="tablist" aria-label="Evidence views">
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === "timeline"}
               onClick={() => setActiveTab("timeline")}
-              className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${activeTab === "timeline"
-                ? "bg-surface-primary text-text-primary border border-border-primary"
-                : "text-text-secondary hover:text-text-primary"
-                }`}
+              className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
+                activeTab === "timeline"
+                  ? "bg-surface-primary text-text-primary border border-border-primary shadow-xs"
+                  : "text-text-secondary hover:text-text-primary border border-transparent"
+              }`}
             >
               Committed Event Ledger ({committedNodes.length || evidenceData?.leaves?.length || 0})
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === "tree"}
               onClick={() => setActiveTab("tree")}
-              className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${activeTab === "tree"
-                ? "bg-surface-primary text-text-primary border border-border-primary"
-                : "text-text-secondary hover:text-text-primary"
-                }`}
+              className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ember-orange ${
+                activeTab === "tree"
+                  ? "bg-surface-primary text-text-primary border border-border-primary shadow-xs"
+                  : "text-text-secondary hover:text-text-primary border border-transparent"
+              }`}
             >
               Merkle Tree Levels ({evidenceData?.levels?.length || 0})
             </button>
@@ -588,7 +829,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                 {committedNodes.map((node) => {
                   const isInspecting = selectedProofIndex === node.index;
                   return (
-                    <div key={node.index} className="py-3.5 space-y-2.5">
+                    <div key={node.index} className="vault-event-row py-3.5 space-y-2.5 transition-colors duration-150">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px]">
                         <div className="flex items-center gap-3">
                           <span className="w-6 h-6 rounded-[4px] bg-surface-secondary text-text-primary font-mono-token text-[11px] font-medium flex items-center justify-center shrink-0 border border-border-primary">
@@ -611,9 +852,9 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                             onClick={() => handleInspectProof(node.index)}
                             aria-expanded={isInspecting}
                             aria-label={`Inspect cryptographic proof for leaf index ${node.index}`}
-                            className={`px-2.5 py-1 rounded-[5px] text-[11px] font-mono-token transition-colors cursor-pointer border ${
+                            className={`px-2.5 py-1 rounded-[5px] text-[11px] font-mono-token transition-all duration-150 cursor-pointer border ${
                               isInspecting
-                                ? "bg-surface-secondary text-text-primary border-border-primary font-semibold"
+                                ? "bg-surface-secondary text-text-primary border-border-primary font-semibold shadow-xs"
                                 : "bg-surface-primary text-text-secondary hover:text-text-primary border-border-primary"
                             }`}
                           >
@@ -624,9 +865,10 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
 
                       {/* Expandable Inclusion Proof Details */}
                       {isInspecting && (
-                        <div className="p-3.5 rounded-[6px] bg-surface-secondary border border-border-primary text-[12px] space-y-2">
+                        <div className="vault-proof-expanded p-3.5 rounded-[6px] bg-surface-secondary border border-border-primary text-[12px] space-y-2 transition-all duration-200">
                           <div className="flex items-center justify-between">
-                            <span className="font-semibold text-text-primary font-mono-token text-[11.5px]">
+                            <span className="font-semibold text-text-primary font-mono-token text-[11.5px] flex items-center gap-1.5">
+                              <Layers className="w-3.5 h-3.5 text-text-secondary inline" aria-hidden="true" />
                               SHA-256 Merkle Inclusion Proof (Leaf #{node.index})
                             </span>
                             <StatusBadge status="verified" label="Proof Verified" />
@@ -649,7 +891,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                                   </div>
                                   {inclusionProofData.proof.map((p, pIdx) => (
                                     <div key={pIdx} className="flex items-center gap-2 text-text-secondary">
-                                      <span className="px-1 py-0.5 rounded bg-surface-primary uppercase text-[9.5px] border border-border-primary">
+                                      <span className="px-1 py-0.5 rounded bg-surface-primary uppercase text-[9.5px] border border-border-primary font-medium">
                                         {p.position}
                                       </span>
                                       <span className="break-all text-text-primary">{p.hash}</span>
@@ -684,7 +926,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
                 {evidenceData.leaves.map((leaf, idx) => (
                   <div
                     key={idx}
-                    className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary flex items-center justify-between gap-3"
+                    className="vault-event-row p-3 rounded-[6px] bg-surface-secondary border border-border-primary flex items-center justify-between gap-3"
                   >
                     <span className="text-[12px] font-mono-token text-text-secondary">
                       Leaf #{idx}
@@ -701,7 +943,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
           ) : evidenceData?.levels && evidenceData.levels.length > 0 ? (
             <div className="space-y-4">
               {evidenceData.levels.map((lvl, levelIdx) => (
-                <div key={levelIdx} className="space-y-2">
+                <div key={levelIdx} className="vault-tree-level space-y-2">
                   <div className="text-[12px] font-mono-token text-text-secondary uppercase tracking-wider font-medium">
                     Level {levelIdx} ({lvl.length} node{lvl.length > 1 ? "s" : ""})
                   </div>
@@ -724,13 +966,13 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
             </div>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Integrity Attestation Note */}
-      <div className="pt-2 text-[12px] text-text-secondary flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-t border-border-primary">
+      <footer className="pt-2 text-[12px] text-text-secondary flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-t border-border-primary">
         <span>Cryptographic Lineage: SHA-256 Merkle Flight Recorder</span>
         <span className="text-[11.5px]">Merkle root proves chronological record integrity; merchant performance is subject to external SLA verification.</span>
-      </div>
+      </footer>
     </div>
   );
 }
