@@ -16,7 +16,7 @@ export interface OrganizationControlContextValue {
   error: string;
 }
 
-const OrganizationContext = createContext<ActiveOrganization | null>(null);
+export const OrganizationContext = createContext<ActiveOrganization | null>(null);
 const OrganizationControlContext = createContext<OrganizationControlContextValue>({
   active: null,
   organizations: [],
