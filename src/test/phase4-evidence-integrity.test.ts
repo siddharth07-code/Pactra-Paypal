@@ -1910,6 +1910,10 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+      const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
+      session.flightRecord = recorder.exportFlightRecord();
+      session.preSettlementRoot = recorder.getRootHash();
+      session.merkleRoot = recorder.getRootHash();
       sessionStore.saveSession(session);
       return session;
     }
