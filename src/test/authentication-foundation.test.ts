@@ -296,7 +296,7 @@ describe("private pages and independent machine endpoints", () => {
     expect(response.status).toBe(503);
     expect(response.headers.get("content-type")).toContain("text/html");
     const text = await response.text();
-    expect(text).toContain("PACTUM");
+    expect(text).toContain("PACTRA");
     expect(text).toContain("AUTH_NOT_CONFIGURED");
   });
   it("serves raw JSON for non-HTML/API callers when authentication is not configured", async () => {
