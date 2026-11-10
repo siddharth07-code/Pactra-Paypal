@@ -23,7 +23,7 @@
 .pactum-landing .landing-skip:focus { transform: none; }
 .pactum-landing .landing-header { min-height: 80px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .pactum-landing .landing-brand { display: inline-flex; align-items: center; gap: 10px; font-size: 18px; line-height: 1; font-weight: 600; letter-spacing: -.04em; }
-.pactum-landing .landing-monogram { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 5px; font-size: 13px; background: var(--landing-vermilion); color: white; }
+.pactum-landing .landing-monogram { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 5px; font-size: 13px; overflow: hidden; }
 .pactum-landing .landing-header nav, .pactum-landing .landing-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
 .pactum-landing .landing-text-link, .pactum-landing .landing-sign-in { display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 500; text-decoration: none; }
 .pactum-landing .landing-text-link { text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1px; }
