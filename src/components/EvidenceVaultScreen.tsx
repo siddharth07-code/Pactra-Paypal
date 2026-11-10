@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import {
   CopyableHash,
@@ -18,7 +17,7 @@ import {
 import type { ProcurementSession, MerkleAuditNode } from "@/types/pactum";
 
 if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger, useGSAP);
+  gsap.registerPlugin(useGSAP);
 }
 
 interface EvidenceVaultScreenProps {
@@ -181,8 +180,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
       media.add("(prefers-reduced-motion: no-preference)", () => {
         const delay =
           typeof document !== "undefined" &&
-          (document.documentElement.classList.contains("view-transition-active") ||
-            Boolean((document as unknown as { startViewTransition?: unknown }).startViewTransition))
+          document.documentElement.classList.contains("view-transition-active")
             ? 0.08
             : 0.02;
 
@@ -253,6 +251,7 @@ export function EvidenceVaultScreen({ session }: EvidenceVaultScreenProps) {
           );
         }
       });
+      return () => media.revert();
     },
     { scope: containerRef }
   );
