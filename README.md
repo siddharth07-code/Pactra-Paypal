@@ -1,9 +1,9 @@
-# PACTUM
+# PACTRA
 ### Negotiate Intelligently. Settle Verifiably.
 
-PACTUM is an AI-powered procurement and settlement platform that helps businesses source products, negotiate with vendors within predefined constraints, and execute settlements only after independently verifiable evidence satisfies mandatory procurement rules.
+PACTRA is an AI-powered procurement and settlement platform that helps businesses source products, negotiate with vendors within predefined constraints, and execute settlements only after independently verifiable evidence satisfies mandatory procurement rules.
 
-Instead of treating procurement as a conversation followed by a payment, PACTUM makes the entire process accountable—from defining purchasing requirements and comparing vendors to validating negotiated terms, recording tamper-evident evidence, and authorizing settlement.
+Instead of treating procurement as a conversation followed by a payment, PACTRA makes the entire process accountable—from defining purchasing requirements and comparing vendors to validating negotiated terms, recording tamper-evident evidence, and authorizing settlement.
 
 **Source intelligently. Negotiate within constraints. Settle only when the evidence checks out.**
 
@@ -37,7 +37,7 @@ Instead of treating procurement as a conversation followed by a payment, PACTUM 
 
 Traditional procurement workflows involve disconnected sourcing tools, manual negotiations, fragmented documentation, and payment approvals that can be difficult to audit.
 
-PACTUM brings these operations into a unified workflow.
+PACTRA brings these operations into a unified workflow.
 
 A buyer defines a procurement mandate in natural language. The platform converts that mandate into structured constraints, discovers potential vendors, compares available offers, and facilitates AI-assisted negotiations. A deterministic guardrail engine evaluates proposed terms against the buyer's requirements, while a cryptographic evidence trail records important events.
 
@@ -63,13 +63,13 @@ AI-assisted procurement introduces several challenges:
 4. **Premature settlement:** Payment should not proceed merely because a negotiation has ended.
 5. **Limited accountability:** Procurement decisions need traceable evidence that can be inspected and independently evaluated.
 
-PACTUM addresses these challenges by combining AI-assisted procurement with deterministic validation, cryptographic evidence, and a gated settlement workflow.
+PACTRA addresses these challenges by combining AI-assisted procurement with deterministic validation, cryptographic evidence, and a gated settlement workflow.
 
 ---
 
 ## Our Solution
 
-PACTUM separates intelligent decision-making from deterministic enforcement.
+PACTRA separates intelligent decision-making from deterministic enforcement.
 
 The AI layer helps interpret purchasing requirements, identify suitable vendors, and generate negotiation proposals. The enforcement layer independently checks proposed terms against the active procurement mandate.
 
@@ -110,7 +110,7 @@ The interface should distinguish live vendor responses from fixture-based or sim
 
 ### 3. AI-Assisted Negotiation
 
-PACTUM facilitates structured negotiations between a buyer-side agent and vendor-side agents.
+PACTRA facilitates structured negotiations between a buyer-side agent and vendor-side agents.
 
 The negotiation workflow evaluates proposals against the active mandate and tracks changes to relevant commercial terms.
 
@@ -141,7 +141,7 @@ Invalid proposals should be rejected or prevented from advancing according to th
 
 ### 5. Cryptographic Evidence Trail
 
-PACTUM uses SHA-256 hashing and a Merkle-based evidence structure to support integrity verification.
+PACTRA uses SHA-256 hashing and a Merkle-based evidence structure to support integrity verification.
 
 Relevant procurement events can be linked into an evidence chain so that modifications to recorded data can be detected when the verification process is correctly implemented.
 
@@ -157,7 +157,7 @@ An incomplete audit must never be represented as a successful audit.
 
 ### 7. Gated Payment Workflow
 
-PACTUM is designed to integrate with PayPal for payment operations.
+PACTRA is designed to integrate with PayPal for payment operations.
 
 The intended workflow connects the verified procurement outcome to payment authorization, capture, and associated records where the relevant integrations are configured.
 
@@ -242,10 +242,10 @@ The diagram describes the intended workflow. The availability of each stage depe
 
 ## System Architecture
 
-PACTUM uses a web application architecture that separates the user interface, server-side orchestration, procurement rules, evidence verification, and external integrations.
+PACTRA uses a web application architecture that separates the user interface, server-side orchestration, procurement rules, evidence verification, and external integrations.
 
 ```text
-PACTUM
+PACTRA
 │
 ├── Frontend
 │   ├── Overview
@@ -350,7 +350,7 @@ The stack above describes the project's technology and integration targets. Not 
 
 ## Application Screens
 
-PACTUM is organized around six primary screens.
+PACTRA is organized around six primary screens.
 
 ### Overview
 
@@ -397,8 +397,8 @@ You may also need API credentials for the external services you intend to enable
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/siddharth07-code/Pactum-Paypal.git
-cd Pactum-Paypal
+git clone https://github.com/siddharth07-code/Pactra-Paypal.git
+cd Pactra-Paypal
 ```
 
 ### 2. Install Dependencies
@@ -495,7 +495,7 @@ Use the endpoint appropriate to the environment in which you are testing.
 
 ## Procurement Guardrails
 
-PACTUM's deterministic guardrail engine evaluates proposals against the active procurement mandate.
+PACTRA's deterministic guardrail engine evaluates proposals against the active procurement mandate.
 
 For a mandate with a total budget $begin:math:text$B\_\{\\max\}$end:math:text$, quantity $begin:math:text$q$end:math:text$, maximum delivery time $begin:math:text$D\_\{\\max\}$end:math:text$, and minimum return period $begin:math:text$R\_\{\\min\}$end:math:text$, a proposed offer must satisfy the applicable constraints.
 
@@ -582,7 +582,7 @@ The guardrail engine must reject invalid or out-of-range proposals rather than s
 
 ## Evidence and Verification
 
-PACTUM's evidence system is intended to provide an auditable record of procurement events.
+PACTRA's evidence system is intended to provide an auditable record of procurement events.
 
 ### Evidence Lifecycle
 
@@ -615,7 +615,7 @@ Cryptographic hashes provide evidence of data integrity only when the hashing, c
 
 ## Payment Integration
 
-PACTUM is designed to connect verified procurement outcomes with PayPal payment operations.
+PACTRA is designed to connect verified procurement outcomes with PayPal payment operations.
 
 Depending on the implemented integration and configured credentials, the intended workflow may involve:
 
@@ -637,7 +637,7 @@ For development, use PayPal Sandbox credentials and verify each supported operat
 
 ## Security Considerations
 
-PACTUM handles procurement mandates, commercial terms, evidence records, and payment-related workflows. These require careful server-side enforcement.
+PACTRA handles procurement mandates, commercial terms, evidence records, and payment-related workflows. These require careful server-side enforcement.
 
 ### Required Safeguards
 
@@ -771,7 +771,7 @@ Check the repository for an existing `LICENSE` file and follow its terms. If no 
 
 <div align="center">
 
-**PACTUM**
+**PACTRA**
 
 *Negotiate Intelligently. Settle Verifiably.*
 
