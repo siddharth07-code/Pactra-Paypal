@@ -6,6 +6,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import Link from "next/link";
 import Image from "next/image";
+import { HeroIllustration } from "./HeroIllustration";
 import { LifecycleScrollSection } from "./LifecycleScrollSection";
 import "./landing.css";
 
@@ -109,14 +110,17 @@ export function WelcomeHeroScreen() {
     </header>
     <main id="welcome-main" tabIndex={-1}>
       <section className="landing-container cinema-hero" aria-labelledby="welcome-title">
-        <p className="cinema-kicker cinema-entrance">A new standard for procurement</p>
-        <h1 id="welcome-title" className="cinema-entrance">From intent.<br />To <em>agreement.</em></h1>
-        <p className="cinema-lead cinema-entrance">Procurement, negotiation, verification and payment, connected by workflows and governed by your rules.</p>
-        <div className="landing-actions cinema-entrance">
-          <Link id="hero-cta" href="/workspace" className="landing-button">Open workspace</Link>
-          <a href="#procurement-mandate" className="landing-text-link">Experience the workflow</a>
+        <div className="cinema-hero-copy">
+          <p className="cinema-kicker cinema-entrance">A new standard for procurement</p>
+          <h1 id="welcome-title" className="cinema-entrance">From intent.<br />To <em>agreement.</em></h1>
+          <p className="cinema-lead cinema-entrance">Procurement, negotiation, verification and payment, connected by workflows and governed by your rules.</p>
+          <div className="landing-actions cinema-entrance">
+            <Link id="hero-cta" href="/workspace" className="landing-button">Open workspace</Link>
+            <a href="#procurement-mandate" className="landing-text-link">Experience the workflow</a>
+          </div>
+          <p className="landing-demo-note">A B2B procurement workspace with PayPal Sandbox settlement.</p>
         </div>
-        <p className="landing-demo-note">A B2B procurement workspace with PayPal Sandbox settlement.</p>
+        <HeroIllustration />
       </section>
       <section id="procurement-mandate" className="cinema-chapter" aria-labelledby="mandate-title">
         <div className="landing-container cinema-sticky">

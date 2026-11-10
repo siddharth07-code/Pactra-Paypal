@@ -180,7 +180,36 @@
 /* Ivory keeps the brief readable; lavender groups the lifecycle; mint marks the sample's defined mandate. */
 .pactum-cinema { --landing-paper: #f6f3ed; --landing-ink: #25221e; --landing-muted: #68625d; --cinema-lavender: #e7dff3; }
 .pactum-cinema .landing-header { border-bottom: 1px solid #ded8cf; }
-.pactum-cinema .cinema-hero { padding-block: 48px 32px; }
+.pactum-cinema .cinema-hero {
+  padding-block: 48px 32px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+  align-items: center;
+}
+.pactum-cinema .cinema-hero-copy { min-width: 0; }
+.pactum-cinema .hero-illustration-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  margin-inline: auto;
+}
+@media (min-width: 960px) {
+  .pactum-cinema .cinema-hero {
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    gap: 40px;
+    align-items: center;
+  }
+  .pactum-cinema .hero-illustration-wrapper {
+    max-width: 540px;
+    margin-inline: 0 0;
+  }
+}
+@media (min-width: 1200px) {
+  .pactum-cinema .cinema-hero {
+    gap: 56px;
+  }
+}
 .pactum-cinema .cinema-kicker { font-size: 12px; color: #925043; font-weight: 600; }
 .pactum-cinema h1 { margin-block: 20px 24px; font-size: clamp(48px, 8vw, 104px); letter-spacing: -.065em; line-height: 1; }
 .pactum-cinema h1 em { font-style: normal; color: #78668e; }
