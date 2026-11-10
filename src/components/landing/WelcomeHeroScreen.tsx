@@ -5,6 +5,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import Link from "next/link";
+import Image from "next/image";
 import { LifecycleScrollSection } from "./LifecycleScrollSection";
 import "./landing.css";
 
@@ -100,7 +101,7 @@ export function WelcomeHeroScreen() {
   return <div ref={pageRef} className="pactum-landing pactum-cinema" data-motion={paused ? "paused" : "enabled"}>
     <a href="#welcome-main" className="landing-skip">Skip to main content</a>
     <header className="landing-container landing-header">
-      <span className="landing-brand"><span aria-hidden="true" className="landing-monogram">P</span>PACTUM</span>
+      <span className="landing-brand"><span aria-hidden="true" className="landing-monogram"><Image src="/brand/pactra-mark.png" alt="" width={28} height={28} className="w-full h-full object-contain" priority /></span>PACTRA</span>
       <nav aria-label="Main navigation">
         <Link href="/register" className="landing-text-link landing-register">Create account</Link>
         <Link href="/login" className="landing-sign-in">Sign in</Link>
@@ -243,6 +244,6 @@ export function WelcomeHeroScreen() {
       </section>
       <LifecycleScrollSection />
     </main>
-    <footer className="landing-footer"><div className="landing-container"><span className="landing-brand">PACTUM</span><p>Procurement, evidence and settlement.</p><a href="#welcome-main" className="landing-text-link">Back to top</a></div></footer>
+    <footer className="landing-footer"><div className="landing-container"><span className="landing-brand"><span aria-hidden="true" className="landing-monogram"><Image src="/brand/pactra-mark.png" alt="" width={28} height={28} className="w-full h-full object-contain" /></span>PACTRA</span><p>Procurement, evidence and settlement.</p><a href="#welcome-main" className="landing-text-link">Back to top</a></div></footer>
   </div>;
 }
