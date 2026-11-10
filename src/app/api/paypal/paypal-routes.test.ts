@@ -14,6 +14,7 @@ import { POST as cancelHandler } from "./cancel/route";
 import { NextRequest } from "next/server";
 import { sessionStore } from "@/lib/session-store";
 import { defaultRateLimiter } from "@/lib/rate-limiter";
+import { CryptographicFlightRecorder } from "@/lib/flight-recorder";
 import type { ProcurementSession } from "@/types/pactum";
 
 describe("PayPal API Routes Integration Tests", () => {
@@ -35,6 +36,7 @@ describe("PayPal API Routes Integration Tests", () => {
       minReturnDays: 30,
       requiredSpecs: [],
       currency: "USD",
+      version: 1,
       createdAt: new Date().toISOString(),
     },
     quotes: [],
@@ -60,6 +62,28 @@ describe("PayPal API Routes Integration Tests", () => {
       returnDays: 30,
       shippingCost: 150,
     },
+    agreementRecord: {
+      agreementId: "agr_route_001",
+      sessionId: "session-route-test",
+      vendorId: "vendor-apex",
+      vendorName: "Apex Displays",
+      sku: "APX-4K-27",
+      agreedPrice: 320,
+      agreedOffer: {
+        unitPrice: 320,
+        quantity: 25,
+        deliveryDays: 4,
+        returnDays: 30,
+        shippingCost: 150,
+      },
+      totalCost: 320 * 25 + 150,
+      agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER",
+      acceptingParty: "VENDOR",
+      acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
+      round: 2,
+      acceptedAt: new Date().toISOString(),
+      mandateVersion: 1,
+    },
     status: "AUDIT_PENDING",
     preSettlementRoot: "c0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffeec0ffee1234",
     merchantAttestation: {
@@ -70,6 +94,11 @@ describe("PayPal API Routes Integration Tests", () => {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+
+  const recorder = CryptographicFlightRecorder.getOrReconstitute(validSession);
+  validSession.flightRecord = recorder.exportFlightRecord();
+  validSession.preSettlementRoot = recorder.getRootHash();
+  validSession.merkleRoot = recorder.getRootHash();
 
   describe("POST /api/paypal/checkout", () => {
     it("rejects request without sessionId with 400", async () => {
@@ -90,6 +119,15 @@ describe("PayPal API Routes Integration Tests", () => {
         finalOffer: {
           ...validSession.finalOffer!,
           unitPrice: 400, // 25 * 400 + 150 = 10,150 > 8,500
+        },
+        agreementRecord: {
+          ...validSession.agreementRecord!,
+          agreedPrice: 400,
+          agreedOffer: {
+            ...validSession.agreementRecord!.agreedOffer,
+            unitPrice: 400,
+          },
+          totalCost: 10150,
         },
       };
       sessionStore.saveSession(overBudgetSession);
@@ -212,6 +250,13 @@ describe("PayPal API Routes Integration Tests", () => {
         finalOffer: {
           ...validSession.finalOffer!,
           deliveryDays: 8, // max is 5
+        },
+        agreementRecord: {
+          ...validSession.agreementRecord!,
+          agreedOffer: {
+            ...validSession.agreementRecord!.agreedOffer,
+            deliveryDays: 8,
+          },
         },
       };
       sessionStore.saveSession(failingSession);
