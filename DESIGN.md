@@ -1,4 +1,4 @@
-# PACTUM — WebGL Visual Design & Art Direction Specification
+# PACTRA — WebGL Visual Design & Art Direction Specification
 
 **Status:** Implementation-Ready Art Direction Specification for Architectural Landing Experience  
 **Date:** 8 November 2026  
@@ -11,11 +11,11 @@
 
 ## 1. Visual Authority & Reference Comparison
 
-The ARC reference image establishes a disciplined, monochrome, high-contrast editorial fintech aesthetic. It balances brutalist scale with jewel-like mechanical precision. This specification translates that visual authority into PACTUM's domain: **autonomous B2B procurement and cryptographic payment verification**.
+The ARC reference image establishes a disciplined, monochrome, high-contrast editorial fintech aesthetic. It balances brutalist scale with jewel-like mechanical precision. This specification translates that visual authority into PACTRA's domain: **autonomous B2B procurement and cryptographic payment verification**.
 
 ```
 +----------------------------------------------------------------------------------------------------+
-|  ARC REFERENCE DESIGN LANGUAGE                       PACTUM ADAPTATION                            |
+|  ARC REFERENCE DESIGN LANGUAGE                       PACTRA ADAPTATION                            |
 +----------------------------------------------------------------------------------------------------+
 |  Oversized left-aligned display headline             "Engineered / For Certainty." editorial display |
 |  Warm-white/pale stone hero ground (#F4F4F4)         Warm-paper canvas (--landing-paper: #F5F3EF)   |
@@ -34,19 +34,19 @@ The ARC reference image establishes a disciplined, monochrome, high-contrast edi
 
 1. **Centerpiece Semantics (Agreement Artifact vs. Consumer Card):**
    - *Reference:* The ARC reference features a rounded credit card with an EMV chip and Mastercard logo.
-   - *PACTUM Departure:* Commercial procurement and cryptographic verification require a distinct semantic object. PACTUM replaces the consumer card with a **machined agreement sculpture** composed of three precision-milled aerospace aluminum plates, an axial graphite spine, a laser-etched vermilion alignment seam, and four cryptographic evidence segment pins. It reads as a physical legal-cryptographic instrument, avoiding credit card, coin, or blob tropes.
+   - *PACTRA Departure:* Commercial procurement and cryptographic verification require a distinct semantic object. PACTRA replaces the consumer card with a **machined agreement sculpture** composed of three precision-milled aerospace aluminum plates, an axial graphite spine, a laser-etched vermilion alignment seam, and four cryptographic evidence segment pins. It reads as a physical legal-cryptographic instrument, avoiding credit card, coin, or blob tropes.
 
 2. **Architectural Geology (Basalt Framing Retained):**
    - *Reference:* The ARC sculpture floats between two natural, craggy, deep black rock formations—one looming from the top right and an expansive craggy ridge grounding the lower right.
-   - *PACTUM Integration:* Retain this striking textural contrast. High-tech precision metal contrasted against ancient, unyielding geological rock symbolizes the immutable bedrock of deterministic cryptographic code and policy guardrails. The 3D scene incorporates a photorealistic craggy basalt rock formation serving as a pedestal and framing element.
+   - *PACTRA Integration:* Retain this striking textural contrast. High-tech precision metal contrasted against ancient, unyielding geological rock symbolizes the immutable bedrock of deterministic cryptographic code and policy guardrails. The 3D scene incorporates a photorealistic craggy basalt rock formation serving as a pedestal and framing element.
 
 3. **Two-Tone Editorial Statement:**
    - *Reference:* The transition section on dark ground uses a split-tone sentence where the primary thesis is crisp white and the continuation drops into muted gray.
-   - *PACTUM Integration:* Adopted verbatim for the transition statement: *"Autonomous procurement shouldn't operate in the dark."* in brilliant white (`#FFFFFF`), followed by *"We bind multi-vendor negotiation, SHA-256 Merkle proofs, and audited PayPal settlement into one verifiable system."* in muted charcoal (`#7A7670`).
+   - *PACTRA Integration:* Adopted verbatim for the transition statement: *"Autonomous procurement shouldn't operate in the dark."* in brilliant white (`#FFFFFF`), followed by *"We bind multi-vendor negotiation, SHA-256 Merkle proofs, and audited PayPal settlement into one verifiable system."* in muted charcoal (`#7A7670`).
 
 4. **Monolithic Four-Panel Lifecycle Grid:**
    - *Reference:* Four crisp vertical cards set against black ground, displaying individual 3D artifacts (stacked ingots, balance UI, coin fan, layered shield) with large metric typography.
-   - *PACTUM Integration:* PACTUM maps these four panels directly to the procurement lifecycle: **01 / Sourcing**, **02 / Negotiation**, **03 / Audit**, and **04 / Settlement**. Each panel features the corresponding stage's mechanical state of the sculpture, high-contrast metrics, and explicit demonstration disclosures.
+   - *PACTRA Integration:* PACTRA maps these four panels directly to the procurement lifecycle: **01 / Sourcing**, **02 / Negotiation**, **03 / Audit**, and **04 / Settlement**. Each panel features the corresponding stage's mechanical state of the sculpture, high-contrast metrics, and explicit demonstration disclosures.
 
 ---
 
@@ -124,7 +124,7 @@ The hero layout strictly reproduces the architectural hierarchy of the ARC refer
 
 ```
 +----------------------------------------------------------------------------------------------------+
-| [PACTUM]                                                                        [Status: Sandbox]  |
+| [PACTRA]                                                                        [Status: Sandbox]  |
 |                                                                                                    |
 | Engineered                                         /=====================\                         |
 | For Certainty.                                    /   [ALUMINUM ARTIFACT] \   /\ (Basalt Rock)    |
@@ -145,7 +145,7 @@ The hero layout strictly reproduces the architectural hierarchy of the ARC refer
 
 #### 1. Desktop Standard (1440px Viewport — Primary Target)
 - **Container:** `max-width: 1400px`, centered, `padding: 0 64px`.
-- **Header:** Height 72px, ordinary flow. Left: PACTUM typographic mark (32px tracking -0.04em). Right: Environment pill `Sandbox v2.4` and direct link to authenticated `/login`.
+- **Header:** Height 72px, ordinary flow. Left: PACTRA typographic mark (32px tracking -0.04em). Right: Environment pill `Sandbox v2.4` and direct link to authenticated `/login`.
 - **Hero Grid (12-Column, 32px Gutter):**
   - **Left Column (Cols 1–7):**
     - Top spacing: 80px below header.
@@ -183,7 +183,7 @@ The hero layout strictly reproduces the architectural hierarchy of the ARC refer
 #### 5. Mobile Portrait (390px Viewport — iPhone Standard)
 - **Container:** `padding: 0 20px`.
 - **Hero Hierarchy:**
-  - Header: Height 56px. PACTUM mark (22px) and compact `Enter` link.
+  - Header: Height 56px. PACTRA mark (22px) and compact `Enter` link.
   - Top spacing: 32px.
   - H1 Headline: "Engineered / For Certainty." `font-size: 42px`, `line-height: 1.02`, `letter-spacing: -0.035em`.
   - Supporting copy: 20px below H1. `font-size: 15px`, `line-height: 1.5`, 3 lines max.
@@ -221,7 +221,7 @@ The central agreement sculpture rejects decorative abstraction, floating credit 
    - **Dimensions:** 2.2 units width × 3.11 units height × 0.042 units thickness.
    - **Edge Profile:** 45° precision machined chamfer with 0.018 unit bevel radius, creating crisp specular edge-highlights identical to the ARC reference card.
    - **Plate Roles:**
-     - *Plate 1 (Top):* The Mandate Plate. Subtly debossed with PACTUM insignia and constraint indices (`Q:25`, `B:$8500`, `D:5d`).
+     - *Plate 1 (Top):* The Mandate Plate. Subtly debossed with PACTRA insignia and constraint indices (`Q:25`, `B:$8500`, `D:5d`).
      - *Plate 2 (Middle):* The Negotiation Plate. Dual sliding leaves that articulate horizontally during negotiation rounds.
      - *Plate 3 (Base):* The Cryptographic Foundation. Hosts the Merkle root hash engraving and anchoring pins.
 
