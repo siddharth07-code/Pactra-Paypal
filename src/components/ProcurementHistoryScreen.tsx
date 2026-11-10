@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import {
   CurrencyDisplay,
   StatusBadge,
@@ -17,6 +19,10 @@ import {
   ArrowRight,
 } from "lucide-react";
 import type { ProcurementSession, RequiredSpecification } from "@/types/pactum";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(useGSAP);
+}
 
 interface ProcurementHistoryScreenProps {
   sessions: ProcurementSession[];
@@ -46,6 +52,17 @@ export function ProcurementHistoryScreen({
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<"NEWEST" | "OLDEST" | "BUDGET_DESC" | "BUDGET_ASC">("NEWEST");
   const [inspectedSession, setInspectedSession] = useState<ProcurementSession | null>(null);
+
+  // Motion Refs for Coordinated Lithic Entrance and Inspection
+  const containerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const subtitleRef = useRef<HTMLParagraphElement>(null);
+  const filtersRef = useRef<HTMLDivElement>(null);
+  const tableCardRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const modalContentRef = useRef<HTMLDivElement>(null);
+  const isFirstFilterRender = useRef(true);
 
   // Close inspector on Escape key
   useEffect(() => {
@@ -103,22 +120,227 @@ export function ProcurementHistoryScreen({
       return 0;
     });
 
+  // Stage A-E Coordinated Lithic Entrance Choreography
+  useGSAP(
+    () => {
+      const prefersReduced =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+      if (prefersReduced) return;
+
+      const delay =
+        typeof document !== "undefined" &&
+        (document.documentElement.classList.contains("view-transition-active") ||
+          Boolean((document as unknown as { startViewTransition?: unknown }).startViewTransition))
+          ? 0.08
+          : 0.02;
+
+      const tl = gsap.timeline({
+        defaults: { ease: "power3.out" },
+        delay,
+      });
+
+      // Stage A: Heading reveal through vertical clipping mask
+      if (headingRef.current) {
+        tl.fromTo(
+          headingRef.current,
+          { y: 24, opacity: 0 },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.48,
+            ease: "power3.out",
+            clearProps: "transform,opacity",
+          },
+          0
+        );
+      }
+
+      // Stage B: Subtitle entrance
+      if (subtitleRef.current) {
+        tl.fromTo(
+          subtitleRef.current,
+          { y: 12, opacity: 0 },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.4,
+            ease: "power2.out",
+            clearProps: "transform,opacity",
+          },
+          0.08
+        );
+      }
+
+      // Stage C: Search and filters bar
+      if (filtersRef.current) {
+        tl.fromTo(
+          filtersRef.current,
+          { y: 14, opacity: 0 },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.42,
+            ease: "power2.out",
+            clearProps: "transform,opacity",
+          },
+          0.14
+        );
+      }
+
+      // Stage D: Data table card container
+      if (tableCardRef.current) {
+        tl.fromTo(
+          tableCardRef.current,
+          { y: 16, opacity: 0 },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.45,
+            ease: "power3.out",
+            clearProps: "transform,opacity",
+          },
+          0.2
+        );
+      }
+
+      // Stage E: Initial rows stagger
+      const initialRows = containerRef.current?.querySelectorAll(".history-session-row");
+      if (initialRows && initialRows.length > 0) {
+        tl.fromTo(
+          initialRows,
+          { opacity: 0, y: 6 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.28,
+            stagger: 0.03,
+            ease: "power2.out",
+            clearProps: "transform,opacity",
+          },
+          0.26
+        );
+      }
+    },
+    { scope: containerRef }
+  );
+
+  // Dynamic row filtering and sorting transitions
+  useEffect(() => {
+    if (isFirstFilterRender.current) {
+      isFirstFilterRender.current = false;
+      return;
+    }
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+    if (prefersReduced) return;
+
+    if (filteredSessions.length > 0) {
+      const rows = containerRef.current?.querySelectorAll(".history-session-row");
+      if (rows && rows.length > 0) {
+        gsap.fromTo(
+          rows,
+          { opacity: 0, y: 4 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.28,
+            stagger: Math.min(0.025, 0.2 / Math.max(rows.length, 1)),
+            ease: "power2.out",
+            clearProps: "transform,opacity",
+          }
+        );
+      }
+    } else {
+      const empty = containerRef.current?.querySelector(".history-empty-state");
+      if (empty) {
+        gsap.fromTo(
+          empty,
+          { opacity: 0, y: 6 },
+          { opacity: 1, y: 0, duration: 0.3, ease: "power2.out", clearProps: "transform,opacity" }
+        );
+      }
+    }
+  }, [searchQuery, statusFilter, sortBy, filteredSessions.length]);
+
+  // Expandable transaction details / Inspection modal animation
+  useEffect(() => {
+    if (!inspectedSession) return;
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+    if (prefersReduced) return;
+
+    if (modalContentRef.current) {
+      gsap.fromTo(
+        modalContentRef.current,
+        { opacity: 0, scale: 0.97, y: 8 },
+        {
+          opacity: 1,
+          scale: 1,
+          y: 0,
+          duration: 0.32,
+          ease: "power3.out",
+          clearProps: "transform,opacity",
+        }
+      );
+    }
+    const backdrop = modalRef.current?.querySelector(".history-modal-backdrop");
+    if (backdrop) {
+      gsap.fromTo(
+        backdrop,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.22, ease: "power2.out", clearProps: "opacity" }
+      );
+    }
+    const sections = modalContentRef.current?.querySelectorAll(".history-inspector-section");
+    if (sections && sections.length > 0) {
+      gsap.fromTo(
+        sections,
+        { opacity: 0, y: 6 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.28,
+          stagger: 0.04,
+          ease: "power2.out",
+          clearProps: "transform,opacity",
+        }
+      );
+    }
+  }, [inspectedSession]);
+
   return (
-    <div className="space-y-8">
+    <div ref={containerRef} className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-border-primary">
+      <div ref={headerRef} className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-border-primary">
         <div>
-          <h1 className="workspace-title text-text-primary">
-            Procurement History
-          </h1>
-          <p className="type-body text-text-secondary mt-3 max-w-2xl">
+          <div className="overflow-hidden pb-1 -mb-1">
+            <h1
+              ref={headingRef}
+              className="workspace-title text-text-primary translate-y-0 opacity-100 will-change-transform"
+            >
+              Procurement History
+            </h1>
+          </div>
+          <p
+            ref={subtitleRef}
+            className="type-body text-text-secondary mt-3 max-w-2xl translate-y-0 opacity-100"
+          >
             Review saved mandates, supplier agreements, audit evidence and settlement records.
           </p>
         </div>
       </div>
 
       {/* Search and Filters Bar */}
-      <div className="bg-surface-primary rounded-[6px] p-4 sm:p-5 border border-border-primary flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div
+        ref={filtersRef}
+        className="bg-surface-primary rounded-[6px] p-4 sm:p-5 border border-border-primary flex flex-col sm:flex-row items-center justify-between gap-3"
+      >
         <div className="relative w-full sm:w-96">
           <Search className="w-4 h-4 absolute left-3.5 top-3 text-text-secondary" aria-hidden="true" />
           <input
@@ -177,9 +399,12 @@ export function ProcurementHistoryScreen({
       </div>
 
       {/* Institutional Financial Data Table */}
-      <div className="bg-surface-primary rounded-[6px] border border-border-primary overflow-hidden transition-colors">
+      <div
+        ref={tableCardRef}
+        className="bg-surface-primary rounded-[6px] border border-border-primary overflow-hidden transition-colors"
+      >
         {filteredSessions.length === 0 ? (
-          <div className="p-16">
+          <div className="history-empty-state p-16">
             <EmptyState
               title="No Historical Sessions Found"
               description="No procurement sessions matched the filter criteria. Initiate a new procurement mandate to build your verifiable audit trail."
@@ -211,7 +436,7 @@ export function ProcurementHistoryScreen({
                     return (
                       <tr
                         key={s.id}
-                        className="hover:bg-surface-secondary/70 transition-colors group"
+                        className="history-session-row hover:bg-surface-secondary/70 transition-colors group"
                       >
                         {/* Session ID */}
                         <td className="py-4 pl-6 pr-4 whitespace-nowrap">
@@ -319,7 +544,7 @@ export function ProcurementHistoryScreen({
                 return (
                   <div
                     key={s.id}
-                    className="p-4 space-y-3 hover:bg-surface-secondary/70 transition-colors"
+                    className="history-session-row p-4 space-y-3 hover:bg-surface-secondary/70 transition-colors"
                   >
                     {/* Top Row: Item and Lifecycle Badge */}
                     <div className="flex items-start justify-between gap-2">
@@ -412,17 +637,21 @@ export function ProcurementHistoryScreen({
       {/* Session Inspector Drawer / Modal */}
       {inspectedSession && (
         <div
+          ref={modalRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="session-inspector-title"
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            className="history-modal-backdrop fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
             onClick={() => setInspectedSession(null)}
             aria-hidden="true"
           />
-          <div className="relative bg-surface-primary rounded-[6px] p-6 sm:p-7 max-w-2xl w-full border border-border-primary shadow-2xl space-y-6 z-10 max-h-[90vh] overflow-y-auto">
+          <div
+            ref={modalContentRef}
+            className="history-modal-content relative bg-surface-primary rounded-[6px] p-6 sm:p-7 max-w-2xl w-full border border-border-primary shadow-2xl space-y-6 z-10 max-h-[90vh] overflow-y-auto"
+          >
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-4 pb-4 border-b border-border-primary">
               <div>
@@ -450,7 +679,7 @@ export function ProcurementHistoryScreen({
             </div>
 
             {/* 1. Mandate Constraints */}
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 history-inspector-section">
               <span className="text-[11.5px] font-sans font-semibold uppercase tracking-[0.05em] text-ember-orange block">
                 Authoritative Mandate Constraints
               </span>
@@ -485,7 +714,7 @@ export function ProcurementHistoryScreen({
             </div>
 
             {/* 2. Cryptographic Flight Recorder */}
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 history-inspector-section">
               <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-ember-orange font-medium block">
                 Merkle Flight Recorder Root
               </span>
@@ -498,7 +727,7 @@ export function ProcurementHistoryScreen({
             </div>
 
             {/* 3. ACWORLD Audit Certificate */}
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 history-inspector-section">
               <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-ember-orange font-medium block">
                 Independent ACWORLD Audit Status
               </span>
@@ -533,7 +762,7 @@ export function ProcurementHistoryScreen({
             </div>
 
             {/* 4. PayPal Transaction Info */}
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 history-inspector-section">
               <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-ember-orange font-medium block">
                 PayPal Orders v2 Artifacts
               </span>
@@ -555,7 +784,7 @@ export function ProcurementHistoryScreen({
 
             {/* 5. Verifiable FX Settlement Bridge (if applicable) */}
             {inspectedSession.fxRecord && (
-              <div className="space-y-2.5">
+              <div className="space-y-2.5 history-inspector-section">
                 <span className="text-[11.5px] font-mono uppercase tracking-[0.06em] text-ember-orange font-medium block">
                   Verifiable FX Settlement Bridge
                 </span>
