@@ -75,7 +75,7 @@ describe("Negotiation SSE Stream API Route Tests", () => {
     }
 
     expect(accumulatedText).toContain("SOURCING_COMPLETED");
-    expect(accumulatedText).toContain("NEGOTIATION_FAILED");
+    expect(accumulatedText).toContain("NEGOTIATION_ABORTED");
     expect(accumulatedText).toContain("Sourcing eligibility gate blocked negotiation");
     // Ensure negotiation rounds never commenced
     expect(accumulatedText).not.toContain("ROUND_STARTED");
