@@ -143,8 +143,7 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
       media.add("(prefers-reduced-motion: no-preference)", () => {
         const delay =
           typeof document !== "undefined" &&
-          (document.documentElement.classList.contains("view-transition-active") ||
-            Boolean((document as unknown as { startViewTransition?: unknown }).startViewTransition))
+          document.documentElement.classList.contains("view-transition-active")
             ? 0.08
             : 0.02;
 
@@ -212,6 +211,7 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
           }
         }
       });
+      return () => media.revert();
     },
     { scope: containerRef, dependencies: [] }
   );
