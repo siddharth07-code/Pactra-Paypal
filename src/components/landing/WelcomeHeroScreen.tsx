@@ -25,6 +25,99 @@ export function WelcomeHeroScreen() {
     const media = gsap.matchMedia();
     media.add("(prefers-reduced-motion: no-preference)", () => {
       gsap.from(".cinema-entrance", { y: 18, opacity: 0, stagger: .1, duration: .8, ease: "power3.out" });
+
+      // In environments without RAF or ScrollTrigger support, bypass scroll listeners
+      if (
+        typeof window === "undefined" ||
+        typeof window.requestAnimationFrame !== "function"
+      ) {
+        return;
+      }
+
+      // Hero Recession and Workspace Mask Transition
+      const heroTransitionTl = gsap.timeline({
+        scrollTrigger: {
+          trigger: ".cinema-chapter",
+          start: "top 98%",
+          end: "top top",
+          scrub: 0.5,
+          invalidateOnRefresh: true,
+          onLeave: () => {
+            gsap.set(".cinema-chapter", { clearProps: "clipPath" });
+          },
+          onEnterBack: () => {
+            gsap.set(".cinema-chapter", { clipPath: "inset(0% 0% 0% 0%)" });
+          },
+        },
+      });
+
+      // Subtly recede the hero as user scrolls downward toward workspace
+      heroTransitionTl.fromTo(
+        ".cinema-hero",
+        { scale: 1, y: 0, opacity: 1 },
+        {
+          scale: 0.965,
+          y: -36,
+          opacity: 0.12,
+          ease: "none",
+          duration: 1,
+          immediateRender: false,
+        },
+        0
+      );
+
+      // Reveal the lavender procurement workspace through a refined vertical mask
+      heroTransitionTl.fromTo(
+        ".cinema-chapter",
+        { clipPath: "inset(44px 0% 0% 0%)" },
+        {
+          clipPath: "inset(0% 0% 0% 0%)",
+          ease: "none",
+          duration: 1,
+          immediateRender: false,
+        },
+        0
+      );
+
+      // Atmospheric transition seam line
+      heroTransitionTl.fromTo(
+        ".cinema-seam-line",
+        { scaleX: 0.25, opacity: 0 },
+        {
+          scaleX: 1,
+          opacity: 1,
+          ease: "none",
+          duration: 0.65,
+          immediateRender: false,
+        },
+        0
+      );
+
+      heroTransitionTl.to(
+        ".cinema-seam-line",
+        { opacity: 0, ease: "none", duration: 0.35 },
+        0.65
+      );
+
+      // Horizon seam ambient glow
+      heroTransitionTl.fromTo(
+        ".cinema-seam-glow",
+        { opacity: 0, scaleY: 0.4 },
+        {
+          opacity: 0.85,
+          scaleY: 1,
+          ease: "none",
+          duration: 0.65,
+          immediateRender: false,
+        },
+        0
+      );
+
+      heroTransitionTl.to(
+        ".cinema-seam-glow",
+        { opacity: 0, ease: "none", duration: 0.35 },
+        0.65
+      );
     });
     media.add("(min-width: 1000px) and (min-height: 900px) and (prefers-reduced-motion: no-preference)", () => {
       gsap.set(pageRef.current, { attr: { "data-enhanced": "true" } });
@@ -123,6 +216,10 @@ export function WelcomeHeroScreen() {
         <HeroIllustration />
       </section>
       <section id="procurement-mandate" className="cinema-chapter" aria-labelledby="mandate-title">
+        <div className="cinema-transition-seam" aria-hidden="true">
+          <div className="cinema-seam-glow" />
+          <div className="cinema-seam-line" />
+        </div>
         <div className="landing-container cinema-sticky">
           <div className="cinema-caption"><span>Introducing the procurement workspace</span><span>Scenes 01 + 02 + 03 + 04</span></div>
           <div className="cinema-scene">

@@ -49,7 +49,67 @@
 .pactum-landing .landing-artifact figcaption span { display: block; }
 .pactum-landing .landing-artifact button { min-height: 44px; padding-inline: 4px; text-decoration: underline; text-underline-offset: 4px; font-size: 12px; }
 .pactum-landing .landing-artifact button:hover { text-decoration-thickness: 2px; }
-.pactum-landing .landing-process { background: var(--landing-night); color: var(--landing-on-night); padding-block: 64px; }
+.pactum-landing .landing-process {
+  position: relative;
+  background: var(--landing-night);
+  color: var(--landing-on-night);
+  padding-block: 72px;
+  overflow: clip;
+}
+.pactum-landing .landing-process-transition-seam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 140px;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+.pactum-landing .landing-process-seam-glow {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 1000px;
+  height: 120px;
+  background: radial-gradient(ellipse at center, rgba(138, 117, 166, 0.24) 0%, rgba(216, 187, 244, 0.08) 45%, transparent 75%);
+  filter: blur(20px);
+  will-change: opacity, transform;
+}
+.pactum-landing .landing-process-seam-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(216, 187, 244, 0.35) 20%, rgba(255, 255, 255, 0.4) 50%, rgba(216, 187, 244, 0.35) 80%, transparent 100%);
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+.pactum-landing .landing-process > .landing-container {
+  position: relative;
+  z-index: 2;
+}
+.pactum-landing .process-headline { margin: 0; }
+.pactum-landing .process-title-mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: 0.06em;
+  margin-bottom: -0.06em;
+}
+.pactum-landing .process-title-line {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+.pactum-landing .process-intro-text {
+  will-change: transform, opacity;
+}
+.pactum-landing .landing-workflow-item {
+  will-change: transform, opacity;
+}
 .pactum-landing .landing-section-intro { display: grid; gap: 24px; padding-bottom: 48px; }
 .pactum-landing h2 { font-size: clamp(32px, 4vw, 54px); line-height: 1.1; letter-spacing: -.04em; font-weight: 500; }
 .pactum-landing .landing-section-intro > p { max-width: 510px; color: var(--landing-muted-on-night); font-size: 18px; }
@@ -181,11 +241,16 @@
 .pactum-cinema { --landing-paper: #f6f3ed; --landing-ink: #25221e; --landing-muted: #68625d; --cinema-lavender: #e7dff3; }
 .pactum-cinema .landing-header { border-bottom: 1px solid #ded8cf; }
 .pactum-cinema .cinema-hero {
-  padding-block: 48px 32px;
+  position: relative;
+  min-height: calc(100dvh - 80px);
+  padding-block: clamp(32px, 5vh, 64px);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 32px;
+  gap: 36px;
   align-items: center;
+  align-content: center;
+  will-change: transform, opacity;
+  transform-origin: center 40%;
 }
 .pactum-cinema .cinema-hero-copy { min-width: 0; }
 .pactum-cinema .hero-illustration-wrapper {
@@ -196,9 +261,8 @@
 }
 @media (min-width: 960px) {
   .pactum-cinema .cinema-hero {
-    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
-    gap: 40px;
-    align-items: center;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    gap: 48px;
   }
   .pactum-cinema .hero-illustration-wrapper {
     max-width: 540px;
@@ -207,7 +271,8 @@
 }
 @media (min-width: 1200px) {
   .pactum-cinema .cinema-hero {
-    gap: 56px;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    gap: 64px;
   }
 }
 .pactum-cinema .cinema-kicker { font-size: 12px; color: #925043; font-weight: 600; }
@@ -215,7 +280,44 @@
 .pactum-cinema h1 em { font-style: normal; color: #78668e; }
 .pactum-cinema .cinema-lead { max-width: 520px; font-size: 18px; color: var(--landing-muted); }
 .pactum-cinema .cinema-hero .landing-actions { margin-top: 28px; }
-.pactum-cinema .cinema-chapter { background: #eee9ed; padding-bottom: 56px; }
+.pactum-cinema .cinema-chapter {
+  position: relative;
+  background: #eee9ed;
+  padding-bottom: 56px;
+  will-change: clip-path;
+}
+.pactum-cinema .cinema-transition-seam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 5;
+}
+.pactum-cinema .cinema-seam-glow {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 85%;
+  max-width: 860px;
+  height: 60px;
+  background: radial-gradient(ellipse at center, rgba(120, 102, 142, 0.24) 0%, rgba(216, 187, 244, 0.08) 45%, transparent 75%);
+  filter: blur(16px);
+  will-change: opacity, transform;
+}
+.pactum-cinema .cinema-seam-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(120, 102, 142, 0.25) 20%, rgba(120, 102, 142, 0.5) 50%, rgba(120, 102, 142, 0.25) 80%, transparent 100%);
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
 .pactum-cinema .cinema-sticky { padding-top: 24px; }
 .pactum-cinema .cinema-caption, .pactum-cinema .cinema-controls { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; color: #655d56; }
 .pactum-cinema .cinema-caption { margin-bottom: 24px; }
@@ -250,7 +352,15 @@
 .pactum-cinema .cinema-controls button:hover { color: #25221e; text-decoration-thickness: 2px; }
 .pactum-cinema .cinema-controls button:active { color: #925043; }
 @media (max-width: 699px) {
-  .pactum-cinema .cinema-hero { padding-block: 36px; }
+  .pactum-cinema .cinema-hero {
+    min-height: calc(100dvh - 72px);
+    padding-block: 24px 32px;
+    gap: 28px;
+  }
+  .pactum-cinema .hero-illustration-wrapper {
+    max-width: 380px;
+    margin-inline: auto;
+  }
   .pactum-cinema .cinema-lead { font-size: 16px; }
   .pactum-cinema .cinema-toolbar { padding: 16px; }
   .pactum-cinema .cinema-interface { padding: 16px; flex-direction: column; }
@@ -259,6 +369,22 @@
   .pactum-cinema .cinema-rail ol { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-bottom: 0; }
   .pactum-cinema .cinema-rail li { padding: 10px 8px; font-size: 12px; white-space: normal; }
   .pactum-cinema .cinema-rail-note { display: none; }
+}
+@media (max-height: 720px) {
+  .pactum-cinema .cinema-hero {
+    min-height: calc(100dvh - 80px);
+    padding-block: 16px 20px;
+    gap: 18px;
+  }
+  .pactum-cinema h1 {
+    margin-block: 10px 14px;
+  }
+  .pactum-cinema .cinema-lead {
+    font-size: 16px;
+  }
+  .pactum-cinema .hero-illustration-wrapper {
+    max-width: 400px;
+  }
 }
 @media (min-width: 1000px) and (min-height: 900px) and (prefers-reduced-motion: no-preference) {
   .pactum-cinema[data-enhanced="true"] .cinema-chapter { height: 720vh; padding-bottom: 0; }
@@ -273,6 +399,9 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .pactum-cinema *, .pactum-cinema *::before, .pactum-cinema *::after { scroll-behavior: auto !important; transition: none !important; }
+  .pactum-cinema .cinema-hero { transform: none !important; opacity: 1 !important; }
+  .pactum-cinema .cinema-chapter { clip-path: none !important; }
+  .pactum-cinema .cinema-transition-seam { display: none !important; }
 }
 @media (min-width: 1000px) and (min-height: 900px) and (max-height: 1000px) and (prefers-reduced-motion: no-preference) {
   .pactum-cinema[data-enhanced="true"] .cinema-sticky { padding-block: 12px; }
