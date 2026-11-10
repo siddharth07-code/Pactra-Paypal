@@ -16,8 +16,18 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PACTUM | Autonomous B2B Procurement & Cryptographic Settlement",
+  metadataBase: new URL(process.env.APP_ORIGIN || "https://pactra.example"),
+  title: "PACTRA | Autonomous B2B Procurement & Cryptographic Settlement",
   description: "Negotiate Intelligently. Settle Verifiably.",
+  openGraph: {
+    title: "PACTRA | Autonomous B2B Procurement & Cryptographic Settlement",
+    description: "Negotiate Intelligently. Settle Verifiably.",
+    images: [{ url: "/brand/pactra-social-preview.png", width: 1200, height: 630, alt: "PACTRA" }],
+  },
+  icons: {
+    icon: "/brand/pactra-mark.png",
+    apple: "/brand/pactra-mark.png",
+  },
 };
 
 import { ThemeProvider } from "@/lib/theme-provider";
@@ -34,7 +44,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `(function() {
   try {
-    var stored = localStorage.getItem('pactum_theme');
+    var stored = localStorage.getItem('pactra_theme') || localStorage.getItem('pactum_theme');
     var isDark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches) || (stored === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     if (isDark) {
       document.documentElement.classList.add('dark');
