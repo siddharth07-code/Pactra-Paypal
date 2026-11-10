@@ -141,7 +141,14 @@ describe("Live reference quote, evidence, PayPal, and UI", () => {
   });
   it("keeps native USD checkout independent of the FX provider", async () => { const s = session("USD"); expect((await new SettlementService().initiateCheckout({ sessionId: s.id })).success).toBe(true); expect(fetchMock).not.toHaveBeenCalled(); });
   it("shows actual provider, timestamps, provenance, and authoritative verification", async () => { const saved = await quoteAndLock(); const { container } = render(<SettlementCenterScreen session={saved} />); expect(screen.getByText("ExchangeRate-API")).toBeInTheDocument(); expect(screen.getByText("External Reference Rate")).toBeInTheDocument(); const dates = [...container.querySelectorAll("time")].map(t => t.dateTime); expect(dates).toEqual(expect.arrayContaining([saved.fxRecord!.referenceRate!.updatedAt, saved.fxRecord!.referenceRate!.retrievedAt, saved.fxRecord!.expiresAt])); expect(screen.getByText(`${saved.fxVerification!.checks.length}/${saved.fxVerification!.checks.length} CHECKS PASS`)).toBeInTheDocument(); });
-  it("distinguishes deterministic demo rates", async () => { vi.stubEnv("FX_PROVIDER", "DETERMINISTIC_DEMO"); const saved = await quoteAndLock(); render(<SettlementCenterScreen session={saved} />); expect(screen.getByText("Deterministic Demo Rate")).toBeInTheDocument(); expect(screen.queryByText("Provider Updated:")).not.toBeInTheDocument(); expect(fetchMock).not.toHaveBeenCalled(); });
+  it("distinguishes deterministic demo rates", async () => {
+    vi.stubEnv("FX_PROVIDER", "DETERMINISTIC_DEMO");
+    const saved = await quoteAndLock();
+    expect(fetchMock).not.toHaveBeenCalled();
+    render(<SettlementCenterScreen session={saved} />);
+    expect(screen.getByText("Deterministic Demo Rate")).toBeInTheDocument();
+    expect(screen.queryByText("Provider Updated:")).not.toBeInTheDocument();
+  });
   it("shows provider failures and permits explicit safe retry without opening PayPal", async () => {
     const s = session(); fetchMock.mockResolvedValue(new Response(JSON.stringify({ success: false, error: "FX provider rate limit exceeded. Please retry later." }), { status: 503, headers: { "Content-Type": "application/json" } })); render(<SettlementCenterScreen session={s} />); fireEvent.click(screen.getByText("Get Settlement Quote")); await waitFor(() => expect(screen.getByText(/rate limit exceeded/)).toBeInTheDocument()); expect(screen.getByText("Get Settlement Quote").closest("button")).not.toBeDisabled(); expect(screen.queryByText("Continue to PayPal Sandbox")).not.toBeInTheDocument();
   });
