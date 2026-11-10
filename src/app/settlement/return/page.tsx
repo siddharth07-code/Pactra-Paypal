@@ -9,6 +9,7 @@
  */
 
 import React, { Suspense, useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   ShieldAlert,
@@ -97,10 +98,10 @@ function ReturnContent() {
         {/* Navigation & Header */}
         <div className="flex items-center justify-between pb-4 border-b border-border-primary">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-[6px] bg-ember-orange text-white flex items-center justify-center font-bold text-[14px]">
-              P
+            <div className="w-8 h-8 rounded-[6px] flex items-center justify-center shrink-0 select-none overflow-hidden">
+              <Image src="/brand/pactra-mark.png" alt="" width={32} height={32} className="w-8 h-8 object-contain" priority />
             </div>
-            <span className="text-[18px] font-semibold tracking-[-0.03em] text-text-primary">PACTUM</span>
+            <span className="text-[18px] font-semibold tracking-[-0.03em] text-text-primary">PACTRA</span>
             <span className="text-[12px] font-mono text-text-secondary">/ Settlement Gate</span>
           </div>
           <div className="flex items-center gap-2">
@@ -318,7 +319,7 @@ function ReturnContent() {
 
       {/* Footer */}
       <div className="max-w-3xl mx-auto w-full pt-8 text-center text-[12px] font-mono text-text-secondary">
-        PACTUM — Negotiate Intelligently. Settle Verifiably. Powered by PayPal Orders v2 &amp; SHA-256 Merkle Engine.
+        PACTRA — Negotiate Intelligently. Settle Verifiably. Powered by PayPal Orders v2 &amp; SHA-256 Merkle Engine.
       </div>
     </div>
   );
