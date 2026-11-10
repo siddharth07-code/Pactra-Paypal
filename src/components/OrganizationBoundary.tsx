@@ -114,7 +114,7 @@ export function OrganizationBoundary({ children }: { children: ReactNode }) {
                 Choose or create your organization
               </h1>
               <p className="text-xs text-text-secondary">
-                PACTUM partitions all procurement mandates, Merkle evidence records, and settlement gates by verified organization boundaries.
+                PACTRA partitions all procurement mandates, Merkle evidence records, and settlement gates by verified organization boundaries.
               </p>
             </div>
 
