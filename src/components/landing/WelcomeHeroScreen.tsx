@@ -221,48 +221,44 @@ export function WelcomeHeroScreen() {
           <div className="cinema-seam-line" />
         </div>
         <div className="landing-container cinema-sticky">
-          <div className="cinema-caption"><span>Introducing the procurement workspace</span><span>Scenes 01 + 02 + 03 + 04</span></div>
+          <div className="cinema-caption"><span>Procurement workspace</span><span>Workflow lifecycle</span></div>
           <div className="cinema-scene">
             <div className="cinema-story" data-scene="mandate">
-              <p className="cinema-kicker">01 / Procurement mandate</p>
-              <h2 id="mandate-title">Clarity before<br />the first offer.</h2>
-              <p>Transform a business requirement into a structured mandate. Define the limits, record the conditions, and give negotiation a clear starting point.</p>
+              <h2 id="mandate-title">Define procurement requirements</h2>
+              <p>Specify budget limits, delivery conditions, and supplier selection criteria.</p>
             </div>
             <div className="cinema-story cinema-negotiation-story" data-scene="negotiation">
-              <p className="cinema-kicker">02 / AI negotiation</p>
-              <h2 id="negotiation-title">Compare the offer.<br />Keep the boundaries.</h2>
-              <p>Evaluate supplier proposals against the mandate, then review a counteroffer with the conditions still in view.</p>
+              <h2 id="negotiation-title">Negotiate supplier terms</h2>
+              <p>Evaluate supplier offers and negotiate pricing within established constraints.</p>
             </div>
             <div className="cinema-story cinema-audit-story" data-scene="audit">
-              <p className="cinema-kicker">03 / Audit verification</p>
-              <h2 id="audit-title">Keep the terms.<br />Trace the evidence.</h2>
-              <p>Bring the draft agreement and its policy checks into one record. SHA-256 Merkle evidence helps check record integrity; commercial review still matters.</p>
+              <h2 id="audit-title">Verify agreement compliance</h2>
+              <p>Validate negotiated terms, procurement policies, and cryptographic evidence.</p>
             </div>
             <div className="cinema-story cinema-settlement-story" data-scene="settlement">
-              <p className="cinema-kicker">04 / PayPal settlement</p>
-              <h2 id="settlement-title">Approval first.<br />Then payment.</h2>
-              <p>Carry the reviewed terms into PayPal Sandbox checkout. Buyer approval, authorization and capture are separate steps, each requiring its own confirmation.</p>
+              <h2 id="settlement-title">Process approved payments</h2>
+              <p>Initiate PayPal authorization and capture subject to required approvals and verification.</p>
             </div>
             <div className="cinema-preview" role="group" aria-label="Illustrative procurement mandate">
               <div className="cinema-toolbar"><span>Procurement workspace</span><span className="cinema-sample">Illustrative workflow</span></div>
               <div className="cinema-panels">
               <div className="cinema-interface" data-scene="mandate">
                 <div className="cinema-info">
-                  <p className="cinema-label">01 / Define the requirement</p>
-                  <h3>One clear brief.<br />Every constraint accounted for.</h3>
+                  <p className="cinema-label">Procurement mandate</p>
+                  <h3>Commercial constraints and delivery criteria</h3>
                   <p className="cinema-sub">Sample requirements. No live procurement or payment activity.</p>
                   <dl className="cinema-fields">{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-                  <div className="cinema-confirm"><span aria-hidden="true">✓</span><p>Mandate defined<span>Ready for supplier evaluation in this example.</span></p></div>
+                  <div className="cinema-confirm"><span aria-hidden="true">✓</span><p>Mandate established<span>Parameters configured for supplier evaluation.</span></p></div>
                 </div>
                 <aside className="cinema-rail" aria-label="Agreement lifecycle preview">
                   <p>Agreement lifecycle</p>
-                  <ol>{["Define procurement", "Negotiate terms", "Verify evidence", "Authorize payment"].map((step, index) => <li key={step} className={index === 0 ? "is-current" : ""}><span aria-hidden="true">0{index + 1}</span>{step}</li>)}</ol>
-                  <p className="cinema-rail-note">Your requirements set the boundaries.</p>
+                  <ol>{["Define procurement", "Negotiate terms", "Verify evidence", "Authorize payment"].map((step, index) => <li key={step} className={index === 0 ? "is-current" : ""}>{step}</li>)}</ol>
+                  <p className="cinema-rail-note">Established constraints govern downstream stages.</p>
                 </aside>
               </div>
               <section className="cinema-negotiation" data-scene="negotiation" aria-labelledby="offers-title">
-                <p className="cinema-label">02 / Evaluate and negotiate</p>
-                <h3 id="offers-title">Terms shaped by the mandate.</h3>
+                <p className="cinema-label">Supplier negotiation</p>
+                <h3 id="offers-title">Competitive offers and counter-proposals</h3>
                 <p className="cinema-sub">Illustrative supplier offers and negotiated terms. All amounts and checks below are sample data, not live activity.</p>
                 <p className="cinema-policy">Example mandate: 20 office chairs · USD 4,000 limit · delivery within 10 days · buyer approval required.</p>
                 <ul className="cinema-offers" aria-label="Sample supplier offers">
@@ -270,20 +266,20 @@ export function WelcomeHeroScreen() {
                   <li className="cinema-offer"><div><strong>Sample supplier B</strong><span>USD 3,600 · 14 days</span></div><p>Delivery exceeds the example limit. Request revised terms.</p></li>
                 </ul>
                 <div className="cinema-terms">
-                  <p className="cinema-label">Illustrative negotiation / Supplier A</p>
+                  <p className="cinema-label">Negotiated draft · Supplier A</p>
                   <h4>Draft terms for buyer review</h4>
                   <dl><div><dt>Opening offer</dt><dd>USD 3,800</dd></div><div><dt>Negotiated draft</dt><dd>USD 3,700 · 8 days</dd></div></dl>
-                  <p>Example policy checks: budget within limit; delivery within limit. Buyer approval remains required.</p>
+                  <p>Policy checks: budget and delivery limits satisfied. Buyer approval remains required.</p>
                 </div>
-                <p className="cinema-review-note">This demonstration does not contact suppliers or approve an agreement.</p>
+                <p className="cinema-review-note">Illustrative demonstration. No external supplier communications or approvals are executed.</p>
                 <Link href="/workspace" className="landing-text-link">Create your procurement mandate</Link>
               </section>
               <section className="cinema-audit" data-scene="audit" aria-labelledby="agreement-title">
-                <p className="cinema-label">03 / Agreement verification · Illustrative demo</p>
-                <h3 id="agreement-title">A draft with a traceable record.</h3>
+                <p className="cinema-label">Compliance verification</p>
+                <h3 id="agreement-title">Policy verification and cryptographic lineage</h3>
                 <p className="cinema-sub">Sample verification only. No agreement is created and no cryptographic verification is executed here.</p>
                 <div className="cinema-agreement">
-                  <h4>Draft agreement / Sample supplier A</h4>
+                  <h4>Draft agreement · Supplier A</h4>
                   <p>20 office chairs · USD 3,700 · delivery in 8 days</p>
                   <p>Buyer approval pending · payment not authorized</p>
                 </div>
@@ -301,12 +297,12 @@ export function WelcomeHeroScreen() {
                 </figure>
                 <div className="cinema-audit-result">
                   <h4>Audit-verified / Illustrative state</h4>
-                  <p>Example evidence integrity: shown as valid. Buyer approval and PayPal Sandbox settlement remain separate steps.</p>
+                  <p>Policy checks and evidence lineage valid. Buyer approval and PayPal Sandbox settlement remain separate steps.</p>
                 </div>
               </section>
               <section className="cinema-settlement" data-scene="settlement" aria-labelledby="payment-title">
-                <p className="cinema-label">04 / PayPal settlement · Illustrative demo</p>
-                <h3 id="payment-title">From reviewed terms to payment.</h3>
+                <p className="cinema-label">Payment settlement</p>
+                <h3 id="payment-title">PayPal authorization and audited capture</h3>
                 <p className="cinema-sub">All amounts and statuses are examples. Scrolling does not approve the agreement, open checkout or make a payment.</p>
                 <div className="cinema-payment-approval">
                   <h4>Buyer approval / Pending in this example</h4>
@@ -340,7 +336,7 @@ export function WelcomeHeroScreen() {
               </div>
             </div>
           </div>
-          <div className="cinema-controls"><span>Sample workflow / Chapters 01 + 02 + 03 + 04</span><div><button type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? "Resume motion" : "Pause motion"}</button><button type="button" onClick={() => { setPaused(false); setReplay(value => value + 1); window.scrollTo({ top: 0, behavior: "instant" }); }}>Replay entrance</button></div></div>
+          <div className="cinema-controls"><span>Illustrative workflow</span><div><button type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? "Resume motion" : "Pause motion"}</button><button type="button" onClick={() => { setPaused(false); setReplay(value => value + 1); window.scrollTo({ top: 0, behavior: "instant" }); }}>Replay entrance</button></div></div>
         </div>
       </section>
       <LifecycleScrollSection />

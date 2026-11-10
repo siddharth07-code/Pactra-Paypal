@@ -323,8 +323,8 @@
 .pactum-cinema .cinema-caption { margin-bottom: 24px; }
 .pactum-cinema .cinema-scene { position: relative; }
 .pactum-cinema .cinema-story { max-width: 520px; padding-block: 16px 32px; }
-.pactum-cinema .cinema-story h2 { margin-block: 16px; font-size: clamp(34px, 4.5vw, 64px); letter-spacing: -.055em; }
-.pactum-cinema .cinema-story > p:last-child { color: var(--landing-muted); max-width: 360px; }
+.pactum-cinema .cinema-story h2 { margin-top: 0; margin-bottom: 16px; font-size: clamp(32px, 4.2vw, 56px); letter-spacing: -.05em; line-height: 1.12; }
+.pactum-cinema .cinema-story > p:last-child { color: var(--landing-muted); font-size: 17px; line-height: 1.6; max-width: 400px; }
 /* Only the demonstration is elevated, giving the interface a single visual focus. */
 .pactum-cinema .cinema-preview { width: 100%; background: #fffdf9; border: 1px solid #d7d0c7; border-radius: 16px; box-shadow: 0 24px 64px #43302312; }
 .pactum-cinema .cinema-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 18px 24px; border-bottom: 1px solid #e8e2da; font-size: 14px; font-weight: 600; }

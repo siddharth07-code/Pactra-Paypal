@@ -89,7 +89,7 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
     render(<WelcomeHeroScreen />);
     fireEvent.click(screen.getByRole("button", { name: "Pause motion" }));
     expect(screen.getByRole("button", { name: "Resume motion" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("heading", { name: /Clarity before/ })).toBeVisible();
+    expect(screen.getByRole("heading", { name: /Define procurement requirements/i })).toBeVisible();
     expect(screen.getByRole("group", { name: "Illustrative procurement mandate" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Resume motion" }));
     expect(screen.getByRole("button", { name: "Pause motion" })).toHaveAttribute("aria-pressed", "false");
@@ -127,7 +127,7 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
   it("keeps the audit record readable with motion paused", () => {
     render(<WelcomeHeroScreen />);
     fireEvent.click(screen.getByRole("button", { name: "Pause motion" }));
-    expect(screen.getByRole("heading", { name: "A draft with a traceable record." })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Policy verification and cryptographic lineage" })).toBeVisible();
     expect(screen.getByText(/Buyer approval and PayPal Sandbox settlement remain separate steps/)).toBeVisible();
   });
   it("separates agreement approval, PayPal approval, authorization and capture", () => {
