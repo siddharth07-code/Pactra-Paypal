@@ -27,7 +27,7 @@ import { SettlementService } from "@/lib/settlement-service";
 import { PayPalClient } from "@/lib/paypal-client";
 import { parseProcurementMandate } from "@/lib/mandate-parser";
 import { extractProcurementMandate } from "@/lib/mandate-parser";
-import { VeriPayMerkleTree } from "@/lib/veripay-merkle";
+import { CryptographicFlightRecorder } from "@/lib/flight-recorder";
 import type {
   ProcurementMandate,
   VendorQuote,
@@ -516,10 +516,10 @@ describe("PACTUM End-to-End Procurement Workflow Journeys", () => {
       acceptedAt: new Date().toISOString(),
       mandateVersion: 1,
     };
-    const merkleTree = new VeriPayMerkleTree();
-    merkleTree.addEvent("MANDATE_LOCKED", { mandateId: mandate.id });
-    session.preSettlementRoot = merkleTree.getRootHash();
-    session.merkleRoot = merkleTree.getRootHash();
+    const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
+    session.flightRecord = recorder.exportFlightRecord();
+    session.preSettlementRoot = recorder.getRootHash();
+    session.merkleRoot = recorder.getRootHash();
     session.merchantAttestation = {
       merchantUrl: "https://apexwholesale.com/return-policy",
       returnPolicyText: "30-day hassle-free commercial return guarantee.",
@@ -637,8 +637,10 @@ describe("PACTUM End-to-End Procurement Workflow Journeys", () => {
       acceptedAt: new Date().toISOString(),
       mandateVersion: 1,
     };
-    session.preSettlementRoot = "e".repeat(64);
-    session.merkleRoot = "e".repeat(64);
+    const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
+    session.flightRecord = recorder.exportFlightRecord();
+    session.preSettlementRoot = recorder.getRootHash();
+    session.merkleRoot = recorder.getRootHash();
     session.merchantAttestation = {
       merchantUrl: "https://apexwholesale.com/return-policy",
       returnPolicyText: "30-day hassle-free commercial return guarantee.",
