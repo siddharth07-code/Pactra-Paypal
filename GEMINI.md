@@ -1,10 +1,10 @@
-# PACTUM — Master Engineering Specification
+# PACTRA — Master Engineering Specification
 
 > Negotiate Intelligently. Settle Verifiably.
 
 ## 1. Product Vision
 
-PACTUM combines PactumPay and VeriPay into an autonomous B2B procurement and cryptographic payment-verification platform built on PayPal.
+PACTRA combines PactumPay and VeriPay into an autonomous B2B procurement and cryptographic payment-verification platform built on PayPal.
 
 - **PactumPay:** Product sourcing, multi-vendor competition, and rational AI negotiation.
 - **VeriPay:** Deterministic negotiation guardrails, SHA-256 Merkle evidence, and independent final-state auditing.
