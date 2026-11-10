@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import { CheckCircle2, ShieldAlert, AlertTriangle } from "lucide-react";
 import { PrimaryButton, GhostButton } from "./SharedUI";
@@ -12,7 +11,7 @@ import { formatCurrency, toMinorUnits, fromMinorUnits } from "@/lib/currency";
 import { negotiationFailureMessage } from "@/lib/negotiation-failure";
 
 if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger, useGSAP);
+  gsap.registerPlugin(useGSAP);
 }
 
 export interface StreamEventItem {
@@ -144,8 +143,7 @@ export function NegotiationArenaScreen({
       media.add("(prefers-reduced-motion: no-preference)", () => {
         const delay =
           typeof document !== "undefined" &&
-          (document.documentElement.classList.contains("view-transition-active") ||
-            Boolean((document as unknown as { startViewTransition?: unknown }).startViewTransition))
+          document.documentElement.classList.contains("view-transition-active")
             ? 0.08
             : 0.02;
 
@@ -195,6 +193,7 @@ export function NegotiationArenaScreen({
           );
         }
       });
+      return () => media.revert();
     },
     { scope: containerRef, dependencies: [] }
   );
