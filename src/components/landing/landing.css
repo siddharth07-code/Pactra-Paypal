@@ -326,6 +326,38 @@
 .pactum-cinema .cinema-story h2 { margin-top: 0; margin-bottom: 16px; font-size: clamp(32px, 4.2vw, 56px); letter-spacing: -.05em; line-height: 1.12; }
 .pactum-cinema .cinema-story > p:last-child { color: var(--landing-muted); font-size: 17px; line-height: 1.6; max-width: 400px; }
 /* Only the demonstration is elevated, giving the interface a single visual focus. */
+.pactum-cinema .cinema-svg-container {
+  width: 100%;
+  position: relative;
+  margin-top: 16px;
+  overflow: visible;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+.pactum-cinema .cinema-actions-row {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.pactum-cinema .workflow-svg-node:hover rect,
+.pactum-cinema .workflow-svg-node:focus-visible rect {
+  stroke: #78668e !important;
+  stroke-width: 1.5 !important;
+}
+.pactum-cinema .workflow-svg-node:focus-visible {
+  outline: 2px solid #78668e;
+  outline-offset: 3px;
+}
+.pactum-cinema .cinema-terms:focus-visible,
+.pactum-cinema .cinema-agreement:focus-visible,
+.pactum-cinema .cinema-payment-step:focus-visible,
+.pactum-cinema .cinema-payment-approval:focus-visible,
+.pactum-cinema .cinema-payment-outcome:focus-visible,
+.pactum-cinema .cinema-evidence-root:focus-visible {
+  outline: 2px solid #78668e;
+  outline-offset: 3px;
+}
 .pactum-cinema .cinema-preview { width: 100%; background: #fffdf9; border: 1px solid #d7d0c7; border-radius: 16px; box-shadow: 0 24px 64px #43302312; }
 .pactum-cinema .cinema-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 18px 24px; border-bottom: 1px solid #e8e2da; font-size: 14px; font-weight: 600; }
 .pactum-cinema .cinema-sample { font-size: 12px; color: #4c6654; }

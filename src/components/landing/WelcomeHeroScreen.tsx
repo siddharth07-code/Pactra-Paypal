@@ -8,6 +8,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { HeroIllustration } from "./HeroIllustration";
 import { LifecycleScrollSection } from "./LifecycleScrollSection";
+import { SourcingSceneSvg } from "./workflow/SourcingSceneSvg";
+import { NegotiationSceneSvg } from "./workflow/NegotiationSceneSvg";
+import { VerificationSceneSvg } from "./workflow/VerificationSceneSvg";
+import { SettlementSceneSvg } from "./workflow/SettlementSceneSvg";
 import "./landing.css";
 
 const fields = [
@@ -247,8 +251,11 @@ export function WelcomeHeroScreen() {
                   <p className="cinema-label">Procurement mandate</p>
                   <h3>Commercial constraints and delivery criteria</h3>
                   <p className="cinema-sub">Sample requirements. No live procurement or payment activity.</p>
-                  <dl className="cinema-fields">{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+                  <div className="cinema-svg-container">
+                    <SourcingSceneSvg />
+                  </div>
                   <div className="cinema-confirm"><span aria-hidden="true">✓</span><p>Mandate established<span>Parameters configured for supplier evaluation.</span></p></div>
+                  <dl className="sr-only cinema-fields">{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
                 </div>
                 <aside className="cinema-rail" aria-label="Agreement lifecycle preview">
                   <p>Agreement lifecycle</p>
@@ -260,77 +267,96 @@ export function WelcomeHeroScreen() {
                 <p className="cinema-label">Supplier negotiation</p>
                 <h3 id="offers-title">Competitive offers and counter-proposals</h3>
                 <p className="cinema-sub">Illustrative supplier offers and negotiated terms. All amounts and checks below are sample data, not live activity.</p>
-                <p className="cinema-policy">Example mandate: 20 office chairs · USD 4,000 limit · delivery within 10 days · buyer approval required.</p>
-                <ul className="cinema-offers" aria-label="Sample supplier offers">
-                  <li className="cinema-offer"><div><strong>Sample supplier A</strong><span>USD 3,800 · 8 days</span></div><p>Within example budget and delivery limits.</p></li>
-                  <li className="cinema-offer"><div><strong>Sample supplier B</strong><span>USD 3,600 · 14 days</span></div><p>Delivery exceeds the example limit. Request revised terms.</p></li>
-                </ul>
-                <div className="cinema-terms">
-                  <p className="cinema-label">Negotiated draft · Supplier A</p>
-                  <h4>Draft terms for buyer review</h4>
-                  <dl><div><dt>Opening offer</dt><dd>USD 3,800</dd></div><div><dt>Negotiated draft</dt><dd>USD 3,700 · 8 days</dd></div></dl>
-                  <p>Policy checks: budget and delivery limits satisfied. Buyer approval remains required.</p>
+                <div className="cinema-svg-container">
+                  <NegotiationSceneSvg />
                 </div>
-                <p className="cinema-review-note">Illustrative demonstration. No external supplier communications or approvals are executed.</p>
-                <Link href="/workspace" className="landing-text-link">Create your procurement mandate</Link>
+                <div className="cinema-actions-row">
+                  <Link href="/workspace" className="landing-text-link">Create your procurement mandate</Link>
+                </div>
+                <div className="sr-only">
+                  <p className="cinema-policy">Example mandate: 20 office chairs · USD 4,000 limit · delivery within 10 days · buyer approval required.</p>
+                  <ul className="cinema-offers" aria-label="Sample supplier offers">
+                    <li className="cinema-offer"><div><strong>Sample supplier A</strong><span>USD 3,800 · 8 days</span></div><p>Within example budget and delivery limits.</p></li>
+                    <li className="cinema-offer"><div><strong>Sample supplier B</strong><span>USD 3,600 · 14 days</span></div><p>Delivery exceeds the example limit. Request revised terms.</p></li>
+                  </ul>
+                  <div className="cinema-terms">
+                    <p className="cinema-label">Negotiated draft · Supplier A</p>
+                    <h4>Draft terms for buyer review</h4>
+                    <dl><div><dt>Opening offer</dt><dd>USD 3,800</dd></div><div><dt>Negotiated draft</dt><dd>USD 3,700 · 8 days</dd></div></dl>
+                    <p>Policy checks: budget and delivery limits satisfied. Buyer approval remains required.</p>
+                  </div>
+                  <p className="cinema-review-note">Illustrative demonstration. No external supplier communications or approvals are executed.</p>
+                </div>
               </section>
               <section className="cinema-audit" data-scene="audit" aria-labelledby="agreement-title">
                 <p className="cinema-label">Compliance verification</p>
                 <h3 id="agreement-title">Policy verification and cryptographic lineage</h3>
                 <p className="cinema-sub">Sample verification only. No agreement is created and no cryptographic verification is executed here.</p>
-                <div className="cinema-agreement">
-                  <h4>Draft agreement · Supplier A</h4>
-                  <p>20 office chairs · USD 3,700 · delivery in 8 days</p>
-                  <p>Buyer approval pending · payment not authorized</p>
+                <div className="cinema-svg-container">
+                  <VerificationSceneSvg />
                 </div>
-                <ul className="cinema-audit-checks" aria-label="Illustrative agreement policy checks">
-                  <li className="cinema-audit-check"><span>Budget / USD 4,000 limit</span><strong>Sample pass</strong></li>
-                  <li className="cinema-audit-check"><span>Delivery / 10-day limit</span><strong>Sample pass</strong></li>
-                  <li className="cinema-audit-check"><span>Buyer approval</span><strong>Still required</strong></li>
-                </ul>
-                <figure className="cinema-evidence" aria-labelledby="evidence-caption">
-                  <figcaption id="evidence-caption">SHA-256 / Merkle evidence, simplified</figcaption>
-                  <div className="cinema-evidence-leaves"><span>Mandate record</span><span>Draft terms</span></div>
-                  <div className="cinema-evidence-join" aria-hidden="true" />
-                  <div className="cinema-evidence-root">Combined evidence root <span>Diagram only · no computed hash</span></div>
-                  <p>Recorded events become leaf hashes, combined into a Merkle root. Inclusion proofs can check whether a record belongs to that root.</p>
-                </figure>
-                <div className="cinema-audit-result">
-                  <h4>Audit-verified / Illustrative state</h4>
-                  <p>Policy checks and evidence lineage valid. Buyer approval and PayPal Sandbox settlement remain separate steps.</p>
+                <div className="sr-only">
+                  <div className="cinema-agreement">
+                    <h4>Draft agreement · Supplier A</h4>
+                    <p>20 office chairs · USD 3,700 · delivery in 8 days</p>
+                    <p>Buyer approval pending · payment not authorized</p>
+                  </div>
+                  <ul className="cinema-audit-checks" aria-label="Illustrative agreement policy checks">
+                    <li className="cinema-audit-check"><span>Budget / USD 4,000 limit</span><strong>Sample pass</strong></li>
+                    <li className="cinema-audit-check"><span>Delivery / 10-day limit</span><strong>Sample pass</strong></li>
+                    <li className="cinema-audit-check"><span>Buyer approval</span><strong>Still required</strong></li>
+                  </ul>
+                  <figure className="cinema-evidence" aria-labelledby="evidence-caption">
+                    <figcaption id="evidence-caption">SHA-256 / Merkle evidence, simplified</figcaption>
+                    <div className="cinema-evidence-leaves"><span>Mandate record</span><span>Draft terms</span></div>
+                    <div className="cinema-evidence-join" aria-hidden="true" />
+                    <div className="cinema-evidence-root">Combined evidence root <span>Diagram only · no computed hash</span></div>
+                    <p>Recorded events become leaf hashes, combined into a Merkle root. Inclusion proofs can check whether a record belongs to that root.</p>
+                  </figure>
+                  <div className="cinema-audit-result">
+                    <h4>Audit-verified / Illustrative state</h4>
+                    <p>Policy checks and evidence lineage valid. Buyer approval and PayPal Sandbox settlement remain separate steps.</p>
+                  </div>
                 </div>
               </section>
               <section className="cinema-settlement" data-scene="settlement" aria-labelledby="payment-title">
                 <p className="cinema-label">Payment settlement</p>
                 <h3 id="payment-title">PayPal authorization and audited capture</h3>
                 <p className="cinema-sub">All amounts and statuses are examples. Scrolling does not approve the agreement, open checkout or make a payment.</p>
-                <div className="cinema-payment-approval">
-                  <h4>Buyer approval / Pending in this example</h4>
-                  <p>Sample supplier A · 20 office chairs</p>
-                  <p>USD 3,700 · delivery in 8 days</p>
-                  <p>Audit evidence shown as valid. Buyer approval still required.</p>
+                <div className="cinema-svg-container">
+                  <SettlementSceneSvg />
                 </div>
-                <ol className="cinema-payment-steps" aria-label="Conditional PayPal payment sequence">
-                  <li className="cinema-payment-step">
-                    <h4>Create order, then buyer approves at PayPal</h4>
-                    <p>After agreement approval, create an Orders v2 order with AUTHORIZE intent. The buyer then approves it separately at PayPal.</p>
-                    <span>Example status / Not started</span>
-                  </li>
-                  <li className="cinema-payment-step">
-                    <h4>Authorize the approved order</h4>
-                    <p>Orders v2 reserves funds if authorization succeeds. It does not capture them or confirm settlement.</p>
-                    <span>Example status / Not authorized</span>
-                  </li>
-                  <li className="cinema-payment-step">
-                    <h4>Capture the authorization later</h4>
-                    <p>A separate Payments v2 capture uses the authorization ID. A pending or failed result is not a completed payment.</p>
-                    <span>Example status / Not captured</span>
-                  </li>
-                </ol>
-                <div className="cinema-payment-outcome">
-                  <h4>Settlement / Awaiting payment confirmation</h4>
-                  <p>No funds move in this demonstration. Only a confirmed completed capture records payment; seller funds may still be held.</p>
+                <div className="cinema-actions-row">
                   <Link href="/workspace" className="landing-text-link">Review settlement in your workspace</Link>
+                </div>
+                <div className="sr-only">
+                  <div className="cinema-payment-approval">
+                    <h4>Buyer approval / Pending in this example</h4>
+                    <p>Sample supplier A · 20 office chairs</p>
+                    <p>USD 3,700 · delivery in 8 days</p>
+                    <p>Audit evidence shown as valid. Buyer approval still required.</p>
+                  </div>
+                  <ol className="cinema-payment-steps" aria-label="Conditional PayPal payment sequence">
+                    <li className="cinema-payment-step">
+                      <h4>Create order, then buyer approves at PayPal</h4>
+                      <p>After agreement approval, create an Orders v2 order with AUTHORIZE intent. The buyer then approves it separately at PayPal.</p>
+                      <span>Example status / Not started</span>
+                    </li>
+                    <li className="cinema-payment-step">
+                      <h4>Authorize the approved order</h4>
+                      <p>Orders v2 reserves funds if authorization succeeds. It does not capture them or confirm settlement.</p>
+                      <span>Example status / Not authorized</span>
+                    </li>
+                    <li className="cinema-payment-step">
+                      <h4>Capture the authorization later</h4>
+                      <p>A separate Payments v2 capture uses the authorization ID. A pending or failed result is not a completed payment.</p>
+                      <span>Example status / Not captured</span>
+                    </li>
+                  </ol>
+                  <div className="cinema-payment-outcome">
+                    <h4>Settlement / Awaiting payment confirmation</h4>
+                    <p>No funds move in this demonstration. Only a confirmed completed capture records payment; seller funds may still be held.</p>
+                  </div>
                 </div>
               </section>
               </div>
