@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { OrganizationMembers } from "@/components/OrganizationMembers";
 import { useEffect, useState, useRef } from "react";
 import { ArrowLeft, LogOut, ShieldCheck } from "lucide-react";
@@ -196,11 +197,11 @@ export default function AccountPage() {
       <section ref={cardRef} className="max-w-xl w-full space-y-6 rounded-[6px] border border-border-primary bg-surface-primary p-6 sm:p-8">
         <div ref={brandRef} className="flex items-center justify-between gap-4 border-b border-border-primary pb-4">
           <div className="flex items-center gap-2">
-            <span className="w-7 h-7 rounded-[5px] bg-ember-orange text-white font-semibold text-[13.5px] flex items-center justify-center shrink-0 select-none shadow-xs">
-              P
+            <span className="w-7 h-7 rounded-[5px] flex items-center justify-center shrink-0 select-none overflow-hidden">
+              <Image src="/brand/pactra-mark.png" alt="" width={28} height={28} className="w-7 h-7 object-contain" priority />
             </span>
             <span className="text-[16px] tracking-[-0.02em] font-semibold text-text-primary">
-              PACTUM
+              PACTRA
             </span>
           </div>
           <Link
