@@ -7,7 +7,9 @@
  * Follows GEMINI.md Section 8, 9, 12 and Phase 6.2 Semantic UI Specifications.
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import {
   PrimaryButton,
   GhostButton,
@@ -95,6 +97,10 @@ const REQUIRED_INVARIANTS = [
   },
 ] as const;
 
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(useGSAP);
+}
+
 export function SettlementCenterScreen({
   session,
   onRefreshSession,
@@ -145,6 +151,235 @@ export function SettlementCenterScreen({
   useEffect(() => {
     checkMerchantReadiness();
   }, []);
+
+  // Motion Refs for Coordinated Lithic Entrance and State Choreography
+  const containerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const leftColumnRef = useRef<HTMLDivElement>(null);
+  const agreementCardRef = useRef<HTMLDivElement>(null);
+  const actionContainerRef = useRef<HTMLDivElement>(null);
+  const artifactsCardRef = useRef<HTMLDivElement>(null);
+  const rightColumnRef = useRef<HTMLDivElement>(null);
+  const auditHeaderRef = useRef<HTMLDivElement>(null);
+  const auditBannerRef = useRef<HTMLDivElement>(null);
+  const invariantListRef = useRef<HTMLDivElement>(null);
+  const capturedBannerRef = useRef<HTMLDivElement>(null);
+  const awaitingApprovalRef = useRef<HTMLDivElement>(null);
+  const reconciliationRef = useRef<HTMLDivElement>(null);
+
+  // Authoritative State Tracking Refs for Genuine Payment & Audit Transitions
+  const prevStatusRef = useRef<ProcurementSessionStatus | undefined>(session?.status);
+  const prevAuditCertPassedRef = useRef<boolean | undefined>(session?.auditCertificate?.passed);
+  const prevOrderIdRef = useRef<string | undefined>(session?.paypalOrderId);
+  const prevCaptureIdRef = useRef<string | undefined>(session?.paypalCaptureId);
+  const prevInvoiceIdRef = useRef<string | undefined>(session?.paypalInvoiceId);
+
+  // Stage A-E Coordinated Lithic Entrance Choreography
+  useGSAP(
+    () => {
+      const prefersReduced =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+      if (prefersReduced) return;
+
+      // Synchronize with the 520ms View Transition API.
+      const delay =
+        typeof document !== "undefined" &&
+        (document.documentElement.classList.contains("view-transition-active") ||
+          Boolean((document as unknown as { startViewTransition?: unknown }).startViewTransition))
+          ? 0.08
+          : 0.02;
+
+      const tl = gsap.timeline({
+        defaults: { ease: "power3.out" },
+        delay,
+      });
+
+      // Stage A: Header entrance (Title, subtitle, Sandbox badges)
+      if (headerRef.current) {
+        tl.fromTo(
+          headerRef.current,
+          { y: 16, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.52, clearProps: "transform,opacity" },
+          0
+        );
+      }
+
+      // Stage B: Left column (Agreement breakdown & financial ceiling)
+      if (agreementCardRef.current) {
+        tl.fromTo(
+          agreementCardRef.current,
+          { y: 18, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.48, clearProps: "transform,opacity" },
+          0.08
+        );
+      }
+
+      // Stage C: Right column (ACWORLD Audit Gate)
+      if (rightColumnRef.current) {
+        tl.fromTo(
+          rightColumnRef.current,
+          { y: 18, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.48, clearProps: "transform,opacity" },
+          0.12
+        );
+      }
+
+      // Stage D: Invariant rows staggered cascade
+      if (invariantListRef.current) {
+        const rows = invariantListRef.current.querySelectorAll(".settlement-invariant-row");
+        if (rows.length > 0) {
+          tl.fromTo(
+            rows,
+            { opacity: 0, y: 10 },
+            { opacity: 1, y: 0, duration: 0.38, stagger: 0.04, ease: "power2.out", clearProps: "transform,opacity" },
+            0.22
+          );
+        }
+      }
+
+      // Stage E: Transaction Artifacts Card
+      if (artifactsCardRef.current) {
+        tl.fromTo(
+          artifactsCardRef.current,
+          { y: 14, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.45, ease: "power2.out", clearProps: "transform,opacity" },
+          0.26
+        );
+      }
+    },
+    { dependencies: [Boolean(session?.id)] }
+  );
+
+  // Animate genuine payment-state transitions (AWAITING_PAYPAL_APPROVAL, PAYPAL_AUTHORIZED, PAYPAL_CAPTURED, SETTLED)
+  useGSAP(
+    () => {
+      const prefersReduced =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+      if (prefersReduced) return;
+
+      const currentStatus = session?.status;
+      const prevStatus = prevStatusRef.current;
+
+      if (currentStatus !== prevStatus && prevStatus !== undefined) {
+        // Transition into Awaiting Buyer Approval
+        if (currentStatus === "AWAITING_PAYPAL_APPROVAL" && awaitingApprovalRef.current) {
+          gsap.fromTo(
+            awaitingApprovalRef.current,
+            { opacity: 0, y: 8, scale: 0.985 },
+            { opacity: 1, y: 0, scale: 1, duration: 0.42, ease: "power2.out", clearProps: "transform,opacity" }
+          );
+        }
+
+        // Transition into Authorized by Buyer (ready for capture)
+        if (currentStatus === "PAYPAL_AUTHORIZED" && actionContainerRef.current) {
+          gsap.fromTo(
+            actionContainerRef.current,
+            { opacity: 0.7, y: 6 },
+            { opacity: 1, y: 0, duration: 0.45, ease: "power2.out", clearProps: "transform,opacity" }
+          );
+        }
+
+        // Transition into Captured or Settled (Restrained confirmation)
+        if ((currentStatus === "PAYPAL_CAPTURED" || currentStatus === "SETTLED") && capturedBannerRef.current) {
+          gsap.fromTo(
+            capturedBannerRef.current,
+            { opacity: 0, scale: 0.95, y: 4 },
+            { opacity: 1, scale: 1, y: 0, duration: 0.48, ease: "power2.out", clearProps: "transform,opacity" }
+          );
+        }
+
+        // Transition into Reconciliation Required
+        if (currentStatus === "CAPTURE_PENDING_RECONCILIATION" && reconciliationRef.current) {
+          gsap.fromTo(
+            reconciliationRef.current,
+            { opacity: 0, y: 8 },
+            { opacity: 1, y: 0, duration: 0.42, ease: "power2.out", clearProps: "transform,opacity" }
+          );
+        }
+      }
+
+      prevStatusRef.current = currentStatus;
+    },
+    { dependencies: [session?.status] }
+  );
+
+  // Animate ACWORLD verification feedback on audit result changes
+  useGSAP(
+    () => {
+      const prefersReduced =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+      if (prefersReduced) return;
+
+      const currentPassed = session?.auditCertificate?.passed;
+      const prevPassed = prevAuditCertPassedRef.current;
+
+      if (currentPassed !== undefined && currentPassed !== prevPassed) {
+        if (currentPassed === true && auditBannerRef.current) {
+          // Subtle green illuminate & precision check cascade
+          gsap.fromTo(
+            auditBannerRef.current,
+            { opacity: 0.6, scale: 0.985 },
+            { opacity: 1, scale: 1, duration: 0.42, ease: "power2.out", clearProps: "transform,opacity" }
+          );
+          if (invariantListRef.current) {
+            const rows = invariantListRef.current.querySelectorAll(".settlement-invariant-row");
+            gsap.fromTo(
+              rows,
+              { opacity: 0.6 },
+              { opacity: 1, duration: 0.32, stagger: 0.04, ease: "power2.out", clearProps: "opacity" }
+            );
+          }
+        } else if (currentPassed === false && auditBannerRef.current) {
+          // Subtle attention vibration for blocked audit
+          gsap.fromTo(
+            auditBannerRef.current,
+            { x: -4 },
+            { x: 0, duration: 0.35, ease: "power2.out", clearProps: "transform" }
+          );
+        }
+      }
+
+      prevAuditCertPassedRef.current = currentPassed;
+    },
+    { dependencies: [session?.auditCertificate?.passed] }
+  );
+
+  // Animate newly populated PayPal transaction artifacts
+  useGSAP(
+    () => {
+      const prefersReduced =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+      if (prefersReduced) return;
+
+      const orderIdChanged = Boolean(session?.paypalOrderId && session.paypalOrderId !== prevOrderIdRef.current);
+      const captureIdChanged = Boolean(session?.paypalCaptureId && session.paypalCaptureId !== prevCaptureIdRef.current);
+      const invoiceIdChanged = Boolean(session?.paypalInvoiceId && session.paypalInvoiceId !== prevInvoiceIdRef.current);
+
+      if ((orderIdChanged || captureIdChanged || invoiceIdChanged) && artifactsCardRef.current) {
+        const rows = artifactsCardRef.current.querySelectorAll(".settlement-artifact-row");
+        if (rows.length > 0) {
+          gsap.fromTo(
+            rows,
+            { opacity: 0, y: 6 },
+            { opacity: 1, y: 0, duration: 0.36, stagger: 0.04, ease: "power2.out", clearProps: "transform,opacity" }
+          );
+        }
+      }
+
+      prevOrderIdRef.current = session?.paypalOrderId;
+      prevCaptureIdRef.current = session?.paypalCaptureId;
+      prevInvoiceIdRef.current = session?.paypalInvoiceId;
+    },
+    { dependencies: [session?.paypalOrderId, session?.paypalCaptureId, session?.paypalInvoiceId] }
+  );
 
   // Authoritative agreement record and agreed offer
   const agreementRecord = session?.agreementRecord;
@@ -513,9 +748,9 @@ export function SettlementCenterScreen({
     );
 
   return (
-    <div className="space-y-8 min-w-0">
+    <div ref={containerRef} className="space-y-8 min-w-0">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+      <div ref={headerRef} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <SectionHeader
           pageTitle
           title="Settlement Center"
@@ -598,8 +833,8 @@ export function SettlementCenterScreen({
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Column: Transaction Breakdown & Settlement Action */}
-            <div className="lg:col-span-5 space-y-5">
-              <div className="border-t border-border-primary pt-5 space-y-5">
+            <div ref={leftColumnRef} className="lg:col-span-5 space-y-5">
+              <div ref={agreementCardRef} className="border-t border-border-primary pt-5 space-y-5">
                 <div className="flex justify-between items-start pb-3.5 border-b border-border-primary">
                   <div>
                     <h2 className="text-[17px] font-semibold text-text-primary tracking-tight">
@@ -801,7 +1036,10 @@ export function SettlementCenterScreen({
                 )}
 
                 {session.status === "AWAITING_PAYPAL_APPROVAL" && (
-                  <div className="p-3.5 rounded-[6px] bg-[#fff8eb] dark:bg-[#281a08] border border-ember-orange/30 text-ember-orange text-[12.5px] space-y-1">
+                  <div
+                    ref={awaitingApprovalRef}
+                    className="p-3.5 rounded-[6px] bg-[#fff8eb] dark:bg-[#281a08] border border-ember-orange/30 text-ember-orange text-[12.5px] space-y-1"
+                  >
                     <div className="font-semibold flex items-center gap-1.5">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
                       <span>Awaiting PayPal Sandbox Approval</span>
@@ -813,14 +1051,17 @@ export function SettlementCenterScreen({
                 )}
 
                 {/* Primary Action Button (Contextual & Strictly Fail-Closed) */}
-                <div className="pt-1">
+                <div ref={actionContainerRef} className="pt-1">
                   {session.status === "SETTLED" || session.status === "PAYPAL_CAPTURED" ? (
-                    <div className="p-3 bg-mint-whisper dark:bg-[#10211a] rounded-[6px] text-center text-[13px] text-[#006840] dark:text-[#4ade80] font-semibold flex items-center justify-center gap-2 border border-lichen-green/25">
+                    <div
+                      ref={capturedBannerRef}
+                      className="p-3 bg-mint-whisper dark:bg-[#10211a] rounded-[6px] text-center text-[13px] text-[#006840] dark:text-[#4ade80] font-semibold flex items-center justify-center gap-2 border border-lichen-green/25"
+                    >
                       <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                       <span>PayPal Funds Captured &amp; Invoice Created</span>
                     </div>
                   ) : session.status === "CAPTURE_PENDING_RECONCILIATION" ? (
-                    <div className="space-y-3">
+                    <div ref={reconciliationRef} className="space-y-3">
                       <div className="p-3 bg-amber-500/10 dark:bg-amber-500/15 rounded-[6px] text-center text-[13px] text-amber-800 dark:text-amber-300 font-semibold flex items-center justify-center gap-2 border border-amber-500/30">
                         <AlertCircle className="w-4 h-4" aria-hidden="true" />
                         <span>Blind Capture Retries Blocked — Reconciliation Required</span>
@@ -1253,7 +1494,7 @@ export function SettlementCenterScreen({
 
               {/* Transaction Artifacts Card */}
               {isCrossCurrency ? (
-                <div className="bg-surface-primary rounded-[6px] p-5 border border-border-primary space-y-4 ">
+                <div ref={artifactsCardRef} className="bg-surface-primary rounded-[6px] p-5 border border-border-primary space-y-4 ">
                   <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
                     <h3 className="text-[12px] font-sans uppercase tracking-wider text-text-primary font-semibold">
                       Cross-Currency Settlement Artifacts
@@ -1264,7 +1505,7 @@ export function SettlementCenterScreen({
                   </div>
 
                   <div className="space-y-3 text-[12.5px]">
-                    <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary space-y-1.5">
+                    <div className="settlement-artifact-row p-3 rounded-[6px] bg-surface-secondary border border-border-primary space-y-1.5">
                       <div className="text-[11px] font-sans uppercase tracking-wider font-semibold text-text-secondary">
                         1. Commercial Agreement
                       </div>
@@ -1281,7 +1522,7 @@ export function SettlementCenterScreen({
                     </div>
 
                     {session.fxRecord ? (
-                      <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary space-y-1.5 font-mono-token text-[11.5px]">
+                      <div className="settlement-artifact-row p-3 rounded-[6px] bg-surface-secondary border border-border-primary space-y-1.5 font-mono-token text-[11.5px]">
                         <div className="text-[11px] font-sans uppercase tracking-wider font-semibold text-text-primary">
                           2. Verifiable FX Quote
                         </div>
@@ -1326,7 +1567,7 @@ export function SettlementCenterScreen({
                       </div>
                     )}
 
-                    <div className="p-3 rounded-[6px] bg-surface-secondary border border-border-primary space-y-1.5 font-mono-token text-[11.5px]">
+                    <div className="settlement-artifact-row p-3 rounded-[6px] bg-surface-secondary border border-border-primary space-y-1.5 font-mono-token text-[11.5px]">
                       <div className="text-[11px] font-sans uppercase tracking-wider font-semibold text-text-primary">
                         3. PayPal Orders v2 Rail
                       </div>
@@ -1371,7 +1612,7 @@ export function SettlementCenterScreen({
                     </div>
 
                     {session.merkleRoot && (
-                      <div className="pt-2 border-t border-border-primary space-y-1">
+                      <div className="settlement-artifact-row pt-2 border-t border-border-primary space-y-1">
                         <div className="flex items-center justify-between text-[12px]">
                           <span className="font-medium text-text-primary">
                             Bound Merkle Root:
@@ -1392,7 +1633,7 @@ export function SettlementCenterScreen({
                   </div>
                 </div>
               ) : !hasAnyArtifact ? (
-                <div className="bg-surface-primary rounded-[6px] p-5 border border-border-primary space-y-3 ">
+                <div ref={artifactsCardRef} className="bg-surface-primary rounded-[6px] p-5 border border-border-primary space-y-3 ">
                   <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
                     <h3 className="text-[12px] font-sans uppercase tracking-wider text-text-secondary font-semibold">
                       PayPal Transaction Artifacts
@@ -1411,7 +1652,7 @@ export function SettlementCenterScreen({
                   </div>
                 </div>
               ) : (
-                <div className="bg-surface-primary rounded-[6px] p-5 border border-border-primary space-y-3 ">
+                <div ref={artifactsCardRef} className="bg-surface-primary rounded-[6px] p-5 border border-border-primary space-y-3 ">
                   <div className="flex items-center justify-between pb-2.5 border-b border-border-primary">
                     <h3 className="text-[12px] font-sans uppercase tracking-wider text-text-primary font-semibold">
                       PayPal Transaction Artifacts
@@ -1422,7 +1663,7 @@ export function SettlementCenterScreen({
                   </div>
 
                   <div className="space-y-2.5 text-[13px]">
-                    <div className="flex justify-between items-center">
+                    <div className="settlement-artifact-row flex justify-between items-center">
                       <span className="text-text-secondary">PayPal Order ID:</span>
                       {session.paypalOrderId ? (
                         <div className="flex items-center gap-1.5">
@@ -1443,7 +1684,7 @@ export function SettlementCenterScreen({
                       )}
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="settlement-artifact-row flex justify-between items-center">
                       <span className="text-text-secondary">PayPal Capture ID:</span>
                       {session.paypalCaptureId ? (
                         <div className="flex items-center gap-1.5">
@@ -1464,7 +1705,7 @@ export function SettlementCenterScreen({
                       )}
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="settlement-artifact-row flex justify-between items-center">
                       <span className="text-text-secondary">B2B Invoice ID:</span>
                       {session.paypalInvoiceId ? (
                         <div className="flex items-center gap-1.5">
@@ -1485,7 +1726,7 @@ export function SettlementCenterScreen({
                       )}
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="settlement-artifact-row flex justify-between items-center">
                       <span className="text-text-secondary">Bound Merkle Root:</span>
                       {session.merkleRoot ? (
                         <div className="flex items-center gap-1.5">
@@ -1526,9 +1767,9 @@ export function SettlementCenterScreen({
             </div>
 
             {/* Right Column: ACWORLD Independent 5-Invariant Audit Gate */}
-            <div className="lg:col-span-7 border-t border-border-primary pt-5 flex flex-col justify-between">
+            <div ref={rightColumnRef} className="lg:col-span-7 border-t border-border-primary pt-5 flex flex-col justify-between">
               <div>
-                <div className="pb-3.5 border-b border-border-primary flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div ref={auditHeaderRef} className="pb-3.5 border-b border-border-primary flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h2 className="text-[17px] font-semibold text-text-primary tracking-tight">
                       ACWORLD audit
@@ -1586,6 +1827,7 @@ export function SettlementCenterScreen({
                     </div>
                   ) : auditCert ? (
                     <div
+                      ref={auditBannerRef}
                       className={`p-3.5 rounded-[6px] border flex items-center justify-between ${
                         auditCert.passed
                           ? "bg-surface-primary border-border-primary text-text-primary"
@@ -1629,7 +1871,7 @@ export function SettlementCenterScreen({
                   )}
 
                   {/* Semantic Invariant Rows (Matched by key, never by array position) */}
-                  <div className="divide-y divide-border-primary pt-1">
+                  <div ref={invariantListRef} className="divide-y divide-border-primary pt-1">
                     {REQUIRED_INVARIANTS.map((req) => {
                       const inv = auditCert?.invariants?.find((i) => i.name === req.key);
                       const isEvaluated = Boolean(inv);
@@ -1657,7 +1899,7 @@ export function SettlementCenterScreen({
                       return (
                         <div
                           key={req.key}
-                          className="py-3.5 flex items-start justify-between gap-4"
+                          className="settlement-invariant-row py-3.5 flex items-start justify-between gap-4"
                         >
                           <div className="space-y-0.5">
                             <div className="font-semibold text-[13.5px] text-text-primary">
