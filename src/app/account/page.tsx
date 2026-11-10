@@ -1,13 +1,30 @@
 "use client";
 import Link from "next/link";
 import { OrganizationMembers } from "@/components/OrganizationMembers";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ArrowLeft, LogOut, ShieldCheck } from "lucide-react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(useGSAP);
+}
 
 export default function AccountPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Motion refs for coordinated entrance
+  const containerRef = useRef<HTMLElement>(null);
+  const cardRef = useRef<HTMLElement>(null);
+  const brandRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const noticeRef = useRef<HTMLDivElement>(null);
+  const membersRef = useRef<HTMLDivElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -30,10 +47,155 @@ export default function AccountPage() {
     finally { setBusy(false); }
   }
 
+  // Coordinated entrance choreography
+  useGSAP(
+    () => {
+      const prefersReduced =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+      if (prefersReduced) return;
+
+      const delay =
+        typeof document !== "undefined" &&
+        (document.documentElement.classList.contains("view-transition-active") ||
+          Boolean((document as unknown as { startViewTransition?: unknown }).startViewTransition))
+          ? 0.08
+          : 0.02;
+
+      const tl = gsap.timeline({
+        defaults: { ease: "power3.out" },
+        delay,
+      });
+
+      if (cardRef.current) {
+        tl.fromTo(
+          cardRef.current,
+          { opacity: 0, y: 16 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.48,
+            ease: "power3.out",
+            clearProps: "transform,opacity",
+          },
+          0
+        );
+      }
+
+      if (brandRef.current) {
+        tl.fromTo(
+          brandRef.current,
+          { opacity: 0, y: 8 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.35,
+            ease: "power2.out",
+            clearProps: "transform,opacity",
+          },
+          0.06
+        );
+      }
+
+      if (headingRef.current) {
+        tl.fromTo(
+          headingRef.current,
+          { opacity: 0, y: 16 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.42,
+            ease: "power3.out",
+            clearProps: "transform,opacity",
+          },
+          0.1
+        );
+      }
+
+      if (statusRef.current) {
+        tl.fromTo(
+          statusRef.current,
+          { opacity: 0, y: 8 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.35,
+            ease: "power2.out",
+            clearProps: "transform,opacity",
+          },
+          0.16
+        );
+      }
+
+      if (noticeRef.current) {
+        tl.fromTo(
+          noticeRef.current,
+          { opacity: 0, y: 8 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.38,
+            ease: "power2.out",
+            clearProps: "transform,opacity",
+          },
+          0.22
+        );
+      }
+
+      if (membersRef.current) {
+        tl.fromTo(
+          membersRef.current,
+          { opacity: 0, y: 10 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.4,
+            ease: "power2.out",
+            clearProps: "transform,opacity",
+          },
+          0.26
+        );
+      }
+
+      if (footerRef.current) {
+        tl.fromTo(
+          footerRef.current,
+          { opacity: 0, y: 6 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.32,
+            ease: "power2.out",
+            clearProps: "transform,opacity",
+          },
+          0.3
+        );
+      }
+    },
+    { scope: containerRef }
+  );
+
+  // Animate error message if it appears
+  useEffect(() => {
+    if (!error || !errorRef.current) return;
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+    if (prefersReduced) return;
+
+    gsap.fromTo(
+      errorRef.current,
+      { opacity: 0, y: -4 },
+      { opacity: 1, y: 0, duration: 0.28, ease: "power2.out", clearProps: "transform,opacity" }
+    );
+  }, [error]);
+
   return (
-    <main className="pactum-workspace min-h-screen bg-page-bg text-text-primary flex items-center justify-center p-4 sm:p-6">
-      <section className="max-w-xl w-full space-y-6 rounded-[6px] border border-border-primary bg-surface-primary p-6 sm:p-8">
-        <div className="flex items-center justify-between gap-4 border-b border-border-primary pb-4">
+    <main ref={containerRef} className="pactum-workspace min-h-screen bg-page-bg text-text-primary flex items-center justify-center p-4 sm:p-6">
+      <section ref={cardRef} className="max-w-xl w-full space-y-6 rounded-[6px] border border-border-primary bg-surface-primary p-6 sm:p-8">
+        <div ref={brandRef} className="flex items-center justify-between gap-4 border-b border-border-primary pb-4">
           <div className="flex items-center gap-2">
             <span className="w-7 h-7 rounded-[5px] bg-ember-orange text-white font-semibold text-[13.5px] flex items-center justify-center shrink-0 select-none shadow-xs">
               P
@@ -52,10 +214,15 @@ export default function AccountPage() {
         </div>
 
         <div className="space-y-1.5">
-          <h1 className="workspace-title text-text-primary">
-            Account &amp; Workspace
-          </h1>
-          <p className="text-sm text-text-secondary">
+          <div className="overflow-hidden pb-1 -mb-1">
+            <h1
+              ref={headingRef}
+              className="workspace-title text-text-primary translate-y-0 opacity-100 will-change-transform"
+            >
+              Account &amp; Workspace
+            </h1>
+          </div>
+          <p ref={statusRef} className="text-sm text-text-secondary">
             {email ? (
               <span className="inline-flex items-center gap-1.5 font-medium text-text-primary">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
@@ -67,19 +234,21 @@ export default function AccountPage() {
           </p>
         </div>
 
-        <div className="rounded-[6px] border border-border-primary bg-surface-secondary p-4 text-xs text-text-secondary leading-relaxed">
+        <div ref={noticeRef} className="rounded-[6px] border border-border-primary bg-surface-secondary p-4 text-xs text-text-secondary leading-relaxed">
           Select an organization to access procurement and settlement. Your active membership and permissions are verified by the server for every operation.
         </div>
 
-        <OrganizationMembers />
+        <div ref={membersRef}>
+          <OrganizationMembers />
+        </div>
 
         {error && (
-          <div role="alert" className="p-3 rounded-[6px] border border-red-500/20 bg-red-500/10 text-xs text-red-600 dark:text-red-400 font-medium">
+          <div ref={errorRef} role="alert" className="p-3 rounded-[6px] border border-red-500/20 bg-red-500/10 text-xs text-red-600 dark:text-red-400 font-medium">
             {error}
           </div>
         )}
 
-        <div className="pt-2 border-t border-border-primary flex items-center justify-between">
+        <div ref={footerRef} className="pt-2 border-t border-border-primary flex items-center justify-between">
           <button
             type="button"
             disabled={busy}
