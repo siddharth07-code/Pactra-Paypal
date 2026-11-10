@@ -1,8 +1,8 @@
-# PACTUM — Security Policy
+# PACTRA — Security Policy
 
 ## 1. Purpose
 
-This document defines mandatory security requirements for PACTUM.
+This document defines mandatory security requirements for PACTRA.
 
 All code generated, modified, or reviewed by the coding agent must comply with this policy.
 
