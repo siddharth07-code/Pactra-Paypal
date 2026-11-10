@@ -648,7 +648,10 @@ export class NegotiationOrchestrator {
 
       const checkpoint = sessionStore.getSession(sessionId)!;
       if (checkpoint.status !== "NEGOTIATING" || (checkpoint.mandate.version ?? 1) !== (mandate.version ?? 1)) {
-        await this.emit({ type: "NEGOTIATION_ABORTED", payload: { sessionId, reason: "The session or mandate changed while negotiation was running." } });
+        const reason = checkpoint.status !== "NEGOTIATING"
+          ? `The session or mandate changed while negotiation was running (terminal status '${checkpoint.status}').`
+          : `The session or mandate changed while negotiation was running (mandate revision).`;
+        await this.emit({ type: "NEGOTIATION_ABORTED", payload: { sessionId, reason } });
         return { session: checkpoint, merkleTree, completed: false };
       }
       await saveSessionCheckpoint({ ...checkpoint, turns: structuredClone(turns), quotes: structuredClone(activeQuotes), merkleRoot: merkleTree.getRootHash(), preSettlementRoot: merkleTree.getRootHash() });
