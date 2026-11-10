@@ -742,7 +742,7 @@ export class SettlementService {
           sessionId,
           orderId: effectiveOrderId,
           auditCertificate: this.buildFailedCertificate(sessionId, `Order intent mismatch: ${orderDetails.intent}`),
-          error: `PayPal order intent is '${orderDetails.intent}'. PACTUM requires intent 'AUTHORIZE'.`,
+          error: `PayPal order intent is '${orderDetails.intent}'. PACTRA requires intent 'AUTHORIZE'.`,
           blockedAtGate: true,
         };
       }
