@@ -29,7 +29,7 @@ export function authErrorPage(error: unknown): NextResponse {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PACTUM — Service Unavailable</title>
+  <title>PACTRA — Service Unavailable</title>
   <style>
     body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0c0c0e; color: #f4f4f5; display: flex; min-height: 100vh; align-items: center; justify-content: center; padding: 1.5rem; }
     .card { max-width: 28rem; width: 100%; border: 1px solid #27272a; background: #18181b; border-radius: 0.75rem; padding: 2rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4); }
@@ -43,7 +43,7 @@ export function authErrorPage(error: unknown): NextResponse {
 </head>
 <body>
   <main class="card">
-    <div class="logo">PACTUM</div>
+    <div class="logo">PACTRA</div>
     <h1>Authentication &amp; Service Notice</h1>
     <p>${escape(failure.message)}</p>
     <p><span class="code">${escape(failure.code)}</span></p>
