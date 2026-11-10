@@ -1,4 +1,4 @@
-# PACTUM — 5–7 Minute Hackathon Demonstration Script & Presenter Runbook
+# PACTRA — 5–7 Minute Hackathon Demonstration Script & Presenter Runbook
 
 > **Product Principle:** "Negotiate Intelligently. Settle Verifiably."  
 > **Core Message:** "AI negotiates the deal. Deterministic controls decide whether it can settle."
@@ -11,7 +11,7 @@ Before starting the evaluation:
 
 1. **Environment & Server**:
    ```bash
-   cd /path/to/Pactum-Paypal
+   cd /path/to/Pactra-Paypal
    npm run build # Ensure production bundle is valid
    npm run dev   # Start local Next.js dev server on port 3000
    ```
@@ -19,7 +19,7 @@ Before starting the evaluation:
    - Open browser at `http://localhost:3000`.
    - Verify network connectivity or ensure `.env` has `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` configured for PayPal Sandbox.
 3. **Presenter Fallbacks & Contingency Plan**:
-   - **Google Gemini API**: If `GEMINI_API_KEY` is not set or rate-limited, PACTUM automatically engages its deterministic Boulware concession engine with transparent fallback provenance attribution.
+   - **Google Gemini API**: If `GEMINI_API_KEY` is not set or rate-limited, PACTRA automatically engages its deterministic Boulware concession engine with transparent fallback provenance attribution.
    - **Channel3 / Kernel**: If partner credentials are absent, deterministic wholesale catalog fixtures and local DOM attestations are used and clearly badged.
    - **PayPal Sandbox**: Real Sandbox orders are created via `api-m.sandbox.paypal.com`. If PayPal Sandbox is temporarily slow or unreachable, the Settlement Center displays the exact error message and prevents capture.
 
@@ -51,7 +51,7 @@ Timeline Summary:
 - **What Presenter Explains**:
   > "Today, autonomous AI agents can search the web and negotiate wholesale contracts. But in enterprise procurement, LLMs cannot be trusted with company funds. An AI might hallucinate a price, agree to a 2-day delivery SLA that a supplier cannot meet, leak private reservation prices, or skip the procurement return policy.
   >
-  > PACTUM solves this with a strict separation of concerns:
+  > PACTRA solves this with a strict separation of concerns:
   > **AI negotiates the deal. Deterministic controls decide whether it can settle.**"
 
 ---
@@ -72,7 +72,7 @@ Timeline Summary:
   - Each supplier card displays compliance badges: "Eligible • Rank #1", "Within Budget", and explicit source attribution (`Simulated Fixture` or `Channel3 Wholesale`).
 - **What Presenter Explains**:
   > "We enter our procurement mandate: Purchase 25 4K USB-C monitors under an $8,500 budget with delivery within 5 days and at least a 30-day return policy.
-  > PACTUM locks these requirements into a canonical mandate and sources three competing wholesale offers. Notice that all three offers start near or above $350–$385 per unit. We need rational negotiation to secure discounts without sacrificing our delivery or return SLAs."
+  > PACTRA locks these requirements into a canonical mandate and sources three competing wholesale offers. Notice that all three offers start near or above $350–$385 per unit. We need rational negotiation to secure discounts without sacrificing our delivery or return SLAs."
 
 ---
 
@@ -91,7 +91,7 @@ Timeline Summary:
     - The outbound message was **purged before transmission** to the supplier, and the buyer agent was forced to regenerate within mathematical feasibility bounds.
   - **Rounds 3 & 4**: Monotonic price concessions continue until consensus is reached.
 - **What Presenter Explains**:
-  > "Watch Round 2 carefully. This is PACTUM's Mechanism-Design Firewall. If the buyer agent proposes an irrational offer, tries to leak our reservation price, or violates anti-thrashing bounds ($p_{t-1} \le p_t \le p_{vendor,t-1}$), the guardrail intercepts and blocks the packet before it leaves the server.
+  > "Watch Round 2 carefully. This is PACTRA's Mechanism-Design Firewall. If the buyer agent proposes an irrational offer, tries to leak our reservation price, or violates anti-thrashing bounds ($p_{t-1} \le p_t \le p_{vendor,t-1}$), the guardrail intercepts and blocks the packet before it leaves the server.
   > The evaluator can see the mathematical proof right in the transcript. The model cannot bypass this firewall."
 
 ---
@@ -197,7 +197,7 @@ Timeline Summary:
 - **What Presenter Clicks**: Click **"Overview"**.
 - **What Evaluator Sees**: Realized savings updated, session recorded in history.
 - **Closing Statement**:
-  > "PACTUM bridges the gap between autonomous AI agents and fiduciary financial safety.
+  > "PACTRA bridges the gap between autonomous AI agents and fiduciary financial safety.
   > AI negotiates the deal. Deterministic controls decide whether it can settle.
   > Thank you, and I look forward to your questions."
 
@@ -208,6 +208,6 @@ Timeline Summary:
 | Scenario | Presenter Action / System Behavior |
 | :--- | :--- |
 | **Evaluator asks: "Can the AI hallucinate an approval?"** | Point to `SettlementCenterScreen.tsx` and `acworld-auditor.ts`. Explain that the AI has no tool to capture funds; capture requires a signed, server-side audit certificate evaluating 5 deterministic invariants. |
-| **Evaluator asks: "What if Gemini API has an outage or rate limit?"** | Explain and demonstrate `GeminiNegotiationClient`: PACTUM detects 429/timeouts and seamlessly engages its deterministic Boulware concession curve with complete provenance transparency. |
+| **Evaluator asks: "What if Gemini API has an outage or rate limit?"** | Explain and demonstrate `GeminiNegotiationClient`: PACTRA detects 429/timeouts and seamlessly engages its deterministic Boulware concession curve with complete provenance transparency. |
 | **Evaluator asks: "Is this real money?"** | Clarify: "No, this operates strictly on PayPal Sandbox (`api-m.sandbox.paypal.com`). Live money movement is strictly prohibited in this phase." |
-| **Evaluator asks: "Does the Merkle tree guarantee the supplier actually delivers?"** | Point out the explicit disclaimer on the Evidence Vault: "The Merkle tree commits to recorded evidence and timestamps. Physical delivery remains subject to real-world performance, which is why PACTUM includes dispute evidence generation." |
+| **Evaluator asks: "Does the Merkle tree guarantee the supplier actually delivers?"** | Point out the explicit disclaimer on the Evidence Vault: "The Merkle tree commits to recorded evidence and timestamps. Physical delivery remains subject to real-world performance, which is why PACTRA includes dispute evidence generation." |
