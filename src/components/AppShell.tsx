@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle, BackToTopButton } from "./SharedUI";
 import Link from "next/link";
+import Image from "next/image";
 import { useOrganization, useOrganizationControl } from "./OrganizationBoundary";
 
 export type NavScreen =
@@ -107,16 +108,17 @@ export function AppShell({
             type="button"
             onClick={() => onNavigate("overview")}
             className="group h-10 shrink-0 flex items-center gap-2.5 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#121214] rounded-[6px] px-1"
-            aria-label="PACTUM Home — Return to Overview"
+            aria-label="PACTRA Home — Return to Overview"
           >
             <span
-              className="w-7 h-7 rounded-[5px] bg-ember-orange text-white font-semibold text-[13.5px] flex items-center justify-center shrink-0 select-none shadow-xs"
+              className="w-7 h-7 rounded-[5px] flex items-center justify-center shrink-0 select-none overflow-hidden relative"
               aria-hidden="true"
             >
-              P
+              <Image src="/brand/pactra-mark.png" alt="" width={28} height={28} className="w-7 h-7 object-contain" priority />
+              <span className="sr-only">P</span>
             </span>
             <span className="hidden min-[400px]:inline text-[16px] font-semibold tracking-[-0.02em] text-text-primary select-none">
-              PACTUM
+              PACTRA
             </span>
           </button>
 
@@ -253,7 +255,7 @@ export function AppShell({
       <footer className="w-full bg-page-bg border-t border-border-primary mt-16 transition-colors no-print">
         <div className="max-w-[1344px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-text-secondary">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-text-primary">PACTUM</span>
+            <span className="font-semibold text-text-primary">PACTRA</span>
             <span>Procurement operations</span>
           </div>
         </div>
