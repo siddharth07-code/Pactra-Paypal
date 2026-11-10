@@ -34,7 +34,7 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     );
   };
 
-  it("renders PACTUM brand lockup without a secondary product label", () => {
+  it("renders PACTRA brand lockup without a secondary product label", () => {
     renderNavbar("overview");
 
     // Monogram 'P'
@@ -42,10 +42,10 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
 
     // Brand Wordmark
     const brandBtn = screen.getByRole("button", {
-      name: /PACTUM Home — Return to Overview/i,
+      name: /PACTRA Home — Return to Overview/i,
     });
     expect(brandBtn).toBeInTheDocument();
-    expect(brandBtn).toHaveTextContent("PACTUM");
+    expect(brandBtn).toHaveTextContent("PACTRA");
 
     expect(screen.queryByText("VeriPay", { selector: "header *" })).not.toBeInTheDocument();
 
