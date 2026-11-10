@@ -211,9 +211,9 @@ function Home() {
     if (changed) {
       scrollPositions.current.set(entry.current, window.scrollY);
       entry.current = ++nextEntry.current;
-      window.history.pushState({ pactumEntry: entry.current }, "", url);
+      window.history.pushState({ pactraEntry: entry.current, pactumEntry: entry.current }, "", url);
     } else if (url.href !== window.location.href) {
-      window.history.replaceState({ ...window.history.state, pactumEntry: entry.current }, "", url);
+      window.history.replaceState({ ...window.history.state, pactraEntry: entry.current, pactumEntry: entry.current }, "", url);
     }
 
     showScreen(screen, () => {
@@ -237,7 +237,7 @@ function Home() {
 
     const previousRestoration = window.history.scrollRestoration;
     window.history.scrollRestoration = "manual";
-    entry.current = window.history.state?.pactumEntry ?? 0;
+    entry.current = window.history.state?.pactraEntry ?? window.history.state?.pactumEntry ?? 0;
     nextEntry.current = Math.max(nextEntry.current, entry.current);
     const initial = readLocation();
     requestedScreen.current = initial.screen;
@@ -263,7 +263,7 @@ function Home() {
     const onPopState = (event: PopStateEvent) => {
       const version = ++navigationVersion.current;
       scrollPositions.current.set(entry.current, window.scrollY);
-      entry.current = event.state?.pactumEntry ?? 0;
+      entry.current = event.state?.pactraEntry ?? event.state?.pactumEntry ?? 0;
       const destination = readLocation();
       requestedScreen.current = destination.screen;
       showScreen(destination.screen, () => {
