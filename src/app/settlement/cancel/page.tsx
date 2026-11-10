@@ -8,6 +8,7 @@
  */
 
 import React, { Suspense, useEffect, useRef } from "react";
+import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { XCircle, ArrowLeft, Shield } from "lucide-react";
 
@@ -38,10 +39,10 @@ function CancelContent() {
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-border-primary">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-[5px] bg-ember-orange text-white flex items-center justify-center font-bold text-[13px] tracking-tight shadow-xs">
-              P
+            <div className="w-7 h-7 rounded-[5px] flex items-center justify-center shrink-0 select-none overflow-hidden">
+              <Image src="/brand/pactra-mark.png" alt="" width={28} height={28} className="w-7 h-7 object-contain" priority />
             </div>
-            <span className="text-[17px] font-semibold tracking-[-0.03em] text-text-primary">PACTUM</span>
+            <span className="text-[17px] font-semibold tracking-[-0.03em] text-text-primary">PACTRA</span>
           </div>
           <span className="text-[11.5px] font-mono-token font-medium px-2.5 py-1 rounded-[6px] bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
             Payment Cancelled
@@ -100,7 +101,7 @@ function CancelContent() {
 
       {/* Footer */}
       <div className="max-w-xl mx-auto w-full pt-8 text-center text-[12px] font-mono text-text-secondary">
-        PACTUM — Negotiate Intelligently. Settle Verifiably.
+        PACTRA — Negotiate Intelligently. Settle Verifiably.
       </div>
     </div>
   );
