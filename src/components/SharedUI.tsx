@@ -284,7 +284,7 @@ export function StatusBadge({
 
   return (
     <span
-      className="inline-flex items-center text-xs font-medium select-none tracking-[-0.01em]"
+      className="inline-flex items-center text-[11.5px] font-medium select-none tracking-[-0.01em]"
     >
       <span className={textStyles[status]}>{label}</span>
     </span>
