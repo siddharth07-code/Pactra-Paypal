@@ -18,7 +18,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("pactum_theme") as Theme | null;
+      const stored = (localStorage.getItem("pactra_theme") || localStorage.getItem("pactum_theme")) as Theme | null;
       if (stored && ["light", "dark", "system"].includes(stored)) {
         setThemeState(stored);
       }
@@ -73,6 +73,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     try {
+      localStorage.setItem("pactra_theme", newTheme);
       localStorage.setItem("pactum_theme", newTheme);
     } catch {
       // Ignore
