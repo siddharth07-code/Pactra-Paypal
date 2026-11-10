@@ -1,7 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { roles, canGrant, type Role } from "@/lib/organizations/permissions";
 import { Users, UserPlus } from "lucide-react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(useGSAP);
+}
 
 interface Member {
   id: string;
@@ -19,6 +25,13 @@ export function OrganizationMembers() {
   const [message, setMessage] = useState("");
   const [token, setToken] = useState("");
   const [revision, setRevision] = useState(0);
+
+  // Motion refs
+  const sectionRef = useRef<HTMLElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const messageRef = useRef<HTMLParagraphElement>(null);
+  const tokenRef = useRef<HTMLDivElement>(null);
+  const isInitialMembers = useRef(true);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -42,6 +55,110 @@ export function OrganizationMembers() {
       });
     return () => controller.abort();
   }, [revision]);
+
+  // Entrance animation for members section
+  useGSAP(
+    () => {
+      if (!role) return;
+      const prefersReduced =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+      if (prefersReduced) return;
+
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+
+      if (sectionRef.current) {
+        tl.fromTo(
+          sectionRef.current,
+          { opacity: 0, y: 10 },
+          { opacity: 1, y: 0, duration: 0.38, ease: "power3.out", clearProps: "transform,opacity" },
+          0
+        );
+      }
+
+      const rows = sectionRef.current?.querySelectorAll(".org-member-row");
+      if (rows && rows.length > 0) {
+        tl.fromTo(
+          rows,
+          { opacity: 0, y: 4 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.28,
+            stagger: 0.04,
+            ease: "power2.out",
+            clearProps: "transform,opacity",
+          },
+          0.1
+        );
+      }
+
+      if (formRef.current) {
+        tl.fromTo(
+          formRef.current,
+          { opacity: 0, y: 6 },
+          { opacity: 1, y: 0, duration: 0.32, ease: "power2.out", clearProps: "transform,opacity" },
+          0.16
+        );
+      }
+    },
+    { dependencies: [Boolean(role)], scope: sectionRef }
+  );
+
+  // Dynamic animation when members list updates
+  useEffect(() => {
+    if (isInitialMembers.current) {
+      isInitialMembers.current = false;
+      return;
+    }
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+    if (prefersReduced) return;
+
+    const rows = sectionRef.current?.querySelectorAll(".org-member-row");
+    if (rows && rows.length > 0) {
+      gsap.fromTo(
+        rows,
+        { opacity: 0, y: 4 },
+        { opacity: 1, y: 0, duration: 0.25, stagger: 0.03, ease: "power2.out", clearProps: "transform,opacity" }
+      );
+    }
+  }, [members]);
+
+  // Form feedback / save confirmation animation
+  useEffect(() => {
+    if (!message || !messageRef.current) return;
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+    if (prefersReduced) return;
+
+    gsap.fromTo(
+      messageRef.current,
+      { opacity: 0, y: -4 },
+      { opacity: 1, y: 0, duration: 0.28, ease: "power2.out", clearProps: "transform,opacity" }
+    );
+  }, [message]);
+
+  // Invitation token generation reveal
+  useEffect(() => {
+    if (!token || !tokenRef.current) return;
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      Boolean(window.matchMedia("(prefers-reduced-motion: reduce)")?.matches);
+    if (prefersReduced) return;
+
+    gsap.fromTo(
+      tokenRef.current,
+      { opacity: 0, scale: 0.98, y: 4 },
+      { opacity: 1, scale: 1, y: 0, duration: 0.32, ease: "power3.out", clearProps: "transform,opacity" }
+    );
+  }, [token]);
 
   async function mutate(path: string, body: unknown) {
     setMessage("");
@@ -69,7 +186,7 @@ export function OrganizationMembers() {
   if (!role) return null;
 
   return (
-    <section className="space-y-4 border-t border-border-primary pt-5">
+    <section ref={sectionRef} className="space-y-4 border-t border-border-primary pt-5">
       <div className="flex items-center gap-2">
         <Users className="w-4 h-4 text-text-secondary" aria-hidden="true" />
         <h2 className="text-sm font-semibold tracking-tight text-text-primary">
@@ -81,7 +198,7 @@ export function OrganizationMembers() {
         {members.map((member) => (
           <div
             key={member.id}
-            className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-[6px] border border-border-primary bg-surface-secondary text-xs"
+            className="org-member-row flex flex-wrap items-center justify-between gap-3 p-3 rounded-[6px] border border-border-primary bg-surface-secondary text-xs hover:border-border-secondary transition-colors"
           >
             <div className="min-w-0">
               <span className="font-mono text-text-primary block truncate max-w-[240px]">
@@ -140,6 +257,7 @@ export function OrganizationMembers() {
       </div>
 
       <form
+        ref={formRef}
         className="flex flex-wrap items-center gap-2 pt-2"
         onSubmit={(event) => {
           event.preventDefault();
@@ -179,14 +297,14 @@ export function OrganizationMembers() {
       </form>
 
       {token && (
-        <div className="p-3 rounded-[6px] border border-border-primary bg-surface-secondary text-xs break-all text-text-primary">
+        <div ref={tokenRef} className="p-3 rounded-[6px] border border-border-primary bg-surface-secondary text-xs break-all text-text-primary">
           <span className="font-semibold block mb-1">One-Time Invitation Token:</span>
           <span className="font-mono text-ember-orange">{token}</span>
         </div>
       )}
 
       {message && (
-        <p role="status" className="text-xs text-text-secondary">
+        <p ref={messageRef} role="status" className="text-xs text-text-secondary">
           {message}
         </p>
       )}
