@@ -25,6 +25,7 @@ export interface ProcurementMandate {
   id: string;
   rawPrompt: string;
   itemQuery: string;
+  productDetails?: { description: string; category?: string; referenceUnitPrice?: number; currency: CurrencyCode; catalogProductId?: string };
   quantity: number;
   maxTotalBudget: number; // authoritative budget
   maxDeliveryDays: number;
@@ -225,6 +226,9 @@ export type AgreementType = "VENDOR_ACCEPTED_BUYER_OFFER" | "BUYER_ACCEPTED_VEND
 export type NegotiationTurnType = "PROPOSAL" | "COUNTEROFFER" | "ACCEPTANCE" | "REJECTION";
 
 export interface AgreementRecord {
+  organizationId?: string;
+  vendorProvenance?: VendorResponseProvenance;
+  supplierCommitmentVerified?: boolean;
   agreementId: string;
   sessionId: string;
   vendorId: string;
@@ -248,7 +252,7 @@ export interface AgreementRecord {
  * Phase 6.8: First-Class FX Settlement Domain Object
  * Links commercial agreement (e.g. INR) to settlement commitment (e.g. USD Orders v2).
  */
-export type FXRateConvention = "INR_PER_USD";
+export type FXRateConvention = "INR_PER_USD" | "TARGET_PER_SOURCE";
 export type FXRateSource = "DETERMINISTIC_DEMO" | "LIVE_PROVIDER";
 export type FXConversionStatus = "QUOTED" | "LOCKED" | "EXPIRED" | "CONSUMED";
 export type FXRoundingMode = "HALF_UP";
@@ -269,8 +273,8 @@ export interface FXConversionRecord {
   provider?: string;
   referenceRate?: {
     provider: "EXCHANGERATE_API";
-    baseCurrency: "USD";
-    quoteCurrency: "INR";
+    baseCurrency: string;
+    quoteCurrency: string;
     updatedAt: string;
     nextUpdateAt: string;
     retrievedAt: string;
@@ -278,6 +282,7 @@ export interface FXConversionRecord {
     responseHash: string;
   };
   quotedAt: string;
+  lockedAt?: string;
   expiresAt: string;
   roundingMode: FXRoundingMode;
   status: FXConversionStatus;
@@ -593,6 +598,8 @@ export interface ProcurementSession {
   agreementRecord?: AgreementRecord;
   quoteEvaluations?: Record<string, QuoteEvaluation>;
   sourcingSummary?: SourcingEvaluationResult["summary"];
+  catalogProducts?: { id: string; title: string; merchant: string; unitPrice: number; currency: string; url: string }[];
+  sourcingWarning?: string;
   status: ProcurementSessionStatus;
   merkleRoot?: string; // Pre-settlement evidence root
   preSettlementRoot?: string; // Explicit pre-settlement evidence root
