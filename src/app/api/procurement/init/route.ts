@@ -15,6 +15,7 @@ import { sessionStore } from "@/lib/session-store";
 import { requestScope } from "@/lib/persistence/request-scope";
 import { executeDatabaseIdempotency } from "@/lib/db/idempotency";
 import { defaultRateLimiter } from "@/lib/rate-limiter";
+import { toMinorUnits } from "@/lib/currency";
 import {
   defaultIdempotencyStore,
   ConcurrentOperationInProgressError,
@@ -91,10 +92,10 @@ async function handlePOST(req: NextRequest) {
         if (!itemQuery) errors.push("itemQuery is required");
 
         const qty = Number(rawMandate.quantity);
-        if (!Number.isInteger(qty) || qty <= 0) errors.push("quantity must be an integer >= 1");
+        if (!Number.isSafeInteger(qty) || qty <= 0) errors.push("quantity must be a safe integer >= 1");
 
         const bgt = Number(rawMandate.maxTotalBudget);
-        if (!Number.isFinite(bgt) || bgt <= 0) errors.push("maxTotalBudget must be a positive number");
+        if (!Number.isFinite(bgt) || bgt <= 0 || !/^\d+(\.\d{1,2})?$/.test(String(rawMandate.maxTotalBudget)) || !Number.isSafeInteger(toMinorUnits(bgt))) errors.push("maxTotalBudget must be a positive, safe monetary amount with at most two decimals");
 
         const d = Number(rawMandate.maxDeliveryDays ?? 5);
         if (!Number.isInteger(d) || d < 1) errors.push("maxDeliveryDays must be an integer >= 1");
@@ -102,7 +103,12 @@ async function handlePOST(req: NextRequest) {
         const r = Number(rawMandate.minReturnDays ?? 30);
         if (!Number.isInteger(r) || r < 0) errors.push("minReturnDays must be an integer >= 0");
 
-        const curr = (rawMandate.currency || currency || "USD").toUpperCase();
+        const curr = typeof (rawMandate.currency ?? currency ?? "USD") === "string" ? (rawMandate.currency || currency || "USD").toUpperCase() : "INVALID";
+        if (rawMandate.requiredSpecs !== undefined && (!Array.isArray(rawMandate.requiredSpecs) || rawMandate.requiredSpecs.length > 100 || rawMandate.requiredSpecs.some((spec: unknown) => !spec || typeof spec !== "object" || typeof (spec as { name?: unknown }).name !== "string" || !(spec as { name: string }).name.trim() || typeof (spec as { value?: unknown }).value !== "string" || !(spec as { value: string }).value.trim() || typeof (spec as { mandatory?: unknown }).mandatory !== "boolean"))) errors.push("requiredSpecs must contain named specifications with a value and mandatory flag");
+        if (rawMandate.requiredCondition !== undefined && !["NEW", "USED", "REFURBISHED"].includes(rawMandate.requiredCondition)) errors.push("Invalid product condition");
+        const details = rawMandate.productDetails;
+        if (details?.catalogProductId !== undefined && (typeof details.catalogProductId !== "string" || !details.catalogProductId.trim() || details.catalogProductId.length > 200)) errors.push("Invalid catalog product identity");
+        if (details !== undefined && (!details || typeof details !== "object" || typeof details.description !== "string" || details.description.length > 10000 || (details.category !== undefined && typeof details.category !== "string") || details.currency !== curr || (details.referenceUnitPrice !== undefined && (typeof details.referenceUnitPrice !== "number" || details.referenceUnitPrice <= 0 || !/^\d+(\.\d{1,2})?$/.test(String(details.referenceUnitPrice)) || !Number.isSafeInteger(toMinorUnits(details.referenceUnitPrice)))))) errors.push("Product details require matching currency and a valid positive reference unit price");
         if (curr !== "USD" && curr !== "EUR" && curr !== "GBP" && curr !== "INR") {
           errors.push(`Unsupported currency '${curr}'. Must be USD, INR, EUR, or GBP.`);
         }
@@ -123,6 +129,7 @@ async function handlePOST(req: NextRequest) {
           id: `mandate_${Date.now()}`,
           rawPrompt: prompt || `Procure ${qty} ${itemQuery} under ${curr} ${bgt}`,
           itemQuery,
+          ...(details ? { productDetails: { description: details.description, category: details.category, referenceUnitPrice: details.referenceUnitPrice, currency: curr as CurrencyCode, ...(details.catalogProductId ? { catalogProductId: details.catalogProductId } : {}) } } : {}),
           quantity: qty,
           maxTotalBudget: bgt,
           maxDeliveryDays: d,
@@ -177,6 +184,8 @@ async function handlePOST(req: NextRequest) {
       // 6. Create authoritative session in server store only after successful mandate validation
       const session = sessionStore.createSession(mandate, sourcingResult.quotes);
       session.status = "SOURCING";
+      session.catalogProducts = sourcingResult.catalogProducts;
+      session.sourcingWarning = sourcingResult.warning;
       session.quoteEvaluations = evaluationResult.evaluations;
       session.sourcingSummary = evaluationResult.summary;
       sessionStore.saveSession(session);
@@ -198,6 +207,8 @@ async function handlePOST(req: NextRequest) {
           sourcingSummary: evaluationResult.summary,
           isFixture: sourcingResult.isFixture,
           dataSource: sourcingResult.dataSource,
+          catalogProducts: sourcingResult.catalogProducts,
+          warning: sourcingResult.warning,
         },
       };
     };
