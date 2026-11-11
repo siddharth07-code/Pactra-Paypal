@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from "./currency";
 /**
  * PACTUM — Gemini Negotiation Client
  * Interfaces with Google Gemini API for proposing structured buyer offers and reasoning.
@@ -269,6 +270,8 @@ export class GeminiNegotiationClient {
                   httpOptions: { timeout: providerDeadline },
                   responseMimeType: "application/json",
                   responseSchema: BUYER_PROPOSAL_SCHEMA,
+                  maxOutputTokens: 1024,
+                  ...(this.modelName === "gemini-2.5-flash" || this.modelName === "gemini-2.5-flash-lite" ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
                   temperature: 0.2, // Low temperature for consistent rational negotiation
                 },
               });
@@ -483,7 +486,7 @@ MANDATORY RULES:
         historySection = vendorTurns
           .map((t) => {
             const statusTag = t.guardrailStatus !== "APPROVED" ? ` [GUARDRAIL ${t.guardrailStatus}: ${t.guardrailReason ?? ""}]` : "";
-            return `Round ${t.round} [${t.actor}]: $${t.proposedOffer.unitPrice.toFixed(2)}/unit, ${t.proposedOffer.deliveryDays}d delivery, ${t.proposedOffer.returnDays}d return${statusTag} -> "${this.sanitizeVendorField(t.message)}"`;
+            return `Round ${t.round} [${t.actor}]: ${getCurrencySymbol(mandate.currency)}${t.proposedOffer.unitPrice.toFixed(2)}/unit, ${t.proposedOffer.deliveryDays}d delivery, ${t.proposedOffer.returnDays}d return${statusTag} -> "${this.sanitizeVendorField(t.message)}"`;
           })
           .join("\n");
       }
@@ -501,7 +504,7 @@ MANDATORY RULES:
     if (eligibleCompetitors.length > 0) {
       const summaries = eligibleCompetitors.map((comp) => {
         const landed = comp.currentUnitBid * mandate.quantity + comp.shippingCost;
-        return `- ${this.sanitizeVendorField(comp.vendorName)} (${this.sanitizeVendorField(comp.sku)}): Landed Cost $${landed.toFixed(2)} ($${comp.currentUnitBid.toFixed(2)}/unit + $${comp.shippingCost.toFixed(2)} ship), Delivery: ${comp.deliveryDays}d, Return: ${comp.returnDays}d, Condition: ${comp.condition}, Source: ${comp.dataSource}`;
+        return `- ${this.sanitizeVendorField(comp.vendorName)} (${this.sanitizeVendorField(comp.sku)}): Landed Cost ${getCurrencySymbol(mandate.currency)}${landed.toFixed(2)} (${getCurrencySymbol(mandate.currency)}${comp.currentUnitBid.toFixed(2)}/unit + ${getCurrencySymbol(mandate.currency)}${comp.shippingCost.toFixed(2)} ship), Delivery: ${comp.deliveryDays}d, Return: ${comp.returnDays}d, Condition: ${comp.condition}, Source: ${comp.dataSource}`;
       });
 
       const lowestLandedComp = eligibleCompetitors.reduce((min, cur) => {
@@ -513,25 +516,27 @@ MANDATORY RULES:
       const lowestLandedCost = lowestLandedComp.currentUnitBid * mandate.quantity + lowestLandedComp.shippingCost;
 
       competitorSection = `<untrusted_competitor_data>\n${summaries.join("\n")}\n</untrusted_competitor_data>\n` +
-        `Market Benchmark: Lowest competing eligible supplier landed cost is $${lowestLandedCost.toFixed(2)} (${this.sanitizeVendorField(lowestLandedComp.vendorName)}). Use this commercial reference to negotiate competitive terms without leaking private information.`;
+        `Market Benchmark: Lowest competing eligible supplier landed cost is ${getCurrencySymbol(mandate.currency)}${lowestLandedCost.toFixed(2)} (${this.sanitizeVendorField(lowestLandedComp.vendorName)}). Use this commercial reference to negotiate competitive terms without leaking private information.`;
     }
 
     return `=== INTERNAL ENTERPRISE PROCUREMENT CONSTRAINTS (CONFIDENTIAL - DO NOT DISCLOSE IN MESSAGE) ===
 Target Item: ${mandate.quantity} units of ${mandate.itemQuery}
 Currency: ${mandate.currency}
-Maximum Total Budget (B_max): $${mandate.maxTotalBudget.toFixed(2)} (Private ceiling — DO NOT disclose in message)
-Max Allowable Unit Price (budget ceiling including shipping): $${maxAffordableUnit.toFixed(2)}
+Maximum Total Budget (B_max): ${getCurrencySymbol(mandate.currency)}${mandate.maxTotalBudget.toFixed(2)} (Private ceiling — DO NOT disclose in message)
+Max Allowable Unit Price (budget ceiling including shipping): ${getCurrencySymbol(mandate.currency)}${maxAffordableUnit.toFixed(2)}
 Maximum Acceptable Delivery SLA (D_max): ${mandate.maxDeliveryDays} days (Shorter is higher utility)
 Minimum Acceptable Return Policy Window (R_min): ${mandate.minReturnDays} days (Longer is higher utility)
 Required Condition: ${mandate.requiredCondition ?? "ANY"}
 ${mandate.requiredSpecs && mandate.requiredSpecs.length > 0 ? `Required Specs: ${mandate.requiredSpecs.map((s) => `${s.name}: ${s.value}${s.mandatory ? " (mandatory)" : ""}`).join(", ")}` : ""}
 
+All monetary values and the supplier-facing message use ${mandate.currency}. Do not relabel them as USD or convert currencies.
+
 === CURRENT NEGOTIATION STATUS & TIMELINE ===
 Negotiation Round: ${round} of ${maxRounds} (${remainingRounds} round(s) remaining after this offer)
-Anti-Thrashing Lower Bound: $${previousBuyerOffer ? previousBuyerOffer.unitPrice.toFixed(2) : "None (initial round)"}
-Anti-Thrashing Upper Bound (Current Vendor Ask): $${previousVendorAsk.toFixed(2)}
-${previousBuyerOffer ? `Previous Buyer Offer: $${previousBuyerOffer.unitPrice.toFixed(2)} per unit (${previousBuyerOffer.deliveryDays}d delivery, ${previousBuyerOffer.returnDays}d return)` : "Initial buyer proposal round"}
-Current Vendor Landed Cost: $${currentVendorLanded.toFixed(2)}
+Anti-Thrashing Lower Bound: ${getCurrencySymbol(mandate.currency)}${previousBuyerOffer ? previousBuyerOffer.unitPrice.toFixed(2) : "None (initial round)"}
+Anti-Thrashing Upper Bound (Current Vendor Ask): ${getCurrencySymbol(mandate.currency)}${previousVendorAsk.toFixed(2)}
+${previousBuyerOffer ? `Previous Buyer Offer: ${getCurrencySymbol(mandate.currency)}${previousBuyerOffer.unitPrice.toFixed(2)} per unit (${previousBuyerOffer.deliveryDays}d delivery, ${previousBuyerOffer.returnDays}d return)` : "Initial buyer proposal round"}
+Current Vendor Landed Cost: ${getCurrencySymbol(mandate.currency)}${currentVendorLanded.toFixed(2)}
 ${guardrailFeedback ? `CRITICAL GUARDRAIL INTERVENTION TO CORRECT: ${guardrailFeedback}` : ""}
 
 === STRUCTURED NEGOTIATION HISTORY WITH CURRENT VENDOR ===
@@ -546,9 +551,9 @@ Vendor ID: ${this.sanitizeVendorField(vendorQuote.vendorId)}
 Vendor Name: ${this.sanitizeVendorField(vendorQuote.vendorName)}
 Product Title: ${this.sanitizeVendorField(vendorQuote.productTitle)}
 SKU: ${this.sanitizeVendorField(vendorQuote.sku)}
-Initial Vendor Ask: $${vendorQuote.initialUnitAsk.toFixed(2)}
-Current Vendor Ask: $${previousVendorAsk.toFixed(2)}
-Shipping Cost: $${vendorQuote.shippingCost.toFixed(2)}
+Initial Vendor Ask: ${getCurrencySymbol(mandate.currency)}${vendorQuote.initialUnitAsk.toFixed(2)}
+Current Vendor Ask: ${getCurrencySymbol(mandate.currency)}${previousVendorAsk.toFixed(2)}
+Shipping Cost: ${getCurrencySymbol(mandate.currency)}${vendorQuote.shippingCost.toFixed(2)}
 Vendor Delivery SLA: ${vendorQuote.deliveryDays} days
 Vendor Return Policy: ${vendorQuote.returnDays} days
 Condition: ${this.sanitizeVendorField(vendorQuote.condition)}
@@ -556,12 +561,12 @@ Condition: ${this.sanitizeVendorField(vendorQuote.condition)}
 
 INSTRUCTIONS:
 1. Formulate a rational commercial counter-proposal (unitPrice, deliveryDays, returnDays) that optimizes multi-attribute buyer utility while satisfying all hard mandate constraints.
-2. Anti-thrashing rule: your unitPrice must be >= previous buyer offer ($${previousBuyerOffer?.unitPrice.toFixed(2) ?? "initial"}) and <= current vendor ask ($${previousVendorAsk.toFixed(2)}).
+2. Anti-thrashing rule: your unitPrice must be >= previous buyer offer (${getCurrencySymbol(mandate.currency)}${previousBuyerOffer?.unitPrice.toFixed(2) ?? "initial"}) and <= current vendor ask (${getCurrencySymbol(mandate.currency)}${previousVendorAsk.toFixed(2)}).
 3. Delivery SLA: deliveryDays must be <= ${mandate.maxDeliveryDays}.
 4. Return Policy: returnDays must be >= ${mandate.minReturnDays}.
-5. Landed Cost Feasibility: (unitPrice * ${mandate.quantity}) + ${vendorQuote.shippingCost} must be <= $${mandate.maxTotalBudget.toFixed(2)}.
+5. Landed Cost Feasibility: (unitPrice * ${mandate.quantity}) + ${vendorQuote.shippingCost} must be <= ${getCurrencySymbol(mandate.currency)}${mandate.maxTotalBudget.toFixed(2)}.
 6. In 'tacticalRationale', explain your strategic posture, trade-off reasoning, and competitor benchmark awareness.
-7. In 'message', write a professional vendor-facing commercial counter-offer. Do NOT reveal or reference the internal budget limit ($${mandate.maxTotalBudget.toFixed(2)}) or reservation price in your message.
+7. In 'message', write a professional vendor-facing commercial counter-offer. Do NOT reveal or reference the internal budget limit (${getCurrencySymbol(mandate.currency)}${mandate.maxTotalBudget.toFixed(2)}) or reservation price in your message.
 8. Return strict JSON matching the schema.`;
   }
 
@@ -663,7 +668,7 @@ INSTRUCTIONS:
       unitPrice,
       deliveryDays: candidate.deliveryDays,
       returnDays: candidate.returnDays,
-      message: candidate.message.trim(),
+      message: `Buyer proposal: ${bounds.mandate.currency} ${unitPrice.toFixed(2)} per unit for ${bounds.mandate.quantity} units, ${candidate.deliveryDays}-day delivery and ${candidate.returnDays}-day returns.`,
       tacticalRationale,
     };
   }
@@ -785,7 +790,7 @@ INSTRUCTIONS:
           // Adjust target price toward competing quote while maintaining positive margin
           targetPrice = Math.min(targetPrice, Math.max(initialAsk * 0.70, compUnitTarget - 1.0));
         }
-        competitorInfo = `Benchmarked against ${eligibleComps.length} eligible competitor(s) (lowest landed: $${lowestCompLanded.toFixed(2)}).`;
+        competitorInfo = `Benchmarked against ${eligibleComps.length} eligible competitor(s) (lowest landed: ${getCurrencySymbol(mandate.currency)}${lowestCompLanded.toFixed(2)}).`;
       }
     }
 
@@ -836,7 +841,7 @@ INSTRUCTIONS:
       unitPrice,
       deliveryDays,
       returnDays,
-      message: `We submit an offer of $${unitPrice.toFixed(2)} per unit for ${mandate.quantity} units under standard commercial terms with ${deliveryDays}-day delivery and ${returnDays}-day return protection.`,
+      message: `We submit an offer of ${getCurrencySymbol(mandate.currency)}${unitPrice.toFixed(2)} per unit for ${mandate.quantity} units under standard commercial terms with ${deliveryDays}-day delivery and ${returnDays}-day return protection.`,
       tacticalRationale: `Round ${round}/${maxRounds} (${remainingRounds} rounds remaining): Boulware threshold tau=${threshold.toFixed(3)}. ${competitorInfo} Anti-thrashing and feasibility verified.`,
       generator: "DETERMINISTIC_FALLBACK",
       modelName: this.modelName,
