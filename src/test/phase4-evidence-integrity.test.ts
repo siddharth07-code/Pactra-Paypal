@@ -1,3 +1,5 @@
+import { computeAgreementHash } from "@/lib/fx-settlement";
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 /**
  * PACTUM — Phase 4 Adversarial Test Suite:
  * Evidence Integrity, Independent Verification & ACWORLD Auditability
@@ -651,7 +653,7 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
       const session = createValidSession();
       const recorder = new CryptographicFlightRecorder(session.id);
       recorder.recordEvent("MANDATE_CREATED", { mandateId: session.mandate.id });
-      recorder.recordEvent("AGREEMENT_CREATED", { agreementId: session.agreementRecord!.agreementId });
+      recorder.recordEvent("AGREEMENT_CREATED", { agreementId: session.agreementRecord!.agreementId, agreementHash: computeAgreementHash(session.agreementRecord!) });
 
       const exported = recorder.exportFlightRecord();
       // Tamper with exported payload
@@ -791,6 +793,7 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+      recordCommercialFixture(session);
       sessionStore.saveSession(session);
       return session;
     }
@@ -932,7 +935,7 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
       // Attach a flight recorder to track post-settlement extension
       const recorder = new CryptographicFlightRecorder(session.id);
       recorder.recordEvent("MANDATE_CREATED", { mandateId: session.mandate.id });
-      recorder.recordEvent("AGREEMENT_CREATED", { agreementId: session.agreementRecord!.agreementId });
+      recorder.recordEvent("AGREEMENT_CREATED", { agreementId: session.agreementRecord!.agreementId, agreementHash: computeAgreementHash(session.agreementRecord!) });
       session.flightRecord = recorder.exportFlightRecord();
       session.preSettlementRoot = recorder.getRootHash();
       const authoritativePreRoot = session.preSettlementRoot;
@@ -1666,6 +1669,7 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
         timestamp: new Date().toISOString(),
       };
       session.paypalOrderId = "ORDER_MOCK_TEST_GATE";
+      recordCommercialFixture(session);
 
       sessionStore.saveSession(session);
 
@@ -1914,6 +1918,7 @@ describe("Phase 4: Evidence Integrity & ACWORLD Auditability", () => {
       session.flightRecord = recorder.exportFlightRecord();
       session.preSettlementRoot = recorder.getRootHash();
       session.merkleRoot = recorder.getRootHash();
+      recordCommercialFixture(session);
       sessionStore.saveSession(session);
       return session;
     }
