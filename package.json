@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:database": "node scripts/database/test-runner.mjs",
+    "test:local-api": "node scripts/database/test-runner.mjs --smoke-api",
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
     "db:local": "node scripts/database/local-postgres.mjs",

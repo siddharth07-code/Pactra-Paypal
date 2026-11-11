@@ -6,25 +6,54 @@ import path from 'node:path';
 import net from 'node:net';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { Client } from 'pg';
+import assert from 'node:assert/strict';
+import { parseEnv } from 'node:util';
 const directory=fs.mkdtempSync(path.join(os.tmpdir(),'pactum-disposable-'));
 const probe=net.createServer();await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));const port=probe.address().port;await new Promise(resolve=>probe.close(resolve));
 const password=crypto.randomBytes(24).toString('hex');
-const cluster=new EmbeddedPostgres({databaseDir:path.join(directory,'data'),user:'pactum_test_migrator',password,port,persistent:false,autoRehydrateSymlinks:true,postgresFlags:['-h','127.0.0.1','-k',directory],onLog:()=>{},onError:()=>{}});
+const cluster=new EmbeddedPostgres({databaseDir:path.join(directory,'data'),user:'pactum_test_migrator',password,port,authMethod:'scram-sha-256',persistent:false,autoRehydrateSymlinks:true,postgresFlags:['-h','127.0.0.1','-k',directory],onLog:()=>{},onError:()=>{}});
 let connection;
 try {
  await cluster.initialise();await cluster.start();await cluster.createDatabase('pactum_disposable');
  connection=cluster.getPgClient('pactum_disposable','127.0.0.1');await connection.connect();
  await connection.query('CREATE SCHEMA auth;CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,deleted_at timestamptz);CREATE TABLE auth.sessions(id uuid PRIMARY KEY,user_id uuid REFERENCES auth.users(id),not_after timestamptz)');
- await connection.query(fs.readFileSync('scripts/database/bootstrap.sql','utf8'));
- const migrationPassword=crypto.randomBytes(24).toString('hex');
- await connection.query(`ALTER ROLE pactum_migrator PASSWORD '${migrationPassword}'`);
- const migrator=new Client({host:'127.0.0.1',port,database:'pactum_disposable',user:'pactum_migrator',password:migrationPassword});await migrator.connect();
- try {
- for(const migration of fs.readdirSync('prisma/migrations').filter(name=>/^\d/.test(name)).sort()) {
-  await migrator.query('BEGIN');try {await migrator.query(fs.readFileSync(`prisma/migrations/${migration}/migration.sql`,'utf8'));await migrator.query('COMMIT');}catch(error){await migrator.query('ROLLBACK');throw error;}
- }
- } finally {await migrator.end();}
+ const adminUrl=`postgresql://pactum_test_migrator:${password}@127.0.0.1:${port}/pactum_disposable`;
+ const cliEnv={...process.env,BOOTSTRAP_DATABASE_URL:adminUrl,PACTRA_CREDENTIAL_ROOT:path.join(directory,'credentials'),DEPLOYMENT_BASELINE_FILE:path.join(directory,'baseline.json'),VERIFIED_BACKUP_BASELINE_FILE:''};
+ const run=async(args,env=cliEnv,expected=0)=>{
+  const child=spawn(process.execPath,args,{env,stdio:['ignore','pipe','pipe']});const output=[];
+  child.stdout.on('data',chunk=>output.push(chunk));child.stderr.on('data',chunk=>output.push(chunk));
+  const code=await new Promise(resolve=>child.once('exit',resolve));
+  const diagnostic=Buffer.concat(output).toString().split('\n').find(line=>/^(Deployment verification|Database role provisioning) stopped\./.test(line)) || '';
+  assert.ok(code===expected,`Local ${args.join(' ')} exited ${code}; expected ${expected}. ${diagnostic}`);
+  return Buffer.concat(output).toString();
+ };
+ await run(['scripts/database/verify-deployment.mjs','--before']);
+ await run(['scripts/database/provision-roles.mjs','--prepare'],{...cliEnv,PACTRA_CREDENTIAL_ROOT:path.join(process.cwd(),'forbidden-credential-root')},1);
+ await run(['scripts/database/provision-roles.mjs','--prepare']);
+ assert.equal((await connection.query("SELECT count(*)::int count FROM pg_roles WHERE rolname='pactum_app'")).rows[0].count,0);
+ await run(['scripts/database/provision-roles.mjs','--apply']);
+ const credentialDirectory=path.join(cliEnv.PACTRA_CREDENTIAL_ROOT,fs.readdirSync(cliEnv.PACTRA_CREDENTIAL_ROOT)[0]);
+ const registry=path.join(credentialDirectory,'credentials.json');
+ const saved=fs.readFileSync(registry,'utf8');
+ const runtimeFile=path.join(credentialDirectory,'runtime.env'),migrationFile=path.join(credentialDirectory,'migration.env');
+ const runtimeText=fs.readFileSync(runtimeFile,'utf8'),migrationText=fs.readFileSync(migrationFile,'utf8');
+ const runtimeEnv=parseEnv(runtimeText),migrationEnv=parseEnv(migrationText);
+ assert.ok(Object.keys(runtimeEnv).length===2 && runtimeEnv.DATABASE_URL && runtimeEnv.WORKER_DATABASE_URL,'Runtime env must have two real lines.');
+ assert.ok(Object.keys(migrationEnv).length===2 && migrationEnv.DATABASE_URL===migrationEnv.DIRECT_URL,'Migration env must have two real lines.');
+ for(const filename of [registry,runtimeFile,migrationFile])assert.equal(fs.statSync(filename).mode&0o777,0o600);
+ await run(['scripts/database/provision-roles.mjs','--apply']);
+ assert.ok(saved===fs.readFileSync(registry,'utf8') && runtimeText===fs.readFileSync(runtimeFile,'utf8') && migrationText===fs.readFileSync(migrationFile,'utf8'),'Retry must preserve credentials and env files.');
+ const damaged=JSON.parse(saved);delete damaged.passwords.pactum_jobs;fs.writeFileSync(registry,JSON.stringify(damaged));
+ await run(['scripts/database/provision-roles.mjs','--apply'],cliEnv,1);fs.writeFileSync(registry,saved);
+ const mismatched=JSON.parse(saved);mismatched.passwords.pactum_jobs='0'.repeat(64);fs.writeFileSync(registry,JSON.stringify(mismatched));
+ await run(['scripts/database/provision-roles.mjs','--apply'],cliEnv,1);fs.writeFileSync(registry,saved);
+ fs.chmodSync(registry,0o644);await run(['scripts/database/provision-roles.mjs','--apply'],cliEnv,1);fs.chmodSync(registry,0o600);
+ await connection.query('GRANT pactum_worker TO pactum_app');
+ await run(['scripts/database/provision-roles.mjs'],cliEnv,1);
+ await connection.query('REVOKE pactum_worker FROM pactum_app');
+ await run(['node_modules/prisma/build/index.js','migrate','deploy'],{...cliEnv,...migrationEnv});
+ await run(['scripts/database/verify-deployment.mjs','--after']);
+ console.log('Provisioning verified: generated env parsing, private storage, idempotency, invalid-registry/permissions/membership rejection, five Prisma migrations, read-only deployment verifier.');
  const runtimePassword=crypto.randomBytes(24).toString('hex'),workerPassword=crypto.randomBytes(24).toString('hex');
  await connection.query(`CREATE ROLE pactum_test_runtime LOGIN PASSWORD '${runtimePassword}' IN ROLE pactum_runtime;CREATE ROLE pactum_test_worker LOGIN PASSWORD '${workerPassword}' IN ROLE pactum_worker;GRANT CONNECT ON DATABASE pactum_disposable TO pactum_runtime,pactum_worker`);
  const makeUrl=(user,pass,db='pactum_disposable')=>`postgresql://${user}:${pass}@127.0.0.1:${port}/${db}`;
@@ -35,7 +64,8 @@ try {
  await projection.query(`CREATE SCHEMA auth;CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,deleted_at timestamptz);CREATE TABLE auth.sessions(id uuid PRIMARY KEY,user_id uuid REFERENCES auth.users(id),not_after timestamptz,revoked_at timestamptz);CREATE ROLE pactum_local_identity LOGIN PASSWORD '${identityPassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;REVOKE ALL ON SCHEMA auth FROM PUBLIC;REVOKE ALL ON ALL TABLES IN SCHEMA auth FROM PUBLIC;GRANT USAGE ON SCHEMA auth TO pactum_local_identity;GRANT SELECT,INSERT ON auth.users,auth.sessions TO pactum_local_identity;GRANT UPDATE(email) ON auth.users TO pactum_local_identity;GRANT UPDATE(not_after,revoked_at) ON auth.sessions TO pactum_local_identity`);
  await projection.end();
  const env={...process.env,PACTUM_LIVE_TESTS:'0',PACTUM_DATABASE_TESTS:'1',DATABASE_URL:makeUrl('pactum_test_runtime',runtimePassword),WORKER_DATABASE_URL:makeUrl('pactum_test_worker',workerPassword),PACTUM_TEST_ADMIN_URL:makeUrl('pactum_test_migrator',password),PACTUM_TEST_PROJECTION_URL:makeUrl('pactum_local_identity',identityPassword,'pactum_local'),PACTUM_TEST_PROJECTION_ADMIN_URL:makeUrl('pactum_test_migrator',password,'pactum_local'),APP_ORIGIN:'https://pactum.example',SUPABASE_URL:'https://project.supabase.co',SUPABASE_PUBLISHABLE_KEY:'sb_publishable_offline_test_configuration',PAYPAL_MERCHANT_ID:'TEST-MERCHANT',PAYPAL_CLIENT_ID:'offline-test-client',PAYPAL_CLIENT_SECRET:'offline-test-secret'};
- const child=spawn(process.execPath,['node_modules/vitest/vitest.mjs','run','--config','vitest.database.config.ts'],{env,stdio:'inherit'});
+ const args=process.argv.includes('--smoke-api')?['scripts/database/smoke-local-api.mjs']:['node_modules/vitest/vitest.mjs','run','--config','vitest.database.config.ts'];
+ const child=spawn(process.execPath,args,{env,stdio:'inherit'});
  const code=await new Promise(resolve=>child.once('exit',resolve));process.exitCode=code??1;
 } catch(error) { console.error('Disposable database verification failed:',error instanceof Error?error.message:'unknown error');process.exitCode=1; }
 finally {if(connection)await connection.end();await cluster.stop();}

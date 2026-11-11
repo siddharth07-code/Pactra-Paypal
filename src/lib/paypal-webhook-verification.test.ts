@@ -26,6 +26,11 @@ describe("PayPal webhook provider verification", () => {
     vi.mocked(fetch).mockResolvedValue(Response.json({ verification_status: "FAILURE" }));
     expect(await client.verifyWebhookSignature(params)).toBe(false);
   });
+  it.each(["authAlgo", "certUrl", "transmissionId", "transmissionSig", "transmissionTime"] as const)("rejects missing %s before requesting provider credentials", async field => {
+    expect(await client.verifyWebhookSignature({ ...params, [field]: "" })).toBe(false);
+    expect(client.getAccessToken).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it.each([["", ""], ["test-client", ""], ["", "test-secret"], [" ", " "]])(
     "rejects missing credentials without a provider request", async (clientId, clientSecret) => {
       const unconfigured = new PayPalClient({ clientId, clientSecret });

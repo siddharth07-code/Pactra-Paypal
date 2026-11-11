@@ -1,4 +1,4 @@
--- Run once as the existing Auth-capable administrator, before the five pending migrations.
+-- Apply transactionally through provision-roles.mjs as the existing Auth-capable administrator.
 -- Passwords are provisioned separately. No Supabase-owned object is changed.
 DO $$
 DECLARE name text;
@@ -7,20 +7,20 @@ BEGIN
   IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=name) THEN
    EXECUTE format('CREATE ROLE %I NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS %s',name,CASE WHEN name IN('pactum_app','pactum_jobs','pactum_migrator') THEN 'LOGIN' ELSE 'NOLOGIN' END);
   END IF;
-  IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname=name AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls OR rolcanlogin<>(name IN('pactum_app','pactum_jobs','pactum_migrator')))) THEN
+  IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname=name AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls OR NOT rolinherit OR rolcanlogin<>(name IN('pactum_app','pactum_jobs','pactum_migrator')))) THEN
    RAISE EXCEPTION 'Unexpected privileges for managed role %',name;
   END IF;
  END LOOP;
  EXECUTE format('GRANT pactum_migrator TO %I',current_user);
  EXECUTE format('GRANT CONNECT ON DATABASE %I TO pactum_app,pactum_jobs,pactum_migrator',current_database());
 END $$;
-GRANT pactum_runtime TO pactum_app;
-GRANT pactum_worker TO pactum_jobs;
+GRANT pactum_runtime TO pactum_app WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;
+GRANT pactum_worker TO pactum_jobs WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;
 GRANT pactum_policy_reader TO pactum_migrator WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM pg_auth_members m JOIN pg_roles member ON member.oid=m.member JOIN pg_roles parent ON parent.oid=m.roleid
   WHERE member.rolname IN('pactum_runtime','pactum_worker','pactum_policy_reader','pactum_app','pactum_jobs','pactum_migrator')
-  AND NOT ((member.rolname='pactum_app' AND parent.rolname='pactum_runtime') OR (member.rolname='pactum_jobs' AND parent.rolname='pactum_worker') OR (member.rolname='pactum_migrator' AND parent.rolname='pactum_policy_reader'))) THEN
+  AND (m.admin_option OR NOT m.inherit_option OR NOT m.set_option OR NOT ((member.rolname='pactum_app' AND parent.rolname='pactum_runtime') OR (member.rolname='pactum_jobs' AND parent.rolname='pactum_worker') OR (member.rolname='pactum_migrator' AND parent.rolname='pactum_policy_reader')))) THEN
   RAISE EXCEPTION 'Unexpected PACTRA role membership; review existing grants before provisioning';
  END IF;
 END $$;
@@ -32,6 +32,13 @@ DO $$ BEGIN
 END $$;
 GRANT USAGE ON SCHEMA pactum TO pactum_runtime,pactum_worker,pactum_policy_reader;
 REVOKE ALL ON SCHEMA pactum FROM PUBLIC;
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='pactum' AND p.proname IN('verified_auth_session','verified_auth_email','install_auth_identity_fk')
+  AND p.proowner<>(SELECT oid FROM pg_roles WHERE rolname=current_user)) THEN
+  RAISE EXCEPTION 'Existing Auth adapter ownership differs from the bootstrap administrator';
+ END IF;
+END $$;
 
 CREATE OR REPLACE FUNCTION pactum.verified_auth_session() RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$

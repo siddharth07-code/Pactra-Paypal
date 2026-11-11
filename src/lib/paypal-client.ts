@@ -645,7 +645,8 @@ export class PayPalClient {
    * Verifies an incoming PayPal webhook event signature.
    */
   public async verifyWebhookSignature(params: WebhookVerificationParams): Promise<boolean> {
-    if (!this.clientId.trim() || !this.clientSecret.trim() || !params.webhookId.trim()) {
+    if (!this.clientId.trim() || !this.clientSecret.trim() ||
+        [params.webhookId, params.authAlgo, params.certUrl, params.transmissionId, params.transmissionSig, params.transmissionTime].some(value => !value.trim())) {
       return false;
     }
 

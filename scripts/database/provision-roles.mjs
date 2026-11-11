@@ -4,69 +4,114 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
+import { administratorConnection, restrictedUrl, DeploymentError } from './connection.mjs';
 
 process.umask(0o077);
-const apply = process.argv.includes('--apply');
-const source = process.env.BOOTSTRAP_DATABASE_URL || process.env.DIRECT_URL;
-if (!source) throw new Error('Set BOOTSTRAP_DATABASE_URL for the controlled database administrator.');
-let target;
-try { target = new URL(source); }
-catch { throw new Error('A valid PostgreSQL bootstrap connection is required.'); }
-if (!['postgres:', 'postgresql:'].includes(target.protocol)) throw new Error('PostgreSQL connection required.');
-const local = ['127.0.0.1', 'localhost', '[::1]'].includes(target.hostname);
-if (!local && (target.port !== '5432' || !target.hostname.endsWith('.pooler.supabase.com'))) throw new Error('Use the Supabase Session Pooler on port 5432.');
-const ssl = local ? false : { rejectUnauthorized: true, ca: fs.readFileSync(process.env.DATABASE_CA_FILE, 'utf8') };
-const decode = value => { try { return decodeURIComponent(value); } catch { return value; } };
-const client = new Client({ host: target.hostname, port: Number(target.port || 5432), database: target.pathname.slice(1), user: decode(target.username), password: decode(target.password), ssl, connectionTimeoutMillis: 15000, query_timeout: 30000 });
-const identity = { host: target.hostname, port: target.port || '5432', database: target.pathname.slice(1), bootstrapRole: decode(target.username) };
-const digest = crypto.createHash('sha256').update(JSON.stringify(identity)).digest('hex').slice(0, 16);
-const directory = path.join(os.homedir(), '.local/share/pactra/database-credentials', digest);
-let transaction = false;
+const loginRoles = ['pactum_app', 'pactum_jobs', 'pactum_migrator'];
+const roles = [...loginRoles, 'pactum_runtime', 'pactum_worker', 'pactum_policy_reader'];
+let client, transaction = false, lock;
+
+function privatePath(filename, directory = false) {
+  const stat = fs.lstatSync(filename);
+  if (stat.isSymbolicLink() || (directory ? !stat.isDirectory() : !stat.isFile()) ||
+      (stat.mode & 0o077) || (process.getuid && stat.uid !== process.getuid())) {
+    throw new DeploymentError('Credential paths must be owner-only, owned by this user, and must not be symlinks.');
+  }
+}
+
+function writePrivate(filename, data) {
+  if (fs.existsSync(filename)) privatePath(filename);
+  const temporary = `${filename}.${crypto.randomBytes(8).toString('hex')}.tmp`;
+  try {
+    fs.writeFileSync(temporary, data, { mode: 0o600, flag: 'wx' });
+    fs.renameSync(temporary, filename);
+  } finally { fs.rmSync(temporary, { force: true }); }
+}
+
 try {
+  if (process.argv.slice(2).some(arg => !['--apply','--prepare'].includes(arg)) || process.argv.includes('--apply') && process.argv.includes('--prepare')) throw new DeploymentError('Use --prepare for local credential preparation, --apply for provisioning, or neither for read-only preflight.');
+  const apply = process.argv.includes('--apply');
+  const prepare = process.argv.includes('--prepare');
+  const target = administratorConnection();
+  client = new Client(target.config);
   await client.connect();
-  const { rows: [access] } = await client.query("SELECT r.rolcreaterole, (to_regnamespace('pactum') IS NOT NULL OR has_database_privilege(current_user,current_database(),'CREATE')) schema_bootstrap, has_schema_privilege(current_user,'auth','USAGE') auth_usage, has_table_privilege(current_user,'auth.users','SELECT') AND has_table_privilege(current_user,'auth.users','REFERENCES') auth_users, has_table_privilege(current_user,'auth.sessions','SELECT') auth_sessions FROM pg_roles r WHERE r.rolname=current_user");
-  if (!Object.values(access).every(Boolean)) throw new Error('The bootstrap administrator needs CREATEROLE and existing Auth read/reference privileges.');
-  const existing = (await client.query("SELECT rolname,rolsuper,rolcreatedb,rolcreaterole,rolbypassrls FROM pg_roles WHERE rolname IN('pactum_app','pactum_jobs','pactum_migrator','pactum_runtime','pactum_worker','pactum_policy_reader') ORDER BY rolname")).rows;
-  console.log(JSON.stringify({ target: { host: identity.host, database: identity.database }, mode: apply ? 'provision' : 'read-only', bootstrapReady: true, roles: existing }));
-  if (apply) {
-    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const { rows: [access] } = await client.query(`SELECT current_user administrator, current_setting('server_version_num')::int version,
+    r.rolcreaterole, (to_regnamespace('pactum') IS NOT NULL OR has_database_privilege(current_user,current_database(),'CREATE')) schema_bootstrap,
+    has_schema_privilege(current_user,'auth','USAGE') auth_usage,
+    has_column_privilege(current_user,'auth.users','id','REFERENCES') auth_reference,
+    (SELECT bool_and(has_column_privilege(current_user,'auth.users',col,'SELECT')) FROM unnest(ARRAY['id','email','deleted_at']) col) auth_users,
+    (SELECT bool_and(has_column_privilege(current_user,'auth.sessions',col,'SELECT')) FROM unnest(ARRAY['id','user_id','not_after']) col) auth_sessions
+    FROM pg_roles r WHERE r.rolname=current_user`);
+  if (!access || access.version < 160000 || !['rolcreaterole','schema_bootstrap','auth_usage','auth_reference','auth_users','auth_sessions'].every(key => access[key])) {
+    throw new DeploymentError('Bootstrap needs PostgreSQL 16+, CREATEROLE, schema creation/ownership, and existing Auth SELECT/REFERENCES privileges.');
+  }
+  if (!target.local && access.administrator !== 'postgres') throw new DeploymentError('The session is not the intended Supabase postgres administrator.');
+  const existing = (await client.query(`SELECT rolname,rolcanlogin,rolinherit,rolsuper,rolcreatedb,rolcreaterole,rolbypassrls
+    FROM pg_roles WHERE rolname=ANY($1) ORDER BY rolname`, [roles])).rows;
+  if (existing.some(role => role.rolsuper || role.rolcreatedb || role.rolcreaterole || role.rolbypassrls || !role.rolinherit || role.rolcanlogin !== loginRoles.includes(role.rolname))) {
+    throw new DeploymentError('Unexpected privileges on existing PACTRA roles. No automatic privilege repair is performed.');
+  }
+  const memberships = (await client.query(`SELECT member.rolname member,parent.rolname parent,m.admin_option,m.inherit_option,m.set_option
+    FROM pg_auth_members m JOIN pg_roles member ON member.oid=m.member JOIN pg_roles parent ON parent.oid=m.roleid
+    WHERE member.rolname=ANY($1)`, [roles])).rows;
+  const expected = { pactum_app: 'pactum_runtime', pactum_jobs: 'pactum_worker', pactum_migrator: 'pactum_policy_reader' };
+  if (memberships.some(m => expected[m.member] !== m.parent || m.admin_option || !m.inherit_option || !m.set_option)) {
+    throw new DeploymentError('Unexpected role memberships or membership options. Review existing grants before provisioning.');
+  }
+  const schema = (await client.query("SELECT pg_get_userbyid(nspowner) owner FROM pg_namespace WHERE nspname='pactum'")).rows[0];
+  if (schema && schema.owner !== 'pactum_migrator') throw new DeploymentError('Existing pactum schema ownership differs from the reviewed model.');
+  console.log(JSON.stringify({ target: { host: target.identity.host, database: target.identity.database, project: target.project },
+    mode: apply ? 'provision' : prepare ? 'prepare-local-files' : 'read-only', bootstrapReady: true, serverVersion: access.version, roles: existing }));
+
+  if (apply || prepare) {
+    const digest = crypto.createHash('sha256').update(JSON.stringify(target.identity)).digest('hex').slice(0, 16);
+    const root = process.env.PACTRA_CREDENTIAL_ROOT || path.join(os.homedir(), '.local/share/pactra/database-credentials');
+    const relativeRoot = path.relative(process.cwd(), root);
+    if (!path.isAbsolute(root) || !(relativeRoot.startsWith('..' + path.sep) || path.isAbsolute(relativeRoot))) throw new DeploymentError('Credential storage must use an absolute path outside the repository.');
+    fs.mkdirSync(root, { recursive: true, mode: 0o700 }); privatePath(root, true);
+    const directory = path.join(root, digest);
+    fs.mkdirSync(directory, { mode: 0o700, recursive: true }); privatePath(directory, true);
+    const lockPath = path.join(directory, 'provision.lock');
+    const descriptor = fs.openSync(lockPath, 'wx', 0o600);
+    fs.closeSync(descriptor); lock = lockPath;
     const file = path.join(directory, 'credentials.json');
-    if (fs.existsSync(file) && (fs.statSync(file).mode & 0o077)) throw new Error('Credential file must be readable only by its owner.');
-    const credentials = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { identity, passwords: Object.fromEntries(['pactum_app','pactum_jobs','pactum_migrator'].map(role => [role, crypto.randomBytes(32).toString('hex')])) };
-    if (JSON.stringify(credentials.identity) !== JSON.stringify(identity) || Object.values(credentials.passwords).some(password => !/^[a-f0-9]{64}$/.test(password))) throw new Error('Credential file does not match this target.');
-    const logins = new Set(existing.map(role => role.rolname));
-    if (!fs.existsSync(file) && [...logins].some(role => ['pactum_app','pactum_jobs','pactum_migrator'].includes(role))) throw new Error('Existing login credentials require operator review; automatic password rotation is disabled.');
-    await client.query('BEGIN'); transaction = true;
-    await client.query(fs.readFileSync(fileURLToPath(new URL('./bootstrap.sql', import.meta.url)), 'utf8'));
-    for (const [role, password] of Object.entries(credentials.passwords)) {
-      if (!['pactum_app','pactum_jobs','pactum_migrator'].includes(role)) throw new Error('Unexpected credential role.');
-      await client.query(`ALTER ROLE "${role}" PASSWORD '${password}'`);
-    }
-    fs.writeFileSync(file, JSON.stringify(credentials), { mode: 0o600 });
-    await client.query('COMMIT'); transaction = false;
-    const project = decode(target.username).split('.').slice(1).join('.');
-    const makeUrl = (role, transactionPool = false) => {
-      const url = new URL(source);
-      url.username = local ? role : `${role}.${project}`;
-      url.password = credentials.passwords[role];
-      url.port = transactionPool ? '6543' : (target.port || '5432');
-      url.searchParams.set('schema', 'pactum');
-      if (transactionPool) url.searchParams.set('pgbouncer', 'true');
-      if (!local) {
-        url.searchParams.set('sslmode', 'require');
-        url.searchParams.set('sslaccept', 'strict');
-        url.searchParams.set('sslcert', process.env.DATABASE_CA_FILE);
-      }
-      return url.href;
+    const saved = fs.existsSync(file);
+    if (saved) privatePath(file);
+    const credentials = saved ? JSON.parse(fs.readFileSync(file, 'utf8')) : {
+      identity: target.identity, passwords: Object.fromEntries(loginRoles.map(role => [role, crypto.randomBytes(32).toString('hex')])),
     };
-    fs.writeFileSync(path.join(directory, 'runtime.env'), `DATABASE_URL=${makeUrl('pactum_app',!local)}\nWORKER_DATABASE_URL=${makeUrl('pactum_jobs',!local)}\n`, { mode: 0o600 });
-    fs.writeFileSync(path.join(directory, 'migration.env'), `DATABASE_URL=${makeUrl('pactum_migrator')}\nDIRECT_URL=${makeUrl('pactum_migrator')}\n`, { mode: 0o600 });
-    console.log(`Restricted credentials saved privately to ${directory}. Import them through the deployment secret manager.`);
+    if (JSON.stringify(credentials.identity) !== JSON.stringify(target.identity) ||
+        JSON.stringify(Object.keys(credentials.passwords || {}).sort()) !== JSON.stringify([...loginRoles].sort()) ||
+        Object.values(credentials.passwords).some(password => typeof password !== 'string' || !/^[a-f0-9]{64}$/.test(password))) {
+      throw new DeploymentError('Credential registry is incomplete or does not match this target.');
+    }
+    if (!saved && existing.some(role => loginRoles.includes(role.rolname))) throw new DeploymentError('Existing login credentials need operator review; automatic password rotation is disabled.');
+    const existingLogins = new Set(existing.filter(role => loginRoles.includes(role.rolname)).map(role => role.rolname));
+    for (const role of existingLogins) {
+      const probe = new Client({ ...target.config, user: target.local ? role : `${role}.${target.project}`, password: credentials.passwords[role] });
+      try { await probe.connect(); await probe.query('SELECT current_user'); }
+      catch { throw new DeploymentError('Saved credentials do not authenticate an existing login. Password rotation requires explicit operator review.'); }
+      finally { await probe.end().catch(() => {}); }
+    }
+    // Persist retry credentials before committing any role passwords to the database.
+    if (!saved) writePrivate(file, JSON.stringify(credentials));
+    if (apply) {
+      await client.query('BEGIN'); transaction = true;
+      await client.query(fs.readFileSync(fileURLToPath(new URL('./bootstrap.sql', import.meta.url)), 'utf8'));
+      for (const role of loginRoles) if (!existingLogins.has(role)) await client.query(`ALTER ROLE "${role}" PASSWORD '${credentials.passwords[role]}'`);
+      await client.query('COMMIT'); transaction = false;
+    }
+    const makeUrl = (role, runtime = false) => restrictedUrl(target, role, credentials.passwords[role], runtime);
+    writePrivate(path.join(directory, 'runtime.env'), `DATABASE_URL=${makeUrl('pactum_app', true)}\nWORKER_DATABASE_URL=${makeUrl('pactum_jobs', true)}\n`);
+    writePrivate(path.join(directory, 'migration.env'), `DATABASE_URL=${makeUrl('pactum_migrator')}\nDIRECT_URL=${makeUrl('pactum_migrator')}\n`);
+    console.log(`Restricted credentials saved privately to ${directory}. Import runtime.env only into the application secret manager.`);
+    if (prepare) console.log('Prepared local files only. No database changes were executed. Credentials become active only after the operator runs --apply.');
   }
 } catch (error) {
-  if (transaction) await client.query('ROLLBACK').catch(() => {});
-  console.error('Database role provisioning stopped.', error.code || error.name);
+  if (transaction) await client?.query('ROLLBACK').catch(() => {});
+  console.error('Database role provisioning stopped.', error instanceof DeploymentError ? error.message : (error.code || error.name));
   process.exitCode = 1;
 } finally {
-  await client.end().catch(() => {});
+  if (lock) fs.rmSync(lock, { force: true });
+  await client?.end().catch(() => {});
 }

@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/*": ["./prisma/certs/supabase-ca.cer"],
   },
+  outputFileTracingExcludes: {
+    "/*": ["./.env", "./.env.*", "./.pactum-*.json", "./.pactum-local/**/*"],
+  },
 };
 
 // Production validation must not overwrite a running development server's artifacts.
