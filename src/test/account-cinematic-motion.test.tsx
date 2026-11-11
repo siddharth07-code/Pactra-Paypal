@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import gsap from "gsap";
 import AccountPage from "@/app/account/page";
 import { OrganizationMembers } from "@/components/OrganizationMembers";
@@ -113,11 +113,11 @@ describe("AccountPage & OrganizationMembers — Cinematic Motion Tests", () => {
         "Logout could not be confirmed. Please retry."
       );
 
-      expect(gsapFromToSpy).toHaveBeenCalledWith(
+      await waitFor(() => expect(gsapFromToSpy).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ opacity: 0, y: -4 }),
         expect.objectContaining({ opacity: 1, y: 0, clearProps: "transform,opacity" })
-      );
+      ));
     });
   });
 
