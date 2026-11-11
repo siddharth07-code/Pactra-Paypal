@@ -11,7 +11,8 @@ import { ProcurementHistoryScreen } from "@/components/ProcurementHistoryScreen"
 import AccountPage from "@/app/account/page";
 import type { ProcurementSession, VendorQuote, NegotiationOffer, AuditCertificate, AgreementRecord } from "@/types/pactum";
 
-vi.mock("@/components/OrganizationBoundary", () => ({
+vi.mock("@/components/OrganizationBoundary", async importOriginal => ({
+  ...await importOriginal<typeof import("@/components/OrganizationBoundary")>(),
   useOrganization: () => ({
     id: "org-1",
     name: "Enterprise Procurement",
