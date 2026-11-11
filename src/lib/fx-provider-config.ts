@@ -42,7 +42,9 @@ export function validateReferenceProvenance(record: FXConversionRecord, historic
     if (provenance) throw new FXProviderError("FX_PROVENANCE_INVALID", "Demo rates cannot carry external provider provenance.");
     return;
   }
-  if (record.rateSource !== "LIVE_PROVIDER" || !provenance || record.provider !== EXCHANGE_RATE_PROVIDER || provenance.provider !== "EXCHANGERATE_API" || provenance.baseCurrency !== "USD" || provenance.quoteCurrency !== "INR") {
+  const base = record.rateConvention === "INR_PER_USD" ? "USD" : record.sourceCurrency;
+  const quote = record.rateConvention === "INR_PER_USD" ? "INR" : record.targetCurrency;
+  if (record.rateSource !== "LIVE_PROVIDER" || !provenance || record.provider !== EXCHANGE_RATE_PROVIDER || provenance.provider !== "EXCHANGERATE_API" || provenance.baseCurrency !== base || provenance.quoteCurrency !== quote) {
     throw new FXProviderError("FX_PROVENANCE_INVALID", "Missing or invalid external reference-rate provider provenance.");
   }
   const timestamps = [provenance.updatedAt, provenance.retrievedAt, provenance.nextUpdateAt];
