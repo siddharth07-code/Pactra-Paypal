@@ -13,9 +13,9 @@ import { sessionStore, saveSessionCheckpoint } from "./session-store";
 import { VeriPayMerkleTree } from "./veripay-merkle";
 import { CryptographicFlightRecorder } from "./flight-recorder";
 import { settlementLogger } from "./settlement-logger";
-import { isPayPalSupportedCurrency, fromMinorUnits, toMinorUnits, formatCurrency } from "./currency";
+import { isPayPalSupportedCurrency, fromMinorUnits, toMinorUnits, formatCurrency, exactLandedTotal } from "./currency";
 import { applyAuditCertificate } from "./settlement-lifecycle";
-import { auditFxSettlement, consumeFxRecord } from "./fx-settlement";
+import { auditFxSettlement, consumeFxRecord, computeAgreementHash } from "./fx-settlement";
 import type {
   AuditCertificate,
   CaptureIntentRecord,
@@ -117,7 +117,7 @@ export function evaluateSettlementEligibility(session: ProcurementSession, optio
       reasons.agreement = "Vendor mismatch.";
     }
     const agreedTotal = session.agreementRecord.totalCost ?? (
-      session.finalOffer.unitPrice * session.finalOffer.quantity + session.finalOffer.shippingCost
+      exactLandedTotal(session.finalOffer.unitPrice, session.finalOffer.quantity, session.finalOffer.shippingCost)
     );
     if (agreedTotal > session.mandate.maxTotalBudget) {
       agreementCurrent = false;
@@ -181,14 +181,19 @@ export function evaluateSettlementEligibility(session: ProcurementSession, optio
         blockers.push(`Flight recorder cryptographic integrity failed: ${integrity.error ?? "evidence root mismatch"}`);
         reasons.evidence = `Chain integrity invalid: ${integrity.errorCode}`;
       } else {
-        evidenceCurrent = true;
+        evidenceCurrent = Boolean(session.agreementRecord && recorder.getEvents().some(event => event.eventType === "AGREEMENT_CREATED" && event.publicPayload.agreementId === session.agreementRecord!.agreementId && event.publicPayload.agreementHash === computeAgreementHash(session.agreementRecord!)));
+        if (!evidenceCurrent) {
+          blockers.push("Agreement terms are not bound to authoritative recorded evidence. Historical agreement requires reconciliation.");
+          reasons.evidence = "Missing authoritative agreement commitment.";
+        }
       }
     } catch (err) {
       blockers.push(`Failed to verify flight recorder: ${err instanceof Error ? err.message : String(err)}`);
       reasons.evidence = "Deserialization error.";
     }
   } else {
-    evidenceCurrent = true;
+    blockers.push("Authoritative commercial evidence is missing. Historical agreement requires reconciliation.");
+    reasons.evidence = "Missing persisted flight recorder.";
   }
 
   // 5. Cross-Currency FX Verification
@@ -374,10 +379,7 @@ export class SettlementService {
 
     // Ensure verified evidence flight record is attached and synchronized
     if (!session.flightRecord) {
-      const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
-      session.flightRecord = recorder.exportFlightRecord();
-      session.preSettlementRoot = recorder.getRootHash();
-      session.merkleRoot = recorder.getRootHash();
+      return { success: false, sessionId, error: "Authoritative commercial evidence is missing. Historical agreement requires reconciliation.", blockedAtGate: true };
     } else {
       const recorder = CryptographicFlightRecorder.fromSerialized(session.flightRecord);
       const integrity = recorder.verifyIntegrity(session.preSettlementRoot ?? session.merkleRoot);
@@ -392,7 +394,7 @@ export class SettlementService {
     }
 
     const finalOffer = session.finalOffer;
-    const totalAmount = finalOffer.unitPrice * finalOffer.quantity + finalOffer.shippingCost;
+    const totalAmount = exactLandedTotal(finalOffer.unitPrice, finalOffer.quantity, finalOffer.shippingCost);
 
     // Evaluate authoritative ACWORLD Pre-Checkout Audit Gate
     const preAuditCert = this.auditor.audit({ session });
@@ -409,7 +411,7 @@ export class SettlementService {
       return {
         success: false,
         sessionId,
-        error: `Agreed total landed cost ($${totalAmount}) exceeds maximum total budget ($${session.mandate.maxTotalBudget}).`,
+        error: `Agreed total landed cost (${formatCurrency(totalAmount, session.mandate.currency)}) exceeds maximum total budget (${formatCurrency(session.mandate.maxTotalBudget, session.mandate.currency)}).`,
         blockedAtGate: true,
       };
     }
@@ -716,7 +718,7 @@ export class SettlementService {
         };
       }
       const finalOffer = session.finalOffer;
-      const totalAmount = finalOffer.unitPrice * finalOffer.quantity + finalOffer.shippingCost;
+      const totalAmount = exactLandedTotal(finalOffer.unitPrice, finalOffer.quantity, finalOffer.shippingCost);
       const preSettlementRoot = session.preSettlementRoot ?? session.merkleRoot ?? "";
       const expectedCustomId = `VERIPAY_ROOT:${preSettlementRoot};SESSION:${sessionId}`;
 
@@ -816,14 +818,7 @@ export class SettlementService {
 
       // Ensure verified evidence flight record is attached and synchronized
       if (!session.flightRecord) {
-        const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
-        session.flightRecord = recorder.exportFlightRecord();
-        if (!session.preSettlementRoot) {
-          session.preSettlementRoot = recorder.getRootHash();
-        }
-        if (!session.merkleRoot) {
-          session.merkleRoot = recorder.getRootHash();
-        }
+        return { success: false, sessionId, error: "Authoritative commercial evidence is missing. Historical agreement requires reconciliation.", auditCertificate: this.buildFailedCertificate(sessionId, "Authoritative commercial evidence is missing. Historical agreement requires reconciliation."), blockedAtGate: true };
       }
 
       // 3. INDEPENDENT ACWORLD FINAL-STATE AUDIT GATE
@@ -1313,7 +1308,7 @@ export class SettlementService {
 
       const finalOffer = session.finalOffer;
       const totalAmount = finalOffer
-        ? finalOffer.unitPrice * finalOffer.quantity + finalOffer.shippingCost
+        ? exactLandedTotal(finalOffer.unitPrice, finalOffer.quantity, finalOffer.shippingCost)
         : 0;
       const isCrossCurrency = Boolean(session.fxRecord);
       const expectedCurrency = isCrossCurrency ? session.fxRecord!.targetCurrency : session.mandate.currency;
