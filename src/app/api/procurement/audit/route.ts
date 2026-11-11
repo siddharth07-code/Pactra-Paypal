@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sessionStore, saveSessionCheckpoint } from "@/lib/session-store";
 import { applyAuditCertificate, canRunCommercialAudit } from "@/lib/settlement-lifecycle";
 import { AcworldAuditor } from "@/lib/acworld-auditor";
-import { CryptographicFlightRecorder } from "@/lib/flight-recorder";
+import { computeAgreementHash } from "@/lib/fx-settlement";
 import { defaultRateLimiter } from "@/lib/rate-limiter";
 
 export const dynamic = "force-dynamic";
@@ -62,10 +62,10 @@ async function handlePOST(req: NextRequest) {
       if (!canRunCommercialAudit(session)) return NextResponse.json({ error: "Re-audit prohibited in current settlement lifecycle." }, { status: 409 });
 
       if (!session.flightRecord) {
-        const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
-        session.flightRecord = recorder.exportFlightRecord();
-        session.preSettlementRoot = recorder.getRootHash();
-        session.merkleRoot = recorder.getRootHash();
+        return NextResponse.json({ error: "Authoritative commercial evidence is missing. This historical agreement requires reconciliation; evidence cannot be reconstructed by re-auditing." }, { status: 422 });
+      }
+      if (!session.agreementRecord || !session.flightRecord.events.some(event => event.eventType === "AGREEMENT_CREATED" && event.publicPayload.agreementId === session.agreementRecord!.agreementId && event.publicPayload.agreementHash === computeAgreementHash(session.agreementRecord!))) {
+        return NextResponse.json({ error: "The agreement terms are not bound to authoritative recorded evidence. This historical agreement requires reconciliation." }, { status: 422 });
       }
 
       const auditor = new AcworldAuditor();
