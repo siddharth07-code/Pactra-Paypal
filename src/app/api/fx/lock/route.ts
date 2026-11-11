@@ -192,6 +192,7 @@ async function handlePOST(req: NextRequest) {
             provider: lockedQuote.provider,
             ...(lockedQuote.referenceRate ? { referenceRate: lockedQuote.referenceRate } : {}),
             quotedAt: lockedQuote.quotedAt,
+            lockedAt: lockedQuote.lockedAt,
             expiresAt: lockedQuote.expiresAt,
             roundingMode: lockedQuote.roundingMode,
             conversionHash: lockedQuote.conversionHash,
