@@ -1,3 +1,4 @@
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 // Provider-domain tests inject the HTTP persistence boundary; PostgreSQL replay/RLS tests use the real wrapper.
 vi.mock("@/lib/db/webhook-route", () => ({ withWebhookRoute: (handler: unknown) => handler }));
 // This suite exercises domain behavior; real authentication/RLS boundaries have separate adversarial tests.
@@ -43,7 +44,7 @@ function session(currency: "USD" | "INR" = "INR"): ProcurementSession {
   s.selectedQuote = { vendorId: "v", vendorName: "Vendor", sku: "MON", productTitle: "Monitor", initialUnitAsk: 30000, currentUnitBid: 26000, shippingCost: 8234.25, deliveryDays: 4, returnDays: 30, condition: "NEW", status: "ACCEPTED", dataSource: "MOCK_CATALOG", currency };
   s.finalOffer = { unitPrice: 26000, quantity: 25, shippingCost: 8234.25, deliveryDays: 4, returnDays: 30, currency };
   s.agreementRecord = { agreementId: `agr_${s.id}`, sessionId: s.id, vendorId: "v", vendorName: "Vendor", sku: "MON", agreedPrice: 26000, agreedOffer: { ...s.finalOffer }, totalCost: 658234.25, currency, agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER", acceptingParty: "VENDOR", acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER", round: 3, mandateVersion: 1, acceptedAt: now };
-  const recorder = CryptographicFlightRecorder.getOrReconstitute(s);
+  const recorder = recordCommercialFixture(s);
   s.flightRecord = recorder.exportFlightRecord(); s.preSettlementRoot = s.merkleRoot = recorder.getRootHash();
   s.auditCertificate = new AcworldAuditor().audit({ session: s }); expect(s.auditCertificate.passed).toBe(true); s.status = "AUDIT_PASSED"; sessionStore.saveSession(s); return s;
 }
@@ -79,7 +80,7 @@ describe("ExchangeRate-API reference adapter", () => {
   it("rejects malformed JSON", async () => { fetchMock.mockResolvedValue(new Response("{bad", { headers: { "Content-Type": "application/json" } })); await expect(new LiveFXProvider().getQuote(req)).rejects.toThrow(/JSON/); });
   it("rejects duplicate provider fields", async () => { const text = JSON.stringify(payload()).replace('"conversion_rate":83.5', '"conversion_rate":83.5,"conversion_rate":90'); fetchMock.mockResolvedValue(new Response(text, { headers: { "Content-Type": "application/json" } })); await expect(new LiveFXProvider().getQuote(req)).rejects.toThrow(/structure/); });
   it.each([{ base_code: "INR", target_code: "USD" }, { target_code: "EUR" }])("rejects reversed or unsupported response pair", async fields => { fetchMock.mockResolvedValue(response(payload(fields))); await expect(new LiveFXProvider().getQuote(req)).rejects.toThrow(/pair/); });
-  it("rejects unsupported request pair without requesting the provider", async () => { await expect(new LiveFXProvider().getQuote({ ...req, targetCurrency: "EUR" })).rejects.toThrow(/pair/); expect(fetchMock).not.toHaveBeenCalled(); });
+  it("rejects unsupported request pair without requesting the provider", async () => { await expect(new LiveFXProvider().getQuote({ ...req, targetCurrency: "XXX" })).rejects.toThrow(/currency/); expect(fetchMock).not.toHaveBeenCalled(); });
   it.each([{ time_last_update_unix: undefined }, { time_last_update_unix: "2026-11-04" }, { time_next_update_unix: undefined }, { time_last_update_unix: 0 }])("rejects missing/invalid timestamps", async fields => { fetchMock.mockResolvedValue(response(payload(fields))); await expect(new LiveFXProvider().getQuote(req)).rejects.toThrow(/timestamp/); });
   it("rejects stale daily reference rates independently of quote TTL", async () => { const now = Math.floor(Date.now() / 1000); fetchMock.mockResolvedValue(response(payload({ time_last_update_unix: now - 90001, time_next_update_unix: now - 3601 }))); await expect(new LiveFXProvider().getQuote(req)).rejects.toThrow(/stale/); });
   it("rejects provider update times in the future", async () => { const now = Math.floor(Date.now() / 1000); fetchMock.mockResolvedValue(response(payload({ time_last_update_unix: now + 60 }))); await expect(new LiveFXProvider().getQuote(req)).rejects.toThrow(/timestamp/); });
