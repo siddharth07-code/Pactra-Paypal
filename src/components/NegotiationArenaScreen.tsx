@@ -428,7 +428,7 @@ export function NegotiationArenaScreen({
                 Consensus Reached with {String(winner ?? "supplier not recorded")}
               </h2>
               <p className="text-sm text-text-secondary">
-                Agreement Accepted: Mutual agreement recorded. Payment has not been initiated by this screen.
+                Simulated agreement recorded. Supplier commitment has not been independently verified. Payment has not been initiated by this screen.
               </p>
             </div>
             <div>
@@ -670,7 +670,7 @@ export function NegotiationArenaScreen({
                   } else if (event.type === "VENDOR_COUNTEROFFER") {
                     title = `${supplierName(p)} counteroffer`;
                   } else if (event.type === "VENDOR_ACCEPTANCE") {
-                    title = `Vendor Accepted Proposal (${supplierName(p)})`;
+                    title = `Simulated supplier acceptance (${supplierName(p)})`;
                   } else if (event.type === "BUYER_ACCEPTANCE") {
                     title = `Buyer Accepted Counteroffer (${supplierName(p)})`;
                   } else if (isPolicy) {
@@ -752,7 +752,10 @@ export function NegotiationArenaScreen({
                         <p className="tabular-nums font-medium">New Ask: {money(p.newUnitAsk)}</p>
                       )}
                       {event.type.includes("ACCEPTANCE") && (
-                        <p className="tabular-nums font-medium">Agreed Unit: {money(p.unitPrice)}</p>
+                        <>
+                        <p className="tabular-nums font-medium">Agreed Unit: {money(p.unitPrice ?? p.agreedPrice ?? (p.turn as { proposedOffer?: { unitPrice?: number } } | undefined)?.proposedOffer?.unitPrice)}</p>
+                        <p className="text-xs text-text-secondary">Simulation only; no independently verified supplier commitment.</p>
+                        </>
                       )}
                       {isPolicy && (
                         <>
