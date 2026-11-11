@@ -149,6 +149,7 @@ async function handlePOST(req: NextRequest) {
         }
 
         if (session.fxRecord?.status === "LOCKED") {
+          if (body.renew) return { status: 409, body: { success: false, error: "A locked FX commitment cannot be replaced. Reconcile the existing commitment before requesting another quote." } };
           if (!body.renew) {
             if (session.fxRecord.rateSource !== providerSource) return { status: 409, body: { success: false, code: "FX_MODE_CONFLICT", error: "The locked quote uses a different rate source. It remains unchanged and requires explicit review." } };
             try {
