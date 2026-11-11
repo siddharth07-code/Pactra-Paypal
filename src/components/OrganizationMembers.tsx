@@ -36,9 +36,16 @@ export function OrganizationMembers() {
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/organizations", { cache: "no-store", signal: controller.signal })
-      .then((r) => r.json())
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error?.message ?? "Organization access is unavailable.");
+        return data;
+      })
       .then(async (data) => {
-        if (!data.active?.permissions.includes("membership.manage")) return;
+        if (!data.active?.permissions.includes("membership.manage")) {
+          setRole(null); setMembers([]);
+          return;
+        }
         setRole(data.active.role);
         const response = await fetch("/api/organizations/memberships", {
           cache: "no-store",
@@ -50,8 +57,10 @@ export function OrganizationMembers() {
         setMembers(body.memberships);
       })
       .catch(() => {
-        if (!controller.signal.aborted)
+        if (!controller.signal.aborted) {
+          setRole(null);
           setMessage("Membership management is unavailable.");
+        }
       });
     return () => controller.abort();
   }, [revision]);
@@ -183,7 +192,7 @@ export function OrganizationMembers() {
     }
   }
 
-  if (!role) return null;
+  if (!role) return message ? <p role="alert" className="text-sm text-red-600 dark:text-red-400">{message}</p> : null;
 
   return (
     <section ref={sectionRef} className="space-y-4 border-t border-border-primary pt-5">
