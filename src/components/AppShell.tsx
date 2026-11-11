@@ -273,6 +273,7 @@ function AccountControl() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<UserSessionInfo | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -330,16 +331,18 @@ function AccountControl() {
 
   const handleLogout = useCallback(async () => {
     setLoggingOut(true);
+    setLogoutError("");
     try {
-      await fetch("/api/auth/logout", {
+      const response = await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: "{}",
       });
+      if (!response.ok) throw new Error("Sign out failed");
       window.location.assign("/login");
     } catch {
-      window.location.assign("/login");
+      setLogoutError("Unable to sign out. Please try again.");
     } finally {
       setLoggingOut(false);
     }
@@ -469,6 +472,7 @@ function AccountControl() {
 
           {/* Sign Out Action */}
           <div className="pt-1 border-t border-border-primary">
+            {logoutError && <p role="alert" className="px-2.5 py-2 text-sm text-red-600 dark:text-red-400">{logoutError}</p>}
             <button
               type="button"
               role="menuitem"
