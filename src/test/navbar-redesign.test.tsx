@@ -54,6 +54,25 @@ describe("PACTUM Premium Fixed Navigation Bar Redesign", () => {
     expect(onNavigateMock).toHaveBeenCalledWith("overview");
   });
 
+  it.each(["http", "network"])("keeps sign out available after a %s failure", async (failure) => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input) === "/api/auth/logout") {
+        if (failure === "network") throw new Error("Offline");
+        return new Response("{}", { status: 503 });
+      }
+      return new Response("{}", { status: 200 });
+    });
+    try {
+      renderNavbar();
+      fireEvent.click(screen.getByRole("button", { name: /Account menu for Account/i }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("Unable to sign out");
+      expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeEnabled();
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
   it("renders all 6 primary navigation destinations in the desktop header", () => {
     renderNavbar("overview");
 
