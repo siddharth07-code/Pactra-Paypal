@@ -1,3 +1,4 @@
+import { computeAgreementHash } from "@/lib/fx-settlement";
 /**
  * PACTUM — Cryptographic Evidence Integrity Regression Tests (SEC-04)
  * Tests strict flight-recorder prefix chain matching and verifies removal of the matchesMerkle bypass.
@@ -86,6 +87,7 @@ function createAuditedSession(): ProcurementSession {
     "AGREEMENT_CREATED",
     {
       agreementId: session.agreementRecord.agreementId,
+      agreementHash: computeAgreementHash(session.agreementRecord),
       unitPrice: 26000,
       quantity: 25,
       totalCost: 658234.25,
@@ -174,7 +176,7 @@ describe("SEC-04: Cryptographic Evidence Integrity in verifyFxCommercialSession"
     session.flightRecord!.sessionId = "session_cross_injected_attacker";
 
     const error = verifyFxCommercialSession(session);
-    expect(error).toBe("Commercial certificate root is not part of the authoritative evidence history.");
+    expect(error).toContain("Commercial certificate root is not part of the authoritative evidence history.");
   });
 
   it("5. rejects a certificate root that matches neither the current chain nor any valid historical prefix", () => {
@@ -189,16 +191,14 @@ describe("SEC-04: Cryptographic Evidence Integrity in verifyFxCommercialSession"
     session.auditCertificate = forgedCert;
 
     const error = verifyFxCommercialSession(session);
-    expect(error).toBe("Commercial certificate root is not part of the authoritative evidence history.");
+    expect(error).toContain("Commercial certificate root is not part of the authoritative evidence history.");
   });
 
-  it("6. preserves existing contract for a session without a serialized flight record", () => {
+  it("6. rejects a historical session without a serialized flight record", () => {
     const session = createAuditedSession();
     session.flightRecord = undefined;
 
-    // In accordance with Step 4, missing flight records pass through existing
-    // eligibility and ACWORLD auditor validation without introducing a permissive root-string bypass
     const error = verifyFxCommercialSession(session);
-    expect(error).toBeUndefined();
+    expect(error).toContain("requires reconciliation");
   });
 });
