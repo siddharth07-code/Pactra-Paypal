@@ -31,9 +31,11 @@ export function OrganizationBoundary({ children }: { children: ReactNode }) {
   const [organizations, setOrganizations] = useState<ActiveOrganization[]>([]);
   const [active, setActive] = useState<ActiveOrganization | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accessFailed, setAccessFailed] = useState(false);
   const [error, setError] = useState("");
   const [name, setName] = useState("");
   const [token, setToken] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -45,7 +47,10 @@ export function OrganizationBoundary({ children }: { children: ReactNode }) {
         setActive(data.active || null);
       })
       .catch(error => {
-        if (!controller.signal.aborted) setError(error.message);
+        if (!controller.signal.aborted) {
+          setError(error.message);
+          setAccessFailed(true);
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -54,6 +59,7 @@ export function OrganizationBoundary({ children }: { children: ReactNode }) {
   }, []);
 
   async function mutate(path: string, body: unknown) {
+    setSubmitting(true);
     setError("");
     try {
       const response = await fetch(`/api/organizations${path}`, {
@@ -67,12 +73,16 @@ export function OrganizationBoundary({ children }: { children: ReactNode }) {
       window.location.replace("/workspace");
     } catch (error) {
       setError(error instanceof Error ? error.message : "Organization access failed.");
+      setSubmitting(false);
+      return false;
     }
+    return true;
   }
 
   const switchOrganization = async (organizationId: string) => {
+    const previous = active;
     setActive(null);
-    await mutate("/switch", { organizationId });
+    if (!await mutate("/switch", { organizationId })) setActive(previous);
   };
 
   if (loading) {
@@ -93,7 +103,7 @@ export function OrganizationBoundary({ children }: { children: ReactNode }) {
   return (
     <OrganizationContext.Provider value={active}>
       <OrganizationControlContext.Provider value={controlValue}>
-        {error && !active ? (
+        {accessFailed && !active ? (
           <main className="pactum-workspace min-h-screen bg-page-bg text-text-primary flex items-center justify-center p-6">
             <div className="max-w-md w-full p-6 rounded-[6px] border border-border-primary bg-surface-primary space-y-4">
               <h2 className="text-lg font-semibold text-text-primary">Organization Access</h2>
@@ -126,7 +136,7 @@ export function OrganizationBoundary({ children }: { children: ReactNode }) {
 
             <div className="p-5 rounded-[6px] border border-border-primary bg-surface-primary space-y-4">
               <h2 className="text-sm font-semibold text-text-primary">Create New Organization</h2>
-              <form onSubmit={event => { event.preventDefault(); void mutate("", { name }); }} className="flex gap-2.5">
+              <form aria-busy={submitting} onSubmit={event => { event.preventDefault(); if (!submitting) void mutate("", { name }); }} className="flex gap-2.5">
                 <input
                   aria-label="Organization name"
                   required
@@ -134,34 +144,36 @@ export function OrganizationBoundary({ children }: { children: ReactNode }) {
                   maxLength={100}
                   value={name}
                   onChange={event => setName(event.target.value)}
-                  className="border border-border-primary rounded-[6px] px-3 py-2 bg-surface-secondary text-text-primary text-xs flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
+                  className="min-w-0 border border-border-primary rounded-[6px] px-3 py-2 bg-surface-secondary text-text-primary text-xs flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange"
                   placeholder="e.g. Acme Procurement Corp"
                 />
                 <button
                   type="submit"
+                  disabled={submitting}
                   className="bg-ember-orange hover:bg-[#a3351f] rounded-[6px] px-4 py-2 text-white text-xs font-medium transition-colors cursor-pointer"
                 >
-                  Create
+                  {submitting ? "Saving…" : "Create"}
                 </button>
               </form>
             </div>
 
             <div className="p-5 rounded-[6px] border border-border-primary bg-surface-primary space-y-4">
               <h2 className="text-sm font-semibold text-text-primary">Accept Invitation Token</h2>
-              <form onSubmit={event => { event.preventDefault(); void mutate("/invitations/accept", { token }); }} className="flex gap-2.5">
+              <form aria-busy={submitting} onSubmit={event => { event.preventDefault(); if (!submitting) void mutate("/invitations/accept", { token }); }} className="flex gap-2.5">
                 <input
                   aria-label="Invitation token"
                   required
                   value={token}
                   onChange={event => setToken(event.target.value)}
-                  className="border border-border-primary rounded-[6px] px-3 py-2 bg-surface-secondary text-text-primary text-xs flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange font-mono"
+                  className="min-w-0 border border-border-primary rounded-[6px] px-3 py-2 bg-surface-secondary text-text-primary text-xs flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-orange font-mono"
                   placeholder="Paste invitation token"
                 />
                 <button
                   type="submit"
+                  disabled={submitting}
                   className="border border-border-primary rounded-[6px] px-4 py-2 bg-surface-secondary hover:bg-surface-secondary/80 text-text-primary text-xs font-medium transition-colors cursor-pointer"
                 >
-                  Accept
+                  {submitting ? "Saving…" : "Accept"}
                 </button>
               </form>
             </div>
