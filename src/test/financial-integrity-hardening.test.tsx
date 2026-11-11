@@ -1,3 +1,4 @@
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 // Provider-domain tests inject the HTTP persistence boundary; PostgreSQL replay/RLS tests use the real wrapper.
 vi.mock("@/lib/db/webhook-route", () => ({ withWebhookRoute: (handler: unknown) => handler }));
 // This suite exercises domain behavior; real authentication/RLS boundaries have separate adversarial tests.
@@ -33,7 +34,7 @@ function createSession(currency: "INR" | "USD" = "INR") {
   s.selectedQuote = { vendorId: "v", vendorName: "Vendor", sku: "MON", productTitle: "Monitor", initialUnitAsk: 500, currentUnitBid: 400, shippingCost: 0, deliveryDays: 3, returnDays: 30, condition: "NEW", status: "ACCEPTED", dataSource: "MOCK_CATALOG", currency };
   s.finalOffer = { unitPrice: 400, quantity: 2, shippingCost: 0, deliveryDays: 3, returnDays: 30, currency };
   s.agreementRecord = { agreementId: `agr_${s.id}`, sessionId: s.id, vendorId: "v", vendorName: "Vendor", sku: "MON", agreedPrice: 400, agreedOffer: { ...s.finalOffer }, totalCost: 800, currency, agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER", acceptingParty: "VENDOR", acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER", round: 3, mandateVersion: 1, acceptedAt: now };
-  const recorder = CryptographicFlightRecorder.getOrReconstitute(s);
+  const recorder = recordCommercialFixture(s);
   s.flightRecord = recorder.exportFlightRecord();
   s.merkleRoot = s.preSettlementRoot = recorder.getRootHash();
   s.auditCertificate = new AcworldAuditor().audit({ session: s });
