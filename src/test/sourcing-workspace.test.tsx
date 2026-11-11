@@ -1,3 +1,4 @@
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -13,7 +14,7 @@ function fill() {
 }
 function renderWorkspace(props: Partial<React.ComponentProps<typeof SourcingScreen>> = {}) { return render(<SourcingScreen onStartNegotiation={vi.fn()} {...props} />); }
 beforeEach(() => { context.organization = { id: "organization-a", name: "Procurement team", role: "OWNER", permissions: ["session.write", "negotiation.start"] }; vi.stubGlobal("fetch", vi.fn()); });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); ScrollTrigger.killAll(); ScrollTrigger.disable(); vi.unstubAllGlobals(); });
 
 describe("Sourcing procurement workspace", () => {
   it("starts without assumed product, quantity or financial values", () => {
@@ -146,4 +147,45 @@ describe("Sourcing procurement workspace", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Your membership no longer permits this action.");
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
+});
+
+it("preserves manual product details and reference price without turning them into supplier terms", async () => {
+  vi.mocked(fetch).mockResolvedValue(success());
+  renderWorkspace(); fill();
+  fireEvent.change(screen.getByLabelText("Additional product details"), { target: { value: "Model ZX, office use" } });
+  fireEvent.change(screen.getByLabelText("Product category (optional)"), { target: { value: "monitors" } });
+  fireEvent.change(screen.getByLabelText("Reference unit price (USD, optional)"), { target: { value: "300.25" } });
+  fireEvent.click(screen.getByRole("button", { name: "Find suppliers" }));
+  await waitFor(() => expect(fetch).toHaveBeenCalled());
+  const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
+  expect(body.rawMandate.productDetails).toEqual({ description: "Model ZX, office use", category: "monitors", referenceUnitPrice: 300.25, currency: "USD" });
+  expect(body.rawMandate.maxTotalBudget).toBe(8500.25);
+});
+
+it("rejects malformed reference prices before sending a sourcing request", () => {
+  renderWorkspace(); fill();
+  fireEvent.change(screen.getByLabelText("Reference unit price (USD, optional)"), { target: { value: "1.005" } });
+  fireEvent.submit(screen.getByRole("form", { name: "Procurement requirements" }));
+  expect(fetch).not.toHaveBeenCalled();
+  expect(screen.getByText(/Enter a positive reference unit price/)).toBeInTheDocument();
+});
+
+it("clears the reference price on currency changes instead of relabelling buyer money", () => {
+  renderWorkspace(); fill();
+  fireEvent.change(screen.getByLabelText("Reference unit price (USD, optional)"), { target: { value: "300.25" } });
+  fireEvent.change(screen.getByLabelText("Commercial currency"), { target: { value: "INR" } });
+  expect(screen.getByLabelText("Reference unit price (INR, optional)")).toHaveValue(null);
+  expect(screen.getByLabelText("Quantity (units)")).toHaveValue(25);
+});
+
+it("copies a catalog selection without changing quantity, spending ceiling or inventing supplier terms", async () => {
+  vi.mocked(fetch).mockResolvedValue(Response.json({ sessionId: "catalog-session", mandate, quotes: [], catalogProducts: [{ id: "catalog-product", title: "Selected monitor", merchant: "merchant.example", unitPrice: 321.25, currency: "USD", url: "https://merchant.example/product" }], warning: "Merchant terms require verification." }));
+  renderWorkspace(); fill();
+  fireEvent.click(screen.getByRole("button", { name: "Find suppliers" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Use product in request" }));
+  expect(screen.getByLabelText("Product description")).toHaveValue("Selected monitor");
+  expect(screen.getByLabelText("Reference unit price (USD, optional)")).toHaveValue(321.25);
+  expect(screen.getByLabelText("Quantity (units)")).toHaveValue(25);
+  expect(screen.getByLabelText("Total budget (USD)")).toHaveValue(8500.25);
+  expect(screen.getByText(/merchant terms and supplier acceptance remain unverified/)).toBeInTheDocument();
 });
