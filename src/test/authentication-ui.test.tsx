@@ -43,8 +43,10 @@ describe("authentication UI", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Sign in" })).not.toBeDisabled());
   });
   it("shows identity without organization privileges and does not falsely confirm failed logout", async () => {
-    const fetch = vi.fn().mockResolvedValueOnce(Response.json({ principal: { email: "buyer@example.com" } }))
-      .mockResolvedValueOnce(Response.json({ success: false }, { status: 503 }));
+    const fetch = vi.fn().mockImplementation(async url => String(url) === "/api/auth/session"
+      ? Response.json({ principal: { email: "buyer@example.com" } })
+      : String(url) === "/api/organizations" ? Response.json({ organizations: [], active: null })
+        : Response.json({ success: false }, { status: 503 }));
     vi.stubGlobal("fetch", fetch);
     render(<AccountPage />);
     expect(await screen.findByText("Signed in as buyer@example.com")).toBeInTheDocument();
