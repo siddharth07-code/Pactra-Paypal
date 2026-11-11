@@ -1,7 +1,7 @@
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 import { describe, it, expect, beforeEach } from "vitest";
 import { SettlementService, evaluateSettlementEligibility } from "@/lib/settlement-service";
 import { sessionStore } from "@/lib/session-store";
-import { CryptographicFlightRecorder } from "@/lib/flight-recorder";
 import type { ProcurementSession } from "@/types/pactum";
 
 describe("Settlement Checkout Prerequisites & Regression Tests", () => {
@@ -83,7 +83,7 @@ describe("Settlement Checkout Prerequisites & Regression Tests", () => {
       ...overrides,
     };
 
-    const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
+    const recorder = recordCommercialFixture(session);
     session.flightRecord = recorder.exportFlightRecord();
     session.merkleRoot = recorder.getRootHash();
     session.preSettlementRoot = recorder.getRootHash();
@@ -115,7 +115,7 @@ describe("Settlement Checkout Prerequisites & Regression Tests", () => {
       expect(updated.auditCertificate?.passed).toBe(true);
     });
 
-    it("reconstitutes missing flightRecord from authoritative session evidence during initiateCheckout", async () => {
+    it("rejects missing flightRecord without reconstructing historical evidence", async () => {
       const session = createAuthoritativeSession();
       session.flightRecord = undefined; // flightRecord not yet serialized
       sessionStore.saveSession(session);
@@ -126,10 +126,11 @@ describe("Settlement Checkout Prerequisites & Regression Tests", () => {
         origin: "http://localhost:3000",
       });
 
-      expect(res.success).toBe(true);
+      expect(res.success).toBe(false);
+      expect(res.error).toContain("reconciliation");
       const updated = sessionStore.getSession(session.id)!;
-      expect(updated.flightRecord).toBeDefined();
-      expect(CryptographicFlightRecorder.fromSerialized(updated.flightRecord!).verifyIntegrity().valid).toBe(true);
+      expect(updated.flightRecord).toBeUndefined();
+
     });
   });
 
