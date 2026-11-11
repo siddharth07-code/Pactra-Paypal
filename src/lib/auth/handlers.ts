@@ -59,7 +59,7 @@ export async function handleAuth(request: NextRequest, action: AuthAction): Prom
   }
 }
 
-export async function handleConfirmation(request: NextRequest): Promise<NextResponse> {
+export async function handleConfirmation(request: NextRequest, destination: "/auth/confirmed" | "/auth/reset-password" = "/auth/confirmed"): Promise<NextResponse> {
   let context: AuthContext | undefined;
   try {
     const limit = await defaultRateLimiter.checkLimit(request, "AUTH_LOGIN");
@@ -75,7 +75,7 @@ export async function handleConfirmation(request: NextRequest): Promise<NextResp
     const { error } = await context.client.auth.exchangeCodeForSession(code);
     providerError(error);
     await requireAuthenticatedUser(context);
-    return context.finish(NextResponse.redirect(new URL("/auth/confirmed", authConfiguration().origin), 303));
+    return context.finish(NextResponse.redirect(new URL(destination, authConfiguration().origin), 303));
   } catch (error) {
     if (error instanceof AuthError && error.status < 500) context?.clearCookies();
     const response = authFailure(error);
