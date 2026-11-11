@@ -1,3 +1,4 @@
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 // Provider-domain tests inject the HTTP persistence boundary; PostgreSQL replay/RLS tests use the real wrapper.
 vi.mock("@/lib/db/webhook-route", () => ({ withWebhookRoute: (handler: unknown) => handler }));
 vi.mock("@/lib/db/business-route", () => ({ withBusinessRoute: (_permission: unknown, handler: unknown) => handler }));
@@ -10,7 +11,6 @@ import { NegotiationOrchestrator } from "@/lib/negotiation-orchestrator";
 import { AcworldAuditor } from "@/lib/acworld-auditor";
 import { PayPalClient } from "@/lib/paypal-client";
 import { VeriPayMerkleTree, verifyProof } from "@/lib/veripay-merkle";
-import { CryptographicFlightRecorder } from "@/lib/flight-recorder";
 import { verifyBuyerOffer, checkPredicateE } from "@/lib/mechanism-guardrail";
 import { GeminiQuotaCoordinator } from "@/lib/gemini-quota";
 import { defaultRateLimiter, extractClientIdentity } from "@/lib/rate-limiter";
@@ -125,7 +125,7 @@ describe("Phase 10: Production Hardening & E2E Validation Suite", () => {
       updatedAt: new Date().toISOString(),
     };
 
-    const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
+    const recorder = recordCommercialFixture(session);
     session.flightRecord = recorder.exportFlightRecord();
     session.preSettlementRoot = recorder.getRootHash();
     session.merkleRoot = recorder.getRootHash();
