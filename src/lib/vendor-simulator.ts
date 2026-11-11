@@ -11,6 +11,7 @@
  * Follows GEMINI.md Section 6 and Phase 4 Master Engineering Specification.
  */
 
+import { formatCurrency } from "./currency";
 import type { VendorQuote, NegotiationOffer, VendorStrategyType } from "../types/pactum";
 
 /**
@@ -213,7 +214,7 @@ export function calculateSimulatedVendorCounteroffer(params: {
     const safeHoldPrice = Number.isFinite(floor) && floor > 0 ? floor : (vendorQuote?.initialUnitAsk ?? 350);
     return {
       unitAsk: safeHoldPrice,
-      message: `Simulated supplier response: Commercial parameters are invalid or non-numeric. We hold our firm offer at $${safeHoldPrice.toFixed(2)} per unit.`,
+      message: `Simulated supplier response: Commercial parameters are invalid or non-numeric. We hold our firm offer at ${formatCurrency(safeHoldPrice, vendorQuote.currency || buyerOffer.currency || "USD")} per unit.`,
       accepted: false,
       atFloor: true,
       provenance: "SIMULATED_VENDOR",
@@ -226,7 +227,7 @@ export function calculateSimulatedVendorCounteroffer(params: {
     const agreedPrice = currentAsk;
     return {
       unitAsk: agreedPrice,
-      message: `Simulated supplier response: We accept your proposal of $${agreedPrice.toFixed(2)} per unit for ${buyerOffer.quantity} units with ${vendorQuote.deliveryDays}-day delivery and ${vendorQuote.returnDays}-day return protection.`,
+      message: `Simulated supplier response: We accept your proposal of ${formatCurrency(agreedPrice, vendorQuote.currency || buyerOffer.currency || "USD")} per unit for ${buyerOffer.quantity} units with ${vendorQuote.deliveryDays}-day delivery and ${vendorQuote.returnDays}-day return protection.`,
       accepted: true,
       atFloor: agreedPrice <= floor + 0.01,
       provenance: "SIMULATED_VENDOR",
@@ -241,7 +242,7 @@ export function calculateSimulatedVendorCounteroffer(params: {
       const heldPrice = floor;
       return {
         unitAsk: heldPrice,
-        message: `Simulated supplier response: While we appreciate your business, our wholesale cost structure does not allow us to reduce pricing below $${heldPrice.toFixed(2)} per unit. We hold our firm offer at $${heldPrice.toFixed(2)} for ${buyerOffer.quantity} units.`,
+        message: `Simulated supplier response: While we appreciate your business, our wholesale cost structure does not allow us to reduce pricing below ${formatCurrency(heldPrice, vendorQuote.currency || buyerOffer.currency || "USD")} per unit. We hold our firm offer at ${formatCurrency(heldPrice, vendorQuote.currency || buyerOffer.currency || "USD")} for ${buyerOffer.quantity} units.`,
         accepted: false,
         atFloor: true,
         provenance: "SIMULATED_VENDOR",
@@ -262,7 +263,7 @@ export function calculateSimulatedVendorCounteroffer(params: {
 
     return {
       unitAsk: newUnitAsk,
-      message: `Simulated supplier response: We cannot meet your requested price of $${buyerBid.toFixed(2)} due to margin limits, but we can lower our wholesale price to $${newUnitAsk.toFixed(2)} per unit for ${buyerOffer.quantity} units with ${vendorQuote.deliveryDays}-day delivery.`,
+      message: `Simulated supplier response: We cannot meet your requested price of ${formatCurrency(buyerBid, vendorQuote.currency || buyerOffer.currency || "USD")} due to margin limits, but we can lower our wholesale price to ${formatCurrency(newUnitAsk, vendorQuote.currency || buyerOffer.currency || "USD")} per unit for ${buyerOffer.quantity} units with ${vendorQuote.deliveryDays}-day delivery.`,
       accepted: false,
       atFloor,
       provenance: "SIMULATED_VENDOR",
@@ -286,7 +287,7 @@ export function calculateSimulatedVendorCounteroffer(params: {
   if (newUnitAsk === buyerBid) {
     return {
       unitAsk: newUnitAsk,
-      message: `Simulated supplier response: We agree to your revised offer of $${newUnitAsk.toFixed(2)} per unit for ${buyerOffer.quantity} units with ${vendorQuote.deliveryDays}-day delivery and ${vendorQuote.returnDays}-day return protection.`,
+      message: `Simulated supplier response: We agree to your revised offer of ${formatCurrency(newUnitAsk, vendorQuote.currency || buyerOffer.currency || "USD")} per unit for ${buyerOffer.quantity} units with ${vendorQuote.deliveryDays}-day delivery and ${vendorQuote.returnDays}-day return protection.`,
       accepted: true,
       atFloor: newUnitAsk <= floor + 0.01,
       provenance: "SIMULATED_VENDOR",
@@ -298,13 +299,13 @@ export function calculateSimulatedVendorCounteroffer(params: {
   let strategyMessage: string;
   switch (profile.strategyType) {
     case "FIRM":
-      strategyMessage = `Simulated supplier response: In the interest of an agreement, we can adjust our wholesale pricing to $${newUnitAsk.toFixed(2)} per unit for ${buyerOffer.quantity} units with our standard ${vendorQuote.deliveryDays}-day delivery SLA.`;
+      strategyMessage = `Simulated supplier response: In the interest of an agreement, we can adjust our wholesale pricing to ${formatCurrency(newUnitAsk, vendorQuote.currency || buyerOffer.currency || "USD")} per unit for ${buyerOffer.quantity} units with our standard ${vendorQuote.deliveryDays}-day delivery SLA.`;
       break;
     case "BALANCED":
-      strategyMessage = `Simulated supplier response: Thank you for your counter-proposal. We can adjust our price to $${newUnitAsk.toFixed(2)} per unit for ${buyerOffer.quantity} units, maintaining our ${vendorQuote.deliveryDays}-day delivery timeline.`;
+      strategyMessage = `Simulated supplier response: Thank you for your counter-proposal. We can adjust our price to ${formatCurrency(newUnitAsk, vendorQuote.currency || buyerOffer.currency || "USD")} per unit for ${buyerOffer.quantity} units, maintaining our ${vendorQuote.deliveryDays}-day delivery timeline.`;
       break;
     case "FLEXIBLE":
-      strategyMessage = `Simulated supplier response: To help secure your order today, we are willing to sharpen our wholesale pricing down to $${newUnitAsk.toFixed(2)} per unit for ${buyerOffer.quantity} units with ${vendorQuote.deliveryDays}-day delivery.`;
+      strategyMessage = `Simulated supplier response: To help secure your order today, we are willing to sharpen our wholesale pricing down to ${formatCurrency(newUnitAsk, vendorQuote.currency || buyerOffer.currency || "USD")} per unit for ${buyerOffer.quantity} units with ${vendorQuote.deliveryDays}-day delivery.`;
       break;
   }
 
