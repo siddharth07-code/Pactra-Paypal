@@ -1,6 +1,6 @@
 import "server-only";
 
-const publicCodes = new Set(["invalid_credentials", "email_not_confirmed", "weak_password", "user_already_exists", "email_exists", "refresh_token_not_found", "refresh_token_already_used", "session_not_found", "otp_expired"]);
+const publicCodes = new Set(["invalid_credentials", "email_not_confirmed", "weak_password", "user_already_exists", "email_exists", "user_not_found", "email_not_found", "refresh_token_not_found", "refresh_token_already_used", "session_not_found", "otp_expired"]);
 
 /** Auth SDKs may log provider errors during refresh. Never pass reflected secrets to them. */
 export async function authProviderFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
