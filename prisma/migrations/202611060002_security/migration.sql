@@ -1,24 +1,21 @@
--- Additive security migration. Run only as a controlled migration role.
--- Login passwords are provisioned out of band; these are NOLOGIN capability roles.
+-- Bootstrap the restricted roles and Auth adapters with scripts/database/bootstrap.sql first.
 DO $$ BEGIN
- IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='pactum_runtime') THEN CREATE ROLE pactum_runtime NOLOGIN NOBYPASSRLS; END IF;
- IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='pactum_worker') THEN CREATE ROLE pactum_worker NOLOGIN NOBYPASSRLS; END IF;
- IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='pactum_policy_reader') THEN CREATE ROLE pactum_policy_reader NOLOGIN BYPASSRLS; END IF;
+ IF to_regprocedure('pactum.verified_auth_session()') IS NULL OR to_regprocedure('pactum.install_auth_identity_fk()') IS NULL THEN
+  RAISE EXCEPTION 'Run scripts/database/bootstrap.sql as the Auth-capable administrator before deploying';
+ END IF;
+ IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname IN('pactum_runtime','pactum_worker','pactum_policy_reader') AND (rolsuper OR rolbypassrls OR rolcreaterole OR rolcreatedb OR rolcanlogin)) THEN
+  RAISE EXCEPTION 'PACTRA capability roles must be restricted NOLOGIN roles';
+ END IF;
 END $$;
 GRANT USAGE ON SCHEMA pactum TO pactum_runtime, pactum_worker, pactum_policy_reader;
 GRANT CREATE ON SCHEMA pactum TO pactum_policy_reader;
-GRANT pactum_policy_reader TO CURRENT_USER;
+-- Bootstrap grants the migrator SET membership without role-administration privileges.
 REVOKE ALL ON SCHEMA pactum FROM PUBLIC;
 REVOKE ALL ON ALL TABLES IN SCHEMA pactum FROM PUBLIC;
-GRANT USAGE ON SCHEMA auth TO pactum_policy_reader;
-GRANT SELECT ON auth.users, auth.sessions TO pactum_policy_reader;
-GRANT SELECT ON pactum."User", pactum."Organization", pactum."OrganizationMembership", pactum."FinancialOperation", pactum."WebhookEvent", pactum."Settlement" TO pactum_policy_reader;
+GRANT SELECT ON pactum."User",pactum."Organization",pactum."OrganizationMembership",pactum."OrganizationInvitation",pactum."ProcurementSession",pactum."FinancialOperation",pactum."WebhookEvent",pactum."Settlement" TO pactum_policy_reader;
 
 CREATE FUNCTION pactum.auth_session_active() RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
- SELECT EXISTS (SELECT 1 FROM auth.sessions s JOIN auth.users u ON u.id=s.user_id
- WHERE s.id=NULLIF(current_setting('app.auth_session_id',true),'')::uuid
- AND s.user_id=NULLIF(current_setting('app.auth_user_id',true),'')::uuid
- AND (s.not_after IS NULL OR s.not_after>now()) AND u.deleted_at IS NULL);
+ SELECT pactum.verified_auth_session();
 $$;
 CREATE FUNCTION pactum.member_role(org uuid) RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
  SELECT m.role::text FROM pactum."OrganizationMembership" m JOIN pactum."User" u ON u.id=m."userId"
@@ -40,15 +37,23 @@ CREATE FUNCTION pactum.tenant_scope(org uuid) RETURNS boolean LANGUAGE sql STABL
  SELECT org=NULLIF(current_setting('app.organization_id',true),'')::uuid
  AND (pactum.member_role(org) IS NOT NULL OR pactum.worker_scope(org));
 $$;
+CREATE FUNCTION pactum.worker_session_scope(org uuid, session uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
+ SELECT pactum.tenant_scope(org) AND (
+ EXISTS(SELECT 1 FROM pactum."FinancialOperation" o WHERE o.id=NULLIF(current_setting('app.job_id',true),'')::uuid AND o."organizationId"=org AND o."sessionId"=session)
+ OR EXISTS(SELECT 1 FROM pactum."WebhookEvent" w JOIN pactum."ProcurementSession" p ON p."publicId"=w."sessionPublicId" AND p."organizationId"=w."organizationId"
+ WHERE w.id=NULLIF(current_setting('app.job_id',true),'')::uuid AND w."organizationId"=org AND p.id=session));
+$$;
 ALTER FUNCTION pactum.auth_session_active() OWNER TO pactum_policy_reader;
 ALTER FUNCTION pactum.member_role(uuid) OWNER TO pactum_policy_reader;
 ALTER FUNCTION pactum.organization_empty(uuid) OWNER TO pactum_policy_reader;
 ALTER FUNCTION pactum.worker_scope(uuid) OWNER TO pactum_policy_reader;
 ALTER FUNCTION pactum.tenant_scope(uuid) OWNER TO pactum_policy_reader;
-REVOKE ALL ON ALL FUNCTIONS IN SCHEMA pactum FROM PUBLIC;
+ALTER FUNCTION pactum.worker_session_scope(uuid,uuid) OWNER TO pactum_policy_reader;
+REVOKE ALL ON FUNCTION pactum.auth_session_active(),pactum.member_role(uuid),pactum.organization_empty(uuid),pactum.worker_scope(uuid),pactum.tenant_scope(uuid),pactum.worker_session_scope(uuid,uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION pactum.auth_session_active(), pactum.member_role(uuid), pactum.organization_empty(uuid), pactum.worker_scope(uuid), pactum.tenant_scope(uuid) TO pactum_runtime, pactum_worker, pactum_policy_reader;
+GRANT EXECUTE ON FUNCTION pactum.worker_session_scope(uuid,uuid) TO pactum_worker,pactum_policy_reader;
 
-ALTER TABLE pactum."User" ADD CONSTRAINT auth_identity_fk FOREIGN KEY("authId") REFERENCES auth.users(id) ON DELETE RESTRICT;
+SELECT pactum.install_auth_identity_fk();
 ALTER TABLE pactum."Organization" ADD CONSTRAINT org_creator_fk FOREIGN KEY("createdBy") REFERENCES pactum."User"(id) ON DELETE RESTRICT;
 ALTER TABLE pactum."OrganizationInvitation" ADD CONSTRAINT inviter_fk FOREIGN KEY("invitedBy") REFERENCES pactum."User"(id) ON DELETE RESTRICT;
 ALTER TABLE pactum."OrganizationInvitation" ADD CONSTRAINT accepter_fk FOREIGN KEY("acceptedBy") REFERENCES pactum."User"(id) ON DELETE RESTRICT;
@@ -140,6 +145,16 @@ ALTER TABLE pactum."MigrationBatch" FORCE ROW LEVEL SECURITY;
 ALTER TABLE pactum."MigrationSourceRecord" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pactum."MigrationSourceRecord" FORCE ROW LEVEL SECURITY;
 
+-- Policy predicates need these reads to avoid recursive tenant checks under FORCE RLS.
+CREATE POLICY predicate_read ON pactum."User" FOR SELECT TO pactum_policy_reader USING(true);
+CREATE POLICY predicate_read ON pactum."Organization" FOR SELECT TO pactum_policy_reader USING(true);
+CREATE POLICY predicate_read ON pactum."OrganizationMembership" FOR SELECT TO pactum_policy_reader USING(true);
+CREATE POLICY predicate_read ON pactum."OrganizationInvitation" FOR SELECT TO pactum_policy_reader USING(true);
+CREATE POLICY predicate_read ON pactum."ProcurementSession" FOR SELECT TO pactum_policy_reader USING(true);
+CREATE POLICY predicate_read ON pactum."FinancialOperation" FOR SELECT TO pactum_policy_reader USING(true);
+CREATE POLICY predicate_read ON pactum."WebhookEvent" FOR SELECT TO pactum_policy_reader USING(true);
+CREATE POLICY predicate_read ON pactum."Settlement" FOR SELECT TO pactum_policy_reader USING(true);
+
 GRANT SELECT,INSERT,UPDATE ON pactum."User", pactum."Organization", pactum."OrganizationMembership", pactum."OrganizationInvitation" TO pactum_runtime;
 CREATE POLICY user_self ON pactum."User" TO pactum_runtime USING("authId"=NULLIF(current_setting('app.auth_user_id',true),'')::uuid AND pactum.auth_session_active()) WITH CHECK("authId"=NULLIF(current_setting('app.auth_user_id',true),'')::uuid AND pactum.auth_session_active());
 CREATE POLICY organization_read ON pactum."Organization" FOR SELECT TO pactum_runtime USING(pactum.member_role(id) IS NOT NULL OR "createdBy"=NULLIF(current_setting('app.user_id',true),'')::uuid);
@@ -168,33 +183,41 @@ CREATE POLICY tenant_access ON pactum."EvidenceRecord" TO pactum_runtime USING(p
 GRANT SELECT,INSERT,UPDATE ON pactum."IdempotencyRecord" TO pactum_runtime;
 CREATE POLICY tenant_access ON pactum."IdempotencyRecord" TO pactum_runtime USING(pactum.tenant_scope("organizationId")) WITH CHECK(pactum.tenant_scope("organizationId"));
 GRANT SELECT,UPDATE ON pactum."ProcurementSession" TO pactum_worker;
-CREATE POLICY worker_access ON pactum."ProcurementSession" TO pactum_worker USING(pactum.tenant_scope("organizationId")) WITH CHECK(pactum.tenant_scope("organizationId"));
+CREATE POLICY worker_access ON pactum."ProcurementSession" TO pactum_worker USING(pactum.worker_session_scope("organizationId",id)) WITH CHECK(pactum.worker_session_scope("organizationId",id));
 GRANT SELECT,UPDATE ON pactum."FxCommitment" TO pactum_worker;
-CREATE POLICY worker_access ON pactum."FxCommitment" TO pactum_worker USING(pactum.tenant_scope("organizationId")) WITH CHECK(pactum.tenant_scope("organizationId"));
+CREATE POLICY worker_access ON pactum."FxCommitment" TO pactum_worker USING(pactum.worker_session_scope("organizationId","sessionId")) WITH CHECK(pactum.worker_session_scope("organizationId","sessionId"));
 GRANT SELECT,UPDATE ON pactum."FinancialOperation" TO pactum_worker;
-CREATE POLICY worker_access ON pactum."FinancialOperation" TO pactum_worker USING(pactum.tenant_scope("organizationId")) WITH CHECK(pactum.tenant_scope("organizationId"));
+CREATE POLICY worker_access ON pactum."FinancialOperation" TO pactum_worker USING(id=NULLIF(current_setting('app.job_id',true),'')::uuid AND pactum.tenant_scope("organizationId")) WITH CHECK(id=NULLIF(current_setting('app.job_id',true),'')::uuid AND pactum.tenant_scope("organizationId"));
 GRANT SELECT,UPDATE ON pactum."Settlement" TO pactum_worker;
-CREATE POLICY worker_access ON pactum."Settlement" TO pactum_worker USING(pactum.tenant_scope("organizationId")) WITH CHECK(pactum.tenant_scope("organizationId"));
+CREATE POLICY worker_access ON pactum."Settlement" TO pactum_worker USING(pactum.worker_session_scope("organizationId","sessionId")) WITH CHECK(pactum.worker_session_scope("organizationId","sessionId"));
 GRANT SELECT,UPDATE ON pactum."Dispute" TO pactum_worker;
-CREATE POLICY worker_access ON pactum."Dispute" TO pactum_worker USING(pactum.tenant_scope("organizationId")) WITH CHECK(pactum.tenant_scope("organizationId"));
+CREATE POLICY worker_access ON pactum."Dispute" FOR SELECT TO pactum_worker USING(pactum.worker_session_scope("organizationId","sessionId"));
+CREATE POLICY worker_dispute_update ON pactum."Dispute" FOR UPDATE TO pactum_worker USING(pactum.worker_session_scope("organizationId","sessionId")) WITH CHECK(pactum.worker_session_scope("organizationId","sessionId"));
+CREATE POLICY worker_dispute_insert ON pactum."Dispute" FOR INSERT TO pactum_worker WITH CHECK(pactum.worker_session_scope("organizationId","sessionId") AND EXISTS(SELECT 1 FROM pactum."WebhookEvent" w WHERE w.id=NULLIF(current_setting('app.job_id',true),'')::uuid AND w."eventType"='CUSTOMER.DISPUTE.CREATED'));
 GRANT SELECT,UPDATE ON pactum."EvidenceRecord" TO pactum_worker;
-CREATE POLICY worker_access ON pactum."EvidenceRecord" TO pactum_worker USING(pactum.tenant_scope("organizationId")) WITH CHECK(pactum.tenant_scope("organizationId"));
+CREATE POLICY worker_access ON pactum."EvidenceRecord" TO pactum_worker USING(pactum.worker_session_scope("organizationId","sessionId")) WITH CHECK(pactum.worker_session_scope("organizationId","sessionId"));
 
 GRANT INSERT ON pactum."EvidenceRecord" TO pactum_worker;
+GRANT INSERT ON pactum."Dispute" TO pactum_worker;
 GRANT SELECT,INSERT,UPDATE ON pactum."WebhookEvent" TO pactum_worker;
-CREATE POLICY webhook_worker ON pactum."WebhookEvent" TO pactum_worker USING(true) WITH CHECK(true);
+CREATE POLICY webhook_worker_read ON pactum."WebhookEvent" FOR SELECT TO pactum_worker USING(true);
+CREATE POLICY webhook_worker_insert ON pactum."WebhookEvent" FOR INSERT TO pactum_worker WITH CHECK(status IN('PROCESSING','QUARANTINED') AND "leaseToken" IS NOT NULL AND "leaseExpiresAt">now());
+CREATE POLICY webhook_worker_update ON pactum."WebhookEvent" FOR UPDATE TO pactum_worker
+ USING(status IN('RECEIVED','FAILED') OR (status='PROCESSING' AND ("leaseExpiresAt" IS NULL OR "leaseExpiresAt"<=now()))
+ OR (status='PROCESSING' AND id=NULLIF(current_setting('app.job_id',true),'')::uuid AND "leaseToken"=NULLIF(current_setting('app.lease_token',true),'')::uuid AND "leaseExpiresAt">now()))
+ WITH CHECK((id=NULLIF(current_setting('app.job_id',true),'')::uuid AND "leaseToken"=NULLIF(current_setting('app.lease_token',true),'')::uuid AND status IN('PROCESSING','PROCESSED','FAILED'))
+ OR (status IN('PROCESSING','QUARANTINED') AND "leaseToken" IS NOT NULL AND "leaseExpiresAt">now()));
 CREATE POLICY webhook_tenant ON pactum."WebhookEvent" FOR SELECT TO pactum_runtime USING(pactum.member_role("organizationId") IN('OWNER','FINANCE_MANAGER'));
 -- Only fixed binding metadata is exposed to worker lookup, not arbitrary session enumeration.
 CREATE FUNCTION pactum.resolve_order(order_id text, merchant text) RETURNS TABLE("organizationId" uuid,"sessionPublicId" text) LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
  SELECT s."organizationId",p."publicId" FROM pactum."Settlement" s JOIN pactum."ProcurementSession" p ON p.id=s."sessionId" AND p."organizationId"=s."organizationId" WHERE s."orderId"=order_id AND s."merchantId"=merchant AND s.environment='SANDBOX';
 $$;
 ALTER FUNCTION pactum.resolve_order(text,text) OWNER TO pactum_policy_reader;
-GRANT SELECT ON pactum."ProcurementSession" TO pactum_policy_reader;
 REVOKE ALL ON FUNCTION pactum.resolve_order(text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION pactum.resolve_order(text,text) TO pactum_worker;
 
 CREATE FUNCTION pactum.auth_email() RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
- SELECT lower(email) FROM auth.users WHERE id=NULLIF(current_setting('app.auth_user_id',true),'')::uuid AND pactum.auth_session_active();
+ SELECT pactum.verified_auth_email();
 $$;
 CREATE FUNCTION pactum.valid_invitation(org uuid, requested_role text) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
  SELECT EXISTS(SELECT 1 FROM pactum."OrganizationInvitation" i JOIN pactum."OrganizationMembership" m ON m."organizationId"=i."organizationId" AND m."userId"=i."invitedBy"
@@ -202,7 +225,6 @@ CREATE FUNCTION pactum.valid_invitation(org uuid, requested_role text) RETURNS b
  AND i."acceptedAt" IS NULL AND i."revokedAt" IS NULL AND i."expiresAt">now() AND m.status='ACTIVE'
  AND (m.role='OWNER' OR m.role='ADMIN' AND i.role IN('PROCUREMENT_MANAGER','VIEWER')));
 $$;
-GRANT SELECT ON pactum."OrganizationInvitation" TO pactum_policy_reader;
 ALTER FUNCTION pactum.auth_email() OWNER TO pactum_policy_reader;
 ALTER FUNCTION pactum.valid_invitation(uuid,text) OWNER TO pactum_policy_reader;
 REVOKE ALL ON FUNCTION pactum.auth_email(), pactum.valid_invitation(uuid,text) FROM PUBLIC;
