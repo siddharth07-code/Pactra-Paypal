@@ -1,3 +1,4 @@
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 // @vitest-environment node
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -188,7 +189,7 @@ function agreementSession(currency: "USD" | "INR" = "USD") {
   s.finalOffer = { unitPrice: 400, quantity: 2, shippingCost: 0, deliveryDays: 3, returnDays: 30, currency };
   s.agreementRecord = { agreementId: `agr_${s.id}`, sessionId: s.id, vendorId: "v", vendorName: "Vendor", sku: "MON", agreedPrice: 400, agreedOffer: { ...s.finalOffer }, totalCost: 800, currency, agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER", acceptingParty: "VENDOR", acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER", round: 3, mandateVersion: 1, acceptedAt: now };
   s.mandate.minReturnDays = 30;
-  const recorder = CryptographicFlightRecorder.getOrReconstitute(s); s.flightRecord = recorder.exportFlightRecord();
+  const recorder = recordCommercialFixture(s); s.flightRecord = recorder.exportFlightRecord();
   s.merkleRoot = s.preSettlementRoot = recorder.getRootHash();
   s.auditCertificate = new AcworldAuditor().audit({ session: s }); expect(s.auditCertificate.passed).toBe(true); s.status = "AUDIT_PASSED";
   return s;
