@@ -1,5 +1,9 @@
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "pactum";
+-- The bootstrap administrator creates the schema for the restricted migration login.
+DO $$ BEGIN
+ IF to_regnamespace('pactum') IS NULL THEN
+  RAISE EXCEPTION 'Run scripts/database/bootstrap.sql before deploying';
+ END IF;
+END $$;
 
 -- CreateEnum
 CREATE TYPE "pactum"."OrganizationRole" AS ENUM ('OWNER', 'ADMIN', 'PROCUREMENT_MANAGER', 'FINANCE_MANAGER', 'VIEWER');
