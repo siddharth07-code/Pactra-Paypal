@@ -30,13 +30,18 @@ import type {
 export const DEFAULT_DEMO_INR_PER_USD = "83.5000";
 export const DEFAULT_QUOTE_TTL_SECONDS = 900; // 15 minutes
 
-/** Only INR -> USD is implemented. Expiry bounds new financial submission, not historical evidence. */
+/** All configured currencies use two minor-unit decimals. */
 export function assertSupportedFxPair(source: string, target: string): void {
-  if (source !== "INR" || target !== "USD") throw new Error("Unsupported FX pair: only INR -> USD is supported.");
+  if (![source, target].every(currency => ["INR", "USD", "EUR", "GBP"].includes(currency))) throw new Error("Unsupported FX currency. Supported currencies: INR, USD, EUR, GBP.");
 }
 
 export function validateFxQuote(record: FXConversionRecord, allowExpired = false): void {
   assertSupportedFxPair(record.sourceCurrency, record.targetCurrency);
+  if (record.sourceCurrency === record.targetCurrency) {
+    const rate = parseDecimalRate(record.rate);
+    if (rate.numerator !== rate.denominator || record.sourceAmountMinor !== record.targetAmountMinor) throw new Error("Same-currency conversion must preserve the original amount at rate 1.");
+  }
+  if (record.rateConvention === "INR_PER_USD" && (record.sourceCurrency !== "INR" || record.targetCurrency !== "USD")) throw new Error("INR_PER_USD convention requires INR -> USD.");
   if (record.commitmentVersion !== 2) throw new Error("Legacy FX commitment requires explicit re-quotation; locked rates are never silently refreshed.");
   for (const amount of [record.sourceAmountMinor, record.targetAmountMinor]) {
     if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("FX monetary minor units must be positive safe integers.");
@@ -47,6 +52,10 @@ export function validateFxQuote(record: FXConversionRecord, allowExpired = false
     throw new Error("Invalid FX timestamps or expired interval.");
   }
   if (!allowExpired && Date.now() >= expires) throw new Error("FX quote has expired; locked rates cannot be silently refreshed.");
+  if (record.lockedAt !== undefined) {
+    const locked = Date.parse(record.lockedAt);
+    if (!Number.isFinite(locked) || new Date(locked).toISOString() !== record.lockedAt || locked < quoted || locked >= expires || locked > Date.now()) throw new Error("Invalid FX quote lock timestamp.");
+  }
   validateReferenceProvenance(record, allowExpired);
   if (computeConversionHash(record) !== record.conversionHash) throw new Error("FX conversionHash integrity mismatch: quote has been mutated.");
 }
@@ -126,7 +135,7 @@ export function computeFxConversion(
     throw new Error(`Invalid sourceAmountMinor: ${sourceAmountMinor}. Must be a non-negative integer.`);
   }
 
-  if (rateConvention !== "INR_PER_USD") {
+  if (rateConvention !== "INR_PER_USD" && rateConvention !== "TARGET_PER_SOURCE") {
     throw new Error(`Unsupported rate convention: ${rateConvention}. Authoritative convention is 'INR_PER_USD'.`);
   }
 
@@ -136,8 +145,8 @@ export function computeFxConversion(
 
   const { numerator, denominator } = parseDecimalRate(rateStr);
 
-  const num = BigInt(sourceAmountMinor) * denominator;
-  const den = numerator;
+  const num = BigInt(sourceAmountMinor) * (rateConvention === "INR_PER_USD" ? denominator : numerator);
+  const den = rateConvention === "INR_PER_USD" ? numerator : denominator;
 
   let quotient = num / den;
   const remainder = num % den;
@@ -227,6 +236,7 @@ export class DeterministicDemoFXProvider implements FXRateProvider {
 
   public async getQuote(req: FXQuoteRequest): Promise<FXConversionRecord> {
     assertSupportedFxPair(req.sourceCurrency, req.targetCurrency);
+    if (req.sourceCurrency !== "INR" || req.targetCurrency !== "USD") throw new Error("Demo FX supports only INR -> USD; no demo rates exist for other pairs.");
     const id = `fxq_${crypto.randomBytes(8).toString("hex")}`;
     const quotedAt = new Date().toISOString();
     const ttlMs = (req.ttlSeconds ?? fxIntegerSetting("FX_QUOTE_TTL_SECONDS", DEFAULT_QUOTE_TTL_SECONDS, DEFAULT_QUOTE_TTL_SECONDS)) * 1000;
@@ -330,6 +340,7 @@ export function lockFXQuote(
   const lockedRecord: FXConversionRecord = {
     ...quote,
     status: "LOCKED",
+    lockedAt: new Date().toISOString(),
   };
 
   lockedRecord.conversionHash = computeConversionHash(lockedRecord);
