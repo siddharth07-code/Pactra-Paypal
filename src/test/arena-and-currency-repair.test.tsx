@@ -261,7 +261,7 @@ describe("Phase 6.6: Negotiation Arena Repair & INR Currency Support", () => {
       );
 
       expect(screen.getByText(/Consensus Reached with DisplayWorld Data Systems/i)).toBeDefined();
-      expect(screen.getByText(/Agreement Accepted: Mutual agreement recorded/i)).toBeDefined();
+      expect(screen.getByText(/Simulated agreement recorded/i)).toBeDefined();
       const proceedBtns = screen.getAllByRole("button", { name: /Review audit and settlement/i });
       expect(proceedBtns).toHaveLength(1);
       fireEvent.click(proceedBtns[0]);
@@ -399,7 +399,7 @@ describe("Phase 6.6: Negotiation Arena Repair & INR Currency Support", () => {
         />
       );
 
-      expect(screen.getByText(/Vendor Accepted Proposal \(DisplayWorld Data Systems\)/i)).toBeDefined();
+      expect(screen.getByText(/Simulated supplier acceptance \(DisplayWorld Data Systems\)/i)).toBeDefined();
       expect(screen.getByText(/Agreed Unit: \$3,200.00/i)).toBeDefined();
     });
   });
