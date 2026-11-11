@@ -27,6 +27,7 @@ import type {
 import { toCents, fromCents } from "./mechanism-guardrail";
 import { CryptographicFlightRecorder } from "./flight-recorder";
 import { canonicalJson } from "./veripay-merkle";
+import { computeAgreementHash } from "./fx-settlement";
 
 export interface AuditRequest {
   session: ProcurementSession;
@@ -376,15 +377,6 @@ export class AcworldAuditor {
       if (session.flightRecord) {
         try {
           const recorder = CryptographicFlightRecorder.fromSerialized(session.flightRecord);
-          // If pre-settlement events (e.g. FX quote/lock) advanced merkleRoot to recorder root,
-          // ensure preSettlementRoot is synchronized before verifying anchor commitment
-          if (
-            !session.postAuditRoot &&
-            session.merkleRoot === recorder.getRootHash() &&
-            session.preSettlementRoot !== recorder.getRootHash()
-          ) {
-            session.preSettlementRoot = recorder.getRootHash();
-          }
           const expectedRootAnchor = session.postAuditRoot ?? session.preSettlementRoot ?? session.merkleRoot;
           const integrity = recorder.verifyIntegrity(expectedRootAnchor);
           if (!integrity.valid) {
@@ -402,7 +394,8 @@ export class AcworldAuditor {
                 e.eventType === "AGREEMENT_CREATED" ||
                 e.eventType === "VENDOR_ACCEPTANCE" ||
                 e.eventType === "BUYER_ACCEPTANCE";
-              return matchesId && isAcceptanceType;
+              const boundHash = e.publicPayload?.agreementHash;
+              return matchesId && isAcceptanceType && (!boundHash || boundHash === computeAgreementHash(session.agreementRecord!));
             });
             if (!hasAgreementEvent) {
               lineageStatus = "INVALID";
