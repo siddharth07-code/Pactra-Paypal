@@ -1,3 +1,4 @@
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 // This suite exercises domain behavior; real authentication/RLS boundaries have separate adversarial tests.
 vi.mock("@/lib/db/business-route", () => ({ withBusinessRoute: (_permission: unknown, handler: unknown) => handler }));
 vi.mock("@/lib/auth/business-access", () => ({ requireBusinessAccess: vi.fn().mockResolvedValue(null) }));
@@ -51,6 +52,10 @@ describe("POST /api/procurement/audit Route Tests", () => {
       shippingCost: 150,
     },
     status: "AUDIT_PENDING",
+    agreementRecord: {
+      agreementId: "agreement-audit-test", sessionId: "session_audit_test_123", vendorId: "vendor_alpha", vendorName: "Alpha Displays", sku: "ALP-4K-27", agreedPrice: 320,
+      agreedOffer: { unitPrice: 320, quantity: 25, deliveryDays: 4, returnDays: 30, shippingCost: 150 }, totalCost: 8150, currency: "USD", agreedBy: "VENDOR_ACCEPTED_BUYER_OFFER", acceptingParty: "VENDOR", acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER", round: 1, acceptedAt: new Date().toISOString(), mandateVersion: 1,
+    },
     preSettlementRoot: "abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef1234",
     merchantAttestation: {
       merchantUrl: "https://alpha.com",
@@ -104,6 +109,7 @@ describe("POST /api/procurement/audit Route Tests", () => {
   });
 
   it("evaluates all 5 invariants and returns audit certificate with AUDIT_PASSED", async () => {
+    recordCommercialFixture(validSession);
     sessionStore.saveSession(validSession);
 
     const req = new NextRequest("http://localhost:3000/api/procurement/audit", {
@@ -136,6 +142,7 @@ describe("POST /api/procurement/audit Route Tests", () => {
         deliveryDays: 10, // violates maxDeliveryDays: 5
       },
     };
+    recordCommercialFixture(violatedSession);
     sessionStore.saveSession(violatedSession);
 
     const req = new NextRequest("http://localhost:3000/api/procurement/audit", {
