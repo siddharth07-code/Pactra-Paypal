@@ -5,17 +5,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAuthContext, type AuthContext } from "@/lib/auth/supabase-server";
 import { authFailure, boundedJson, requireSameOrigin } from "@/lib/auth/http";
 import { AuthError, authConfiguration } from "@/lib/auth/config";
-import { database, serializable } from "@/lib/db/client";
+import { database, serializable, reportDatabaseFailure } from "@/lib/db/client";
 import { identityContext, isUuid, requireVerifiedSession, withOrganizationTransaction } from "@/lib/db/authorization";
 import { roles, canGrant, permissions, permitted, type Role } from "./permissions";
 
 export async function organizationRoute(request: NextRequest, action: "list" | "create" | "switch" | "members" | "change" | "invite" | "accept") {
   let auth: AuthContext | undefined;
+  let stage = "authentication_configuration";
   try {
     const limit = await defaultRateLimiter.check(request, "GENERAL_DEFAULT");
     if (!limit.allowed) return limit.response!;
     auth = createAuthContext(request);
+    stage = "session_verification";
     const principal = await requireVerifiedSession(auth);
+    stage = "organization_database";
     if (request.method !== "GET") requireSameOrigin(request);
     const body = request.method === "GET" ? {} : await boundedJson(request);
     const organizationId = request.headers.get("x-organization-id") ?? request.cookies.get("pactum-organization")?.value ?? "";
@@ -89,7 +92,17 @@ export async function organizationRoute(request: NextRequest, action: "list" | "
       return { success: true };
     });
     return auth.finish(NextResponse.json(result));
-  } catch (error) { const response = authFailure(error); return auth ? auth.finish(response) : response; }
+  } catch (error) {
+    if (process.env.VERCEL === "1" && (!(error instanceof AuthError) || error.status >= 500)) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      console.error("[Organizations] request failed", JSON.stringify({ stage, code: /^(?:P[0-9]{4}|AUTH_[A-Z_]+|DATABASE_[A-Z_]+)$/.test(code) ? code : "UNEXPECTED_ERROR" }));
+    }
+    if (stage === "organization_database" && !(error instanceof AuthError)) {
+      reportDatabaseFailure(error, "role_preflight");
+      error = new AuthError(503, "DATABASE_UNAVAILABLE", "Organization database access is temporarily unavailable.");
+    }
+    const response = authFailure(error); return auth ? auth.finish(response) : response;
+  }
 }
 
 function selectOrganization(response: NextResponse, id: string) {

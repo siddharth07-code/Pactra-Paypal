@@ -5,8 +5,14 @@ import { authConfiguration } from "./config";
 import { privateResponse } from "./http";
 import { authProviderFetch } from "./provider-fetch";
 
+let reportedConfiguration = false;
+
 export function createAuthContext(request: NextRequest) {
   const config = authConfiguration();
+  if (process.env.VERCEL === "1" && !reportedConfiguration) {
+    reportedConfiguration = true;
+    console.info("[AuthProvider] configuration", JSON.stringify({ host: new URL(config.url).hostname, origin: config.origin, publishableKeyFormatValid: config.key.startsWith("sb_publishable_"), https: config.secure }));
+  }
   const pending = new Map<string, { name: string; value: string; options: CookieOptions }>();
   const secureOptions = (options: CookieOptions = {}): CookieOptions => ({
     ...options, domain: undefined, httpOnly: true, secure: config.secure, sameSite: "lax", path: "/",

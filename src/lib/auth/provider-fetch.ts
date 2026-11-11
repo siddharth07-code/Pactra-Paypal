@@ -4,15 +4,22 @@ const publicCodes = new Set(["invalid_credentials", "email_not_confirmed", "weak
 
 /** Auth SDKs may log provider errors during refresh. Never pass reflected secrets to them. */
 export async function authProviderFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  let stage = "transport";
+  let status: number | undefined;
+  const endpoint = (() => { try { const path = new URL(input instanceof Request ? input.url : String(input)).pathname; return path.endsWith("/.well-known/jwks.json") ? "jwks" : path.endsWith("/user") ? "user" : path.endsWith("/token") ? "token" : "other"; } catch { return "other"; } })();
+  const diagnostic = (reason: string) => { if (process.env.VERCEL === "1") console.error("[AuthProvider] request failed", JSON.stringify({ endpoint, stage, status, reason })); };
   try {
     const response = await fetch(input, {
       ...init, redirect: "error", cache: "no-store",
       signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(8000)]) : AbortSignal.timeout(8000),
     });
+    status = response.status;
     if (response.ok) {
       if (response.status === 204) return response;
       // Reject malformed success bodies before the SDK can log a parser error containing tokens.
+      stage = "response_format";
       if (response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json" || !response.body) throw new Error();
+      stage = "response_body";
       const reader = response.body.getReader();
       const chunks: Uint8Array[] = [];
       let size = 0;
@@ -32,6 +39,7 @@ export async function authProviderFetch(input: RequestInfo | URL, init?: Request
         return Response.json(data, { status: response.status });
       } finally { void reader.cancel().catch(() => undefined); }
     }
+    stage = "upstream_status";
     let code: string | undefined;
     const reader = response.body?.getReader();
     if (reader) {
@@ -52,8 +60,12 @@ export async function authProviderFetch(input: RequestInfo | URL, init?: Request
       } catch { /* Provider diagnostics are intentionally discarded. */ }
       finally { void reader.cancel().catch(() => undefined); }
     }
+    diagnostic(code ?? "UPSTREAM_REJECTED");
     return Response.json({ code, error_code: code, msg: "Authentication provider rejected the request." }, { status: response.status >= 400 ? response.status : 503 });
-  } catch {
+  } catch (error) {
+    const cause = error instanceof Error && error.cause && typeof error.cause === "object" && "code" in error.cause ? String(error.cause.code) : "";
+    const reason = /^(?:CERT_HAS_EXPIRED|UNABLE_TO_VERIFY_LEAF_SIGNATURE|UNABLE_TO_GET_ISSUER_CERT_LOCALLY|ERR_TLS_CERT_ALTNAME_INVALID|ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|UND_ERR_CONNECT_TIMEOUT)$/.test(cause) ? cause : error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name) ? error.name : "INVALID_PROVIDER_RESPONSE";
+    diagnostic(reason);
     // Some SDK paths log transport errors; return only a sanitized retryable failure.
     return Response.json({ msg: "Authentication provider is temporarily unavailable." }, { status: 503 });
   }

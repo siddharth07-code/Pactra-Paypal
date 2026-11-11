@@ -1,5 +1,7 @@
 # Vercel production repair: 12 November 2026
 
+Update: Redis and production login were subsequently restored. The later organization-access failure is traced and repaired in [AUTH_PROVIDER_REPAIR.md](./AUTH_PROVIDER_REPAIR.md). The Redis ACL blocker described below is historical.
+
 The authenticated CLI is linked to the existing `siddharth-lal-s-projects/pactra` project (`prj_qpRBqEci6uP1YWD6bnisxROzD2f6`). No new project was created. No hosted PostgreSQL migrations, role changes, Redis resets, financial-record changes, or payments were performed.
 
 ## Confirmed causes and corrections

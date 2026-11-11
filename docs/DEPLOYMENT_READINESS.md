@@ -1,5 +1,7 @@
 # PACTRA final Supabase deployment readiness
 
+The latest organization-access repair is documented in [AUTH_PROVIDER_REPAIR.md](./AUTH_PROVIDER_REPAIR.md): production session verification succeeded, but a missing Prisma runtime engine prevented database membership checks.
+
 For the current Vercel authentication/Redis repair, verified local results, access blocker, and exact redeployment commands, see [PRODUCTION_REPAIR.md](./PRODUCTION_REPAIR.md). Vercel access is now authenticated. The Redis port correction has been deployed; consult that report for the remaining production command-permission and positive-login verification requirements.
 
 Database TLS and refreshed recovery verification are complete on `main` as of 12 November 2026. Hosted bootstrap was completed by the operator; this execution performed read-only hosted checks only. The next operational step is the user's cutover using [DATABASE_CUTOVER.md](DATABASE_CUTOVER.md). No hosted migrations, data/role changes, deployment, commit, or push were performed by this execution.

@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // Enforce React strict mode for robust lifecycle checks
   reactStrictMode: true,
   outputFileTracingIncludes: {
-    "/*": ["./prisma/certs/supabase-ca.cer"],
+    "/*": ["./prisma/certs/supabase-ca.cer", "./src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node"],
   },
   outputFileTracingExcludes: {
     "/*": ["./.env", "./.env.*", "./.pactum-*.json", "./.pactum-local/**/*"],

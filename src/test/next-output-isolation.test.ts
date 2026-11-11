@@ -14,6 +14,7 @@ describe("Next.js development/build output isolation", () => {
   it("includes the public CA and excludes private local files from deployment tracing", () => {
     const build = configuration(PHASE_PRODUCTION_BUILD);
     expect(build.outputFileTracingIncludes?.["/*"]).toContain("./prisma/certs/supabase-ca.cer");
+    expect(build.outputFileTracingIncludes?.["/*"]).toContain("./src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node");
     expect(build.outputFileTracingExcludes?.["/*"]).toEqual(expect.arrayContaining(["./.env", "./.env.*", "./.pactum-*.json", "./.pactum-local/**/*"]));
   });
 });
