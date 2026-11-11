@@ -10,6 +10,7 @@ import { OperationsPanel, DataMessage, LedgerTable } from "./OperationsUI";
 import { useOrganization } from "./OrganizationBoundary";
 import { evaluateNegotiationCandidate } from "@/lib/sourcing-evaluator";
 import { INTERNAL_SUPPORTED_CURRENCIES, toMinorUnits } from "@/lib/currency";
+import type { CatalogProduct } from "@/lib/channel3-client";
 import type { CurrencyCode, ProcurementMandate, ProcurementSession, QuoteEvaluation, VendorQuote } from "@/types/pactum";
 
 if (typeof window !== "undefined") {
@@ -35,6 +36,8 @@ interface Fields {
 type Errors = Partial<Record<keyof Fields | "description", string>>;
 
 interface SourcedRequest {
+  catalogProducts?: CatalogProduct[];
+  warning?: string;
   sessionId: string;
   mandate: ProcurementMandate;
   quotes: VendorQuote[];
@@ -83,6 +86,10 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
   const canNegotiate = Boolean(organization?.permissions.includes("negotiation.start"));
   const [fields, setFields] = useState<Fields>(() => initialFields(session));
   const [description, setDescription] = useState("");
+  const [productDescription, setProductDescription] = useState(session?.mandate.productDetails?.description ?? "");
+  const [productCategory, setProductCategory] = useState(session?.mandate.productDetails?.category ?? "");
+  const [referenceUnitPrice, setReferenceUnitPrice] = useState(session?.mandate.productDetails?.referenceUnitPrice?.toString() ?? "");
+  const [catalogProductId, setCatalogProductId] = useState(session?.mandate.productDetails?.catalogProductId);
   const [descriptionDirty, setDescriptionDirty] = useState(false);
   const [errors, setErrors] = useState<Errors>(() => validate(initialFields(session)));
   const [message, setMessage] = useState("");
@@ -99,6 +106,8 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
           mandate: session.mandate,
           quotes: session.quotes ?? [],
           evaluations: session.quoteEvaluations ?? {},
+          catalogProducts: session.catalogProducts,
+          warning: session.sourcingWarning,
         }
       : null
   );
@@ -266,6 +275,11 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
 
   function change(name: keyof Fields, value: string) {
     if (requestActive.current || isLoading) return;
+    if (name === "currency" && value !== fields.currency) {
+      setReferenceUnitPrice("");
+      setCatalogProductId(undefined);
+    }
+    if (name === "itemQuery" && value !== fields.itemQuery) setCatalogProductId(undefined);
     setFields((previous) => ({ ...previous, [name]: value }));
     setResult(null);
     setSelectedVendorId(null);
@@ -294,6 +308,11 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
       maxDeliveryDays: Number(fields.delivery),
       minReturnDays: Number(fields.returns),
       currency: fields.currency,
+      ...(productDescription || productCategory || referenceUnitPrice || catalogProductId ? { productDetails: {
+        description: productDescription.trim(), category: productCategory.trim() || undefined,
+        referenceUnitPrice: referenceUnitPrice ? Number(referenceUnitPrice) : undefined, currency: fields.currency,
+        ...(catalogProductId ? { catalogProductId } : {}),
+      } } : {}),
       ...requirements,
     };
   }
@@ -303,6 +322,10 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
   }
 
   async function request(kind: "analysis" | "source") {
+    if (kind === "source" && referenceUnitPrice && (!/^\d+(\.\d{1,2})?$/.test(referenceUnitPrice) || Number(referenceUnitPrice) <= 0 || !Number.isSafeInteger(toMinorUnits(Number(referenceUnitPrice))))) {
+      setMessage("Enter a positive reference unit price with up to two decimal places.");
+      return;
+    }
     if (!allowed || requestActive.current || isLoading) return;
     if (kind === "analysis" && !description.trim()) {
       setErrors({ description: "Enter a written request to extract." });
@@ -373,6 +396,8 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
           mandate: data.mandate,
           quotes: data.quotes,
           evaluations: data.evaluations ?? {},
+          catalogProducts: data.catalogProducts,
+          warning: data.warning,
         });
         onSessionCreated?.(data.sessionId);
       }
@@ -539,6 +564,10 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
                 error={errors.itemQuery}
                 placeholder="Product type and essential specifications"
               />
+              <FormInput id="product-detail-description" label="Additional product details" value={productDescription} onChange={event => { setProductDescription(event.target.value); change("itemQuery", fields.itemQuery); }} placeholder="Model, intended use, and other product details" />
+              <FormInput id="product-category" label="Product category (optional)" value={productCategory} onChange={event => { setProductCategory(event.target.value); change("itemQuery", fields.itemQuery); }} />
+              <FormInput id="product-reference-price" label={`Reference unit price (${fields.currency}, optional)`} type="number" min="0.01" step="0.01" value={referenceUnitPrice} onChange={event => { setReferenceUnitPrice(event.target.value); change("itemQuery", fields.itemQuery); }} />
+              <p className="text-xs text-text-secondary">A reference price is your input, not a supplier offer or an agreed price. The total budget below remains the spending ceiling.</p>
               <div className="grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_112px] gap-4">
                 <FormInput
                   required
@@ -736,9 +765,24 @@ export function SourcingScreen({ onStartNegotiation, onSessionCreated, session, 
               Complete your requirements and select Find suppliers to save the request and retrieve available quotes.
             </DataMessage>
           ) : result.quotes.length === 0 ? (
-            <DataMessage title="No suppliers returned">
-              No quotes were returned for this product and currency. Edit your requirements to search again.
-            </DataMessage>
+            <div className="space-y-4 p-5">
+              <DataMessage title={result.catalogProducts?.length ? "Catalog listings — merchant terms required" : "No suppliers returned"}>
+                {result.warning ?? "No quotes were returned for this product and currency. Edit your requirements to search again."}
+              </DataMessage>
+              {result.catalogProducts?.map((product) => (
+                <div key={`${product.id}:${product.url}`} className="space-y-1 border-b border-border-primary pb-3 text-sm">
+                  <p className="font-medium">{product.title}</p>
+                  <p>{product.merchant} · <CurrencyDisplay amount={product.unitPrice} currency={product.currency} /> per unit</p>
+                  <a href={product.url} target="_blank" rel="noopener noreferrer" className="underline">View merchant listing and confirm terms</a>
+                  <button type="button" disabled={!allowed || busy} className="block cursor-pointer underline disabled:cursor-not-allowed disabled:opacity-50" onClick={() => {
+                    change("itemQuery", product.title);
+                    setReferenceUnitPrice(String(product.unitPrice));
+                    setCatalogProductId(product.id);
+                    setMessage("Catalog product copied into your request as a reference. Quantity and budget are preserved; merchant terms and supplier acceptance remain unverified.");
+                  }}>Use product in request</button>
+                </div>
+              ))}
+            </div>
           ) : (
             <>
               <div className="px-5 py-4 space-y-1 text-sm">
