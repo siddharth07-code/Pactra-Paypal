@@ -140,6 +140,7 @@ describe("Phase 6.9.1: Settlement Lifecycle Repair & FX Integrity", () => {
       "AGREEMENT_CREATED",
       {
         agreementId: session.agreementRecord.agreementId,
+        agreementHash: computeAgreementHash(session.agreementRecord),
         unitPrice: 26000,
         quantity: 25,
         totalCost: 658234.25,
@@ -218,6 +219,7 @@ describe("Phase 6.9.1: Settlement Lifecycle Repair & FX Integrity", () => {
       "AGREEMENT_CREATED",
       {
         agreementId: session.agreementRecord.agreementId,
+        agreementHash: computeAgreementHash(session.agreementRecord),
         unitPrice: 310,
         quantity: 25,
         totalCost: 7900,
@@ -329,7 +331,7 @@ describe("Phase 6.9.1: Settlement Lifecycle Repair & FX Integrity", () => {
   });
 
   // 5. Expired quote on active session
-  it("5. Expired quote on active session blocks capture but permits renewal", async () => {
+  it("5. Expired locked quote blocks capture and replacement pending reconciliation", async () => {
     const session = await createAuditedInrSession();
 
     const quoteReq = new NextRequest("http://localhost:3000/api/fx/quote", {
@@ -364,11 +366,9 @@ describe("Phase 6.9.1: Settlement Lifecycle Repair & FX Integrity", () => {
       body: JSON.stringify({ sessionId: session.id, rateSource: "DETERMINISTIC_DEMO", renew: true }),
     });
     const renewRes = await runFxQuoteRoute(renewReq);
-    expect(renewRes.status).toBe(200);
-    const renewData = await renewRes.json();
-    expect(renewData.success).toBe(true);
-    expect(renewData.fxRecord.id).not.toBe(fxRecord.id);
-    expect(renewData.fxRecord.status).toBe("QUOTED");
+    expect(renewRes.status).toBe(409);
+    expect((await renewRes.json()).error).toContain("cannot be replaced");
+    expect(sessionStore.getSession(session.id)!.fxRecord!.id).toBe(fxRecord.id);
   });
 
   // 6. Expired quote on cancelled session
@@ -405,7 +405,7 @@ describe("Phase 6.9.1: Settlement Lifecycle Repair & FX Integrity", () => {
   });
 
   // 8. Explicit quote renewal
-  it("8. Explicit quote renewal preserves previous quote in fxQuoteHistory", async () => {
+  it("8. Explicit renewal cannot replace an existing locked commitment", async () => {
     const session = await createAuditedInrSession();
 
     const q1Res = await runFxQuoteRoute(
@@ -434,15 +434,10 @@ describe("Phase 6.9.1: Settlement Lifecycle Repair & FX Integrity", () => {
         body: JSON.stringify({ sessionId: session.id, rateSource: "DETERMINISTIC_DEMO", renew: true }),
       })
     );
-    const { fxRecord: q2 } = await q2Res.json();
-
-    expect(q2.id).not.toBe(q1.id);
-    expect(q2.status).toBe("QUOTED");
-
+    expect(q2Res.status).toBe(409);
     const updated = sessionStore.getSession(session.id)!;
-    expect(updated.fxQuoteHistory?.length).toBeGreaterThanOrEqual(2);
+    expect(updated.fxRecord!.id).toBe(q1.id);
     expect(updated.fxQuoteHistory?.some((h) => h.id === q1.id)).toBe(true);
-    expect(updated.fxQuoteHistory?.some((h) => h.id === q2.id)).toBe(true);
   });
 
   // 9. Quote TTL
