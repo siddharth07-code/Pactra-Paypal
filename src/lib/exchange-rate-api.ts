@@ -37,7 +37,7 @@ async function boundedResponse(response: Response, signal: AbortSignal): Promise
 }
 
 /** Preserve the published decimal token instead of rounding a binary float to four places. */
-function decodePair(text: string): { rate: string; updated: number; next: number } {
+function decodePair(text: string, base: string, target: string): { rate: string; updated: number; next: number } {
   let parsed: unknown;
   try { parsed = JSON.parse(text); } catch { throw new FXProviderError("FX_RESPONSE_INVALID", "FX provider returned malformed JSON."); }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new FXProviderError("FX_RESPONSE_INVALID", "FX provider returned an unexpected response structure.");
@@ -49,7 +49,7 @@ function decodePair(text: string): { rate: string; updated: number; next: number
   }
   const allowed = new Set(["result", "documentation", "terms_of_use", "time_last_update_unix", "time_last_update_utc", "time_next_update_unix", "time_next_update_utc", "base_code", "target_code", "conversion_rate"]);
   const keys = [...text.matchAll(/"((?:\\.|[^"\\])*)"\s*:/g)].map(match => { try { return JSON.parse(`"${match[1]}"`) as string; } catch { return ""; } });
-  if (keys.length !== Object.keys(data).length || new Set(keys).size !== keys.length || keys.some(key => !allowed.has(key)) || data.result !== "success" || data.base_code !== "USD" || data.target_code !== "INR") {
+  if (keys.length !== Object.keys(data).length || new Set(keys).size !== keys.length || keys.some(key => !allowed.has(key)) || data.result !== "success" || data.base_code !== base || data.target_code !== target) {
     throw new FXProviderError("FX_RESPONSE_INVALID", "FX provider response has an unexpected structure or unsupported currency pair.");
   }
   const rates = [...text.matchAll(/"conversion_rate"\s*:\s*(-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)(?=\s*[,}])/g)];
@@ -66,6 +66,10 @@ export class ExchangeRateApiProvider implements FXRateProvider {
 
   async getQuote(req: FXQuoteRequest): Promise<FXConversionRecord> {
     assertSupportedFxPair(req.sourceCurrency, req.targetCurrency);
+    const inverse = req.sourceCurrency === "INR" && req.targetCurrency === "USD";
+    const base = inverse ? "USD" : req.sourceCurrency;
+    const target = inverse ? "INR" : req.targetCurrency;
+    const convention = inverse ? "INR_PER_USD" : "TARGET_PER_SOURCE";
     if (!Number.isSafeInteger(req.sourceAmountMinor) || req.sourceAmountMinor <= 0) throw new FXProviderError("FX_AMOUNT_INVALID", "FX source minor amount must be a positive safe integer.");
     if (!this.apiKey?.trim()) throw new FXProviderError("FX_NOT_CONFIGURED", "Live FX requires EXCHANGE_RATE_API_KEY on the server. Demo rates were not substituted.");
     const ttl = req.ttlSeconds ?? fxIntegerSetting("FX_QUOTE_TTL_SECONDS", 900, 900);
@@ -78,23 +82,23 @@ export class ExchangeRateApiProvider implements FXRateProvider {
         timer = setTimeout(() => { controller.abort(); reject(new FXProviderError("FX_TIMEOUT", "FX provider request timed out. Please retry.")); }, FX_REQUEST_TIMEOUT_MS);
       });
       const operation = async () => {
-        const response = await fetch(`https://v6.exchangerate-api.com/v6/${encodeURIComponent(this.apiKey!.trim())}/pair/USD/INR`, { signal: controller.signal, redirect: "error", cache: "no-store", headers: { Accept: "application/json" } });
+        const response = await fetch(`https://v6.exchangerate-api.com/v6/${encodeURIComponent(this.apiKey!.trim())}/pair/${base}/${target}`, { signal: controller.signal, redirect: "error", cache: "no-store", headers: { Accept: "application/json" } });
         const text = await boundedResponse(response, controller.signal);
         const retrievedAt = new Date().toISOString();
-        const pair = decodePair(text);
+        const pair = decodePair(text, base, target);
         let targetAmountMinor: number;
-        try { targetAmountMinor = computeFxConversion(req.sourceAmountMinor, pair.rate); } catch {
+        try { targetAmountMinor = computeFxConversion(req.sourceAmountMinor, pair.rate, convention); } catch {
           throw new FXProviderError("FX_CONVERSION_INVALID", "FX conversion cannot be represented in safe minor units.");
         }
         if (targetAmountMinor <= 0) throw new FXProviderError("FX_CONVERSION_INVALID", "FX conversion is below the minimum settlement amount.");
         const record: FXConversionRecord = {
           id: `fxq_live_${crypto.randomBytes(8).toString("hex")}`, commitmentVersion: 2,
           sessionId: req.sessionId, agreementHash: req.agreementHash, agreementId: req.agreementId,
-          sourceCurrency: "INR", targetCurrency: "USD", sourceAmountMinor: req.sourceAmountMinor,
+          sourceCurrency: req.sourceCurrency, targetCurrency: req.targetCurrency, sourceAmountMinor: req.sourceAmountMinor,
           targetAmountMinor, rate: pair.rate,
-          rateConvention: "INR_PER_USD", rateSource: "LIVE_PROVIDER", provider: EXCHANGE_RATE_PROVIDER,
+          rateConvention: convention, rateSource: "LIVE_PROVIDER", provider: EXCHANGE_RATE_PROVIDER,
           quotedAt: retrievedAt, expiresAt: new Date(Date.parse(retrievedAt) + ttl * 1000).toISOString(), roundingMode: "HALF_UP", status: "QUOTED",
-          referenceRate: { provider: "EXCHANGERATE_API", baseCurrency: "USD", quoteCurrency: "INR", updatedAt: new Date(pair.updated * 1000).toISOString(), nextUpdateAt: new Date(pair.next * 1000).toISOString(), retrievedAt, maxAgeSeconds, responseHash: crypto.createHash("sha256").update(text, "utf8").digest("hex") },
+          referenceRate: { provider: "EXCHANGERATE_API", baseCurrency: base, quoteCurrency: target, updatedAt: new Date(pair.updated * 1000).toISOString(), nextUpdateAt: new Date(pair.next * 1000).toISOString(), retrievedAt, maxAgeSeconds, responseHash: crypto.createHash("sha256").update(text, "utf8").digest("hex") },
           conversionHash: "",
         };
         validateReferenceProvenance(record);
