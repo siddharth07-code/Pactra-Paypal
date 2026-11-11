@@ -11,7 +11,13 @@ export interface SourcingOptions {
   forceFixtures?: boolean;
 }
 
+export interface CatalogProduct {
+  id: string; title: string; merchant: string; unitPrice: number; currency: string; url: string;
+}
+
 export interface SourcingResult {
+  catalogProducts?: CatalogProduct[];
+  warning?: string;
   quotes: VendorQuote[];
   dataSource: "CHANNEL3" | "MOCK_CATALOG";
   isFixture: boolean;
@@ -647,51 +653,38 @@ export class Channel3Client {
     const detectedCategory = detectMandateCategory(mandate);
 
     if (!useFixtures && this.apiKey) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
       try {
-        // Attempt external Channel3 call with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-        const response = await fetch("https://api.channel3.ai/v1/sourcing/quotes", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify({
-            query: mandate.itemQuery,
-            quantity: mandate.quantity,
-            maxBudget: mandate.maxTotalBudget,
-            maxDeliveryDays: mandate.maxDeliveryDays,
-            minReturnDays: mandate.minReturnDays,
-            category: detectedCategory !== "unknown" ? detectedCategory : undefined,
-          }),
+        const response = await fetch("https://api.trychannel3.com/v1/search", {
+          method: "POST", redirect: "error", cache: "no-store",
+          headers: { "Content-Type": "application/json", "x-api-key": this.apiKey },
+          body: JSON.stringify({ query: mandate.itemQuery, limit: 10, config: { currency: mandate.currency }, filters: { price: { max_price: mandate.maxTotalBudget / mandate.quantity } } }),
           signal: controller.signal,
         });
-
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
-          const data = (await response.json()) as { quotes: VendorQuote[] };
-          if (Array.isArray(data.quotes) && data.quotes.length >= 1) {
-            return {
-              quotes: data.quotes.map((q) => ({
-                ...q,
-                category: q.category || (detectedCategory !== "unknown" ? detectedCategory : undefined),
-                currency: q.currency || mandate.currency || "USD",
-                dataSource: "CHANNEL3",
-                priceProvenance: "CHANNEL3_LIVE",
-              })),
-              dataSource: "CHANNEL3",
-              isFixture: false,
-              timestamp: new Date().toISOString(),
-              category: detectedCategory,
-            };
+        if (!response.ok) throw new Error("Catalog request failed.");
+        const data = await response.json() as { products?: unknown[] };
+        if (!Array.isArray(data.products)) throw new Error("Invalid catalog response.");
+        const catalogProducts: CatalogProduct[] = [];
+        for (const value of data.products.slice(0, 30)) {
+          if (!value || typeof value !== "object") continue;
+          const p = value as { id?: unknown; title?: unknown; offers?: unknown[] };
+          if (typeof p.id !== "string" || typeof p.title !== "string" || !Array.isArray(p.offers)) continue;
+          for (const value of p.offers) {
+            if (!value || typeof value !== "object") continue;
+            const offer = value as { domain?: unknown; url?: unknown; price?: { price?: unknown; currency?: unknown }; availability?: unknown };
+            const price = offer.price?.price;
+            if (typeof price !== "number" || !Number.isFinite(price) || price <= 0 || offer.price?.currency !== mandate.currency || typeof offer.url !== "string" || typeof offer.domain !== "string" || offer.availability !== "InStock") continue;
+            let url: URL;
+            try { url = new URL(offer.url); } catch { continue; }
+            if (url.protocol !== "https:") continue;
+            catalogProducts.push({ id: p.id, title: p.title, merchant: offer.domain, unitPrice: price, currency: mandate.currency, url: url.href });
           }
         }
+        return { quotes: [], catalogProducts, warning: "Channel3 catalog listings do not establish shipping, delivery, returns, or supplier acceptance. Obtain verified merchant terms before procurement; these listings cannot authorize settlement.", dataSource: "CHANNEL3", isFixture: false, timestamp: new Date().toISOString(), category: detectedCategory };
       } catch {
-        // Fall back to deterministic fixtures if live call fails or times out
-      }
+        throw new Error("Channel3 catalog is unavailable or returned invalid data. Retry sourcing; demonstration offers were not substituted.");
+      } finally { clearTimeout(timeoutId); controller.abort(); }
     }
 
     // Return category-specific deterministic fixtures with explicit native currency matching
