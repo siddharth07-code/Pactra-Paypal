@@ -1,3 +1,4 @@
+import { computeAgreementHash } from "@/lib/fx-settlement";
 /**
  * PACTUM — Phase 5.1: Adversarial Reliability Verification & Recovery Hardening Test Suite
  *
@@ -116,7 +117,7 @@ function setupAuthoritativeSession(sid = "session_p51_baseline"): ProcurementSes
   const recorder = new CryptographicFlightRecorder(sid);
   recorder.recordEvent("MANDATE_CREATED", { mandateId: mandate.id });
   recorder.recordEvent("SOURCING_COMPLETED", { quoteCount: 1 });
-  recorder.recordEvent("AGREEMENT_CREATED", { agreementId: session.agreementRecord.agreementId });
+  recorder.recordEvent("AGREEMENT_CREATED", { agreementId: session.agreementRecord.agreementId, agreementHash: computeAgreementHash(session.agreementRecord) });
   session.flightRecord = recorder.exportFlightRecord();
   session.preSettlementRoot = recorder.getRootHash();
   session.merkleRoot = session.preSettlementRoot;
