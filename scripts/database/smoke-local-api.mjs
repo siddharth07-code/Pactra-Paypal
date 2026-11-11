@@ -39,6 +39,10 @@ try {
   const redisUrl=`rediss://default:${redisPassword}@127.0.0.1:${redisPort}`;
   const redisCheck=spawnSync(process.execPath,['--import','tsx','scripts/check-redis.mjs'],{env:{...process.env,REDIS_URL:redisUrl,NODE_EXTRA_CA_CERTS:cert},stdio:'pipe',timeout:15000});
   assert.equal(redisCheck.status,0,'Read-only Redis operator check must verify the disposable TLS endpoint.');
+  const rejectedRedisUrl=new URL(redisUrl);rejectedRedisUrl.password='incorrect-fixture-password';
+  const deniedRedisCheck=spawnSync(process.execPath,['--import','tsx','scripts/check-redis.mjs'],{env:{...process.env,REDIS_URL:rejectedRedisUrl.href,NODE_EXTRA_CA_CERTS:cert},stdio:'pipe',timeout:15000});
+  assert.equal(deniedRedisCheck.status,1,'Disabling INFO readiness must not bypass Redis AUTH.');
+
   const appPort=await port();
   const users=new Map(),sessions=new Map();
   const secret=crypto.randomBytes(32),encode=value=>Buffer.from(JSON.stringify(value)).toString('base64url');

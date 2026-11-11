@@ -160,7 +160,7 @@ export class CronCoordinator {
     const url = redisUrl || process.env.REDIS_URL;
     if (url) {
       try {
-        this.redisClient = new Redis(url, redisConnectionOptions(url));
+        this.redisClient = new Redis(redisConnectionOptions(url));
 
         this.redisClient.on("error", () => {
           if (process.env.NODE_ENV !== "test") {

@@ -12,7 +12,7 @@
 
 import { NextRequest } from "next/server";
 import Redis from "ioredis";
-import { ensureRedisReady, redisConnectionOptions } from "./redis-connection";
+import { ensureRedisReady, redisConnectionOptions, redisConnectionMetadata, diagnoseRedisConnection, redisFailureCode } from "./redis-connection";
 import crypto from "crypto";
 
 export interface RateLimitPolicy {
@@ -228,11 +228,14 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
     const url = redisUrl || process.env.REDIS_URL;
     if (url) {
       try {
-        this.client = new Redis(url, redisConnectionOptions(url));
+        this.client = new Redis(redisConnectionOptions(url));
 
+        this.client.on("ready", () => {
+          if (process.env.VERCEL === "1") console.info("[Redis] ready", JSON.stringify(redisConnectionMetadata(this.client!)));
+        });
         this.client.on("error", (error: NodeJS.ErrnoException) => {
           if (process.env.NODE_ENV !== "test") {
-            console.error("[RateLimiter] Redis connection unavailable.", /^[A-Z][A-Z0-9_]{1,63}$/.test(error.code ?? "") ? error.code : "REDIS_ERROR");
+            console.error("[RateLimiter] Redis connection unavailable.", redisFailureCode(error), JSON.stringify(redisConnectionMetadata(this.client!)));
           }
         });
       } catch {
@@ -270,6 +273,7 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
     }
 
     try {
+      await diagnoseRedisConnection(this.client);
       await ensureRedisReady(this.client);
 
       if (this.client.status !== "ready") {
@@ -319,10 +323,10 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
         policy: key.split(":")[0] ?? "unknown",
         identity: key.split(":").slice(1).join(":"),
       };
-    } catch {
+    } catch (error) {
       if (isStrictRedisProduction) {
         console.error(
-          "[RateLimiter] CRITICAL: Redis command unavailable. Failing closed."
+          "[RateLimiter] CRITICAL: Redis command unavailable. Failing closed.", redisFailureCode(error)
         );
         return {
           allowed: false,
