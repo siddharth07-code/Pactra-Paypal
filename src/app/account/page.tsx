@@ -2,7 +2,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { OrganizationMembers } from "@/components/OrganizationMembers";
-import { useEffect, useState, useRef } from "react";
+import { OrganizationBoundary, type ActiveOrganization } from "@/components/OrganizationBoundary";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import { ArrowLeft, LogOut, ShieldCheck } from "lucide-react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
@@ -12,6 +13,10 @@ if (typeof window !== "undefined") {
 }
 
 export default function AccountPage() {
+  return <OrganizationBoundary renderAccount={(selection, active) => <AccountContent selection={selection} active={active} />} />;
+}
+
+function AccountContent({ selection, active }: { selection: ReactNode; active: ActiveOrganization | null }) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -238,9 +243,11 @@ export default function AccountPage() {
           Select an organization to access procurement and settlement. Your active membership and permissions are verified by the server for every operation.
         </div>
 
-        <div ref={membersRef}>
-          <OrganizationMembers />
-        </div>
+        {selection}
+
+        {active?.permissions.includes("membership.manage") && <div ref={membersRef}>
+          <OrganizationMembers key={active.id} />
+        </div>}
 
         {error && (
           <div ref={errorRef} role="alert" className="p-3 rounded-[6px] border border-red-500/20 bg-red-500/10 text-xs text-red-600 dark:text-red-400 font-medium">
