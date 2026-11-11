@@ -74,6 +74,38 @@ describe("restricted PostgreSQL roles and tenant transactions", () => {
     expect(role).toEqual({ rolsuper: false, rolbypassrls: false });
     await expect(database().$executeRawUnsafe('CREATE TABLE pactum.forbidden_test(id int)')).rejects.toThrow();
   });
+  it("keeps all application capabilities and the migration login free of global bypass privileges", async () => {
+    const { rows } = await admin.query("SELECT rolname,rolsuper,rolbypassrls,rolcreaterole,rolcreatedb FROM pg_roles WHERE rolname IN('pactum_runtime','pactum_worker','pactum_policy_reader','pactum_app','pactum_jobs','pactum_migrator')");
+    expect(rows).toHaveLength(6);
+    for (const row of rows) expect([row.rolsuper,row.rolbypassrls,row.rolcreaterole,row.rolcreatedb]).toEqual([false,false,false,false]);
+    const { rows: [delegation] } = await admin.query("SELECT count(*)::int count FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname='pactum_migrator') AND admin_option");
+    expect(delegation.count).toBe(0);
+    const { rows: [reader] } = await admin.query("SELECT has_schema_privilege('pactum_policy_reader','auth','USAGE') auth_usage,has_table_privilege('pactum_policy_reader','auth.users','SELECT') auth_read");
+    expect(reader).toEqual({ auth_usage: false, auth_read: false });
+    await expect(database().$queryRawUnsafe('SELECT * FROM auth.users')).rejects.toThrow();
+    await expect(database(true).$queryRawUnsafe('SELECT * FROM auth.sessions')).rejects.toThrow();
+    await expect(database().$queryRawUnsafe('SELECT pactum.verified_auth_email()')).rejects.toThrow();
+    await expect(database().$queryRawUnsafe('SELECT pactum.install_auth_identity_fk()')).rejects.toThrow();
+  });
+  it("rejects inherited policy-reader capability on a runtime login", async () => {
+    const [identity] = await database().$queryRaw<{ name: string }[]>`SELECT current_user AS name`;
+    const role = '"' + identity.name.replaceAll('"','""') + '"';
+    for (const capability of ['pactum_policy_reader','pactum_worker']) {
+      await admin.query(`GRANT ${capability} TO ${role}`);
+      try {
+        await expect(serializable(database(),async () => undefined)).rejects.toMatchObject({ code: 'DATABASE_ROLE_UNSAFE' });
+      } finally { await admin.query(`REVOKE ${capability} FROM ${role}`); }
+    }
+  });
+  it("rejects elevated connection identities before opening a runtime client", () => {
+    const original = process.env.DATABASE_URL;
+    try {
+      process.env.DATABASE_URL = 'postgresql://postgres.project:unused@127.0.0.1/pactum_disposable';
+      expect(() => database()).toThrow('Restricted runtime or worker database credentials are required.');
+      process.env.DATABASE_URL = 'postgresql://pactum_migrator:unused@127.0.0.1/pactum_disposable';
+      expect(() => database()).toThrow('Restricted runtime or worker database credentials are required.');
+    } finally { process.env.DATABASE_URL = original; }
+  });
   it("creates an organization and provisions only its explicit owner", async () => {
     const context = await organization();
     const rows = await withOrganizationTransaction(context.principal, context.organizationId, "membership.manage", tx => tx.organizationMembership.findMany({ where: { organizationId: context.organizationId } }));
@@ -206,6 +238,25 @@ describe("durable intent and fencing", () => {
     expect(await withWorkerTransaction(context.organizationId, id, token, tx => tx.procurementSession.count())).toBe(1);
     await admin.query('UPDATE pactum."WebhookEvent" SET "leaseToken"=$2 WHERE id=$1', [id, randomUUID()]);
     await expect(withWorkerTransaction(context.organizationId, id, token, tx => tx.procurementSession.count())).rejects.toMatchObject({ status: 409 });
+  });
+  it("limits a leased worker to its bound session and prevents stealing an active webhook lease", async () => {
+    const context = await organization(), first = draft(), second = draft();
+    const repo = new PrismaSessionRepository(context, "session.write");
+    await repo.save(first, null); await repo.save(second, null);
+    const id = randomUUID(), token = randomUUID();
+    await admin.query(`INSERT INTO pactum."WebhookEvent"(id,"organizationId","sessionPublicId","merchantId","providerEventId","eventType",payload,"payloadHash","verifiedAt",status,"leaseToken","leaseExpiresAt","updatedAt") VALUES($1,$2,$3,'TEST-MERCHANT',$4,'CUSTOMER.DISPUTE.CREATED',$5,$6,now(),'PROCESSING',$7,now()+interval '1 minute',now())`, [id,context.organizationId,first.id,randomUUID(),Buffer.from('{}'),'a'.repeat(64),token]);
+    const scoped = await withWorkerTransaction(context.organizationId,id,token,tx => tx.procurementSession.findMany());
+    expect(scoped.map(row => row.publicId)).toEqual([first.id]);
+    expect(await database(true).webhookEvent.updateMany({ where: { id }, data: { leaseToken: randomUUID() } })).toMatchObject({ count: 0 });
+    await withWorkerTransaction(context.organizationId,id,token,async tx => {
+      await tx.dispute.create({ data: { organizationId:context.organizationId,sessionId:scoped[0].id,publicId:randomUUID(),status:'OPEN',evidenceRoot:'a'.repeat(64),record:Buffer.from('{}') } });
+    });
+    const secondId = (await admin.query('SELECT id FROM pactum."ProcurementSession" WHERE "publicId"=$1',[second.id])).rows[0].id;
+    await expect(withWorkerTransaction(context.organizationId,id,token,tx => tx.dispute.create({ data: { organizationId:context.organizationId,sessionId:secondId,publicId:randomUUID(),status:'OPEN',evidenceRoot:'a'.repeat(64),record:Buffer.from('{}') } }))).rejects.toThrow();
+    const captureJob = randomUUID(), captureToken = randomUUID();
+    await admin.query(`INSERT INTO pactum."WebhookEvent"(id,"organizationId","sessionPublicId","merchantId","providerEventId","eventType",payload,"payloadHash","verifiedAt",status,"leaseToken","leaseExpiresAt","updatedAt") VALUES($1,$2,$3,'TEST-MERCHANT',$4,'PAYMENT.CAPTURE.COMPLETED',$5,$6,now(),'PROCESSING',$7,now()+interval '1 minute',now())`, [captureJob,context.organizationId,first.id,randomUUID(),Buffer.from('{}'),'a'.repeat(64),captureToken]);
+    await expect(withWorkerTransaction(context.organizationId,captureJob,captureToken,tx => tx.dispute.create({ data: { organizationId:context.organizationId,sessionId:scoped[0].id,publicId:randomUUID(),status:'OPEN',evidenceRoot:'a'.repeat(64),record:Buffer.from('{}') } }))).rejects.toThrow();
+    expect((await admin.query('SELECT count(*)::int count FROM pactum."Dispute" WHERE "sessionId"=$1',[scoped[0].id])).rows[0].count).toBe(1);
   });
   it("durably replays idempotency and rejects a different payload", async () => {
     const context = await organization(), scope = workspaceScope(context, "session.write", []);
