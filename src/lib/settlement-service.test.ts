@@ -1,8 +1,8 @@
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SettlementService } from "./settlement-service";
 import { sessionStore } from "./session-store";
 import { PayPalClient } from "./paypal-client";
-import { CryptographicFlightRecorder } from "./flight-recorder";
 import type { ProcurementSession } from "../types/pactum";
 
 describe("Settlement Service & Audited Capture Gate Tests", () => {
@@ -80,7 +80,7 @@ describe("Settlement Service & Audited Capture Gate Tests", () => {
     updatedAt: new Date().toISOString(),
   };
 
-  const validRecorder = CryptographicFlightRecorder.getOrReconstitute(validSession);
+  const validRecorder = recordCommercialFixture(validSession);
   validSession.flightRecord = validRecorder.exportFlightRecord();
   validSession.merkleRoot = validRecorder.getRootHash();
   validSession.preSettlementRoot = validRecorder.getRootHash();
