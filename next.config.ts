@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Enforce React strict mode for robust lifecycle checks
   reactStrictMode: true,
+  outputFileTracingIncludes: {
+    "/*": ["./prisma/certs/supabase-ca.cer"],
+  },
 };
 
 // Production validation must not overwrite a running development server's artifacts.
