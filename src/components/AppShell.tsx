@@ -72,6 +72,7 @@ export function AppShell({
   }, [mobileMenuOpen]);
 
   const organization = useOrganization();
+  const organizationError = useOrganizationControl().error;
   const navItems = [
     { id: "overview", label: "Overview", icon: Compass },
     { id: "sourcing", label: "Sourcing", icon: Search },
@@ -245,6 +246,7 @@ export function AppShell({
             : "max-w-[1344px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12"
         }`}
       >
+        {organizationError && <p role="alert" className="mx-4 mt-4 rounded-[6px] border border-red-500/20 p-3 text-sm text-red-600 dark:text-red-400">{organizationError}</p>}
         {children}
       </main>
 
