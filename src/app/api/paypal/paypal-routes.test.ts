@@ -1,3 +1,4 @@
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 // Provider-domain tests inject the HTTP persistence boundary; PostgreSQL replay/RLS tests use the real wrapper.
 vi.mock("@/lib/db/webhook-route", () => ({ withWebhookRoute: (handler: unknown) => handler }));
 // This suite exercises domain behavior; real authentication/RLS boundaries have separate adversarial tests.
@@ -14,7 +15,6 @@ import { POST as cancelHandler } from "./cancel/route";
 import { NextRequest } from "next/server";
 import { sessionStore } from "@/lib/session-store";
 import { defaultRateLimiter } from "@/lib/rate-limiter";
-import { CryptographicFlightRecorder } from "@/lib/flight-recorder";
 import type { ProcurementSession } from "@/types/pactum";
 
 describe("PayPal API Routes Integration Tests", () => {
@@ -95,7 +95,7 @@ describe("PayPal API Routes Integration Tests", () => {
     updatedAt: new Date().toISOString(),
   };
 
-  const recorder = CryptographicFlightRecorder.getOrReconstitute(validSession);
+  const recorder = recordCommercialFixture(validSession);
   validSession.flightRecord = recorder.exportFlightRecord();
   validSession.preSettlementRoot = recorder.getRootHash();
   validSession.merkleRoot = recorder.getRootHash();
