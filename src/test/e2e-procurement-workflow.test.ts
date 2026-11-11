@@ -1,3 +1,4 @@
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 /**
  * PACTUM — Phase 2: End-to-End Procurement Workflow Refinement Test Suite
  *
@@ -27,7 +28,6 @@ import { SettlementService } from "@/lib/settlement-service";
 import { PayPalClient } from "@/lib/paypal-client";
 import { parseProcurementMandate } from "@/lib/mandate-parser";
 import { extractProcurementMandate } from "@/lib/mandate-parser";
-import { CryptographicFlightRecorder } from "@/lib/flight-recorder";
 import type {
   ProcurementMandate,
   VendorQuote,
@@ -438,7 +438,7 @@ describe("PACTUM End-to-End Procurement Workflow Journeys", () => {
       acceptedAt: new Date().toISOString(),
       mandateVersion: 1,
     };
-    session.preSettlementRoot = "d".repeat(64);
+    recordCommercialFixture(session);
     session.status = "AUDIT_PENDING";
     session.paypalOrderId = "ORDER-MOCK-FAIL";
     sessionStore.saveSession(session);
@@ -516,7 +516,7 @@ describe("PACTUM End-to-End Procurement Workflow Journeys", () => {
       acceptedAt: new Date().toISOString(),
       mandateVersion: 1,
     };
-    const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
+    const recorder = recordCommercialFixture(session);
     session.flightRecord = recorder.exportFlightRecord();
     session.preSettlementRoot = recorder.getRootHash();
     session.merkleRoot = recorder.getRootHash();
@@ -637,7 +637,7 @@ describe("PACTUM End-to-End Procurement Workflow Journeys", () => {
       acceptedAt: new Date().toISOString(),
       mandateVersion: 1,
     };
-    const recorder = CryptographicFlightRecorder.getOrReconstitute(session);
+    const recorder = recordCommercialFixture(session);
     session.flightRecord = recorder.exportFlightRecord();
     session.preSettlementRoot = recorder.getRootHash();
     session.merkleRoot = recorder.getRootHash();
