@@ -1,3 +1,4 @@
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 /**
  * PACTUM — Phase 6.7 Financial Correctness & Settlement UI Test Suite
  *
@@ -268,8 +269,7 @@ describe("Phase 6.7: INR Financial Correctness & Settlement UI Verification", ()
       acceptedAt: new Date().toISOString(),
       mandateVersion: 1,
     };
-    session.preSettlementRoot = "c".repeat(64);
-    session.merkleRoot = "c".repeat(64);
+    recordCommercialFixture(session);
     sessionStore.saveSession(session);
 
     const result = await settlementService.initiateCheckout({ sessionId: session.id });
@@ -386,6 +386,7 @@ describe("Phase 6.7: INR Financial Correctness & Settlement UI Verification", ()
     };
 
     const auditor = new AcworldAuditor();
+    recordCommercialFixture(inrSession);
     const certificate = auditor.audit({ session: inrSession });
 
     expect(certificate.passed).toBe(true);
