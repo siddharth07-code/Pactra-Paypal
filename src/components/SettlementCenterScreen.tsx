@@ -37,7 +37,7 @@ import {
   ArrowRightLeft,
 } from "lucide-react";
 import type { ProcurementSession, ProcurementSessionStatus, FXConversionRecord } from "@/types/pactum";
-import { formatCurrency, formatDaysSLA } from "@/lib/currency";
+import { formatCurrency, formatDaysSLA, isPayPalSupportedCurrency } from "@/lib/currency";
 
 function displayFxRate(rate: string): string {
   const [whole, decimals = ""] = rate.split(".");
@@ -54,6 +54,8 @@ function FXRateProvenance({ record }: { record: FXConversionRecord }) {
         <div className="flex flex-wrap justify-between gap-2"><span>Provider Updated:</span><time dateTime={reference.updatedAt}>{new Date(reference.updatedAt).toLocaleString()}</time></div>
         <div className="flex flex-wrap justify-between gap-2"><span>Retrieved:</span><time dateTime={reference.retrievedAt}>{new Date(reference.retrievedAt).toLocaleString()}</time></div>
       </>}
+      <div className="flex flex-wrap justify-between gap-2"><span>Quote Created:</span><time dateTime={record.quotedAt}>{new Date(record.quotedAt).toLocaleString()}</time></div>
+      {record.lockedAt && <div className="flex flex-wrap justify-between gap-2"><span>Quote Locked:</span><time dateTime={record.lockedAt}>{new Date(record.lockedAt).toLocaleString()}</time></div>}
       <div className="flex flex-wrap justify-between gap-2"><span>Quote Expires:</span><time dateTime={record.expiresAt}>{new Date(record.expiresAt).toLocaleString()}</time></div>
       <div className="flex flex-wrap justify-between gap-2"><span>Status:</span><span>{record.status !== "CONSUMED" && Date.parse(record.expiresAt) <= Date.now() ? "EXPIRED" : record.status}</span></div>
       {record.rateSource === "LIVE_PROVIDER" && <p className="text-text-secondary">Periodically updated reference rate. Quote expiry is separate from provider updates. This is not a guaranteed executable market rate.</p>}
@@ -412,10 +414,10 @@ export function SettlementCenterScreen({
     : "Not established";
 
   const unitPrice = hasAgreement ? (agreementRecord?.agreedPrice ?? finalOffer?.unitPrice ?? null) : null;
-  const quantity = hasAgreement ? (finalOffer?.quantity ?? mandate?.quantity ?? null) : (mandate?.quantity ?? null);
-  const deliveryDays = hasAgreement ? finalOffer?.deliveryDays : null;
-  const returnDays = hasAgreement ? finalOffer?.returnDays : null;
-  const shippingCost = hasAgreement ? (finalOffer?.shippingCost ?? 0) : null;
+  const quantity = hasAgreement ? (agreementRecord?.agreedOffer.quantity ?? finalOffer?.quantity ?? mandate?.quantity ?? null) : (mandate?.quantity ?? null);
+  const deliveryDays = hasAgreement ? (agreementRecord?.agreedOffer.deliveryDays ?? finalOffer?.deliveryDays) : null;
+  const returnDays = hasAgreement ? (agreementRecord?.agreedOffer.returnDays ?? finalOffer?.returnDays) : null;
+  const shippingCost = hasAgreement ? (agreementRecord?.agreedOffer.shippingCost ?? finalOffer?.shippingCost ?? 0) : null;
 
   // Landed cost and budget
   const mandateBudget = mandate?.maxTotalBudget ?? 0;
@@ -446,7 +448,7 @@ export function SettlementCenterScreen({
   const failedInvariantsCount = auditCert?.invariants?.filter((i) => !i.passed).length ?? (session?.status === "AUDIT_FAILED" ? 1 : 0);
 
   // Cross-Currency Settlement Bridge state
-  const isCrossCurrency = Boolean(mandate?.currency && mandate.currency !== "USD");
+  const isCrossCurrency = Boolean(mandate?.currency && !isPayPalSupportedCurrency(mandate.currency));
   const fxVerification = session?.fxVerification;
   const hasFxVerification = Boolean(fxVerification && fxVerification.conversionHash === session?.fxRecord?.conversionHash && fxVerification.agreementHash === session?.fxRecord?.agreementHash && isAuditPassed && (session?.fxRecord?.status === "CONSUMED" || Date.parse(session?.fxRecord?.expiresAt ?? "") > Date.now()));
   const fxVerified = hasFxVerification && fxVerification!.passed && fxVerification!.checks.length > 0 && fxVerification!.checks.every(check => check.passed);
@@ -852,6 +854,9 @@ export function SettlementCenterScreen({
                 </div>
 
                 <div className="space-y-3 text-[13.5px]">
+                  {hasAgreement && agreementRecord?.supplierCommitmentVerified !== true && (
+                    <p className="text-text-secondary">{agreementRecord?.vendorProvenance === "SIMULATED_VENDOR" ? "Simulated supplier agreement." : "Supplier provenance is unverified."} No independently verified supplier commitment is recorded.</p>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="text-text-secondary">Selected Supplier:</span>
                     <span className="font-semibold text-text-primary">{supplierName}</span>
