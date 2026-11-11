@@ -1,3 +1,4 @@
+import { computeAgreementHash } from "@/lib/fx-settlement";
 // This suite exercises domain behavior; real authentication/RLS boundaries have separate adversarial tests.
 vi.mock("@/lib/db/business-route", () => ({ withBusinessRoute: (_permission: unknown, handler: unknown) => handler }));
 vi.mock("@/lib/auth/business-access", () => ({ requireBusinessAccess: vi.fn().mockResolvedValue(null) }));
@@ -132,6 +133,7 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
       "AGREEMENT_CREATED",
       {
         agreementId: session.agreementRecord.agreementId,
+        agreementHash: computeAgreementHash(session.agreementRecord),
         unitPrice: 26000,
         quantity: 25,
         totalCost: 658234.25,
@@ -578,6 +580,7 @@ describe("Phase 6.8.1: Settlement State-Machine Consistency & Re-Audit Suite", (
       "AGREEMENT_CREATED",
       {
         agreementId: session.agreementRecord.agreementId,
+        agreementHash: computeAgreementHash(session.agreementRecord),
         unitPrice: 320,
         quantity: 25,
         totalCost: 8100,
