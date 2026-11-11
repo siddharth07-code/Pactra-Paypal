@@ -29,19 +29,6 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-// Mock Supabase
-const mockSignInWithOAuth = vi.fn().mockResolvedValue({ error: null });
-const mockResetPasswordForEmail = vi.fn().mockResolvedValue({ error: null });
-
-vi.mock("@/src/lib/supabase", () => ({
-  supabase: {
-    auth: {
-      signInWithOAuth: (...args: unknown[]) => mockSignInWithOAuth(...args),
-      resetPasswordForEmail: (...args: unknown[]) => mockResetPasswordForEmail(...args),
-    },
-  },
-}));
-
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -280,6 +267,8 @@ describe("AnimatedAuth Component", () => {
   });
 
   it("triggers forgot password recovery flow", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ success: true }, { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
     render(
       <ThemeProvider>
         <AnimatedAuth initialMode="login" />
@@ -293,14 +282,12 @@ describe("AnimatedAuth Component", () => {
     fireEvent.click(forgotBtn);
 
     await waitFor(() => {
-      expect(mockResetPasswordForEmail).toHaveBeenCalledWith(
-        "reset@pactum.com",
-        expect.objectContaining({
-          redirectTo: expect.stringContaining("/auth/callback"),
-        })
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/auth/recovery",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ email: "reset@pactum.com" }) })
       );
     });
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Password reset link sent!");
+    expect(await screen.findByRole("status")).toHaveTextContent("if this address is eligible");
   });
 });
