@@ -15,5 +15,5 @@ BEGIN
 END $$;
 CREATE TRIGGER pending_finance_guard BEFORE UPDATE ON pactum."ProcurementSession" FOR EACH ROW EXECUTE FUNCTION pactum.protect_pending_finance();
 GRANT SELECT ON pactum."MandateRevision", pactum."Agreement" TO pactum_worker;
-CREATE POLICY worker_read_mandates ON pactum."MandateRevision" FOR SELECT TO pactum_worker USING(pactum.tenant_scope("organizationId"));
-CREATE POLICY worker_read_agreements ON pactum."Agreement" FOR SELECT TO pactum_worker USING(pactum.tenant_scope("organizationId"));
+CREATE POLICY worker_read_mandates ON pactum."MandateRevision" FOR SELECT TO pactum_worker USING(pactum.worker_session_scope("organizationId","sessionId"));
+CREATE POLICY worker_read_agreements ON pactum."Agreement" FOR SELECT TO pactum_worker USING(pactum.worker_session_scope("organizationId","sessionId"));
