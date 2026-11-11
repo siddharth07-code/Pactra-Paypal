@@ -67,7 +67,7 @@ describe("Gemini Negotiation Client Unit Tests", () => {
     expect(proposal.unitPrice).toBe(310.5);
     expect(proposal.deliveryDays).toBe(3);
     expect(proposal.returnDays).toBe(45);
-    expect(proposal.message).toContain("$310.50");
+    expect(proposal.message).toContain("USD 310.50");
     expect(proposal.error).toBeUndefined();
     expect(proposal.latencyMs).toBeTypeOf("number");
     expect(proposal.modelName).toBe(client.getModelName());
@@ -76,6 +76,8 @@ describe("Gemini Negotiation Client Unit Tests", () => {
     // Verify formal schema was passed to generateContent config
     const callArgs = mockGenerateContent.mock.calls[0][0];
     expect(callArgs.config.responseSchema).toEqual(BUYER_PROPOSAL_SCHEMA);
+    expect(callArgs.config.maxOutputTokens).toBe(1024);
+    expect(callArgs.config.thinkingConfig).toEqual({ thinkingBudget: 0 });
     expect(callArgs.config.responseMimeType).toBe("application/json");
   });
 
