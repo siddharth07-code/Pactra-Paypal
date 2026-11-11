@@ -69,6 +69,22 @@ export function validateConfiguration(
 
   // Production security checks
   if (environment === "production") {
+    for (const name of ["DATABASE_URL", "WORKER_DATABASE_URL"] as const) {
+      try {
+        const url = new URL(env[name] ?? "");
+        const role = decodeURIComponent(url.username).split(".")[0];
+        if (!["postgres:", "postgresql:"].includes(url.protocol) || !role || !url.password ||
+          ["postgres", "supabase_admin", "service_role"].includes(role) || role.endsWith("_migrator")) throw new Error();
+      } catch {
+        errors.push(`${name} must use valid restricted PostgreSQL credentials in production.`);
+      }
+    }
+    if (env.LOCAL_IDENTITY_PROJECTION) {
+      errors.push("LOCAL_IDENTITY_PROJECTION must be unset in production.");
+    }
+    if (isPlaceholder(env.PAYPAL_WEBHOOK_ID) || isPlaceholder(env.PAYPAL_MERCHANT_ID)) {
+      errors.push("PAYPAL_WEBHOOK_ID and PAYPAL_MERCHANT_ID must be configured in production.");
+    }
     try { authConfiguration(env); } catch {
       errors.push("SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, and HTTPS APP_ORIGIN must be configured for production authentication.");
     }
