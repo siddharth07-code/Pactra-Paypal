@@ -1,3 +1,4 @@
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 /**
  * PACTUM — Phase 5: Production Reliability, Durable Persistence & Recoverable Settlement Tests
  *
@@ -410,7 +411,7 @@ describe("Phase 5: Production Reliability & Durable Persistence", () => {
         returnPolicyText: "30-day return policy",
         timestamp: new Date().toISOString(),
       };
-      session.preSettlementRoot = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
+      recordCommercialFixture(session);
       sessionStore.saveSession(session);
 
       // Mock PayPalClient with timeout error
