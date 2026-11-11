@@ -1,3 +1,4 @@
+import { recordCommercialFixture } from "@/test/helpers/commercial-evidence";
 // Provider-domain tests inject the HTTP persistence boundary; PostgreSQL replay/RLS tests use the real wrapper.
 vi.mock("@/lib/db/webhook-route", () => ({ withWebhookRoute: (handler: unknown) => handler }));
 import { completedOrder } from "@/test/helpers/payment-fixtures";
@@ -129,6 +130,7 @@ function createTestINRSession(): ProcurementSession {
     acceptedAt: new Date().toISOString(),
   };
 
+  recordCommercialFixture(session);
   const auditor = new AcworldAuditor();
   const cert = auditor.audit({ session });
   session.auditCertificate = cert;
@@ -189,6 +191,7 @@ function createTestUSDSession(): ProcurementSession {
     acceptedAt: new Date().toISOString(),
   };
 
+  recordCommercialFixture(session);
   const auditor = new AcworldAuditor();
   session.auditCertificate = auditor.audit({ session });
   session.status = "AUDIT_PASSED";
@@ -1512,4 +1515,16 @@ describe("Phase 6.8: Verifiable FX Settlement Bridge Matrix (56 Proofs)", () => 
       expect(container.innerHTML).toMatch(/overflow-hidden|break-words|truncate/);
     });
   });
+});
+
+it.each(["EUR", "GBP"] as const)("settles native %s without incorrectly requiring the INR FX bridge", currency => {
+  const session = createTestUSDSession();
+  session.mandate.currency = currency;
+  session.agreementRecord!.currency = currency;
+  session.agreementRecord!.agreedOffer.currency = currency;
+  session.finalOffer!.currency = currency;
+  session.selectedQuote!.currency = currency;
+  render(<SettlementCenterScreen session={session} />);
+  expect(screen.queryByText("CROSS-CURRENCY SETTLEMENT")).not.toBeInTheDocument();
+  expect(screen.queryByText(/INR → USD Bridge/)).not.toBeInTheDocument();
 });
