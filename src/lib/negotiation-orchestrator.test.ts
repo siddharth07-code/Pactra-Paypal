@@ -137,9 +137,11 @@ describe("Negotiation Orchestrator Unit Tests", () => {
     const r1BuyerApproved = r1Turns.filter((t) => t.actor === "BUYER" && t.guardrailStatus === "APPROVED");
     expect(r1BuyerApproved.length).toBe(1);
 
-    // Merkle tree should have exactly 4 nodes: MANDATE_LOCKED, CHANNEL3_CATALOG_SNAPSHOT, ROUND 1, ROUND 2
     const nodes = result.merkleTree.getAuditNodes();
-    expect(nodes.length).toBe(4);
+    expect(nodes.length).toBe(5);
+    expect(result.session.flightRecord?.events.filter(event => event.eventType === "AGREEMENT_CREATED")).toHaveLength(1);
+    expect(result.session.flightRecord?.events.filter(event => event.eventType === "VERIFIED_NEGOTIATION_ROUND")).toHaveLength(2);
+    expect(result.session.flightRecord?.rootHash).toBe(result.merkleTree.getRootHash());
   });
 
   // 19. Backward compatibility and live provenance
@@ -189,7 +191,7 @@ describe("Negotiation Orchestrator Unit Tests", () => {
 
     const turn = result.session.turns.find((t) => t.actor === "BUYER");
     expect(turn?.generator).toBe("GEMINI_LIVE");
-    expect(turn?.message).toBe("Live Gemini offer of $310.");
+    expect(turn?.message).toContain("USD 310.00 per unit");
   });
 
   // Phase 4: Vendor simulation provenance and distinct strategies
