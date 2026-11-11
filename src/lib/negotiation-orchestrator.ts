@@ -21,6 +21,7 @@ import type {
   QuoteEvaluation,
   AgreementRecord,
   NegotiationOfferState,
+  FlightRecorderEventType,
 } from "../types/pactum";
 import {
   verifyBuyerOffer,
@@ -38,6 +39,9 @@ import {
   type VendorSimulationProfile,
 } from "./vendor-simulator";
 import { formatCurrency } from "./currency";
+import { CryptographicFlightRecorder, getEventForMerkleTree } from "./flight-recorder";
+import { computeAgreementHash } from "./fx-settlement";
+import { requestScope } from "./persistence/request-scope";
 import { minor } from "./db/codec";
 import { NegotiationRunError, negotiationFailureCode } from "./negotiation-failure";
 
@@ -156,20 +160,32 @@ export class NegotiationOrchestrator {
     }
 
       const merkleTree = new VeriPayMerkleTree();
+      const previousRecord = sessionStore.getSession(sessionId)?.flightRecord;
+      const recorder = previousRecord ? CryptographicFlightRecorder.fromSerialized(previousRecord) : new CryptographicFlightRecorder(sessionId);
+      if (recorder.getSessionId() !== sessionId) throw new Error("Negotiation evidence belongs to another session.");
+      for (const event of recorder.getEvents()) merkleTree.addEvent(event.eventType, getEventForMerkleTree(event), event.timestamp);
+      const organizationId = requestScope()?.organization.organizationId;
+      const commitEvent = (type: FlightRecorderEventType, payload: Record<string, unknown>) => {
+        const { event } = recorder.recordEvent(type, { ...payload, ...(organizationId ? { organizationId } : {}) }, { mandateVersion: mandate.version ?? 1 });
+        merkleTree.addEvent(type, getEventForMerkleTree(event), event.timestamp);
+      };
 
       // 1. Commit MANDATE_LOCKED event
-      merkleTree.addEvent("MANDATE_LOCKED", {
+      commitEvent("MANDATE_LOCKED", {
         mandateId: mandate.id,
         quantity: mandate.quantity,
         maxBudget: mandate.maxTotalBudget,
         maxDeliveryDays: mandate.maxDeliveryDays,
         minReturnDays: mandate.minReturnDays,
         currency: mandate.currency,
+        itemQuery: mandate.itemQuery,
+        requiredSpecs: mandate.requiredSpecs,
+        ...(mandate.productDetails ? { productDetails: mandate.productDetails } : {}),
         timestamp: new Date().toISOString(),
       });
 
     // 2. Commit CHANNEL3_CATALOG_SNAPSHOT event
-    merkleTree.addEvent("CHANNEL3_CATALOG_SNAPSHOT", {
+    commitEvent("CHANNEL3_CATALOG_SNAPSHOT", {
       sessionId,
       quotes: initialQuotes.map((q) => ({
         vendorId: q.vendorId,
@@ -177,6 +193,12 @@ export class NegotiationOrchestrator {
         sku: q.sku,
         initialUnitAsk: q.initialUnitAsk,
         shippingCost: q.shippingCost,
+        currency: q.currency,
+        productTitle: q.productTitle,
+        deliveryDays: q.deliveryDays,
+        returnDays: q.returnDays,
+        condition: q.condition,
+        dataSource: q.dataSource,
       })),
       timestamp: new Date().toISOString(),
     });
@@ -207,6 +229,7 @@ export class NegotiationOrchestrator {
       }
 
       if (
+        existing.paypalOrderId || existing.paypalAuthorizationId || existing.fxRecord?.status === "LOCKED" || existing.fxRecord?.status === "CONSUMED" ||
         existing.status === "CANCELLED" ||
         existing.status === "SETTLED" ||
         existing.status === "PAYPAL_CAPTURED" ||
@@ -233,8 +256,19 @@ export class NegotiationOrchestrator {
       mandate: { ...(existing?.mandate || mandate), isLocked: true },
       quotes: activeQuotes,
       turns: [],
+      agreementRecord: undefined,
+      selectedQuote: undefined,
+      finalOffer: undefined,
+      auditCertificate: undefined,
+      fxRecord: undefined,
+      fxVerification: undefined,
+      preSettlementRoot: undefined,
+      postAuditRoot: undefined,
+      merkleRoot: recorder.getRootHash(),
+      auditHistory: [...(existing?.auditHistory ?? []), ...(existing?.auditCertificate ? [existing.auditCertificate] : [])],
       negotiationFailure: undefined,
       negotiationHistory: [...(existing?.negotiationHistory ?? []), ...(existing?.turns.length ? [{ turns: structuredClone(existing.turns), merkleRoot: existing.merkleRoot, updatedAt: existing.updatedAt }] : [])],
+      flightRecord: recorder.exportFlightRecord(),
       status: "NEGOTIATING",
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -562,6 +596,9 @@ export class NegotiationOrchestrator {
               sku: vendor.sku,
               offerReference: turnId,
               agreedPrice: vendorResponse.unitAsk,
+              vendorProvenance: "SIMULATED_VENDOR",
+              supplierCommitmentVerified: false,
+              ...(organizationId ? { organizationId } : {}),
               agreedOffer: { ...offer, unitPrice: vendorResponse.unitAsk, currency: mandate.currency },
               totalCost: exactLandedCost(vendorResponse.unitAsk, mandate.quantity, vendor.shippingCost),
               currency: mandate.currency,
@@ -624,6 +661,7 @@ export class NegotiationOrchestrator {
                 vendorId: vendor.vendorId,
                 vendorName: vendor.vendorName,
                 agreedPrice: vendorResponse.unitAsk,
+                unitPrice: vendorResponse.unitAsk, currency: mandate.currency, provenance: "SIMULATED_VENDOR",
                 agreementId: state.agreement?.agreementId,
                 acceptingParty: "VENDOR",
                 acceptanceMechanism: "VENDOR_ACCEPTED_BUYER_OFFER",
@@ -635,7 +673,7 @@ export class NegotiationOrchestrator {
       }
 
       // Commit verified round history to Merkle Flight Recorder
-      merkleTree.addEvent("VERIFIED_NEGOTIATION_ROUND", {
+      commitEvent("VERIFIED_NEGOTIATION_ROUND", {
         sessionId,
         round,
         turnsInRound: turns.filter((t) => t.round === round),
@@ -654,7 +692,7 @@ export class NegotiationOrchestrator {
         await this.emit({ type: "NEGOTIATION_ABORTED", payload: { sessionId, reason } });
         return { session: checkpoint, merkleTree, completed: false };
       }
-      await saveSessionCheckpoint({ ...checkpoint, turns: structuredClone(turns), quotes: structuredClone(activeQuotes), merkleRoot: merkleTree.getRootHash(), preSettlementRoot: merkleTree.getRootHash() });
+      await saveSessionCheckpoint({ ...checkpoint, turns: structuredClone(turns), quotes: structuredClone(activeQuotes), flightRecord: recorder.exportFlightRecord(), merkleRoot: merkleTree.getRootHash(), preSettlementRoot: merkleTree.getRootHash() });
       await this.emit({
         type: "ROUND_COMPLETED",
         payload: { sessionId, round, merkleRoot: merkleTree.getRootHash() },
@@ -714,6 +752,9 @@ export class NegotiationOrchestrator {
             sku: vendor.sku,
             offerReference: acceptTurnId,
             agreedPrice: finalAsk,
+            vendorProvenance: "SIMULATED_VENDOR",
+            supplierCommitmentVerified: false,
+            ...(organizationId ? { organizationId } : {}),
             agreedOffer: { ...candidateOffer, currency: mandate.currency },
             totalCost,
             currency: mandate.currency,
@@ -754,6 +795,7 @@ export class NegotiationOrchestrator {
               vendorId: vendor.vendorId,
               vendorName: vendor.vendorName,
               agreedPrice: finalAsk,
+              unitPrice: finalAsk, currency: mandate.currency, provenance: "SIMULATED_VENDOR",
               agreementId: agreement.agreementId,
               acceptingParty: "BUYER",
               acceptanceMechanism: "BUYER_ACCEPTED_VENDOR_COUNTEROFFER",
@@ -871,6 +913,7 @@ export class NegotiationOrchestrator {
           finalOffer: undefined,
           agreementRecord: undefined,
           status: "AUDIT_FAILED",
+          flightRecord: recorder.exportFlightRecord(),
           merkleRoot: merkleTree.getRootHash(),
           preSettlementRoot: merkleTree.getRootHash(),
           createdAt: initialSession.createdAt,
@@ -932,6 +975,8 @@ export class NegotiationOrchestrator {
       // Run independent ACWORLD audit on final negotiated state
       const auditor = new AcworldAuditor();
 
+      commitEvent("AGREEMENT_CREATED", { agreementId: winner.agreement.agreementId, agreementHash: computeAgreementHash(winner.agreement), agreement: winner.agreement, provenance: "SIMULATED_VENDOR", supplierCommitmentVerified: false });
+
       const preAuditSession: ProcurementSession = {
         id: sessionId,
         mandate,
@@ -940,6 +985,7 @@ export class NegotiationOrchestrator {
         selectedQuote: winner.quote,
         finalOffer,
         agreementRecord: winner.agreement,
+        flightRecord: recorder.exportFlightRecord(),
         status: "AUDIT_PENDING",
         merkleRoot: merkleTree.getRootHash(),
         preSettlementRoot: merkleTree.getRootHash(),
@@ -959,6 +1005,7 @@ export class NegotiationOrchestrator {
         agreementRecord: winner.agreement,
         status: auditCertificate.passed ? "AUDIT_PASSED" : "AUDIT_FAILED",
         auditCertificate,
+        flightRecord: recorder.exportFlightRecord(),
         merkleRoot: merkleTree.getRootHash(),
         preSettlementRoot: merkleTree.getRootHash(),
         createdAt: initialSession.createdAt,
