@@ -1,3 +1,4 @@
+import { computeAgreementHash } from "@/lib/fx-settlement";
 // Provider-domain tests inject the HTTP persistence boundary; PostgreSQL replay/RLS tests use the real wrapper.
 vi.mock("@/lib/db/webhook-route", () => ({ withWebhookRoute: (handler: unknown) => handler }));
 // This suite exercises domain behavior; real authentication/RLS boundaries have separate adversarial tests.
@@ -140,6 +141,7 @@ function setupAuthoritativeSession(sid = "session_p52_baseline"): ProcurementSes
     "AGREEMENT_CREATED",
     {
       agreementId: `agr_${sid}`,
+      agreementHash: computeAgreementHash(session.agreementRecord!),
       unitPrice: 320,
       quantity: 25,
       totalCost: 8150,
