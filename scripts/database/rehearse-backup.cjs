@@ -162,15 +162,29 @@ async function sql(statement, database = 'postgres', user = 'supabase_admin') {
       const restored=JSON.parse(fs.readFileSync(verificationEnv.DEPLOYMENT_BASELINE_FILE,'utf8'));
       if(manifest.tableCounts.every(t=>t.digest) && JSON.stringify(restored.tables)!==JSON.stringify(manifest.tableCounts.map(t=>({schema:t.schemaname,table:t.tablename,count:t.count,digest:t.digest}))))throw new Error('Restored contents differ from the encrypted snapshot');
       result.backupContentDigestsMatch=manifest.tableCounts.every(t=>t.digest);
-      const provisioning = await run(['scripts/database/provision-roles.mjs','--apply'],undefined,{BOOTSTRAP_DATABASE_URL:localUrl},process.execPath);
-      seal('role-provisioning.txt',Buffer.concat([provisioning.output,provisioning.errors]));
-      if(provisioning.code!==0)throw new Error('Local least-privilege provisioning failed');
       const identity={host:'127.0.0.1',port:String(port),database:'pactum_disposable',bootstrapRole:'postgres'};
       const credentialId=crypto.createHash('sha256').update(JSON.stringify(identity)).digest('hex').slice(0,16);
-      const credentialFile=path.join(require('node:os').homedir(),'.local/share/pactra/database-credentials',credentialId,'credentials.json');
+      const credentialRoot=path.join(outputDirectory,'credentials');
+      verificationEnv.PACTRA_CREDENTIAL_ROOT=credentialRoot;
+      const credentialDirectory=path.join(credentialRoot,credentialId);
+      fs.mkdirSync(credentialDirectory,{recursive:true,mode:0o700});
+      const credentialFile=path.join(credentialDirectory,'credentials.json');
+      // Backups intentionally omit passwords. A post-bootstrap restore needs fresh LOCAL credentials.
+      const loginRoles=['pactum_app','pactum_jobs','pactum_migrator'];
+      const restoredLogins=(await client.query('SELECT rolname FROM pg_roles WHERE rolname=ANY($1)',[loginRoles])).rows;
+      if(restoredLogins.length) {
+        if(restoredLogins.length!==loginRoles.length)throw new Error('Incomplete restored role model');
+        const passwords=Object.fromEntries(loginRoles.map(role=>[role,crypto.randomBytes(32).toString('hex')]));
+        for(const role of loginRoles)await client.query(`ALTER ROLE ${quote(role)} PASSWORD '${passwords[role]}'`);
+        fs.writeFileSync(credentialFile,JSON.stringify({identity,passwords}),{mode:0o600,flag:'wx'});
+      }
+      const provisioningEnv={BOOTSTRAP_DATABASE_URL:localUrl,PACTRA_CREDENTIAL_ROOT:credentialRoot};
+      const provisioning = await run(['scripts/database/provision-roles.mjs','--apply'],undefined,provisioningEnv,process.execPath);
+      seal('role-provisioning.txt',Buffer.concat([provisioning.output,provisioning.errors]));
+      if(provisioning.code!==0)throw new Error('Local least-privilege provisioning failed');
       const credentials=JSON.parse(fs.readFileSync(credentialFile,'utf8'));
       result.provisioning={exit:provisioning.code,privateCredentialMode:(fs.statSync(credentialFile).mode&0o777).toString(8)};
-      const repeated=await run(['scripts/database/provision-roles.mjs','--apply'],undefined,{BOOTSTRAP_DATABASE_URL:localUrl},process.execPath);
+      const repeated=await run(['scripts/database/provision-roles.mjs','--apply'],undefined,provisioningEnv,process.execPath);
       if(repeated.code!==0)throw new Error('Role provisioning retry failed');
       result.provisioning.retryPreservedCredentials=JSON.stringify(credentials)===fs.readFileSync(credentialFile,'utf8');
       fs.cpSync('prisma', path.join(prismaDirectory, 'prisma'), { recursive: true });

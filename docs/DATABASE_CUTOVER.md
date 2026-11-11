@@ -1,6 +1,6 @@
 # PACTRA Supabase cutover runbook
 
-The operator executes all hosted changes. Preparation and validation have been completed locally on `main`; no hosted bootstrap, migration, role change, deployment, commit, or push was performed. The target is Supabase project `telhivuqsrsaesjkkxuh`, database `postgres`, application schema `pactum`.
+The operator executes all hosted changes. The operator has completed hosted bootstrap; this execution verified all six restricted roles read-only. Hosted migrations and Vercel deployment remain unexecuted. TLS and recovery were verified locally on `main`; no hosted data/role changes, commits, or pushes were made by this execution. The target is Supabase project `telhivuqsrsaesjkkxuh`, database `postgres`, application schema `pactum`.
 
 ## Prepared files and prerequisites
 
@@ -10,19 +10,40 @@ Run from a new terminal in the repository:
 cd ~/Desktop/Pactra-Paypal
 OPERATOR_DIR="$HOME/.local/share/pactra/cutover/2026-11-11T17-04-01.655Z"
 ROLE_DIR="$HOME/.local/share/pactra/database-credentials/85d2b2a26fc77f96"
-BACKUP_DIR="$HOME/.local/share/pactra/backups/telhivuqsrsaesjkkxuh/2026-11-11T17-41-19.710Z"
+BACKUP_DIR="$HOME/.local/share/pactra/backups/telhivuqsrsaesjkkxuh/2026-11-11T20-24-47.707Z"
 ```
 
 These are actual prepared paths on this Mac. Files are owner-only and outside Git. Do not display, paste into chat, or commit their contents.
 
 - `$OPERATOR_DIR/bootstrap.env`: the existing administrator Session Pooler credential, expected project pin, trusted absolute CA path, deployment baseline path, and verified-backup baseline path. For operator tools only.
-- `$ROLE_DIR/credentials.json`: generated role passwords and target identity. Preserve it for idempotent retries. Passwords have been prepared locally but are not active on Supabase yet.
+- `$ROLE_DIR/credentials.json`: generated role passwords and target identity. Preserve it for idempotent retries. These credentials now authenticate the provisioned Supabase roles; do not regenerate them or rotate passwords during cutover.
 - `$ROLE_DIR/migration.env`: both `DATABASE_URL` and `DIRECT_URL` identify the restricted migrator through the Session Pooler on 5432. Operator only.
 - `$ROLE_DIR/runtime.env`: `DATABASE_URL` for `pactum_app` and `WORKER_DATABASE_URL` for `pactum_jobs` through the Transaction Pooler on 6543.
 - `$OPERATOR_DIR/application.env`: runtime URLs, existing provider credentials, and a newly generated cron secret, without elevated or local-development database credentials. Only three external fields remain empty: `APP_ORIGIN`, `PAYPAL_WEBHOOK_ID`, and `REDIS_URL`.
 - `$BACKUP_DIR`: the refreshed authenticated encrypted database/role/configuration backup, including current Auth records and resolved database-role settings. The earlier verified bundle at `~/Desktop/2026-11-11T11-40-33.502Z` remains byte-identical. Its key remains separately protected at the location recorded in `summary.json`.
 
 Use Node 26, the installed locked dependencies, and the reviewed working tree. No automatic commit or push has been made. If deploying through Git, personally publish the reviewed source first; if using the Vercel CLI, deploy this working tree with the included `.vercelignore`.
+
+
+## Confirmed TLS diagnosis and current recovery state (12 November 2026)
+
+`~/Desktop/Pactum-Paypal` is a symlink to this repository. Both names refer to the same `main` checkout.
+
+The pooler presents a valid `*.pooler.supabase.com` certificate (12 March 2025–11 March 2030), via Supabase Intermediate 2021 CA to the packaged Supabase Root 2021 CA (expires 26 April 2031). Root SHA-256 fingerprint: `807025AD50D4ED219D2C9C7D299C004F824EB00CF7F65AFEF607D07B72E6CAFA`. OpenSSL verifies its chain and actual hostname. An unrelated hostname is rejected. The PEM CA was neither missing nor expired.
+
+Prisma 6.19.3's native macOS engine returns P1011 even with an absolute `sslcert` path; `sslrootcert` and using the intermediate alone do not fix it. macOS `security verify-cert` also reports `CSSMERR_TP_CERT_SUSPENDED`. This establishes a macOS native trust-evaluation failure, not an incorrect endpoint/path; it does not establish a public revocation finding. The same version's Linux/OpenSSL engine connects with `sslmode=require&sslaccept=strict` and the same CA and reports all five migrations pending. No trust-store edits or verification bypasses are needed. Keep the single published root certificate; concatenating PEM certificates is not a portable fix for this Prisma native TLS loader.
+
+The permanent macOS command is `scripts/database/hosted-prisma.mjs`; it invokes the installed Prisma CLI using the matching Linux schema engine. `migrate status` intentionally exits **1** when unapplied migrations are present; listing the five pending names without P1011 demonstrates successful connectivity. Never respond to this exit status with `migrate dev`, reset, or `db push` on Supabase. On Linux, the runner uses the normal installed engine. The Vercel runtime uses its Linux query engine and the packaged public CA; both restricted runtime/worker logins have also been queried with that engine over strict TLS.
+
+The prior backup still passes AES-GCM/SHA-256 verification but no longer matched current Auth records. It is preserved. The refreshed backup at `$BACKUP_DIR` was restored to an isolated Supabase container: all **41 table counts and content digests** match; all five migrations applied, post-migration security verification passed, and existing contents were unchanged. Evidence is in:
+
+```text
+$BACKUP_DIR/rehearsals/final-2026-11-11T20-29-59.261Z/patched-corrected/recovery-summary.json
+```
+
+Its separate key is `~/.config/pactra-backup/keys/2026-11-11T20-24-47.707Z.key`. `bootstrap.env` now points to that rehearsal's restored baseline and the new, not-yet-created `$OPERATOR_DIR/cutover-baseline-tls-2026-11-12.json`. The final read-only hosted comparison matched the refreshed snapshot. Freeze application/Auth writers before running section 2 and keep them stopped through post-migration verification. If records change again, the guard must stop deployment; do not overwrite the baseline or bypass the guard. Retain the backup and key independently as described below.
+
+The refreshed bundle preserves its original recovery instructions and includes `rehearse-post-bootstrap.cjs`, the tested rehearsal helper for snapshots containing the completed bootstrap. Its generated passwords and role changes apply only to the disposable restoration, never to Supabase. The original two backup bundles remain untouched.
 
 ## 1. Complete external dashboard configuration
 
@@ -64,20 +85,16 @@ If the backup guard reports further drift **before bootstrap**, refresh using th
 node --env-file="$OPERATOR_DIR/bootstrap.env" scripts/database/backup.cjs
 # Set BACKUP_DIR to the new private directory printed by that command.
 node "$BACKUP_DIR/recover.cjs" verify
-PACTRA_BACKUP_DIRECTORY="$BACKUP_DIR" node "$BACKUP_DIR/rehearse.cjs"
+PACTRA_BACKUP_DIRECTORY="$BACKUP_DIR" node "$BACKUP_DIR/rehearse-post-bootstrap.cjs"
 ```
 
 Require `fullRestorePassed: true`, matching counts/content digests, all five migrations, and passing security/operator verification in the printed rehearsal directory. Set `VERIFIED_BACKUP_BASELINE_FILE` in the private `bootstrap.env` to that directory's `restored-baseline.json`, secure independent copies of the new bundle/key, and rerun the preflight/`--before` commands. These tools take a consistent read-only exported snapshot and restore only to a disposable local container. They never bootstrap/migrate hosted Supabase. Do not use the initial-cutover replay to repair an already partially migrated hosted schema.
 
 The baseline file is created exclusively, so a repeated `--before` will stop if it already exists. After successful bootstrap/migrations, do not recapture the initial-cutover baseline. Verify with `--after` instead.
 
-## 3. Provision the reviewed roles and Auth adapters
+## 3. Bootstrap is complete — do not provision again
 
-Only the operator runs this hosted write command:
-
-```bash
-node --env-file="$OPERATOR_DIR/bootstrap.env" scripts/database/provision-roles.mjs --apply
-```
+All six roles and the Auth adapters have already been provisioned by the operator and verified read-only. Skip hosted `--apply`; proceed to migration status/deployment after the frozen-write backup guard passes.
 
 This transaction creates the six PACTRA roles, schema ownership, three fixed Auth adapters, grants, and new login passwords. It does not deploy migrations or change existing records or Supabase-owned Auth tables.
 
@@ -94,13 +111,17 @@ If a process is killed and leaves `provision.lock` in `ROLE_DIR`, first establis
 
 ## 4. Apply the five pending Prisma migrations
 
-Use the restricted migration environment; never inject it into Vercel:
+Use the restricted migration environment; never inject it into Vercel. Start the trusted local Docker daemon on macOS. The runner downloads the matching Prisma engine with checksum verification and runs only that engine in a pinned Linux container, with read-only mounts of the public Prisma files and engine cache. It never starts a database server. The `migrate deploy` line below is a hosted write reserved for the user; it was not executed during preparation:
 
 ```bash
-node --env-file="$ROLE_DIR/migration.env" node_modules/prisma/build/index.js validate
-node --env-file="$ROLE_DIR/migration.env" node_modules/prisma/build/index.js migrate status
-node --env-file="$ROLE_DIR/migration.env" node_modules/prisma/build/index.js migrate deploy
-node --env-file="$ROLE_DIR/migration.env" node_modules/prisma/build/index.js migrate status
+export EXPECTED_SUPABASE_PROJECT_REF=telhivuqsrsaesjkkxuh
+```
+
+```bash
+node --env-file="$ROLE_DIR/migration.env" scripts/database/hosted-prisma.mjs validate
+node --env-file="$ROLE_DIR/migration.env" scripts/database/hosted-prisma.mjs migrate status
+node --env-file="$ROLE_DIR/migration.env" scripts/database/hosted-prisma.mjs migrate deploy
+node --env-file="$ROLE_DIR/migration.env" scripts/database/hosted-prisma.mjs migrate status
 node --env-file="$OPERATOR_DIR/bootstrap.env" scripts/database/verify-deployment.mjs --after
 ```
 
@@ -124,7 +145,7 @@ Connection requirements are already encoded in the prepared files:
 
 - Runtime and worker: separate `pactum_app.<project-ref>` / `pactum_jobs.<project-ref>` logins, actual Session Pooler hostname with transaction port **6543**, database `postgres`, `schema=pactum`, `pgbouncer=true`, `connection_limit=1` per client, and strict TLS.
 - Migrator: `pactum_migrator.<project-ref>`, Session Pooler **5432**, no `pgbouncer=true`, same database/schema and strict TLS. Both Prisma datasource variables point here in the operator process.
-- TLS: `sslmode=require&sslaccept=strict&sslcert=certs/supabase-ca.cer`. Prisma 6 resolves the certificate relative to the `prisma/` directory. The public CA is packaged and traced into all serverless bundles; operator pg tools use the absolute `DATABASE_CA_FILE` from `bootstrap.env`. Do not paste the old Mac backup path into Vercel URLs or disable certificate verification.
+- TLS: `sslmode=require&sslaccept=strict&sslcert=certs/supabase-ca.cer`. Prisma 6 CLI resolves the certificate relative to the `prisma/` directory. The migration runner resolves it to an absolute packaged path before launching the engine. Runtime and worker clients resolve the same portable URL value against `process.cwd()/prisma` at application startup, so Vercel never receives a Mac filesystem path. The public CA is packaged and traced into all serverless bundles; operator pg tools use the absolute `DATABASE_CA_FILE` from `bootstrap.env`. Do not paste the old Mac backup path into Vercel URLs or disable certificate verification.
 
 Keep `DIRECT_URL`, `MIGRATION_DATABASE_URL`, `BOOTSTRAP_DATABASE_URL`, `LOCAL_AUTH_DATABASE_URL`, and `LOCAL_IDENTITY_PROJECTION` absent from Vercel. Keep the optional legacy `NEXT_PUBLIC_TURNSTILE_SITE_KEY` unset; it has no implemented server verification endpoint. Supabase Auth is server-mediated and needs `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`, not a service-role key.
 

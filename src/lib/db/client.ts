@@ -2,6 +2,7 @@ import "server-only";
 import { PrismaClient, Prisma } from "@/generated/prisma/client";
 import { IdempotencyConflictError } from "@/lib/idempotency";
 import { AuthError } from "@/lib/auth/config";
+import { runtimeTlsUrl } from "./tls-url";
 
 const clients = new Map<string, PrismaClient>();
 export function database(worker = false): PrismaClient {
@@ -15,7 +16,12 @@ export function database(worker = false): PrismaClient {
   } catch {
     throw new AuthError(503, "DATABASE_ROLE_UNSAFE", "Restricted runtime or worker database credentials are required.");
   }
-  if (!clients.has(name)) clients.set(name, new PrismaClient({ datasources: { db: { url } } }));
+  if (!clients.has(name)) {
+    let verifiedUrl: string;
+    try { verifiedUrl = runtimeTlsUrl(url); }
+    catch { throw new AuthError(503, "DATABASE_TLS_CONFIGURATION", "Strict database TLS or its packaged CA is unavailable."); }
+    clients.set(name, new PrismaClient({ datasources: { db: { url: verifiedUrl } } }));
+  }
   return clients.get(name)!;
 }
 export type Transaction = Prisma.TransactionClient;
