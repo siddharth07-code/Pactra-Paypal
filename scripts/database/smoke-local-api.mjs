@@ -8,9 +8,10 @@ import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { Client } from 'pg';
+import Redis from 'ioredis';
 
 const directory=fs.mkdtempSync(path.join(os.tmpdir(),'pactra-api-smoke-'));
-let admin,auth,proxy,child;
+let admin,auth,proxy,child,redisServer,redisProbe;
 const checks=[];
 const port=async()=>{const server=net.createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const p=server.address().port;await new Promise(resolve=>server.close(resolve));return p;};
 try {
@@ -21,6 +22,23 @@ try {
   const generated=spawnSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',key,'-out',cert,'-days','1','-subj','/CN=localhost','-addext','subjectAltName=IP:127.0.0.1,DNS:localhost'],{stdio:'ignore'});
   assert.equal(generated.status,0,'Local TLS fixture generation failed.');
   const tls={key:fs.readFileSync(key),cert:fs.readFileSync(cert)};
+  const redisPort=await port(),redisPassword=crypto.randomBytes(32).toString('hex');
+  const redisConfig=path.join(directory,'redis.conf');
+  fs.writeFileSync(redisConfig,`bind 127.0.0.1\nport 0\ntls-port ${redisPort}\ntls-cert-file ${cert}\ntls-key-file ${key}\ntls-ca-cert-file ${cert}\ntls-auth-clients no\nrequirepass ${redisPassword}\nsave ""\nappendonly no\n`,{mode:0o600});
+  redisServer=spawn(process.env.REDIS_SERVER_BINARY || 'redis-server',[redisConfig],{stdio:'ignore'});
+  let redisStartupError;redisServer.on('error',error=>{redisStartupError=error;});
+  await new Promise((resolve,reject)=>{
+    const deadline=Date.now()+5000;
+    const attempt=()=>{const socket=net.connect(redisPort,'127.0.0.1');socket.once('connect',()=>{socket.destroy();resolve();});socket.once('error',()=>{socket.destroy();if(redisStartupError || Date.now()>deadline)reject(new Error('Disposable TLS Redis did not start.'));else setTimeout(attempt,50);});};attempt();
+  });
+  redisProbe=new Redis({host:'127.0.0.1',port:redisPort,password:redisPassword,tls:{ca:tls.cert,rejectUnauthorized:true},lazyConnect:true,retryStrategy:()=>100,connectTimeout:1000});
+  redisProbe.on('error',()=>{});
+  await Promise.race([redisProbe.connect(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Disposable TLS Redis did not start; install redis-server or set REDIS_SERVER_BINARY.')),8000).unref())]);
+  assert.ok(!redisStartupError,'Disposable Redis binary unavailable.');
+  assert.equal(await redisProbe.ping(),'PONG');checks.push('authenticated TLS Redis');
+  const redisUrl=`rediss://default:${redisPassword}@127.0.0.1:${redisPort}`;
+  const redisCheck=spawnSync(process.execPath,['--import','tsx','scripts/check-redis.mjs'],{env:{...process.env,REDIS_URL:redisUrl,NODE_EXTRA_CA_CERTS:cert},stdio:'pipe',timeout:15000});
+  assert.equal(redisCheck.status,0,'Read-only Redis operator check must verify the disposable TLS endpoint.');
   const appPort=await port();
   const users=new Map(),sessions=new Map();
   const secret=crypto.randomBytes(32),encode=value=>Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -58,7 +76,7 @@ try {
   });
   await new Promise(resolve=>proxy.listen(0,'127.0.0.1',resolve));
   const origin=`https://127.0.0.1:${proxy.address().port}`;
-  const env={...process.env,NODE_ENV:'production',NODE_EXTRA_CA_CERTS:cert,APP_ORIGIN:origin,SUPABASE_URL:authOrigin,SUPABASE_PUBLISHABLE_KEY:'sb_publishable_local_fixture_configuration',LOCAL_IDENTITY_PROJECTION:'',LOCAL_AUTH_DATABASE_URL:'',DIRECT_URL:'',GEMINI_API_KEY:'',FX_PROVIDER:'DETERMINISTIC_DEMO',EXCHANGE_RATE_API_KEY:'',CHANNEL3_API_KEY:'',KERNEL_API_KEY:'',PAYPAL_CLIENT_ID:'offline-test-client',PAYPAL_CLIENT_SECRET:'offline-test-secret',PAYPAL_MERCHANT_ID:'TEST-MERCHANT',PAYPAL_WEBHOOK_ID:'fixture-webhook',PAYPAL_BASE_URL:'https://api-m.sandbox.paypal.com',CRON_SECRET:'local-fixture-cron-secret',RATE_LIMIT_BACKEND:'memory',REDIS_URL:'',NEXT_PUBLIC_TURNSTILE_SITE_KEY:''};
+  const env={...process.env,NODE_ENV:'production',NODE_EXTRA_CA_CERTS:cert,APP_ORIGIN:origin,SUPABASE_URL:authOrigin,SUPABASE_PUBLISHABLE_KEY:'sb_publishable_local_fixture_configuration',LOCAL_IDENTITY_PROJECTION:'',LOCAL_AUTH_DATABASE_URL:'',DIRECT_URL:'',GEMINI_API_KEY:'',FX_PROVIDER:'DETERMINISTIC_DEMO',EXCHANGE_RATE_API_KEY:'',CHANNEL3_API_KEY:'',KERNEL_API_KEY:'',PAYPAL_CLIENT_ID:'offline-test-client',PAYPAL_CLIENT_SECRET:'offline-test-secret',PAYPAL_MERCHANT_ID:'TEST-MERCHANT',PAYPAL_WEBHOOK_ID:'fixture-webhook',PAYPAL_BASE_URL:'https://api-m.sandbox.paypal.com',CRON_SECRET:'local-fixture-cron-secret',RATE_LIMIT_BACKEND:'redis',RATE_LIMIT_FAIL_CLOSED:'true',REDIS_URL:redisUrl,NEXT_PUBLIC_TURNSTILE_SITE_KEY:''};
   for(const name of Object.keys(env))if(/^(?:PACTUM_TEST_|BOOTSTRAP_|PACTRA_CREDENTIAL_|DEPLOYMENT_|VERIFIED_BACKUP_)/.test(name))delete env[name];
   const logs=fs.openSync(path.join(directory,'server.log'),'w',0o600);
   child=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port',String(appPort)],{env,stdio:['ignore',logs,logs]});fs.closeSync(logs);
@@ -130,5 +148,7 @@ try {
   if(child && child.exitCode===null){child.kill('SIGTERM');await new Promise(resolve=>child.once('exit',resolve));}
   if(proxy)await new Promise(resolve=>proxy.close(resolve));
   if(auth)await new Promise(resolve=>auth.close(resolve));
+  redisProbe?.disconnect();
+  if(redisServer && redisServer.exitCode===null && !redisServer.killed){redisServer.kill('SIGTERM');await new Promise(resolve=>redisServer.once('exit',resolve));}
   await admin?.end().catch(()=>{});fs.rmSync(directory,{recursive:true,force:true});
 }

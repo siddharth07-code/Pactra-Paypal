@@ -201,6 +201,14 @@ describe("authentication routes", () => {
     const req = new NextRequest("https://pactum.example/api/auth/login", { method: "POST", headers: { Origin: "https://pactum.example", "Content-Type": "application/json" }, body: "{" });
     expect((await login(req)).status).toBe(400);
   });
+  it("reports Redis infrastructure outages as 503 without calling Supabase", async () => {
+    mocks.limit.mockResolvedValue({ allowed: false, unavailable: true });
+    const response = await login(request("/api/auth/login", body));
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe("AUTH_INFRASTRUCTURE_UNAVAILABLE");
+    expect(mocks.signInWithPassword).not.toHaveBeenCalled();
+  });
+
   it("enforces authentication rate limits before invoking Supabase", async () => {
     mocks.limit.mockResolvedValue({ allowed: false });
     expect((await login(request("/api/auth/login", body))).status).toBe(429);

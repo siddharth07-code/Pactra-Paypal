@@ -1,7 +1,10 @@
 import React from "react";
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, afterAll } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { WelcomeHeroScreen } from "@/components/landing/WelcomeHeroScreen";
+
+afterAll(() => { ScrollTrigger.disable(); });
 
 afterEach(() => {
   cleanup();

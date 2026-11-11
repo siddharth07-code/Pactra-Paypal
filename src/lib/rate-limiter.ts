@@ -12,6 +12,7 @@
 
 import { NextRequest } from "next/server";
 import Redis from "ioredis";
+import { ensureRedisReady, redisConnectionOptions } from "./redis-connection";
 import crypto from "crypto";
 
 export interface RateLimitPolicy {
@@ -92,6 +93,7 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
 
 export interface RateLimitResult {
   allowed: boolean;
+  unavailable?: boolean;
   limit: number;
   remaining: number;
   resetEpochSeconds: number;
@@ -221,32 +223,20 @@ end
 export class RedisRateLimiterBackend implements RateLimiterBackend {
   private client: Redis | null = null;
   private fallbackMemory = new MemoryRateLimiterBackend();
-  private isConnected = false;
 
   constructor(redisUrl?: string) {
     const url = redisUrl || process.env.REDIS_URL;
     if (url) {
       try {
-        this.client = new Redis(url, {
-          lazyConnect: true,
-          enableOfflineQueue: false,
-          maxRetriesPerRequest: 1,
-          connectTimeout: 2000,
-        });
+        this.client = new Redis(url, redisConnectionOptions(url));
 
-        this.client.on("connect", () => {
-          this.isConnected = true;
-        });
-
-        this.client.on("error", (err) => {
-          this.isConnected = false;
+        this.client.on("error", (error: NodeJS.ErrnoException) => {
           if (process.env.NODE_ENV !== "test") {
-            console.error("[RateLimiter] Redis connection error:", err.message);
+            console.error("[RateLimiter] Redis connection unavailable.", /^[A-Z][A-Z0-9_]{1,63}$/.test(error.code ?? "") ? error.code : "REDIS_ERROR");
           }
         });
       } catch {
         this.client = null;
-        this.isConnected = false;
       }
     }
   }
@@ -257,9 +247,8 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
     windowSeconds: number
   ): Promise<RateLimitResult> {
     const isStrictRedisProduction =
-      process.env.RATE_LIMIT_BACKEND === "redis" &&
-      (process.env.RATE_LIMIT_FAIL_CLOSED === "true" ||
-        (process.env.NODE_ENV === "production" && process.env.RATE_LIMIT_FAIL_OPEN !== "true"));
+      process.env.NODE_ENV === "production" ||
+      (process.env.RATE_LIMIT_BACKEND === "redis" && process.env.RATE_LIMIT_FAIL_CLOSED === "true");
 
     if (!this.client) {
       if (isStrictRedisProduction) {
@@ -268,6 +257,7 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
         );
         return {
           allowed: false,
+          unavailable: true,
           limit,
           remaining: 0,
           resetEpochSeconds: Math.ceil(Date.now() / 1000) + 5,
@@ -280,9 +270,7 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
     }
 
     try {
-      if (this.client.status === "wait") {
-        await this.client.connect().catch(() => {});
-      }
+      await ensureRedisReady(this.client);
 
       if (this.client.status !== "ready") {
         if (isStrictRedisProduction) {
@@ -291,6 +279,7 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
           );
           return {
             allowed: false,
+            unavailable: true,
             limit,
             remaining: 0,
             resetEpochSeconds: Math.ceil(Date.now() / 1000) + 5,
@@ -330,14 +319,14 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
         policy: key.split(":")[0] ?? "unknown",
         identity: key.split(":").slice(1).join(":"),
       };
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
+    } catch {
       if (isStrictRedisProduction) {
         console.error(
-          `[RateLimiter] CRITICAL: Redis command failed in strict distributed mode (${errMsg}). Failing closed.`
+          "[RateLimiter] CRITICAL: Redis command unavailable. Failing closed."
         );
         return {
           allowed: false,
+          unavailable: true,
           limit,
           remaining: 0,
           resetEpochSeconds: Math.ceil(Date.now() / 1000) + 5,
@@ -373,7 +362,7 @@ export class RedisRateLimiterBackend implements RateLimiterBackend {
   }
 
   public isReady(): boolean {
-    return this.isConnected || this.client?.status === "ready";
+    return this.client?.status === "ready";
   }
 
   public getBackendType(): "redis" {
@@ -471,6 +460,7 @@ export function extractClientIdentity(req: NextRequest, customAuthId?: string): 
  */
 export function createRateLimitResponse(result: RateLimitResult): Response {
   const retryAfter = Math.max(1, result.retryAfterSeconds);
+  if (result.unavailable) return new Response(JSON.stringify({ error: "Service Unavailable", code: "RATE_LIMIT_UNAVAILABLE", message: "Request protection is temporarily unavailable. Please retry shortly." }), { status: 503, headers: { "Content-Type": "application/json", "Retry-After": retryAfter.toString(), "Cache-Control": "no-store" } });
   const body = {
     error: "Too Many Requests",
     message: `Rate limit exceeded for ${result.policy}. Please retry after ${retryAfter} seconds.`,
@@ -502,6 +492,7 @@ export class RateLimiter {
     if (backend) {
       this.backend = backend;
     } else if (
+      process.env.NODE_ENV === "production" ||
       process.env.RATE_LIMIT_BACKEND === "redis" ||
       (process.env.REDIS_URL && process.env.NODE_ENV !== "test")
     ) {
@@ -583,7 +574,5 @@ const globalForRateLimiter = globalThis as unknown as {
 export const defaultRateLimiter =
   globalForRateLimiter.pactumRateLimiter ?? new RateLimiter();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForRateLimiter.pactumRateLimiter = defaultRateLimiter;
-}
+globalForRateLimiter.pactumRateLimiter = defaultRateLimiter;
 

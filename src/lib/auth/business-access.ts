@@ -13,6 +13,7 @@ export async function requireBusinessAccess(request: NextRequest): Promise<Respo
   let context: AuthContext | undefined;
   try {
     const limit = await defaultRateLimiter.checkLimit(request, "GENERAL_DEFAULT");
+    if (limit.unavailable) throw new AuthError(503, "AUTH_INFRASTRUCTURE_UNAVAILABLE", "Authentication is temporarily unavailable. Please retry shortly.");
     if (!limit.allowed) throw new AuthError(429, "AUTH_RATE_LIMITED", "Too many requests. Please retry later.");
     context = createAuthContext(request);
     await requireAuthenticatedUser(context);

@@ -5,6 +5,7 @@
  * Follows GEMINI.md Section 10, 13, SECURITY.md Section 1, 3, and Phase 5 specifications.
  */
 
+import { redisConnectionOptions } from "./redis-connection";
 import { authConfiguration } from "./auth/config";
 
 export interface ConfigValidationResult {
@@ -65,7 +66,10 @@ export function validateConfiguration(
   const paypalConfigured = !isPlaceholder(paypalClientId) && !isPlaceholder(paypalSecret);
   const geminiConfigured = !isPlaceholder(geminiApiKey);
   const cronConfigured = !isPlaceholder(cronSecret);
-  const redisConfigured = !isPlaceholder(redisUrl);
+  let redisConfigured = !isPlaceholder(redisUrl);
+  if (redisConfigured) {
+    try { redisConnectionOptions(redisUrl!, environment === "production"); } catch { redisConfigured = false; }
+  }
 
   // Production security checks
   if (environment === "production") {
@@ -94,7 +98,10 @@ export function validateConfiguration(
     if (!cronConfigured) {
       errors.push("CRON_SECRET must be configured in production to secure maintenance and health endpoints.");
     }
-    if (rateLimitBackend === "redis" && !redisConfigured) {
+    if (rateLimitBackend !== "redis") {
+      errors.push("RATE_LIMIT_BACKEND must be redis in production; process-local rate limiting is prohibited.");
+    }
+    if (!redisConfigured) {
       errors.push("RATE_LIMIT_BACKEND=redis requires valid REDIS_URL in production.");
     }
     if (paypalBaseUrl.includes("sandbox") && (env.PAYPAL_ENVIRONMENT === "live" || env.PAYPAL_MODE === "live")) {

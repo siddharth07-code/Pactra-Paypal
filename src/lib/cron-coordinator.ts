@@ -13,6 +13,7 @@
 import crypto from "crypto";
 import { NextRequest } from "next/server";
 import Redis from "ioredis";
+import { ensureRedisReady, redisConnectionOptions } from "./redis-connection";
 import { sessionStore } from "./session-store";
 import { defaultGeminiQuotaCoordinator } from "./gemini-quota";
 import { defaultRateLimiter } from "./rate-limiter";
@@ -159,16 +160,11 @@ export class CronCoordinator {
     const url = redisUrl || process.env.REDIS_URL;
     if (url) {
       try {
-        this.redisClient = new Redis(url, {
-          lazyConnect: true,
-          enableOfflineQueue: false,
-          maxRetriesPerRequest: 1,
-          connectTimeout: 2000,
-        });
+        this.redisClient = new Redis(url, redisConnectionOptions(url));
 
-        this.redisClient.on("error", (err) => {
+        this.redisClient.on("error", () => {
           if (process.env.NODE_ENV !== "test") {
-            console.error("[CronCoordinator] Redis lock client error:", err.message);
+            console.error("[CronCoordinator] Redis lock connection unavailable.");
           }
         });
       } catch {
@@ -190,9 +186,7 @@ export class CronCoordinator {
 
     if (this.redisClient) {
       try {
-        if (this.redisClient.status === "wait") {
-          await this.redisClient.connect().catch(() => {});
-        }
+        await ensureRedisReady(this.redisClient);
         if (this.redisClient.status === "ready") {
           const res = await this.redisClient.set(lockKey, token, "PX", leaseMs, "NX");
           if (res === "OK") {
@@ -200,11 +194,15 @@ export class CronCoordinator {
           }
           return { acquired: false, backend: "redis" };
         }
-      } catch (err) {
+      } catch {
         if (process.env.NODE_ENV !== "test") {
-          console.warn("[CronCoordinator] Distributed Redis lock error, falling back to local memory:", err);
+          console.warn("[CronCoordinator] Distributed Redis lock unavailable.");
         }
       }
+    }
+
+    if (process.env.NODE_ENV === "production" || process.env.RATE_LIMIT_BACKEND === "redis") {
+      throw new Error("Distributed cron coordination unavailable.");
     }
 
     // Local in-memory lock (Single-Instance Only)
@@ -589,6 +587,4 @@ const globalForCron = globalThis as unknown as {
 export const defaultCronCoordinator =
   globalForCron.pactumCronCoordinator ?? new CronCoordinator();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForCron.pactumCronCoordinator = defaultCronCoordinator;
-}
+globalForCron.pactumCronCoordinator = defaultCronCoordinator;

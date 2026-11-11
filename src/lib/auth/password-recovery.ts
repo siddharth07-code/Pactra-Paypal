@@ -10,6 +10,7 @@ export async function handlePasswordRecovery(request: NextRequest, update: boole
   let context: AuthContext | undefined;
   try {
     const limit = await defaultRateLimiter.checkLimit(request, "AUTH_LOGIN");
+    if (limit.unavailable) throw new AuthError(503, "AUTH_INFRASTRUCTURE_UNAVAILABLE", "Authentication is temporarily unavailable. Please retry shortly.");
     if (!limit.allowed) throw new AuthError(429, "AUTH_RATE_LIMITED", "Too many authentication attempts. Please retry later.");
     requireSameOrigin(request);
     const body = await boundedJson(request);

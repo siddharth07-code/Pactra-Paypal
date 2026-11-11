@@ -14,6 +14,7 @@ export async function handleAuth(request: NextRequest, action: AuthAction): Prom
   try {
     const policy = action === "register" ? "AUTH_REGISTER" : action === "session" ? "AUTH_SESSION" : "AUTH_LOGIN";
     const limit = await defaultRateLimiter.checkLimit(request, policy);
+    if (limit.unavailable) throw new AuthError(503, "AUTH_INFRASTRUCTURE_UNAVAILABLE", "Authentication is temporarily unavailable. Please retry shortly.");
     if (!limit.allowed) throw new AuthError(429, "AUTH_RATE_LIMITED", "Too many authentication attempts. Please retry later.");
     if (action !== "session") requireSameOrigin(request);
     const body = action === "session" ? {} : await boundedJson(request);
@@ -63,6 +64,7 @@ export async function handleConfirmation(request: NextRequest, destination: "/au
   let context: AuthContext | undefined;
   try {
     const limit = await defaultRateLimiter.checkLimit(request, "AUTH_LOGIN");
+    if (limit.unavailable) throw new AuthError(503, "AUTH_INFRASTRUCTURE_UNAVAILABLE", "Authentication is temporarily unavailable. Please retry shortly.");
     if (!limit.allowed) throw new AuthError(429, "AUTH_RATE_LIMITED", "Too many authentication attempts. Please retry later.");
     const params = request.nextUrl.searchParams;
     safeDestination(params.get("next"));

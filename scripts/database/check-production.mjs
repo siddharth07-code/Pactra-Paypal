@@ -20,7 +20,7 @@ for (const [key, role] of [['DATABASE_URL','pactum_app'],['WORKER_DATABASE_URL',
 for (const key of ['DIRECT_URL','MIGRATION_DATABASE_URL','BOOTSTRAP_DATABASE_URL','LOCAL_AUTH_DATABASE_URL','LOCAL_IDENTITY_PROJECTION','NEXT_PUBLIC_TURNSTILE_SITE_KEY']) {
   if (process.env[key]) errors.push(`${key} must be absent from the application environment.`);
 }
-if (process.env.RATE_LIMIT_BACKEND !== 'redis' || !/^rediss?:\/\//.test(process.env.REDIS_URL || '')) errors.push('Set RATE_LIMIT_BACKEND=redis and a real REDIS_URL for shared Vercel rate limiting.');
+if (process.env.RATE_LIMIT_BACKEND !== 'redis' || !/^rediss:\/\//.test(process.env.REDIS_URL || '')) errors.push('Set RATE_LIMIT_BACKEND=redis and a real REDIS_URL for shared Vercel rate limiting.');
 if (process.env.PAYPAL_BASE_URL !== 'https://api-m.sandbox.paypal.com') errors.push('PAYPAL_BASE_URL must identify PayPal Sandbox.');
 try {
   const certificate = new crypto.X509Certificate(fs.readFileSync('prisma/certs/supabase-ca.cer'));
