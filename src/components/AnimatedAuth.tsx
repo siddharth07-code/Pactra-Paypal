@@ -5,7 +5,6 @@ import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { User, Mail, Phone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/src/lib/supabase';
 import { useTheme } from './ThemeProvider';
 import { Turnstile, type TurnstileRef } from './Turnstile';
 
@@ -365,20 +364,16 @@ export default function AnimatedAuth({
     setLoading(true);
 
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        loginEmail.trim(),
-        { redirectTo: `${window.location.origin}/auth/callback` }
-      );
-
-      setLoading(false);
-      if (resetError) {
-        setError(resetError.message);
-      } else {
-        setMessage('Password reset link sent! Check your email.');
-      }
+      const response = await fetch('/api/auth/recovery', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message ?? 'Password reset is currently unavailable.');
+      setMessage('Check your email for a reset link if this address is eligible. Open it in this browser.');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Password reset is currently unavailable.';
-      setError(msg);
+      setError(err instanceof Error ? err.message : 'Password reset is currently unavailable.');
+    } finally {
       setLoading(false);
     }
   };
