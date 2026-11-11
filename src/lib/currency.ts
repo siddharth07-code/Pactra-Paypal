@@ -125,6 +125,18 @@ export function fromMinorUnits(minor: number): number {
   return minor / 100;
 }
 
+export function exactLandedTotal(unitPrice: number, quantity: number, shipping: number): number {
+  if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Quantity must be a positive safe integer.");
+  const minor = (amount: number) => {
+    if (!Number.isFinite(amount) || amount < 0 || !/^\d+(\.\d{1,2})?$/.test(String(amount))) throw new Error("Money must be non-negative with at most two decimal places.");
+    const [whole, fraction = ""] = String(amount).split(".");
+    return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"));
+  };
+  const total = minor(unitPrice) * BigInt(quantity) + minor(shipping);
+  if (total > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("Landed total exceeds safe minor-unit bounds.");
+  return Number(total) / 100;
+}
+
 /**
  * Formats a monetary amount into a clean, localized string using Intl.NumberFormat.
  * 
