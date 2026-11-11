@@ -11,6 +11,7 @@ import { requestScope } from "./request-scope";
 
 export async function persistAggregate(tx: Transaction, context: { organizationId: string; userId: string | null }, session: ProcurementSession, expected: number | null): Promise<number> {
   const organizationId = context.organizationId;
+  if (session.agreementRecord?.organizationId && session.agreementRecord.organizationId !== organizationId) throw new AuthError(409, "AGREEMENT_ORGANIZATION_BINDING", "Agreement belongs to another organization.");
   const prior = await tx.procurementSession.findFirst({ where: { organizationId, publicId: session.id } });
   if ((prior?.version ?? null) !== expected) throw new AuthError(409, "STALE_VERSION", "Session changed; reload before retrying.");
   if (prior?.financialBlockReason) throw new AuthError(409, "FINANCIAL_QUARANTINE", "This legacy session requires review.");
@@ -49,14 +50,15 @@ export async function persistAggregate(tx: Transaction, context: { organizationI
     if (!old) await tx.agreement.create({ data: { sessionId, organizationId, publicId: agreement.agreementId, mandateRevision: revision, currency: agreement.currency ?? session.mandate.currency, unitPriceMinor: minor(agreement.agreedOffer.unitPrice), shippingMinor: minor(agreement.agreedOffer.shippingCost), quantity: BigInt(agreement.agreedOffer.quantity), totalMinor: minor(agreement.totalCost), agreementHash: hash, canonicalBytes: canonicalBytes(agreement) } });
   }
   for (const fx of [...(session.fxQuoteHistory ?? []), ...(session.fxRecord ? [session.fxRecord] : [])]) {
-    if (fx.commitmentVersion !== 2 || fx.sessionId !== session.id || computeConversionHash(fx) !== fx.conversionHash || computeFxConversion(fx.sourceAmountMinor, fx.rate) !== fx.targetAmountMinor) throw new AuthError(409, "FX_INTEGRITY", "FX commitment failed validation.");
+    if (fx.commitmentVersion !== 2 || fx.sessionId !== session.id || computeConversionHash(fx) !== fx.conversionHash || computeFxConversion(fx.sourceAmountMinor, fx.rate, fx.rateConvention) !== fx.targetAmountMinor) throw new AuthError(409, "FX_INTEGRITY", "FX commitment failed validation.");
     const agreement = await tx.agreement.findFirst({ where: { publicId: fx.agreementId, organizationId, sessionId, agreementHash: fx.agreementHash } });
     if (!agreement) throw new AuthError(409, "FX_AGREEMENT_BINDING", "FX agreement binding is invalid.");
-    const bytes = canonicalBytes(Object.fromEntries(Object.entries(fx).filter(([key]) => key !== "status")));
+    const bytes = canonicalBytes(Object.fromEntries(Object.entries(fx).filter(([key]) => key !== "status" && key !== "lockedAt")));
     const old = await tx.fxCommitment.findFirst({ where: { publicId: fx.id, organizationId, sessionId } });
+    if (old?.lockedAt && fx.lockedAt && old.lockedAt.toISOString() !== fx.lockedAt) throw new AuthError(409, "FX_IMMUTABLE", "FX lock timestamp cannot change.");
     if (old && !Buffer.from(old.canonicalBytes).equals(bytes)) throw new AuthError(409, "FX_IMMUTABLE", "FX commitment cannot change.");
     if (old) {
-      if (old.status !== fx.status) await tx.fxCommitment.update({ where: { id: old.id }, data: { status: fx.status, version: { increment: 1 }, ...(fx.status === "LOCKED" ? { lockedAt: new Date() } : {}), ...(fx.status === "CONSUMED" ? { consumedAt: new Date() } : {}) } });
+      if (old.status !== fx.status) await tx.fxCommitment.update({ where: { id: old.id }, data: { status: fx.status, version: { increment: 1 }, ...(fx.status === "LOCKED" ? { lockedAt: fx.lockedAt ? new Date(fx.lockedAt) : new Date() } : {}), ...(fx.status === "CONSUMED" ? { consumedAt: new Date() } : {}) } });
     } else await tx.fxCommitment.create({ data: { sessionId, organizationId, agreementId: agreement.id, publicId: fx.id, commitmentVersion: 2, sourceCurrency: fx.sourceCurrency, targetCurrency: fx.targetCurrency, sourceAmountMinor: BigInt(fx.sourceAmountMinor), targetAmountMinor: BigInt(fx.targetAmountMinor), rate: new Prisma.Decimal(fx.rate), rateText: fx.rate, rateConvention: fx.rateConvention, rateSource: fx.rateSource, provider: fx.provider, providerUpdatedAt: fx.referenceRate ? new Date(fx.referenceRate.updatedAt) : null, retrievedAt: fx.referenceRate ? new Date(fx.referenceRate.retrievedAt) : null, quotedAt: new Date(fx.quotedAt), expiresAt: new Date(fx.expiresAt), canonicalBytes: bytes, conversionHash: fx.conversionHash, status: fx.status } });
   }
   if (session.flightRecord) {
