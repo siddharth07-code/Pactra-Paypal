@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { WelcomeHeroScreen } from "@/components/landing/WelcomeHeroScreen";
 
 afterEach(() => {
@@ -68,31 +68,4 @@ describe("WelcomeHeroScreen Full-Screen Hero & Scroll Transition", () => {
     expect(line).toBeInTheDocument();
   });
 
-  it("retains accessibility and focus when motion is toggled", () => {
-    render(<WelcomeHeroScreen />);
-    const pauseBtn = screen.getByRole("button", { name: "Pause motion" });
-    fireEvent.click(pauseBtn);
-
-    const resumeBtn = screen.getByRole("button", { name: "Resume motion" });
-    expect(resumeBtn).toHaveAttribute("aria-pressed", "true");
-
-    // All key landmarks remain reachable
-    expect(screen.getByRole("heading", { level: 1 })).toBeVisible();
-    expect(screen.getAllByRole("link", { name: "Open workspace" })[0]).toBeVisible();
-    expect(screen.getByRole("link", { name: "Experience the workflow" })).toBeVisible();
-
-    fireEvent.click(resumeBtn);
-    expect(screen.getByRole("button", { name: "Pause motion" })).toHaveAttribute("aria-pressed", "false");
-  });
-
-  it("safely resets scroll to top when replaying entrance", () => {
-    const scrollToMock = vi.fn();
-    vi.stubGlobal("scrollTo", scrollToMock);
-
-    render(<WelcomeHeroScreen />);
-    const replayBtn = screen.getByRole("button", { name: "Replay entrance" });
-    fireEvent.click(replayBtn);
-
-    expect(scrollToMock).toHaveBeenCalledWith({ top: 0, behavior: "instant" });
-  });
 });

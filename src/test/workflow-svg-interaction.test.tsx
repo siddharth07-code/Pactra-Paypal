@@ -155,22 +155,16 @@ describe("Interactive SVG Workflow Redesign", () => {
   });
 
   describe("Integration in WelcomeHeroScreen", () => {
-    it("mounts all four interactive SVG scenes inside their respective cinema-panels", () => {
+    it("mounts each illustrated flow with a labeled replay control", () => {
       const { container } = render(<WelcomeHeroScreen />);
-
-      // Verify presence of all 4 SVG components in the cinema panels
-      expect(container.querySelector(".sourcing-scene-svg-wrapper")).toBeInTheDocument();
-      expect(container.querySelector(".negotiation-scene-svg-wrapper")).toBeInTheDocument();
-      expect(container.querySelector(".verification-scene-svg-wrapper")).toBeInTheDocument();
-      expect(container.querySelector(".settlement-scene-svg-wrapper")).toBeInTheDocument();
-
-      // Verify presence of cinema animation hooks on SVG elements
-      expect(container.querySelector(".cinema-preview")).toBeInTheDocument();
-      expect(container.querySelector(".cinema-offer")).toBeInTheDocument();
-      expect(container.querySelector(".cinema-terms")).toBeInTheDocument();
-      expect(container.querySelector(".cinema-agreement")).toBeInTheDocument();
-      expect(container.querySelector(".cinema-audit-check")).toBeInTheDocument();
-      expect(container.querySelector(".cinema-payment-step")).toBeInTheDocument();
+      const chapter = container.querySelector(".cinema-text-workflow")!;
+      expect([...chapter.querySelectorAll("svg title")].map(title => title.textContent)).toEqual([
+        "Procurement mandate", "Supplier negotiation", "Agreement verification", "PayPal settlement",
+      ]);
+      const trace = screen.getByRole("button", { name: "Trace flow: Supplier negotiation" });
+      expect(trace).toHaveAttribute("aria-controls", screen.getByRole("img", { name: "Supplier negotiation" }).id);
+      expect(chapter.querySelectorAll(".cinema-story")).toHaveLength(4);
+      expect(container.querySelector(".cinema-hero svg")).toBeInTheDocument();
     });
   });
 });

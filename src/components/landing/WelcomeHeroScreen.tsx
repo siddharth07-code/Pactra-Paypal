@@ -1,31 +1,19 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import Link from "next/link";
-import Image from "next/image";
+import { LandingHeader } from "./LandingHeader";
 import { HeroIllustration } from "./HeroIllustration";
-import { LifecycleScrollSection } from "./LifecycleScrollSection";
-import { SourcingSceneSvg } from "./workflow/SourcingSceneSvg";
-import { NegotiationSceneSvg } from "./workflow/NegotiationSceneSvg";
-import { VerificationSceneSvg } from "./workflow/VerificationSceneSvg";
-import { SettlementSceneSvg } from "./workflow/SettlementSceneSvg";
+import { createWorkflowTrace, WorkflowIllustration } from "./workflow/WorkflowIllustration";
 import "./landing.css";
-
-const fields = [
-  ["Category", "Office equipment"], ["Approval", "Policy required"],
-  ["Budget", "Buyer-defined limit"], ["Delivery", "Defined by buyer"],
-];
 
 export function WelcomeHeroScreen() {
   const pageRef = useRef<HTMLDivElement>(null);
-  const [paused, setPaused] = useState(false);
-  const [replay, setReplay] = useState(0);
   useGSAP(() => {
     gsap.registerPlugin(ScrollTrigger);
-    if (paused) return;
     const media = gsap.matchMedia();
     media.add("(prefers-reduced-motion: no-preference)", () => {
       gsap.from(".cinema-entrance", { y: 18, opacity: 0, stagger: .1, duration: .8, ease: "power3.out" });
@@ -123,29 +111,47 @@ export function WelcomeHeroScreen() {
         0.65
       );
     });
-    media.add("(min-width: 1000px) and (min-height: 900px) and (prefers-reduced-motion: no-preference)", () => {
+    media.add("(prefers-reduced-motion: no-preference)", () => {
       gsap.set(pageRef.current, { attr: { "data-enhanced": "true" } });
       const panels = pageRef.current?.querySelectorAll<HTMLElement>("[data-scene]");
-      const setScene = (scene: "mandate" | "negotiation" | "audit" | "settlement") => panels?.forEach(panel => {
-        const hidden = panel.dataset.scene !== scene;
-        if (hidden && panel.contains(document.activeElement)) {
-          pageRef.current?.querySelector<HTMLButtonElement>("button[aria-pressed]")?.focus({ preventScroll: true });
+      const traces = new Map<string, gsap.core.Timeline>();
+      const listeners = new AbortController();
+      for (const panel of panels ?? []) {
+        const trace = createWorkflowTrace(panel);
+        traces.set(panel.dataset.scene!, trace);
+        panel.querySelector(".workflow-play")?.addEventListener("click", () => trace.restart(), { signal: listeners.signal });
+      }
+
+      let activeTrace: gsap.core.Timeline | undefined;
+      const setScene = (scene: "mandate" | "negotiation" | "audit" | "settlement", inView = false) => {
+        panels?.forEach(panel => {
+          const hidden = panel.dataset.scene !== scene;
+          if (hidden && panel.contains(document.activeElement)) {
+            pageRef.current?.querySelector<HTMLElement>("#procurement-mandate")?.focus({ preventScroll: true });
+          }
+          panel.inert = hidden;
+          panel.setAttribute("aria-hidden", String(hidden));
+          panel.style.pointerEvents = hidden ? "none" : "auto";
+        });
+
+        const nextTrace = inView ? traces.get(scene) : undefined;
+        if (nextTrace !== activeTrace) {
+          activeTrace?.pause(0);
+          activeTrace = nextTrace;
+          activeTrace?.restart();
         }
-        panel.inert = hidden;
-        panel.setAttribute("aria-hidden", String(hidden));
-        panel.style.pointerEvents = hidden ? "none" : "auto";
-      });
+      };
       setScene("mandate");
 
       gsap.set('.cinema-story:not([data-scene="mandate"])', { autoAlpha: 0, pointerEvents: "none" });
-      gsap.set('.cinema-panels > :not([data-scene="mandate"])', { autoAlpha: 0, pointerEvents: "none" });
       gsap.set('[data-scene="mandate"]', { autoAlpha: 1, pointerEvents: "auto" });
 
       const timeline = gsap.timeline({
         onUpdate: () => setScene(
           timeline.time() >= 5.65 ? "settlement" :
           timeline.time() >= 3.05 ? "audit" :
-          timeline.time() >= 1.75 ? "negotiation" : "mandate"
+          timeline.time() >= 1.75 ? "negotiation" : "mandate",
+          timeline.time() >= .25
         ),
         scrollTrigger: {
           trigger: ".cinema-chapter",
@@ -155,33 +161,18 @@ export function WelcomeHeroScreen() {
           invalidateOnRefresh: true,
         }
       });
-      timeline.to(".cinema-preview", { width: "58%", xPercent: 72.4, ease: "none", duration: 1 }, 0)
-        .from('.cinema-story[data-scene="mandate"]', { autoAlpha: 0, y: 32, duration: .6 }, .25)
-        .to(".cinema-rail", { autoAlpha: 0, width: 0, padding: 0, duration: .5 }, 0)
-        .to(".cinema-interface", { gap: 0, duration: .5 }, 0)
-        .from(".cinema-confirm", { autoAlpha: 0, y: 12, duration: .4 }, .6)
-        .to({}, { duration: .4 })
+      timeline.from('.cinema-story[data-scene="mandate"]', { autoAlpha: 0, y: 32, duration: .6 }, .25)
         .to('[data-scene="mandate"]', { autoAlpha: 0, y: -16, duration: .3, pointerEvents: "none" }, 1.45)
         .fromTo('[data-scene="negotiation"]', { autoAlpha: 0, y: 20, pointerEvents: "none" }, { autoAlpha: 1, y: 0, pointerEvents: "auto", duration: .4, immediateRender: false }, 1.75)
-        .from(".cinema-offer", { x: 16, opacity: 0, stagger: .12, duration: .35 }, 1.8)
-        .from(".cinema-terms", { y: 12, opacity: 0, duration: .35 }, 2.25)
-        .to({}, { duration: .4 })
         .to('[data-scene="negotiation"]', { autoAlpha: 0, y: -16, duration: .3, pointerEvents: "none" }, 2.75)
         .fromTo('[data-scene="audit"]', { autoAlpha: 0, y: 20, pointerEvents: "none" }, { autoAlpha: 1, y: 0, pointerEvents: "auto", duration: .4, immediateRender: false }, 3.05)
-        .from(".cinema-agreement", { y: 12, opacity: 0, duration: .35 }, 3.15)
-        .from(".cinema-audit-check", { opacity: 0, x: 12, stagger: .15, duration: .3 }, 3.5)
-        .from(".cinema-evidence-leaves", { opacity: 0, duration: .3 }, 4)
-        .from(".cinema-evidence-join", { scaleY: 0, transformOrigin: "top", duration: .3 }, 4.2)
-        .from(".cinema-evidence-root", { opacity: 0, duration: .3 }, 4.5)
-        .from(".cinema-audit-result", { opacity: 0, y: 8, duration: .35 }, 4.8)
         .to('[data-scene="audit"]', { autoAlpha: 0, y: -16, duration: .3, pointerEvents: "none" }, 5.35)
         .fromTo('[data-scene="settlement"]', { autoAlpha: 0, y: 20, pointerEvents: "none" }, { autoAlpha: 1, y: 0, pointerEvents: "auto", duration: .4, immediateRender: false }, 5.65)
-        .from(".cinema-payment-approval", { opacity: 0, y: 12, duration: .35 }, 6.05)
-        .from(".cinema-payment-step", { opacity: 0, x: 12, stagger: .3, duration: .35 }, 6.4)
-        .from(".cinema-payment-outcome", { opacity: 0, y: 8, duration: .35 }, 7.45)
-        .to({}, { duration: .6 });
+        // Preserve the original total duration after removing diagram-only tweens.
+        .to({}, { duration: .6 }, 7.8);
 
       return () => {
+        listeners.abort();
         pageRef.current?.removeAttribute("data-enhanced");
         panels?.forEach(panel => {
           panel.inert = false;
@@ -194,17 +185,11 @@ export function WelcomeHeroScreen() {
       };
     });
     return () => media.revert();
-  }, { scope: pageRef, dependencies: [paused, replay], revertOnUpdate: true });
+  }, { scope: pageRef });
 
-  return <div ref={pageRef} className="pactum-landing pactum-cinema" data-motion={paused ? "paused" : "enabled"}>
+  return <div ref={pageRef} className="pactum-landing pactum-cinema" data-motion="enabled">
     <a href="#welcome-main" className="landing-skip">Skip to main content</a>
-    <header className="landing-container landing-header">
-      <span className="landing-brand"><span aria-hidden="true" className="landing-monogram"><Image src="/brand/pactra-mark.png" alt="" width={28} height={28} className="w-full h-full object-contain" priority /></span>PACTRA</span>
-      <nav aria-label="Main navigation">
-        <Link href="/login" className="landing-sign-in">Sign in</Link>
-        <Link href="/register" className="landing-register">Create account</Link>
-      </nav>
-    </header>
+    <LandingHeader currentPage="home" />
     <main id="welcome-main" tabIndex={-1}>
       <section className="landing-container cinema-hero" aria-labelledby="welcome-title">
         <div className="cinema-hero-copy">
@@ -216,156 +201,46 @@ export function WelcomeHeroScreen() {
             <a href="#procurement-mandate" className="landing-text-link">Experience the workflow</a>
           </div>
         </div>
-        <HeroIllustration paused={paused} key={replay} />
+        <HeroIllustration />
       </section>
-      <section id="procurement-mandate" className="cinema-chapter" aria-labelledby="mandate-title">
+      <section id="procurement-mandate" className="cinema-chapter cinema-text-workflow" tabIndex={-1} aria-labelledby="mandate-title">
         <div className="cinema-transition-seam" aria-hidden="true">
           <div className="cinema-seam-glow" />
           <div className="cinema-seam-line" />
         </div>
         <div className="landing-container cinema-sticky">
-          <div className="cinema-caption"><span>Procurement workspace</span><span>Workflow lifecycle</span></div>
           <div className="cinema-scene">
-            <div className="cinema-story" data-scene="mandate">
-              <h2 id="mandate-title">Define procurement requirements</h2>
-              <p>Specify budget limits, delivery conditions, and supplier selection criteria.</p>
-            </div>
-            <div className="cinema-story cinema-negotiation-story" data-scene="negotiation">
-              <h2 id="negotiation-title">Negotiate supplier terms</h2>
-              <p>Evaluate supplier offers and negotiate pricing within established constraints.</p>
-            </div>
-            <div className="cinema-story cinema-audit-story" data-scene="audit">
-              <h2 id="audit-title">Verify agreement compliance</h2>
-              <p>Validate negotiated terms, procurement policies, and cryptographic evidence.</p>
-            </div>
-            <div className="cinema-story cinema-settlement-story" data-scene="settlement">
-              <h2 id="settlement-title">Process approved payments</h2>
-              <p>Initiate PayPal authorization and capture subject to required approvals and verification.</p>
-            </div>
-            <div className="cinema-preview" role="group" aria-label="Illustrative procurement mandate">
-              <div className="cinema-toolbar"><span>Procurement workspace</span><span className="cinema-sample">Illustrative workflow</span></div>
-              <div className="cinema-panels">
-              <div className="cinema-interface" data-scene="mandate">
-                <div className="cinema-info">
-                  <p className="cinema-label">Procurement mandate</p>
-                  <h3>Commercial constraints and delivery criteria</h3>
-                  <p className="cinema-sub">Sample requirements. No live procurement or payment activity.</p>
-                  <div className="cinema-svg-container">
-                    <SourcingSceneSvg />
-                  </div>
-                  <div className="cinema-confirm"><span aria-hidden="true">✓</span><p>Mandate established<span>Parameters configured for supplier evaluation.</span></p></div>
-                  <dl className="sr-only cinema-fields">{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-                </div>
-                <aside className="cinema-rail" aria-label="Agreement lifecycle preview">
-                  <p>Agreement lifecycle</p>
-                  <ol>{["Define procurement", "Negotiate terms", "Verify evidence", "Authorize payment"].map((step, index) => <li key={step} className={index === 0 ? "is-current" : ""}>{step}</li>)}</ol>
-                  <p className="cinema-rail-note">Established constraints govern downstream stages.</p>
-                </aside>
+            <section className="cinema-story" data-scene="mandate" aria-labelledby="mandate-title">
+              <div className="workflow-copy">
+                <h2 id="mandate-title">Define procurement requirements</h2>
+                <p>Set your budget, delivery expectations, and supplier criteria. PACTRA structures these requirements into a clear procurement mandate.</p>
               </div>
-              <section className="cinema-negotiation" data-scene="negotiation" aria-labelledby="offers-title">
-                <p className="cinema-label">Supplier negotiation</p>
-                <h3 id="offers-title">Competitive offers and counter-proposals</h3>
-                <p className="cinema-sub">Illustrative supplier offers and negotiated terms. All amounts and checks below are sample data, not live activity.</p>
-                <div className="cinema-svg-container">
-                  <NegotiationSceneSvg />
-                </div>
-                <div className="cinema-actions-row">
-                  <Link href="/workspace" className="landing-text-link">Create your procurement mandate</Link>
-                </div>
-                <div className="sr-only">
-                  <p className="cinema-policy">Example mandate: 20 office chairs · USD 4,000 limit · delivery within 10 days · buyer approval required.</p>
-                  <ul className="cinema-offers" aria-label="Sample supplier offers">
-                    <li className="cinema-offer"><div><strong>Sample supplier A</strong><span>USD 3,800 · 8 days</span></div><p>Within example budget and delivery limits.</p></li>
-                    <li className="cinema-offer"><div><strong>Sample supplier B</strong><span>USD 3,600 · 14 days</span></div><p>Delivery exceeds the example limit. Request revised terms.</p></li>
-                  </ul>
-                  <div className="cinema-terms">
-                    <p className="cinema-label">Negotiated draft · Supplier A</p>
-                    <h4>Draft terms for buyer review</h4>
-                    <dl><div><dt>Opening offer</dt><dd>USD 3,800</dd></div><div><dt>Negotiated draft</dt><dd>USD 3,700 · 8 days</dd></div></dl>
-                    <p>Policy checks: budget and delivery limits satisfied. Buyer approval remains required.</p>
-                  </div>
-                  <p className="cinema-review-note">Illustrative demonstration. No external supplier communications or approvals are executed.</p>
-                </div>
-              </section>
-              <section className="cinema-audit" data-scene="audit" aria-labelledby="agreement-title">
-                <p className="cinema-label">Compliance verification</p>
-                <h3 id="agreement-title">Policy verification and cryptographic lineage</h3>
-                <p className="cinema-sub">Sample verification only. No agreement is created and no cryptographic verification is executed here.</p>
-                <div className="cinema-svg-container">
-                  <VerificationSceneSvg />
-                </div>
-                <div className="sr-only">
-                  <div className="cinema-agreement">
-                    <h4>Draft agreement · Supplier A</h4>
-                    <p>20 office chairs · USD 3,700 · delivery in 8 days</p>
-                    <p>Buyer approval pending · payment not authorized</p>
-                  </div>
-                  <ul className="cinema-audit-checks" aria-label="Illustrative agreement policy checks">
-                    <li className="cinema-audit-check"><span>Budget / USD 4,000 limit</span><strong>Sample pass</strong></li>
-                    <li className="cinema-audit-check"><span>Delivery / 10-day limit</span><strong>Sample pass</strong></li>
-                    <li className="cinema-audit-check"><span>Buyer approval</span><strong>Still required</strong></li>
-                  </ul>
-                  <figure className="cinema-evidence" aria-labelledby="evidence-caption">
-                    <figcaption id="evidence-caption">SHA-256 / Merkle evidence, simplified</figcaption>
-                    <div className="cinema-evidence-leaves"><span>Mandate record</span><span>Draft terms</span></div>
-                    <div className="cinema-evidence-join" aria-hidden="true" />
-                    <div className="cinema-evidence-root">Combined evidence root <span>Diagram only · no computed hash</span></div>
-                    <p>Recorded events become leaf hashes, combined into a Merkle root. Inclusion proofs can check whether a record belongs to that root.</p>
-                  </figure>
-                  <div className="cinema-audit-result">
-                    <h4>Audit-verified / Illustrative state</h4>
-                    <p>Policy checks and evidence lineage valid. Buyer approval and PayPal Sandbox settlement remain separate steps.</p>
-                  </div>
-                </div>
-              </section>
-              <section className="cinema-settlement" data-scene="settlement" aria-labelledby="payment-title">
-                <p className="cinema-label">Payment settlement</p>
-                <h3 id="payment-title">PayPal authorization and audited capture</h3>
-                <p className="cinema-sub">All amounts and statuses are examples. Scrolling does not approve the agreement, open checkout or make a payment.</p>
-                <div className="cinema-svg-container">
-                  <SettlementSceneSvg />
-                </div>
-                <div className="cinema-actions-row">
-                  <Link href="/workspace" className="landing-text-link">Review settlement in your workspace</Link>
-                </div>
-                <div className="sr-only">
-                  <div className="cinema-payment-approval">
-                    <h4>Buyer approval / Pending in this example</h4>
-                    <p>Sample supplier A · 20 office chairs</p>
-                    <p>USD 3,700 · delivery in 8 days</p>
-                    <p>Audit evidence shown as valid. Buyer approval still required.</p>
-                  </div>
-                  <ol className="cinema-payment-steps" aria-label="Conditional PayPal payment sequence">
-                    <li className="cinema-payment-step">
-                      <h4>Create order, then buyer approves at PayPal</h4>
-                      <p>After agreement approval, create an Orders v2 order with AUTHORIZE intent. The buyer then approves it separately at PayPal.</p>
-                      <span>Example status / Not started</span>
-                    </li>
-                    <li className="cinema-payment-step">
-                      <h4>Authorize the approved order</h4>
-                      <p>Orders v2 reserves funds if authorization succeeds. It does not capture them or confirm settlement.</p>
-                      <span>Example status / Not authorized</span>
-                    </li>
-                    <li className="cinema-payment-step">
-                      <h4>Capture the authorization later</h4>
-                      <p>A separate Payments v2 capture uses the authorization ID. A pending or failed result is not a completed payment.</p>
-                      <span>Example status / Not captured</span>
-                    </li>
-                  </ol>
-                  <div className="cinema-payment-outcome">
-                    <h4>Settlement / Awaiting payment confirmation</h4>
-                    <p>No funds move in this demonstration. Only a confirmed completed capture records payment; seller funds may still be held.</p>
-                  </div>
-                </div>
-              </section>
+              <WorkflowIllustration scene="mandate" />
+            </section>
+            <section className="cinema-story cinema-negotiation-story" data-scene="negotiation" aria-labelledby="negotiation-title">
+              <div className="workflow-copy">
+                <h2 id="negotiation-title">Negotiate supplier terms</h2>
+                <p>Compare supplier offers and negotiate better terms with AI assistance. Every proposal is checked against your purchasing limits.</p>
               </div>
-            </div>
+              <WorkflowIllustration scene="negotiation" />
+            </section>
+            <section className="cinema-story cinema-audit-story" data-scene="audit" aria-labelledby="audit-title">
+              <div className="workflow-copy">
+                <h2 id="audit-title">Verify agreement compliance</h2>
+                <p>Verify negotiated terms against business policies. Cryptographic evidence creates an auditable record of the agreement.</p>
+              </div>
+              <WorkflowIllustration scene="audit" />
+            </section>
+            <section className="cinema-story cinema-settlement-story" data-scene="settlement" aria-labelledby="settlement-title">
+              <div className="workflow-copy">
+                <h2 id="settlement-title">Process approved payments</h2>
+                <p>Move verified agreements toward settlement through PayPal. Buyer approval and payment checks keep the process controlled.</p>
+              </div>
+              <WorkflowIllustration scene="settlement" />
+            </section>
           </div>
-          <div className="cinema-controls"><span>Illustrative workflow</span><div><button type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? "Resume motion" : "Pause motion"}</button><button type="button" onClick={() => { setPaused(false); setReplay(value => value + 1); window.scrollTo({ top: 0, behavior: "instant" }); }}>Replay entrance</button></div></div>
         </div>
       </section>
-      <LifecycleScrollSection />
     </main>
-    <footer className="landing-footer"><div className="landing-container"><span className="landing-brand"><span aria-hidden="true" className="landing-monogram"><Image src="/brand/pactra-mark.png" alt="" width={28} height={28} className="w-full h-full object-contain" /></span>PACTRA</span><p>Procurement, evidence and settlement.</p><a href="#welcome-main" className="landing-text-link">Back to top</a></div></footer>
   </div>;
 }
