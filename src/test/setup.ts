@@ -1,5 +1,11 @@
 import "@testing-library/jest-dom";
-import { beforeEach, vi } from "vitest";
+import { afterAll, beforeEach, vi } from "vitest";
+
+afterAll(async () => {
+  if (typeof window === "undefined") return;
+  const { ScrollTrigger } = await vi.importActual<typeof import("gsap/ScrollTrigger")>("gsap/ScrollTrigger");
+  if (typeof ScrollTrigger.isTouch === "number") ScrollTrigger.disable();
+});
 
 // Next.js enforces this boundary in builds; Vitest must be able to exercise server modules.
 vi.mock("server-only", () => ({}));

@@ -6,169 +6,178 @@ import { useGSAP } from "@gsap/react";
 
 interface HeroIllustrationProps {
   className?: string;
+  paused?: boolean;
 }
 
-export function HeroIllustration({ className = "" }: HeroIllustrationProps) {
+export function HeroIllustration({ className = "", paused = false }: HeroIllustrationProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useGSAP(
     () => {
-      // Respect user's motion preferences
-      const prefersReducedMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)"
-      ).matches;
+      const media = gsap.matchMedia();
+      media.add({ reduced: "(prefers-reduced-motion: reduce)", animated: "(prefers-reduced-motion: no-preference)" }, context => {
+        if (paused || context.conditions?.reduced) {
+          // Set final static rested states
+          gsap.set(
+            [
+              ".hero-ill-backdrop",
+              ".hero-ill-orbits",
+              ".hero-ill-doc",
+              ".hero-ill-pill",
+            ],
+            { opacity: 1, scale: 1, y: 0 }
+          );
+          gsap.set(".hero-ill-doc", { rotation: -6 });
+          gsap.set(".hero-ill-doc-group", { y: 0 });
+          gsap.set(".hero-ill-flare", { opacity: 1, scale: 1 });
+          gsap.set(".hero-ill-flare-core", { scale: 1, opacity: 1 });
+          gsap.set(".hero-ill-sig-path", { strokeDashoffset: 0 });
+          return;
+        }
 
-      if (prefersReducedMotion) {
-        // Set final static rested states
-        gsap.set(
-          [
-            ".hero-ill-backdrop",
-            ".hero-ill-orbits",
-            ".hero-ill-doc",
-            ".hero-ill-pill",
-            ".hero-ill-flare",
-          ],
-          { opacity: 1, scale: 1, y: 0 }
+        // 1. Entrance Choreography
+        const entranceTl = gsap.timeline({
+          defaults: { ease: "power3.out" },
+          delay: 0.2,
+        });
+
+        // Background ambient shape
+        entranceTl.fromTo(
+          ".hero-ill-backdrop",
+          { opacity: 0, scale: 0.88 },
+          { opacity: 0.92, scale: 1, duration: 1.1 },
+          0
         );
-        return;
-      }
 
-      // 1. Entrance Choreography
-      const entranceTl = gsap.timeline({
-        defaults: { ease: "power3.out" },
-        delay: 0.2,
-      });
-
-      // Background ambient shape
-      entranceTl.fromTo(
-        ".hero-ill-backdrop",
-        { opacity: 0, scale: 0.88 },
-        { opacity: 0.92, scale: 1, duration: 1.1 },
-        0
-      );
-
-      // Orbits and flare
-      entranceTl.fromTo(
-        ".hero-ill-orbits",
-        { opacity: 0, scale: 0.92 },
-        { opacity: 1, scale: 1, duration: 1.2 },
-        0.15
-      );
-
-      // Main agreement document (rises up and settles into isometric tilt)
-      entranceTl.fromTo(
-        ".hero-ill-doc",
-        { opacity: 0, y: 36, rotation: -2 },
-        { opacity: 1, y: 0, rotation: -6, duration: 1.1, ease: "power3.out" },
-        0.25
-      );
-
-      // Signature line drawing effect
-      const sigPath = containerRef.current?.querySelector(".hero-ill-sig-path") as SVGPathElement | null;
-      if (sigPath) {
-        const length = typeof sigPath.getTotalLength === "function" ? sigPath.getTotalLength() : 140;
-        gsap.set(sigPath, { strokeDasharray: length, strokeDashoffset: length });
-        entranceTl.to(
-          sigPath,
-          { strokeDashoffset: 0, duration: 0.85, ease: "power2.inOut" },
-          0.85
+        // Orbits and flare
+        entranceTl.fromTo(
+          ".hero-ill-orbits",
+          { opacity: 0, scale: 0.92 },
+          { opacity: 1, scale: 1, duration: 1.2 },
+          0.15
         );
-      }
 
-      // Satellite pills pop into view with staggered natural spring
-      entranceTl.fromTo(
-        ".hero-ill-pill",
-        { opacity: 0, y: 20, scale: 0.88 },
-        {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: 0.75,
-          stagger: 0.14,
-          ease: "back.out(1.3)",
-        },
-        0.55
-      );
+        // Main agreement document (rises up and settles into isometric tilt)
+        entranceTl.fromTo(
+          ".hero-ill-doc",
+          { opacity: 0, y: 36, rotation: -2 },
+          { opacity: 1, y: 0, rotation: -6, duration: 1.1, ease: "power3.out" },
+          0.25
+        );
 
-      // Flare twinkle entrance
-      entranceTl.fromTo(
-        ".hero-ill-flare",
-        { opacity: 0, scale: 0.4 },
-        { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" },
-        0.9
-      );
+        // Signature line drawing effect
+        const sigPath = containerRef.current?.querySelector(".hero-ill-sig-path") as SVGPathElement | null;
+        if (sigPath) {
+          const length = typeof sigPath.getTotalLength === "function" ? sigPath.getTotalLength() : 140;
+          gsap.set(sigPath, { strokeDasharray: length, strokeDashoffset: length });
+          entranceTl.to(
+            sigPath,
+            { strokeDashoffset: 0, duration: 0.85, ease: "power2.inOut" },
+            0.85
+          );
+        }
 
-      // 2. Continuous Floating & Breathing Loops (Independent Subtle Frequencies)
-      // Main agreement document gentle float
-      gsap.to(".hero-ill-doc-group", {
-        y: -7,
-        duration: 4.8,
-        ease: "sine.inOut",
-        yoyo: true,
-        repeat: -1,
-        delay: 0.3,
+        // Satellite pills pop into view with staggered natural spring
+        entranceTl.fromTo(
+          ".hero-ill-pill",
+          { opacity: 0, y: 20, scale: 0.88 },
+          {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            duration: 0.8,
+            stagger: 0.14,
+            ease: "back.out(1.1)",
+          },
+          0.55
+        );
+
+        // Flare twinkle entrance
+        entranceTl.fromTo(
+          ".hero-ill-flare",
+          { opacity: 0, scale: 0.4 },
+          { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" },
+          0.9
+        );
+
+        const settledAt = entranceTl.delay() + entranceTl.duration();
+
+        // 2. Continuous Floating & Breathing Loops (Independent Subtle Frequencies)
+        // Main agreement document gentle float
+        gsap.to(".hero-ill-doc-group", {
+          y: -7,
+          duration: 4.8,
+          ease: "sine.inOut",
+          yoyo: true,
+          repeat: -1,
+          delay: settledAt + 0.3,
+        });
+
+        // Top-Left "Negotiate" pill
+        gsap.to(".hero-ill-pill-negotiate", {
+          y: -6,
+          rotation: 0.8,
+          duration: 4.2,
+          ease: "sine.inOut",
+          yoyo: true,
+          repeat: -1,
+          delay: settledAt + 0.6,
+        });
+
+        // Bottom-Left "Verify" pill
+        gsap.to(".hero-ill-pill-verify", {
+          y: -5,
+          rotation: -0.6,
+          duration: 4.6,
+          ease: "sine.inOut",
+          yoyo: true,
+          repeat: -1,
+          delay: settledAt + 1.1,
+        });
+
+        // Bottom-Right "Pay with PayPal" pill
+        gsap.to(".hero-ill-pill-paypal", {
+          y: -8,
+          rotation: 0.5,
+          duration: 5.2,
+          ease: "sine.inOut",
+          yoyo: true,
+          repeat: -1,
+          delay: settledAt + 0.8,
+        });
+
+        // Ambient mauve backdrop gentle breathing
+        gsap.to(".hero-ill-backdrop", {
+          scale: 1.03,
+          duration: 6.5,
+          ease: "sine.inOut",
+          yoyo: true,
+          repeat: -1,
+          delay: settledAt,
+        });
+
+        // Orbital light flare gentle pulsation
+        gsap.to(".hero-ill-flare-core", {
+          scale: 1.35,
+          opacity: 0.95,
+          transformOrigin: "center center",
+          duration: 2.4,
+          ease: "sine.inOut",
+          yoyo: true,
+          repeat: -1,
+          delay: settledAt + 0.2,
+        });
       });
-
-      // Top-Left "Negotiate" pill
-      gsap.to(".hero-ill-pill-negotiate", {
-        y: -6,
-        rotation: 0.8,
-        duration: 4.2,
-        ease: "sine.inOut",
-        yoyo: true,
-        repeat: -1,
-        delay: 0.6,
-      });
-
-      // Bottom-Left "Verify" pill
-      gsap.to(".hero-ill-pill-verify", {
-        y: -5,
-        rotation: -0.6,
-        duration: 4.6,
-        ease: "sine.inOut",
-        yoyo: true,
-        repeat: -1,
-        delay: 1.1,
-      });
-
-      // Bottom-Right "Pay with PayPal" pill
-      gsap.to(".hero-ill-pill-paypal", {
-        y: -8,
-        rotation: 0.5,
-        duration: 5.2,
-        ease: "sine.inOut",
-        yoyo: true,
-        repeat: -1,
-        delay: 0.8,
-      });
-
-      // Ambient lavender backdrop gentle breathing
-      gsap.to(".hero-ill-backdrop", {
-        scale: 1.03,
-        duration: 6.5,
-        ease: "sine.inOut",
-        yoyo: true,
-        repeat: -1,
-      });
-
-      // Orbital light flare gentle pulsation
-      gsap.to(".hero-ill-flare-core", {
-        scale: 1.35,
-        opacity: 0.95,
-        transformOrigin: "center center",
-        duration: 2.4,
-        ease: "sine.inOut",
-        yoyo: true,
-        repeat: -1,
-      });
+      return () => media.revert();
     },
-    { scope: containerRef }
+    { scope: containerRef, dependencies: [paused], revertOnUpdate: true }
   );
 
   return (
     <div
       ref={containerRef}
-      className={`hero-illustration-wrapper w-full max-w-[520px] mx-auto select-none ${className}`}
+      className={`hero-illustration-wrapper w-full mx-auto select-none ${className}`}
+      data-motion={paused ? "paused" : "enabled"}
       aria-label="Illustration: Verifiable Procurement Agreement with AI Negotiation, Verification, and PayPal Settlement"
       role="img"
     >
@@ -177,23 +186,22 @@ export function HeroIllustration({ className = "" }: HeroIllustrationProps) {
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         className="w-full h-auto overflow-visible"
-        style={{ filter: "drop-shadow(0 12px 36px rgba(67, 48, 35, 0.06))" }}
       >
         <defs>
           {/* Document Multi-Stage Shadow Filter */}
           <filter id="hero-doc-shadow" x="-20%" y="-15%" width="150%" height="160%">
             <feDropShadow
               dx="0"
-              dy="32"
-              stdDeviation="26"
-              floodColor="#4b3b64"
-              floodOpacity="0.16"
+              dy="24"
+              stdDeviation="20"
+              floodColor="#412D3E"
+              floodOpacity="0.12"
             />
             <feDropShadow
               dx="0"
               dy="10"
               stdDeviation="12"
-              floodColor="#1a1523"
+              floodColor="#292129"
               floodOpacity="0.08"
             />
           </filter>
@@ -204,8 +212,8 @@ export function HeroIllustration({ className = "" }: HeroIllustrationProps) {
               dx="0"
               dy="14"
               stdDeviation="14"
-              floodColor="#46385a"
-              floodOpacity="0.15"
+              floodColor="#412D3E"
+              floodOpacity="0.10"
             />
             <feDropShadow
               dx="0"
@@ -219,36 +227,36 @@ export function HeroIllustration({ className = "" }: HeroIllustrationProps) {
           {/* Radial Flare Glow */}
           <radialGradient id="hero-flare-glow" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-            <stop offset="40%" stopColor="#e9d8fd" stopOpacity="0.8" />
-            <stop offset="70%" stopColor="#c084fc" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#c084fc" stopOpacity="0" />
+            <stop offset="40%" stopColor="#EDE3E9" stopOpacity="0.8" />
+            <stop offset="70%" stopColor="#B98EAC" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#B98EAC" stopOpacity="0" />
           </radialGradient>
 
-          {/* Ambient Lavender Backdrop Gradient */}
+          {/* Ambient Mauve Backdrop Gradient */}
           <linearGradient id="hero-backdrop-grad" x1="120" y1="80" x2="420" y2="400" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#ebdff7" stopOpacity="0.95" />
-            <stop offset="55%" stopColor="#dfd1f2" stopOpacity="0.85" />
-            <stop offset="100%" stopColor="#d4c2eb" stopOpacity="0.7" />
+            <stop offset="0%" stopColor="#EDE3E9" stopOpacity="0.95" />
+            <stop offset="55%" stopColor="#DEC9D7" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="#B98EAC" stopOpacity="0.7" />
           </linearGradient>
 
           {/* Document Surface Linear Gradient */}
           <linearGradient id="hero-doc-surf" x1="150" y1="85" x2="390" y2="405" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#fbf9f6" />
+            <stop offset="100%" stopColor="#F7F3EF" />
           </linearGradient>
 
           {/* Orbital Arc Stroke Gradient */}
           <linearGradient id="hero-orbit-grad" x1="80" y1="180" x2="480" y2="280" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#c4b5e2" stopOpacity="0.3" />
-            <stop offset="45%" stopColor="#bfaee0" stopOpacity="0.8" />
-            <stop offset="75%" stopColor="#d8cbe8" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#baa8de" stopOpacity="0.35" />
+            <stop offset="0%" stopColor="#B98EAC" stopOpacity="0.3" />
+            <stop offset="45%" stopColor="#B98EAC" stopOpacity="0.7" />
+            <stop offset="75%" stopColor="#DEC9D7" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="#B98EAC" stopOpacity="0.35" />
           </linearGradient>
 
           {/* Subtle Deep Cast Shadow on the corner of the tilted document */}
           <linearGradient id="hero-doc-corner-depth" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="#000000" stopOpacity="0" />
-            <stop offset="100%" stopColor="#3d2a54" stopOpacity="0.04" />
+            <stop offset="100%" stopColor="#412D3E" stopOpacity="0.04" />
           </linearGradient>
         </defs>
 
@@ -273,7 +281,7 @@ export function HeroIllustration({ className = "" }: HeroIllustrationProps) {
             rx="205"
             ry="75"
             transform="rotate(-18 270 245)"
-            stroke="#dcd0f0"
+            stroke="#DEC9D7"
             strokeWidth="1.5"
             strokeOpacity="0.65"
           />
@@ -370,7 +378,7 @@ export function HeroIllustration({ className = "" }: HeroIllustrationProps) {
                 x="28"
                 y="18"
                 fill="#15803d"
-                fontSize="11.5"
+                fontSize="14"
                 fontWeight="600"
                 fontFamily="Inter, system-ui, sans-serif"
                 letterSpacing="-0.01em"
@@ -383,8 +391,8 @@ export function HeroIllustration({ className = "" }: HeroIllustrationProps) {
             <text
               x="180"
               y="154"
-              fill="#1a1816"
-              fontSize="20.5"
+              fill="#292129"
+              fontSize="21.5"
               fontWeight="700"
               letterSpacing="-0.035em"
               fontFamily="Inter, system-ui, sans-serif"
@@ -394,8 +402,8 @@ export function HeroIllustration({ className = "" }: HeroIllustrationProps) {
             <text
               x="180"
               y="180"
-              fill="#1a1816"
-              fontSize="20.5"
+              fill="#292129"
+              fontSize="21.5"
               fontWeight="700"
               letterSpacing="-0.035em"
               fontFamily="Inter, system-ui, sans-serif"
@@ -414,7 +422,7 @@ export function HeroIllustration({ className = "" }: HeroIllustrationProps) {
                 className="hero-ill-sig-path"
                 d="M 0 16 C 5 4, 12 0, 17 14 C 21 26, 28 -2, 35 12 C 42 24, 48 4, 57 8 C 65 11, 72 3, 80 5"
                 fill="none"
-                stroke="#6d28d9"
+                stroke="#412D3E"
                 strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -454,25 +462,25 @@ export function HeroIllustration({ className = "" }: HeroIllustrationProps) {
               strokeWidth="1"
             />
           </g>
-          {/* Sparkles / AI Stars Icon in Violet */}
+          {/* Sparkles / AI Stars Icon in Plum */}
           <g transform="translate(68, 156)">
             {/* Primary Star */}
             <path
               d="M 8 1 Q 8 8 1 8 Q 8 8 8 15 Q 8 8 15 8 Q 8 8 8 1 Z"
-              fill="#7c3aed"
+              fill="#412D3E"
             />
             {/* Secondary Star */}
             <path
               d="M 16 11 Q 16 14 13 14 Q 16 14 16 17 Q 16 14 19 14 Q 16 14 16 11 Z"
-              fill="#9333ea"
+              fill="#B98EAC"
               opacity="0.85"
             />
           </g>
           <text
             x="96"
             y="171"
-            fill="#1c1917"
-            fontSize="14"
+            fill="#292129"
+            fontSize="16.5"
             fontWeight="600"
             fontFamily="Inter, system-ui, sans-serif"
             letterSpacing="-0.02em"
@@ -520,8 +528,8 @@ export function HeroIllustration({ className = "" }: HeroIllustrationProps) {
           <text
             x="122"
             y="301"
-            fill="#1c1917"
-            fontSize="14"
+            fill="#292129"
+            fontSize="16.5"
             fontWeight="600"
             fontFamily="Inter, system-ui, sans-serif"
             letterSpacing="-0.02em"
@@ -566,8 +574,8 @@ export function HeroIllustration({ className = "" }: HeroIllustrationProps) {
           <text
             x="346"
             y="285"
-            fill="#18181b"
-            fontSize="13.5"
+            fill="#292129"
+            fontSize="15"
             fontWeight="600"
             fontFamily="Inter, system-ui, sans-serif"
             letterSpacing="-0.02em"

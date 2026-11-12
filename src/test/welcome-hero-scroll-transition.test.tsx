@@ -17,7 +17,7 @@ describe("WelcomeHeroScreen Full-Screen Hero & Scroll Transition", () => {
     expect(hero).toHaveAttribute("aria-labelledby", "welcome-title");
   });
 
-  it("preserves the editorial headline, kicker, and microcopy verbatim", () => {
+  it("preserves the headline, kicker, and supporting copy without the redundant caption", () => {
     render(<WelcomeHeroScreen />);
     expect(screen.getByText("A new standard for procurement")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("From intent.To agreement.");
@@ -27,8 +27,8 @@ describe("WelcomeHeroScreen Full-Screen Hero & Scroll Transition", () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.getByText("A B2B procurement workspace with PayPal Sandbox settlement.")
-    ).toBeInTheDocument();
+      screen.queryByText("A B2B procurement workspace with PayPal Sandbox settlement.")
+    ).not.toBeInTheDocument();
   });
 
   it("preserves both primary and secondary CTAs with proper routing", () => {

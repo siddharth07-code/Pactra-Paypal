@@ -26,7 +26,7 @@ describe("WelcomeHeroScreen Editorial Layout & Accessibility", () => {
 
   it("clearly labels the sandbox and avoids fabricated live attestations", () => {
     render(<WelcomeHeroScreen />);
-    expect(screen.getByText(/A B2B procurement workspace with PayPal Sandbox settlement/)).toBeInTheDocument();
+    expect(screen.getByText(/authorization of the Sandbox order/)).toBeInTheDocument();
     expect(screen.getByText(/sample offers, not live supplier commitments/)).toBeInTheDocument();
     expect(screen.queryByText(/System Attestation|5\/5 invariants verified|3 Competing Vendors/)).not.toBeInTheDocument();
   });

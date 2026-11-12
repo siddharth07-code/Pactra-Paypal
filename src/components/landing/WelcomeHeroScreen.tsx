@@ -201,8 +201,8 @@ export function WelcomeHeroScreen() {
     <header className="landing-container landing-header">
       <span className="landing-brand"><span aria-hidden="true" className="landing-monogram"><Image src="/brand/pactra-mark.png" alt="" width={28} height={28} className="w-full h-full object-contain" priority /></span>PACTRA</span>
       <nav aria-label="Main navigation">
-        <Link href="/register" className="landing-text-link landing-register">Create account</Link>
         <Link href="/login" className="landing-sign-in">Sign in</Link>
+        <Link href="/register" className="landing-register">Create account</Link>
       </nav>
     </header>
     <main id="welcome-main" tabIndex={-1}>
@@ -215,9 +215,8 @@ export function WelcomeHeroScreen() {
             <Link id="hero-cta" href="/workspace" className="landing-button">Open workspace</Link>
             <a href="#procurement-mandate" className="landing-text-link">Experience the workflow</a>
           </div>
-          <p className="landing-demo-note">A B2B procurement workspace with PayPal Sandbox settlement.</p>
         </div>
-        <HeroIllustration />
+        <HeroIllustration paused={paused} key={replay} />
       </section>
       <section id="procurement-mandate" className="cinema-chapter" aria-labelledby="mandate-title">
         <div className="cinema-transition-seam" aria-hidden="true">
