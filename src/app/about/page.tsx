@@ -5,41 +5,42 @@ import "@/components/landing/landing.css";
 
 export const metadata: Metadata = {
   title: "About PACTRA",
-  description: "How PACTRA connects purchasing requirements, supplier agreements, and approval for PayPal Sandbox settlement.",
+  description: "Learn how PACTRA helps buyers negotiate supplier terms, review agreements, and approve test payments.",
 };
 
 export default function AboutPage() {
   return (
-    <div className="pactum-landing pactum-cinema">
+    <div className="pactum-landing landing-about-page">
       <a href="#about-main" className="landing-skip">Skip to main content</a>
       <LandingHeader currentPage="about" />
       <main id="about-main" className="landing-container landing-about" tabIndex={-1}>
-        <div className="landing-about-intro">
+        <header className="landing-about-intro">
           <h1>About PACTRA</h1>
-          <p>PACTRA connects the terms a buyer sets at the start of a purchase with the agreement they approve at the end.</p>
-          <p>AI helps compare offers and negotiate terms within the buyer’s limits. The buyer reviews the agreement and approves payment before it moves to PayPal Sandbox for test settlement.</p>
-          <div className="landing-actions">
-            <Link href="/workspace" className="landing-button">Open workspace</Link>
-            <Link href="/#procurement-mandate" className="landing-text-link">See the workflow</Link>
-          </div>
-        </div>
+          <p>PACTRA is a procurement workspace that brings purchasing requirements, supplier terms, and payment approvals into one record.</p>
+        </header>
+
         <section className="landing-about-record" aria-labelledby="about-record-title">
-          <h2 id="about-record-title">What the buyer can review</h2>
+          <h2 id="about-record-title">How it works</h2>
           <dl>
             <div>
-              <dt>Purchasing requirements</dt>
-              <dd>The budget, delivery expectations, and supplier criteria used to evaluate offers.</dd>
+              <dt>Set purchasing requirements</dt>
+              <dd>Define your budget, delivery deadline, and supplier criteria. PACTRA uses those limits to evaluate offers.</dd>
             </div>
             <div>
-              <dt>Agreement and evidence</dt>
-              <dd>The negotiated terms, policy check results, and cryptographic evidence tied to the agreement.</dd>
+              <dt>Negotiate and review terms</dt>
+              <dd>Use AI assistance to compare offers and negotiate. Review the final terms, policy checks, and cryptographic evidence before approving the agreement.</dd>
             </div>
             <div>
-              <dt>Settlement status</dt>
-              <dd>Buyer approval and the status of the test payment in PayPal Sandbox.</dd>
+              <dt>Approve and track payment</dt>
+              <dd>The buyer approves payment. PayPal Sandbox handles test settlement, and the payment status appears in the workspace.</dd>
             </div>
           </dl>
         </section>
+
+        <div className="landing-actions">
+          <Link href="/workspace" className="landing-button">Open workspace</Link>
+          <Link href="/#procurement-mandate" className="landing-text-link">See the workflow</Link>
+        </div>
       </main>
     </div>
   );
